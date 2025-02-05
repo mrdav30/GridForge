@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GridForge", "src\GridForge\GridForge.csproj", "{30876934-77AD-43EA-83C0-B55B7F15BB4A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{24A3174A-035F-4BC6-B05B-945063066182}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GridForge.Tests", "tests\GridForge.Tests\GridForge.Tests.csproj", "{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		DebugUnity|Any CPU = DebugUnity|Any CPU
+		Release|Any CPU = Release|Any CPU
+		ReleaseUnity|Any CPU = ReleaseUnity|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.DebugUnity|Any CPU.ActiveCfg = DebugUnity|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.DebugUnity|Any CPU.Build.0 = DebugUnity|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.ReleaseUnity|Any CPU.ActiveCfg = ReleaseUnity|Any CPU
+		{30876934-77AD-43EA-83C0-B55B7F15BB4A}.ReleaseUnity|Any CPU.Build.0 = ReleaseUnity|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.DebugUnity|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.DebugUnity|Any CPU.Build.0 = Debug|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.ReleaseUnity|Any CPU.ActiveCfg = Release|Any CPU
+		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.ReleaseUnity|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {85F3E29E-04C7-457D-8F2F-1386DDF8E6BC}
+	EndGlobalSection
+EndGlobal

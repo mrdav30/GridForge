@@ -1,0 +1,147 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<!-- Global Properties: General Configuration Settings -->
+	<PropertyGroup>
+		<LangVersion>9.0</LangVersion>
+		<TargetFramework>net48</TargetFramework>
+		<!-- Versioning and Build Configuration -->
+		<!-- Set SemVer to GitVersion_FullSemVer if available, otherwise fallback to 0.0.0 -->
+		<SemVer Condition="'$(GitVersion_FullSemVer)' != ''">$(GitVersion_FullSemVer)</SemVer>
+		<SemVer Condition="'$(SemVer)' == ''">0.0.0</SemVer>
+		<!-- Informational version fallback -->
+		<InfoVer Condition="'$(GitVersion_InformationalVersion)' != ''">$(GitVersion_InformationalVersion)</InfoVer>
+		<InfoVer Condition="'$(InfoVer)' == ''">$(SemVer)</InfoVer>
+		<!-- Set Assembly and File Versions -->
+		<AssemblySemVer Condition="'$(GitVersion_AssemblySemVer)' != ''">$(GitVersion_AssemblySemVer)</AssemblySemVer>
+		<AssemblySemVer Condition="'$(AssemblySemVer)' == ''">$(SemVer).0</AssemblySemVer>  
+		<AssemblySemFileVer Condition="'$(GitVersion_AssemblySemFileVer)' != ''">$(GitVersion_AssemblySemFileVer)</AssemblySemFileVer>
+		<AssemblySemFileVer Condition="'$(AssemblySemFileVer)' == ''">$(AssemblySemVer)</AssemblySemFileVer>
+		<!-- Set final versions for the project -->
+		<InformationalVersion>$(InfoVer)</InformationalVersion>
+		<Version>$(SemVer)</Version>
+		<AssemblyVersion>$(AssemblySemVer)</AssemblyVersion>
+		<FileVersion>$(AssemblySemFileVer)</FileVersion>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<IncludeSymbols>true</IncludeSymbols>
+		<DebugType>portable</DebugType>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<!-- Optional: Suppress warnings about missing XML comments -->
+		<NoWarn>1591</NoWarn>
+		<DocumentationFile>bin\$(Configuration)\$(TargetFramework)\GridForge.xml</DocumentationFile>
+		<!-- Configuration to ensure deterministic builds -->
+		<Deterministic>true</Deterministic>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<UnityBuild>false</UnityBuild>
+		<Configurations>Debug;Release;DebugUnity;ReleaseUnity</Configurations>
+	</PropertyGroup>
+	<!-- Debug and Release-specific Properties -->
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>
+		<Optimize>false</Optimize>
+		<DefineConstants>DEBUG;TRACE</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugUnity|AnyCPU'">
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>
+		<Optimize>false</Optimize>
+		<DefineConstants>DEBUG;TRACE;UNITY_EDITOR</DefineConstants>
+		<UnityBuild>true</UnityBuild>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+		<Optimize>true</Optimize>
+		<DefineConstants>TRACE</DefineConstants>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseUnity|AnyCPU'">
+		<Optimize>true</Optimize>
+		<DefineConstants>TRACE;UNITY_EDITOR</DefineConstants>
+		<UnityBuild>true</UnityBuild>
+	</PropertyGroup>
+	<!-- NuGet Packaging Metadata -->
+	<PropertyGroup>
+		<PackageId>GridForge</PackageId>
+		<Authors>mrdav30</Authors>
+		<Description></Description>
+		<PackageTags></PackageTags>
+		<RepositoryUrl>https://github.com/mrdav30/GridForge</RepositoryUrl>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageIconUrl>https://raw.githubusercontent.com/mrdav30/gridforge/main/icon.png</PackageIconUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	</PropertyGroup>
+	<!-- Output Settings -->
+	<PropertyGroup>
+		<AssemblyName>GridForge</AssemblyName>
+		<RootNamespace>GridForge</RootNamespace>
+		<ProjectGuid>{30876934-77AD-43EA-83C0-B55B7F15BB4A}</ProjectGuid>
+		<OutputPath>bin\$(Configuration)\</OutputPath>
+	</PropertyGroup>
+	<!-- Set OS-specific Unity Editor absolute/relative folder paths -->
+	<Choose>
+		<When Condition="$(UnityBuild)And$([MSBuild]::IsOsPlatform(Windows))">
+			<PropertyGroup>
+				<OSInstallRootPath Condition="'$(OSInstallRootPath)'==''">C:\Program Files</OSInstallRootPath>
+				<UnityManagedDir Condition="'$(UnityManagedDir)'==''">Editor\Data\Managed</UnityManagedDir>
+			</PropertyGroup>
+		</When>
+		<When Condition="$(UnityBuild)And$([MSBuild]::IsOsPlatform(OSX))">
+			<PropertyGroup>
+				<OSInstallRootPath Condition="'$(OSInstallRootPath)'==''">/Applications</OSInstallRootPath>
+				<UnityManagedDir Condition="'$(UnityManagedDir)'==''">Unity.app\Contents\Managed</UnityManagedDir>
+			</PropertyGroup>
+		</When>
+		<When Condition="$(UnityBuild)And$([MSBuild]::IsOsPlatform(Linux))">
+			<PropertyGroup>
+				<OSInstallRootPath Condition="'$(OSInstallRootPath)'==''">$([System.Environment]::GetFolderPath('System.Environment+SpecialFolder.UserProfile'))</OSInstallRootPath>
+				<UnityManagedDir Condition="'$(UnityManagedDir)'==''">Editor\Data\Managed</UnityManagedDir>
+			</PropertyGroup>
+		</When>
+	</Choose>
+	<!-- Unity Configuration -->
+	<PropertyGroup Condition="$(UnityBuild)">
+		<UnityVersion Condition="'$(UnityVersion)'==''">2022.3.20f1</UnityVersion>
+		<!-- Target Version of Unity -->
+		<UnityInstallRootDir Condition="'$(UnityInstallRootDir)'==''">Unity\Hub\Editor</UnityInstallRootDir>
+		<UnityInstallRootPath Condition="'$(UnityInstallRootPath)'==''">$(OSInstallRootPath)\$(UnityInstallRootDir)</UnityInstallRootPath>
+		<UnityVersionInstallPath Condition="'$(UnityVersionInstallPath)'==''">$(UnityInstallRootPath)\$(UnityVersion)</UnityVersionInstallPath>
+		<UnityManagedPath Condition="'$(UnityManagedPath)'==''">$(UnityVersionInstallPath)\$(UnityManagedDir)</UnityManagedPath>
+		<UnityEnginePath Condition="'$(UnityEnginePath)'==''">$(UnityManagedPath)\UnityEngine.dll</UnityEnginePath>
+		<UnityEditorPath Condition="'$(UnityEditorPath)'==''">$(UnityManagedPath)\UnityEditor.dll</UnityEditorPath>
+	</PropertyGroup>
+	<!-- Dependencies and Package References -->
+	<ItemGroup>	
+		<Reference Condition="$(UnityBuild)" Include="UnityEngine">
+			<HintPath>$(UnityEnginePath)</HintPath>
+			<Private>false</Private>
+			<PrivateAssets>all</PrivateAssets>
+		</Reference>
+		<Reference Condition="$(UnityBuild)" Include="UnityEditor">
+			<HintPath>$(UnityEditorPath)</HintPath>
+			<Private>false</Private>
+			<PrivateAssets>all</PrivateAssets>
+		</Reference>
+		<PackageReference Include="FixedMathSharp" Version="1.0.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>compile</IncludeAssets>
+		</PackageReference>	
+		<PackageReference Include="SwiftCollections" Version="1.0.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>compile</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
+	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->
+	<ItemGroup>
+		<None Include="..\..\.editorconfig" Link=".editorconfig" />
+		<None Include="..\..\LICENSE.md" Pack="true" PackagePath="\" Visible="false" />
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+		<None Include="..\..\icon.png" Pack="true" PackagePath="\" Visible="false" />
+		<None Remove=".gitignore" />
+	</ItemGroup>
+</Project>
