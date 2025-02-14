@@ -1,19 +1,17 @@
 # GridForge
 
-**A high-performance, framework-agnostic spatial grid management system for deterministic simulations and game development.**  
-Optimized for low allocation, high precision, and cross-engine compatibility.
+**A high-performance, deterministic spatial grid management system for simulations and game development.**  
 
 ---
 
 ## 🚀 Key Features
 
-- **Deterministic Grid Management** – Ensures **lockstep simulation compatibility**.
-- **Highly Optimized** – Low time complexity and **minimal allocations**.
-- **Framework Agnostic** – Can be used in **Unity**, **Lockstep engines**, or **custom frameworks**.
-- **Multi-Layered Grid System** – Supports **dynamic, persistent, and hierarchical grids**.
-- **Node-Based Spatial Queries** – Retrieve **occupants, obstacles, and available paths** efficiently.
-- **Customizable Blockers** – Define **grid obstacles** dynamically.
-- **Partitioned Nodes** – Attach **meta-data partitions** to nodes for **custom behavior**.
+- **Deterministic Execution** – Supports **lockstep simulation** and **fixed-point** arithmetic.
+- **Optimized Grid Management** – **Low memory allocations, spatial partitioning, and fast queries**.
+- **Multi-Layered Grid System** – **Dynamic, hierarchical, and persistent  grids**.
+- **Node-Based Spatial Queries** – Retrieve **occupants, obstacles, and meta-data partitions** efficiently.
+- **Custom Blockers & Partitions** – Define obstacles and attach metadata dynamically.
+- **Framework Agnostic** – Works with **Unity, Lockstep Engines, and .NET-based frameworks**.
 
 ---
 
@@ -21,7 +19,7 @@ Optimized for low allocation, high precision, and cross-engine compatibility.
 
 ### Non-Unity Projects
 
-1. **Install via NuGet** (if published):
+1. **Install via NuGet**:
    ```bash
    dotnet add package GridForge
    ```
@@ -30,16 +28,16 @@ Optimized for low allocation, high precision, and cross-engine compatibility.
    git clone https://github.com/YOUR-REPO/GridForge.git
    ```
 3. **Include in Project**:
-   - Add the `GridForge` project or its DLLs to your solution.
+   - Add `GridForge` to your solution or reference its compiled DLL.
 
 ### Unity Integration
 
-1. **Download the Package**:
-   - Get the latest **`GridForge.unitypackage`** from [Releases](https://github.com/YOUR-REPO/GridForge/releases).
+1. **Download the Unity Package**:
+   - Obtain the latest **`GridForge.unitypackage`** from [Releases](https://github.com/YOUR-REPO/GridForge/releases).
 2. **Import into Unity**:
    - Navigate to **Assets > Import Package > Custom Package...**.
    - Select the **`GridForge.unitypackage`** file.
-3. **Verify the Integration**:
+3. **Verify Setup**:
    - Ensure the `GridForge` namespace is accessible.
 
 ---
@@ -50,14 +48,16 @@ Optimized for low allocation, high precision, and cross-engine compatibility.
 
 | Component | Description |
 |-----------|------------|
-| `GlobalGridManager` | Centralized manager for **grids & nodes**. Handles allocation & retrieval. |
-| `Grid` | Represents an **individual grid** with **nodes** and **querying methods**. |
-| `Node` | Represents a **single grid space**, stores **occupants & state**. |
-| `ScanCell` | Handles **spatial indexing** for performance optimizations. |
-| `GridConfiguration` | Defines grid parameters like **size, resolution, and persistence**. |
-| `Blockers` | Prevent movement through **designated grid spaces**. |
-| `Partitions` | Attach **custom behaviors** and **metadata** to nodes dynamically. |
-
+| `GlobalGridManager` | Manages **grids, nodes, & spatial queries**. |
+| `Grid` | Represents a **single grid** containing **nodes & scan cells**. |
+| `Node` | Represents a grid position, storing **occupants, obstacles, & state**. |
+| `ScanCell` | Handles **spatial indexing** for faster queries. |
+| `GridTracer` | Efficiently retrieves **covered nodes, scan cells, & paths**. |
+| `GridObstacleManager` | Manages **grid-wide obstacles** dynamically. |
+| `GridOccupantManager` | Handles **occupant tracking & retrieval**. |
+| `ScanManager` | Optimized **scan queries** for spatial lookups. |
+| `Blockers` | Defines **dynamic and static** obstacles. |
+| `Partitions` | Adds **meta-data and custom logic** to nodes. |
 ---
 
 ## 📖 Usage Examples
@@ -65,15 +65,15 @@ Optimized for low allocation, high precision, and cross-engine compatibility.
 ### **🔹 Creating a Grid**
 ```csharp
 GridConfiguration config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-GlobalGridManager.AddGrid(config);
+GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
 ```
 
 ### **🔹 Querying a Grid for Nodes**
 ```csharp
 Vector3d queryPosition = new Vector3d(5, 0, 5);
-if (GlobalGridManager.GetGrid(queryPosition, out Grid grid))
+if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid))
 {
-    if (grid.GetNode(queryPosition, out Node node))
+    if (grid.TryGetNode(queryPosition, out Node node))
     {
         Console.WriteLine($"Node at {queryPosition} is {(node.IsOccupied ? "occupied" : "empty")}");
     }
@@ -83,13 +83,13 @@ if (GlobalGridManager.GetGrid(queryPosition, out Grid grid))
 ### **🔹 Adding a Blocker**
 ```csharp
 BoundingArea blockArea = new BoundingArea(new Vector3d(3, 0, 3), new Vector3d(5, 0, 5));
-IBlocker blocker = new Blocker(blockArea);
+Blocker blocker = new Blocker(blockArea);
 blocker.ApplyBlockage();
 ```
 
 ### **🔹 Attaching a Partition to a Node**
 ```csharp
-if (GlobalGridManager.GetGrid(queryPosition, out Grid grid) && grid.GetNode(queryPosition, out Node node))
+if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid) && grid.TryGetNode(queryPosition, out Node node))
 {
     PathPartition partition = new PathPartition();
     partition.Setup(node.GlobalCoordinates);
@@ -97,33 +97,29 @@ if (GlobalGridManager.GetGrid(queryPosition, out Grid grid) && grid.GetNode(quer
 }
 ```
 
-### **🔹 Debugging with `GridDebugger`**
+### **🔹 Scanning for Nearby Occupants**
 ```csharp
-[ExecuteAlways]
-public class GridDebugComponent : MonoBehaviour
+Vector3d scanCenter = new Vector3d(0, 0, 0);
+Fixed64 scanRadius = (Fixed64)5;
+foreach (INodeOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadius))
 {
-    void OnDrawGizmos()
-    {
-        GridDebugger.DrawGizmos();
-    }
+    Console.WriteLine($"Found occupant at {occupant.WorldPosition}");
 }
 ```
-
----
 
 ## 🎮 Unity Debugging Tools
 
 GridForge includes **editor utilities** for debugging:
 
 - **GridDebugger** – Visualizes **grids, nodes, and selected areas**.
-- **GridLineTracer** – **Draws paths** for line-of-sight & navigation debugging.
-- **Blocker Editor** – Configures **blockers via Unity Inspector**.
+- **GridTracer Debuging** – Helps debug **line-of-sight & navigation**.
+- **Blocker Editor** – Allows **visual blocker placement** via Unity Inspector.
 
 ---
 
 ## 🧪 Testing and Validation
 
-GridForge includes **unit tests** to ensure accuracy.
+GridForge includes **comprehensive unit tests**.
 
 Run tests with:
 ```bash
@@ -134,7 +130,7 @@ dotnet test
 
 ## 🔄 Compatibility
 
-- **.NET Framework** 4.7.2+
+- **.NET Framework** 4.8+
 - **Unity 2020+**
 - **Supports FixedMathSharp for deterministic precision**
 
@@ -148,7 +144,7 @@ This project is licensed under the MIT License - see the `LICENSE` file for deta
 
 ## 👥 Contributors
 
-- **Your Name** - Lead Developer
+- **David Oravsky** - Lead Developer
 - **Contributions Welcome!** Open a PR or issue.
 
 ---

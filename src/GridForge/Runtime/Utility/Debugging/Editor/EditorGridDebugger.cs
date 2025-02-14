@@ -24,7 +24,14 @@ namespace GridForge.Utility.Debugging.Unity_Editor
 
         private void UpdateGridIndexes()
         {
-            _availableGridIndexes = GlobalGridManager.ActiveGridKeys.ToArray();
+            _availableGridIndexes = new ushort[GlobalGridManager.ActiveGrids.Count];
+            int count = 0;
+            foreach (Grid grid in GlobalGridManager.ActiveGrids)
+            {
+                _availableGridIndexes[count] = grid.GlobalIndex;
+                count++;
+            }
+
             _gridIndexLabels = _availableGridIndexes.Select(index => $"Grid {index}").ToArray();
         }
 

@@ -2,7 +2,7 @@
 	<!-- Global Properties: General Configuration Settings -->
 	<PropertyGroup>
 		<LangVersion>9.0</LangVersion>
-		<TargetFramework>net48</TargetFramework>
+		<TargetFramework>net481</TargetFramework>
 		<!-- Versioning and Build Configuration -->
 		<!-- Set SemVer to GitVersion_FullSemVer if available, otherwise fallback to 0.0.0 -->
 		<SemVer Condition="'$(GitVersion_FullSemVer)' != ''">$(GitVersion_FullSemVer)</SemVer>
@@ -38,13 +38,11 @@
 	<!-- Debug and Release-specific Properties -->
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
 		<DebugSymbols>true</DebugSymbols>
-		<DebugType>full</DebugType>
 		<Optimize>false</Optimize>
 		<DefineConstants>DEBUG;TRACE</DefineConstants>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugUnity|AnyCPU'">
 		<DebugSymbols>true</DebugSymbols>
-		<DebugType>full</DebugType>
 		<Optimize>false</Optimize>
 		<DefineConstants>DEBUG;TRACE;UNITY_EDITOR</DefineConstants>
 		<UnityBuild>true</UnityBuild>
@@ -123,17 +121,17 @@
 			<Private>false</Private>
 			<PrivateAssets>all</PrivateAssets>
 		</Reference>
-		<PackageReference Include="FixedMathSharp" Version="1.0.2">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>compile</IncludeAssets>
-		</PackageReference>	
-		<PackageReference Include="SwiftCollections" Version="1.0.1">
+		<PackageReference Include="FixedMathSharp" Version="1.0.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3">
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>	
+		<PackageReference Include="SwiftCollections" Version="1.0.1">
 			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->

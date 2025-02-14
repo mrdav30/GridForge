@@ -5,6 +5,7 @@ using SwiftCollections;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace GridForge.Grids
 {
@@ -22,14 +23,9 @@ namespace GridForge.Grids
         public const ushort MaxGrids = ushort.MaxValue - 1;
 
         /// <summary>
-        /// Threshold for resizing active grids when their count decreases.
-        /// </summary>
-        public const float ResizeThreshold = 0.75f;
-
-        /// <summary>
         /// The size of a spatial hash cell used for grid lookup.
         /// </summary>
-        private const int SpatialCellSize = 50;
+        private const int SpatialGridSize = 50;
 
         /// <summary>
         /// The size of each grid node in world units.
@@ -55,13 +51,17 @@ namespace GridForge.Grids
         /// <summary>
         /// Dictionary mapping spatial hash keys to grid indices for fast lookups.
         /// </summary>
-        public static SwiftDictionary<int, SwiftHashSet<ushort>> SpatialHash { get; private set; }
+        public static SwiftDictionary<int, SwiftHashSet<ushort>> SpatialGridHash { get; private set; }
 
         /// <summary>
         /// The current version of the grid system, incremented on major changes.
         /// </summary>
         public static uint Version { get; private set; }
 
+        /// <summary>
+        /// Indicates whether the GlobalGridManager is active and initialized.
+        /// Prevents duplicate setup calls.
+        /// </summary>
         public static bool IsActive { get; private set; }
 
         /// <summary>
@@ -97,9 +97,30 @@ namespace GridForge.Grids
             (0, 1, 0)
         };
 
+
+        /// <summary>
+        /// Lock for managing concurrent access to grid operations.
+        /// Ensures thread safety for read/write operations.
+        /// </summary>
+        private static readonly ReaderWriterLockSlim _gridLock = new ReaderWriterLockSlim();
+
         #endregion
 
-        private static readonly object _lock = new object();
+        #region Action Delegates
+
+        /// <summary>
+        /// Event triggers when grid is added or removed.
+        /// Allows external systems to react to the active grid mutation.
+        /// </summary>
+        public static Action<GridChange, uint> OnActiveGridChange;
+
+        /// <summary>
+        /// Event triggered when the GlobalGridManager is reset.
+        /// Allows external systems to react to a full grid wipe.
+        /// </summary>
+        public static Action OnReset;
+
+        #endregion
 
         #region Setup & Reset
 
@@ -114,15 +135,12 @@ namespace GridForge.Grids
                 return;
             }
 
-            lock (_lock)
-            {
-                ActiveGrids ??= new SwiftBucket<Grid>();
-                BoundsTracker ??= new SwiftDictionary<int, ushort>();
-                SpatialHash ??= new SwiftDictionary<int, SwiftHashSet<ushort>>();
+            ActiveGrids ??= new SwiftBucket<Grid>();
+            BoundsTracker ??= new SwiftDictionary<int, ushort>();
+            SpatialGridHash ??= new SwiftDictionary<int, SwiftHashSet<ushort>>();
 
-                Version = 1;
-                IsActive = true;
-            }
+            Version = 1;
+            IsActive = true;
         }
 
         /// <summary>
@@ -136,21 +154,27 @@ namespace GridForge.Grids
                 return;
             }
 
-            lock (_lock)
+            try
             {
-                if (ActiveGrids != null)
-                {
-                    foreach (Grid grid in ActiveGrids)
-                        Pools.GridPool.Release(grid);
-
-                    ActiveGrids.Clear();
-                }
-
-                BoundsTracker?.Clear();
-                SpatialHash?.Clear();
-
-                IsActive = false;
+                OnReset?.Invoke(); // Fire off before we remove the reference
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Global Grid reset notification error: {ex.Message}");
+            }
+
+            if (ActiveGrids != null)
+            {
+                foreach (Grid grid in ActiveGrids)
+                    Pools.GridPool.Release(grid);
+
+                ActiveGrids.Clear();
+            }
+
+            BoundsTracker?.Clear();
+            SpatialGridHash?.Clear();
+
+            IsActive = false;
         }
 
         #endregion
@@ -160,111 +184,159 @@ namespace GridForge.Grids
         /// <summary>
         /// Adds a new grid to the world and registers it in the spatial hash.
         /// </summary>
-        public static bool AddGrid(GridConfiguration configuration, out ushort allocatedIndex)
+        public static GridAddResult TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex)
         {
             allocatedIndex = ushort.MaxValue;
             if ((uint)ActiveGrids.Count > MaxGrids)
             {
                 Console.WriteLine($"No more grids can be added at this time.");
-                return false;
+                return GridAddResult.MaxGridsReached;
             }
 
-            if (configuration.GridMax.x < configuration.GridMin.x
-                || configuration.GridMax.y < configuration.GridMin.y
-                || configuration.GridMax.z < configuration.GridMin.z)
+            if (configuration.BoundsMax.x < configuration.BoundsMin.x
+                || configuration.BoundsMax.y < configuration.BoundsMin.y
+                || configuration.BoundsMax.z < configuration.BoundsMin.z)
             {
                 Console.WriteLine("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
-                return false;
+                return GridAddResult.InvalidBounds;
             }
 
-            int hashedBounds = configuration.GridMin.GetHashCode() ^ configuration.GridMax.GetHashCode();
-            if (BoundsTracker.ContainsKey(hashedBounds))
+            // Create a unique hash based on the grid's min/max bounds to prevent duplicates
+            int hashedBounds = configuration.GetHashCode();
+
+            _gridLock.EnterReadLock();
+            try
             {
-                Console.WriteLine("A grid with these bounds has already been allocated.");
-                allocatedIndex = BoundsTracker[hashedBounds];
-                return true;
+                if (BoundsTracker.TryGetValue(hashedBounds, out allocatedIndex))
+                {
+                    Console.WriteLine("A grid with these bounds has already been allocated.");
+                    return GridAddResult.AlreadyExists;
+                }
+            }
+            finally
+            {
+                _gridLock.ExitReadLock();
+            }
+
+            Grid newGrid = Pools.GridPool.Rent();
+            _gridLock.EnterWriteLock();
+            try
+            {
+                allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
+                BoundsTracker.Add(hashedBounds, allocatedIndex);
+
+                newGrid.Initialize(allocatedIndex, configuration);
+                foreach (int cellIndex in GetSpatialCells(configuration.BoundsMin, configuration.BoundsMax))
+                {
+                    if (!SpatialGridHash.ContainsKey(cellIndex))
+                        SpatialGridHash.Add(cellIndex, new SwiftHashSet<ushort>());
+
+                    // Assign neighbors from grids sharing this spatial hash cell
+                    foreach (ushort neighborIndex in SpatialGridHash[cellIndex])
+                    {
+                        if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
+                            continue;
+
+                        Grid neighborGrid = ActiveGrids[neighborIndex];
+
+                        // Ensure the grids actually overlap before linking them as neighbors
+                        if (!Grid.IsGridOverlapValid(newGrid, neighborGrid))
+                            continue;
+
+                        newGrid.TryAddGridNeighbor(neighborGrid);
+                        neighborGrid.TryAddGridNeighbor(newGrid);
+                    }
+
+                    SpatialGridHash[cellIndex].Add(allocatedIndex);
+                }
+
+                Version++;
+            }
+            finally
+            {
+                _gridLock.ExitWriteLock();
             }
 
             try
             {
-                lock (_lock)
-                {
-                    Grid newGrid = Pools.GridPool.Rent();
-                    allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
-                    BoundsTracker.Add(hashedBounds, allocatedIndex);
-
-                    newGrid.Initialize(allocatedIndex, configuration);
-                    foreach (int cellIndex in GetSpatialCells(configuration.GridMin, configuration.GridMax))
-                    {
-                        if (!SpatialHash.ContainsKey(cellIndex))
-                            SpatialHash[cellIndex] = new SwiftHashSet<ushort>();
-
-                        if (!SpatialHash[cellIndex].Add(allocatedIndex))
-                            continue;
-
-                        // Assign neighbors from grids sharing this spatial hash cell
-                        foreach (ushort neighborIndex in SpatialHash[cellIndex])
-                        {
-                            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == newGrid.GlobalIndex)
-                                continue;
-
-                            Grid neighborGrid = ActiveGrids[neighborIndex];
-
-                            // Ensure the grids actually overlap before linking them as neighbors
-                            if (!newGrid.IsGridOverlapValid(neighborGrid))
-                                continue;
-
-                            newGrid.AddGridNeighbor(neighborGrid);
-                            neighborGrid.AddGridNeighbor(newGrid);
-                        }
-
-                    }
-
-                    Version++;
-
-                    return true;
-                }
+                OnActiveGridChange?.Invoke(GridChange.Add, allocatedIndex);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Error occured while adding new grid: {e.Message}");
-                return false;
+                Console.WriteLine($"[Grid {allocatedIndex}] notification error: {ex.Message} | Change: {GridChange.Add}");
             }
+
+            return GridAddResult.Success;
         }
 
         /// <summary>
         /// Removes a grid and updates all references to ensure integrity.
         /// </summary>
-        public static bool RemoveGrid(ushort index)
+        public static bool TryRemoveGrid(ushort removeIndex)
         {
-            if (!ActiveGrids.IsAllocated(index))
+            if (!ActiveGrids.IsAllocated(removeIndex))
                 return false;
 
             try
             {
-                lock (_lock)
-                {
-                    Grid gridToRemove = ActiveGrids[index];
-
-                    int hashedBounds = gridToRemove.Bounds.Min.GetHashCode() ^ gridToRemove.Bounds.Max.GetHashCode();
-                    if (BoundsTracker.ContainsKey(hashedBounds))
-                        BoundsTracker.Remove(hashedBounds);
-
-                    // Clearing out neighbor relationships handled on `Grid.Reset`
-                    Pools.GridPool.Release(gridToRemove);
-                    ActiveGrids.RemoveAt(index);
-
-                    if (ActiveGrids.Count == 0)
-                        ActiveGrids.TrimExcessCapacity();
-
-                    Version++;
-                }
+                OnActiveGridChange?.Invoke(GridChange.Remove, removeIndex); // Fire off before we remove the reference
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Error occured while removing grid at index ({index}): {e.Message}");
-                return false;
+                Console.WriteLine($"[Grid {removeIndex}] notification error: {ex.Message} | Change: {GridChange.Remove}");
             }
+
+            Grid gridToRemove;
+            _gridLock.EnterWriteLock();
+            try
+            {
+                gridToRemove = ActiveGrids[removeIndex];
+                // remove grid from spatial hash
+                foreach (int cellIndex in GetSpatialCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
+                {
+                    if (!SpatialGridHash.ContainsKey(cellIndex))
+                        continue;
+
+                    SpatialGridHash[cellIndex].Remove(gridToRemove.GlobalIndex);
+
+                    if (gridToRemove.IsConjoined)
+                    {
+                        // Remove the reference to this grid from its neighbors
+                        foreach (ushort neighborIndex in SpatialGridHash[cellIndex])
+                        {
+                            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == removeIndex)
+                                continue;
+
+                            Grid neighborGrid = ActiveGrids[neighborIndex];
+
+                            if (!Grid.IsGridOverlapValid(gridToRemove, neighborGrid))
+                                continue;
+
+                            neighborGrid.TryRemoveGridNeighbor(gridToRemove);
+                        }
+                    }
+
+                    // Remove empty spatial hash cells to prevent memory buildup
+                    if (SpatialGridHash[cellIndex].Count == 0)
+                        SpatialGridHash.Remove(cellIndex);
+                }
+
+                int hashedBounds = gridToRemove.Configuration.GetHashCode();
+                BoundsTracker.Remove(hashedBounds);
+                ActiveGrids.RemoveAt(removeIndex);
+
+                Version++;
+            }
+            finally
+            {
+                _gridLock.ExitWriteLock();
+            }
+
+            // Clearing out neighbor relationships for this node handled on `Grid.Reset`
+            Pools.GridPool.Release(gridToRemove);
+
+            if (ActiveGrids.Count == 0)
+                ActiveGrids.TrimExcessCapacity();
 
             return true;
         }
@@ -272,12 +344,20 @@ namespace GridForge.Grids
         /// <summary>
         /// Notifies grids of a change in their structure.
         /// </summary>
-        public static void SendGridChangeNotification(int index, bool significant = false)
+        public static void IncrementGridVersion(int index, bool significant = false)
         {
-            if (significant)
-                Version++;
-            if (ActiveGrids.IsAllocated(index))
-                ActiveGrids[index].NotifyGridVersionChange();
+            _gridLock.EnterWriteLock();
+            try
+            {
+                if (significant)
+                    Version++;
+                if (ActiveGrids.IsAllocated(index))
+                    ActiveGrids[index].Version++;
+            }
+            finally
+            {
+                _gridLock.ExitWriteLock();
+            }
         }
 
         #endregion
@@ -287,7 +367,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a grid by its global index.
         /// </summary>
-        public static bool GetGrid(ushort index, out Grid outGrid)
+        public static bool TryGetGrid(int index, out Grid outGrid)
         {
             outGrid = null;
             if ((uint)index > ActiveGrids.Count)
@@ -309,17 +389,17 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves the grid containing a given world position.
         /// </summary>
-        public static bool GetGrid(Vector3d position, out Grid outGrid)
+        public static bool TryGetGrid(Vector3d position, out Grid outGrid)
         {
             outGrid = null;
-            int cellIndex = GetSpatialCellIndex(position);
+            int cellIndex = GetSpatialGridKey(position);
 
-            if (!SpatialHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                 return false;
 
             foreach (ushort candidateIndex in gridList)
             {
-                if (!GetGrid(candidateIndex, out Grid candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
+                if (!TryGetGrid(candidateIndex, out Grid candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
                     continue;
 
                 if (candidateGrid.IsInBounds(position))
@@ -334,51 +414,33 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves the grid containing a given world position and the node at that position.
+        /// Retrieves a grid by its unique global coordinates.
         /// </summary>
-        public static bool GetGridAndNode(Vector3d position, out Grid outGrid, out Node outNode)
+        public static bool TryGetGrid(CoordinatesGlobal coordinates, out Grid outGrid)
         {
-            outNode = null;
-            if (!GetGrid(position, out outGrid))
-                return false;
-
-            return outGrid.GetNode(position, out outNode);
+            // Ensure the grid is valid and the node belongs to the expected grid version
+            return TryGetGrid(coordinates.GridIndex, out outGrid)
+                && coordinates.GridSpawnToken == outGrid.SpawnToken;
         }
 
         /// <summary>
-        /// Retrieves a grid by its unique global coordinates.
+        /// Retrieves the grid containing a given world position and the node at that position.
         /// </summary>
-        public static bool GetGrid(CoordinatesGlobal coordinates, out Grid outGrid)
+        public static bool TryGetGridAndNode(Vector3d position, out Grid outGrid, out Node outNode)
         {
-            if (!GetGrid(coordinates.GridIndex, out outGrid))
-                return false;
-
-            if (coordinates.GridSpawnToken != outGrid.SpawnToken)
-            {
-                Console.WriteLine($"" +
-                    $"Coordinate target grid instance Id {coordinates.GridSpawnToken} does not match current " +
-                    $"instance at index {coordinates.GridIndex}.");
-                outGrid = null;
-                return false;
-            }
-
-            return true;
+            outNode = null;
+            return TryGetGrid(position, out outGrid)
+                && outGrid.TryGetNode(position, out outNode);
         }
 
         /// <summary>
         /// Retrieves the grid containing a given global coordinate and the node at that position.
         /// </summary>
-        public static bool GetGridAndNode(CoordinatesGlobal coordinates, out Grid outGrid, out Node outNode)
+        public static bool TryGetGridAndNode(CoordinatesGlobal coordinates, out Grid outGrid, out Node outNode)
         {
             outNode = null;
-
-            if (!GetGrid(coordinates, out outGrid))
-                return false;
-
-            if (!outGrid.GetNode(coordinates.NodeCoordinates, out outNode))
-                return false;
-
-            return true;
+            return TryGetGrid(coordinates, out outGrid)
+                && outGrid.TryGetNode(coordinates.NodeCoordinates, out outNode);
         }
 
         #endregion
@@ -386,24 +448,40 @@ namespace GridForge.Grids
         #region Utility Methods
 
         /// <summary>
-        /// Gets all spatial cells that intersect a grid's bounding volume.
+        /// Retrieves all spatial hash cell indices that intersect the given bounding volume.
         /// </summary>
-        /// <returns>A list of spatial cell indices.</returns>
-        private static IEnumerable<int> GetSpatialCells(Vector3d min, Vector3d max)
+        /// <param name="min">The minimum corner of the bounding box.</param>
+        /// <param name="max">The maximum corner of the bounding box.</param>
+        /// <returns>An enumerable of spatial hash cell indices covering the given bounds.</returns>
+        public static IEnumerable<int> GetSpatialCells(Vector3d min, Vector3d max)
         {
-            // Determine the range of spatial hash cells that intersect the given bounds
+            // Convert min/max positions to their respective spatial grid indices.
+            // This ensures that negative values do not shift incorrectly due to flooring behavior.
+            // Explanation:
+            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
+            // - Apply FloorToInt() to obtain the correct spatial cell index.
+            // - Restore the original sign using Sign() after flooring.
+            // - This ensures consistent and accurate placement within the correct spatial grid.
             (int xMin, int yMin, int zMin) = (
-                    (min.x / SpatialCellSize).FloorToInt(),
-                    (min.y / SpatialCellSize).FloorToInt(),
-                    (min.z / SpatialCellSize).FloorToInt()
-                );
-            (int xMax, int yMax, int zMax) = (
-                    (max.x / SpatialCellSize).FloorToInt(),
-                    (max.y / SpatialCellSize).FloorToInt(),
-                    (max.z / SpatialCellSize).FloorToInt()
+                    (min.x.Abs() / SpatialGridSize).FloorToInt() * min.x.Sign(),
+                    (min.y.Abs() / SpatialGridSize).FloorToInt() * min.y.Sign(),
+                    (min.z.Abs() / SpatialGridSize).FloorToInt() * min.z.Sign()
                 );
 
-            // Yield all spatial hash keys that fall within this range
+            (int xMax, int yMax, int zMax) = (
+                    (max.x.Abs() / SpatialGridSize).FloorToInt() * max.x.Sign(),
+                    (max.y.Abs() / SpatialGridSize).FloorToInt() * max.y.Sign(),
+                    (max.z.Abs() / SpatialGridSize).FloorToInt() * max.z.Sign()
+                );
+
+            // Ensure correct ordering of min/max values in case of inverted bounds.
+            // This prevents negative ranges that would otherwise cause an empty iteration.
+            if (xMax < xMin) (xMin, xMax) = (xMax, xMin);
+            if (yMax < yMin) (yMin, yMax) = (yMax, yMin);
+            if (zMax < zMin) (zMin, zMax) = (zMax, zMin);
+
+            // Iterate through all spatial hash cells within the computed range.
+            // This ensures we cover all relevant grid partitions.
             for (int z = zMin; z <= zMax; z++)
             {
                 for (int y = yMin; y <= yMax; y++)
@@ -412,6 +490,8 @@ namespace GridForge.Grids
                         yield return GetSpawnHash(x, y, z);
                 }
             }
+
+            yield break;
         }
 
         /// <summary>
@@ -419,10 +499,12 @@ namespace GridForge.Grids
         /// </summary>
         public static IEnumerable<Grid> FindOverlappingGrids(Grid targetGrid)
         {
+            SwiftHashSet<Grid> overlappingGrids = new SwiftHashSet<Grid>();
+
             // Check all spatial hash cells that this grid occupies
-            foreach (int cellIndex in GetSpatialCells(targetGrid.Bounds.Min, targetGrid.Bounds.Max))
+            foreach (int cellIndex in GetSpatialCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
             {
-                if (!SpatialHash.TryGetValue(cellIndex, out var gridList))
+                if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
 
                 // Check all grids sharing this spatial cell
@@ -434,40 +516,12 @@ namespace GridForge.Grids
                     Grid neighborGrid = ActiveGrids[neighborIndex];
 
                     // Only return grids that have an actual overlap with targetGrid
-                    if (targetGrid.IsGridOverlapValid(neighborGrid))
-                        yield return neighborGrid;
+                    if (Grid.IsGridOverlapValid(targetGrid, neighborGrid))
+                        overlappingGrids.Add(neighborGrid);
                 }
             }
-        }
 
-        /// <summary>
-        /// Retrieves all grid nodes covered by the given bounding area.
-        /// </summary>
-        /// <param name="boundsMin">The minimum corner of the bounding area.</param>
-        /// <param name="boundsMax">The maximum corner of the bounding area.</param>
-        public static IEnumerable<Node> GetCoveredNodes(Vector3d boundsMin, Vector3d boundsMax)
-        {
-            Vector3d snappedMin = SnapToGridFloor(boundsMin);
-            Vector3d snappedMax = SnapToGridCeil(boundsMax);
-
-            SwiftHashSet<int> redundancyChecker = new SwiftHashSet<int>();
-            for (Fixed64 x = snappedMin.x; x <= snappedMax.x; x += NodeResolution)
-            {
-                for (Fixed64 y = snappedMin.y; y <= snappedMax.y; y += NodeResolution)
-                {
-                    for (Fixed64 z = snappedMin.z; z <= snappedMax.z; z += NodeResolution)
-                    {
-                        Vector3d position = new Vector3d(x, y, z);
-                        if (!GetGridAndNode(position, out _, out Node node)
-                            || !redundancyChecker.Add(node.SpawnToken))
-                        {
-                            continue;
-                        }
-
-                        yield return node;
-                    }
-                }
-            }
+            return overlappingGrids;
         }
 
         /// <summary>
@@ -515,12 +569,12 @@ namespace GridForge.Grids
         /// <summary>
         /// Computes a spatial hash key for a given position.
         /// </summary>
-        public static int GetSpatialCellIndex(Vector3d position)
+        public static int GetSpatialGridKey(Vector3d position)
         {
             (int x, int y, int z) = (
-                (position.x / SpatialCellSize).FloorToInt(),
-                (position.y / SpatialCellSize).FloorToInt(),
-                (position.z / SpatialCellSize).FloorToInt()
+                (position.x / SpatialGridSize).FloorToInt(),
+                (position.y / SpatialGridSize).FloorToInt(),
+                (position.z / SpatialGridSize).FloorToInt()
             );
 
             return GetSpawnHash(x, y, z);
@@ -541,23 +595,25 @@ namespace GridForge.Grids
         /// <summary>
         /// Helper function to ceil snap a <see cref="Vector3d"/> to a grid.
         /// </summary>
-        public static Vector3d SnapToGridCeil(Vector3d position)
+        public static Vector3d CeilToNodeSize(Vector3d position)
         {
-            Fixed64 x = ((position.x + NodeSize) / NodeSize).CeilToInt() * NodeSize;
-            Fixed64 y = ((position.y + NodeSize) / NodeSize).CeilToInt() * NodeSize;
-            Fixed64 z = ((position.z + NodeSize) / NodeSize).CeilToInt() * NodeSize;
-            return new Vector3d(x, y, z);
+            return new Vector3d(
+                (position.x / NodeSize).CeilToInt() * NodeSize,
+                (position.y / NodeSize).CeilToInt() * NodeSize,
+                (position.z / NodeSize).CeilToInt() * NodeSize
+            );
         }
 
         /// <summary>
         /// Helper function to floor snap a <see cref="Vector3d"/> to a grid.
         /// </summary>
-        public static Vector3d SnapToGridFloor(Vector3d position)
+        public static Vector3d FloorToNodeSize(Vector3d position)
         {
-            Fixed64 x = (position.x / NodeSize).FloorToInt() * NodeSize;
-            Fixed64 y = (position.y / NodeSize).FloorToInt() * NodeSize;
-            Fixed64 z = (position.z / NodeSize).FloorToInt() * NodeSize;
-            return new Vector3d(x, y, z);
+            return new Vector3d(
+                (position.x / NodeSize).FloorToInt() * NodeSize,
+                (position.y / NodeSize).FloorToInt() * NodeSize,
+                (position.z / NodeSize).FloorToInt() * NodeSize
+            );
         }
 
         #endregion

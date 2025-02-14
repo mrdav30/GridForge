@@ -10,7 +10,7 @@ namespace GridForge.Utility.Debugging.Unity_Editor
     /// Draws lines and highlights nodes along a path in the Scene View.
     /// </summary>
     [ExecuteAlways] // Allows visualization in edit mode
-    public class GridLineTracerTest : MonoBehaviour
+    public class GridTracerTests : MonoBehaviour
     {
         #region Inspector Fields
 
@@ -84,18 +84,21 @@ namespace GridForge.Utility.Debugging.Unity_Editor
             {
                 Gizmos.color = Color.red;
 
-                foreach (Node node in GridLineTracer.TraceLine(startPos, endPos))
+                foreach (GridNodeSet covered in GridTracer.TraceLine(startPos, endPos))
                 {
-                    Vector3 drawPos = node.WorldPosition.ToVector3();
-                    drawPos.y += (float)_gridHeight; // Adjust for visualization height
+                    foreach(Node node in covered.Nodes)
+                    {
+                        Vector3 drawPos = node.WorldPosition.ToVector3();
+                        drawPos.y += (float)_gridHeight; // Adjust for visualization height
 
-                    // Draw a filled red cube for the grid node
-                    Gizmos.DrawCube(drawPos, FillSize);
+                        // Draw a filled red cube for the grid node
+                        Gizmos.DrawCube(drawPos, FillSize);
 
-                    // Draw a black wireframe around the node
-                    Gizmos.color = Color.black;
-                    Gizmos.DrawWireCube(drawPos, WireSize);
-                    Gizmos.color = Color.red; // Reset color
+                        // Draw a black wireframe around the node
+                        Gizmos.color = Color.black;
+                        Gizmos.DrawWireCube(drawPos, WireSize);
+                        Gizmos.color = Color.red; // Reset color
+                    }
                 }
             }
 

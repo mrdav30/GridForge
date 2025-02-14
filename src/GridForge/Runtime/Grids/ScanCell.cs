@@ -25,11 +25,6 @@ namespace GridForge.Grids
         public int CellKey { get; private set; }
 
         /// <summary>
-        /// Maps a <see cref="INodeOccupant.ClusterKey"/> to a set of GridNodes containing matching occupants.
-        /// </summary>
-        private SwiftDictionary<byte, SwiftHashSet<int>> _clusterToBucket;
-
-        /// <summary>
         /// Maps a <see cref="Node.SpawnToken"/> to a bucket of associated <see cref="INodeOccupant"/> instances.
         /// </summary>
         private SwiftDictionary<int, SwiftBucket<INodeOccupant>> _nodeOccupants;
@@ -45,7 +40,8 @@ namespace GridForge.Grids
         public bool IsAllocated { get; private set; }
 
         /// <summary>
-        /// Determines whether this scan cell is occupied by any entities.
+        /// Determines whether this scan cell is occupied by any occupants.
+        /// A scan cell is only considered occupied if it is allocated and contains at least one occupant.
         /// </summary>
         public bool IsOccupied => IsAllocated && CellOccupantCount > 0;
 
@@ -56,7 +52,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Initializes the scan cell with the specified grid index and unique cell key.
         /// </summary>
-        public void Initialize(ushort gridIndex, int cellKey)
+        internal void Initialize(ushort gridIndex, int cellKey)
         {
             GridIndex = gridIndex;
             CellKey = cellKey;
@@ -64,23 +60,21 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Resets the scan cell, clearing all occupants and returning memory to pools.
+        /// Resets the scan cell, clearing all occupants and returning memory to object pools.
+        /// This effectively marks the scan cell as deallocated and removes all references.
         /// </summary>
-        public void Reset()
+        internal void Reset()
         {
             if (!IsAllocated)
                 return;
 
-            if (_clusterToBucket != null)
-            {
-                Pools.ClusterToBucketPool.Release(_clusterToBucket);
-                _clusterToBucket = null;
-            }
-
             if (_nodeOccupants != null)
             {
-                Pools.NodeOccupantPool.Release(_nodeOccupants);
-                _nodeOccupants = null;
+                foreach (SwiftBucket<INodeOccupant> nodeOccupants in _nodeOccupants.Values)
+                {
+                    SwiftCollectionPool<SwiftBucket<INodeOccupant>, INodeOccupant>.Release(nodeOccupants);
+                    _nodeOccupants = null;
+                }
             }
 
             CellOccupantCount = 0;
@@ -100,73 +94,38 @@ namespace GridForge.Grids
         /// </summary>
         /// <param name="nodeSpawnToken">The unique spawn token of the node where the occupant resides.</param>
         /// <param name="occupant">The occupant instance to add.</param>
+        /// <param name="occupantTicket"></param>
         /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
-        internal int AddOccupant(int nodeSpawnToken, INodeOccupant occupant)
+        internal void AddOccupant(int nodeSpawnToken, INodeOccupant occupant, out int occupantTicket)
         {
-            _nodeOccupants ??= Pools.NodeOccupantPool.Rent();
+            _nodeOccupants ??= new SwiftDictionary<int, SwiftBucket<INodeOccupant>>();
             if (!_nodeOccupants.TryGetValue(nodeSpawnToken, out SwiftBucket<INodeOccupant> bucket))
             {
-                bucket = new SwiftBucket<INodeOccupant>();
+                bucket = SwiftCollectionPool<SwiftBucket<INodeOccupant>, INodeOccupant>.Rent();
                 _nodeOccupants[nodeSpawnToken] = bucket;
             }
 
-            int ticket = bucket.Add(occupant);
-
-            if (occupant.ClusterKey >= 0)
-            {
-                _clusterToBucket ??= Pools.ClusterToBucketPool.Rent();
-                if (!_clusterToBucket.TryGetValue(occupant.ClusterKey, out SwiftHashSet<int> occupiedNodes))
-                {
-                    occupiedNodes = new SwiftHashSet<int>();
-                    _clusterToBucket[occupant.ClusterKey] = occupiedNodes;
-                }
-
-                occupiedNodes.Add(nodeSpawnToken);
-            }
-
+            occupantTicket = bucket.Add(occupant);
             CellOccupantCount++;
-
-            return ticket;
         }
 
         /// <summary>
         /// Removes an occupant from this scan cell.
         /// </summary>
         /// <param name="nodeSpawnToken">The spawn token of the node the occupant was assigned to.</param>
-        /// <param name="occupantTicket">The ticket associated with this occupant.</param>
-        /// <param name="occupantClusterKey">The cluster key associated with this occupant, if any.</param>
+        /// <param name="occupant"></param>
         /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
-        internal bool RemoveOccupant(int nodeSpawnToken, int occupantTicket, byte occupantClusterKey = byte.MaxValue)
+        internal bool TryRemoveOccupant(int nodeSpawnToken, INodeOccupant occupant)
         {
             if (!IsOccupied || !_nodeOccupants.TryGetValue(nodeSpawnToken, out var bucket))
                 return false;
 
-            if (!bucket.TryRemoveAt(occupantTicket))
+            if (!bucket.TryRemoveAt(occupant.OccupantTicket))
                 return false;
 
             // If the occupant was the last in its bucket, remove the entire bucket
             if (bucket.Count == 0)
                 _nodeOccupants.Remove(nodeSpawnToken);
-
-            if (occupantClusterKey != byte.MaxValue && _clusterToBucket != null)
-            {
-                if (_clusterToBucket.TryGetValue(occupantClusterKey, out SwiftHashSet<int> occupiedNodes))
-                {
-                    occupiedNodes.Remove(nodeSpawnToken);
-
-                    // Release empty cluster sets
-                    if (occupiedNodes.Count == 0)
-                    {
-                        _clusterToBucket.Remove(occupantClusterKey);
-
-                        if (_clusterToBucket.Count == 0)
-                        {
-                            Pools.ClusterToBucketPool.Release(_clusterToBucket);
-                            _clusterToBucket = null;
-                        }
-                    }   
-                }
-            }
 
             CellOccupantCount--;
 
@@ -178,18 +137,41 @@ namespace GridForge.Grids
         #region Occupant Retrieval
 
         /// <summary>
-        /// Retrieves all occupants associated with a given node spawn token.
+        /// Retrieves all occupants associated with this ScanCell.
         /// </summary>
-        /// <param name="nodeSpawnKey">The unique spawn token of the node.</param>
-        /// <returns>An enumerable of occupants within this scan cell at the given node.</returns>
-        public IEnumerable<INodeOccupant> GetOccupantsFor(int nodeSpawnKey)
+        /// <returns>An enumerable of occupants within this scan cell.</returns>
+        internal IEnumerable<INodeOccupant> GetOccupants()
         {
-            if (!IsOccupied)
+            foreach (SwiftBucket<INodeOccupant> bucket in _nodeOccupants.Values)
             {
-                Console.WriteLine($"Scan cell is inactive.");
-                yield break;
+                foreach (INodeOccupant nodeOccupant in bucket)
+                    yield return nodeOccupant;
             }
+        }
 
+        /// <summary>
+        /// Retrieves occupants whose group Ids match a given condition.
+        /// </summary>
+        internal IEnumerable<INodeOccupant> GetConditionalOccupants(Func<byte, bool> groupConditional)
+        {
+            // Loop through each node's bucket and filter by the cluster condition
+            foreach (var bucket in _nodeOccupants.Values)
+            {
+                foreach (var occupant in bucket)
+                {
+                    if (groupConditional(occupant.OccupantGroupId))
+                        yield return occupant;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Retrieves all occupants associated with a specific node spawn token within this scan cell.
+        /// </summary>
+        /// <param name="nodeSpawnKey">The unique spawn key of the node.</param>
+        /// <returns>An enumerable collection of occupants assigned to the node.</returns>
+        internal IEnumerable<INodeOccupant> GetOccupantsFor(int nodeSpawnKey)
+        {
             if (!_nodeOccupants.TryGetValue(nodeSpawnKey, out SwiftBucket<INodeOccupant> nodeOccupants))
                 yield break;
 
@@ -197,46 +179,24 @@ namespace GridForge.Grids
                 yield return nodeOccupant;
         }
 
-
         /// <summary>
-        /// Retrieves occupants whose cluster keys match a given condition.
+        /// Attempts to retrieve a specific occupant in this scan cell using a node's spawn key and occupant ticket.
         /// </summary>
-        /// <param name="clusterConditional">A function used to filter cluster keys.</param>
-        /// <returns>An enumerable of occupants that match the specified condition.</returns>
-        public IEnumerable<INodeOccupant> GetConditionalOccupants(Func<byte, bool> clusterConditional)
+        /// <param name="nodeSpawnKey">The spawn key of the node the occupant belongs to.</param>
+        /// <param name="occupantTicket">The unique ticket identifying the occupant.</param>
+        /// <param name="nodeOccupant">The retrieved occupant if found.</param>
+        /// <returns>True if the occupant was found, otherwise false.</returns>
+        internal bool TryGetOccupantAt(int nodeSpawnKey, int occupantTicket, out INodeOccupant nodeOccupant)
         {
-            if (clusterConditional == null)
+            nodeOccupant = null;
+            if (!_nodeOccupants.TryGetValue(nodeSpawnKey, out SwiftBucket<INodeOccupant> nodeOccupants)
+                || !nodeOccupants.IsAllocated(occupantTicket))
             {
-                Console.WriteLine($"Must supply a {nameof(clusterConditional)} function parameter.");
-                yield break;
+                return false;
             }
 
-            if (!IsOccupied)
-            {
-                Console.WriteLine($"Scan Cell is not currently occupied.");
-                yield break;
-            }
-
-            // Loop through cluster-to-bucket dictionary and apply the conditional function
-            foreach (KeyValuePair<byte, SwiftHashSet<int>> kvp in _clusterToBucket)
-            {
-                try
-                {
-                    if (!clusterConditional(kvp.Key))
-                        continue;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Error running {nameof(clusterConditional)}:\n{e.Message}\n{e.StackTrace}");
-                    yield break;
-                }
-
-                foreach (int key in kvp.Value)
-                {
-                    foreach (INodeOccupant nodeOccupant in GetOccupantsFor(key))
-                        yield return nodeOccupant;
-                }
-            }
+            nodeOccupant = nodeOccupants[occupantTicket];
+            return true;
         }
 
         #endregion

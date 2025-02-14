@@ -11,29 +11,22 @@ namespace GridForge.Spatial
         /// <summary>
         /// The global coordinates of the parent node where this partition is attached.
         /// </summary>
-        CoordinatesGlobal ParentCoordinate { get; }
+        CoordinatesGlobal ParentCoordinate { get; set; }
 
         /// <summary>
-        /// Determines if the partition is currently allocated.
+        /// Flag to determine if this partition is currently attached to a <see cref="Node"/>
         /// </summary>
-        bool IsAllocated { get; }
+        bool IsPartitioned { get; set; }
 
         /// <summary>
         /// Called when adding this partition to a <see cref="Node"/>.
         /// </summary>
-        /// <param name="coordinate">The global coordinates of the node this partition is assigned to.</param>
-        void Setup(CoordinatesGlobal coordinate);
-
-        /// <summary>
-        /// Retrieves the partition's unique identifier key.
-        /// This key is used to distinguish different partition types within a node.
-        /// </summary>
-        int GetPartitionKey();
+        void OnAddToNode();
 
         /// <summary>
         /// Called when this partition is removed from a <see cref="Node"/>.
         /// Cleans up any associated data.
         /// </summary>
-        void Reset();
+        void OnRemoveFromNode();
     }
 }

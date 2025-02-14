@@ -68,7 +68,7 @@ namespace GridForge.Utility.Debugging.Unity_Editor
             if (!_showGrid || !Application.isPlaying)
                 return;
 
-            if (!GlobalGridManager.GetGrid(_gridIndex, out _targetGrid))
+            if (!GlobalGridManager.TryGetGrid(_gridIndex, out _targetGrid))
             {
                 Debug.LogWarning($"Grid index {_gridIndex} is not available in GlobalGridManager.");
                 return;
@@ -89,7 +89,7 @@ namespace GridForge.Utility.Debugging.Unity_Editor
                 if (Physics.Raycast(ray, out RaycastHit hit, 100f))
                 {
                     Vector3d hitPos = new Vector3d(hit.point.x, hit.point.y, hit.point.z);
-                    if (GlobalGridManager.GetGrid(hitPos, out Grids.Grid grid) && grid.GetNode(hitPos, out Node node))
+                    if (GlobalGridManager.TryGetGridAndNode(hitPos, out Grids.Grid grid, out Node node))
                     {
                         _highlightedNodePosition = node.WorldPosition.ToVector3();
 
@@ -121,7 +121,7 @@ namespace GridForge.Utility.Debugging.Unity_Editor
                 {
                     for (int z = 0; z < length; z++)
                     {
-                        if (!_targetGrid.GetNode(x, y, z, out Node node) || !ShouldRenderNode(node))
+                        if (!_targetGrid.TryGetNode(x, y, z, out Node node) || !ShouldRenderNode(node))
                             continue;
 
                         DrawNodeGizmo(node);

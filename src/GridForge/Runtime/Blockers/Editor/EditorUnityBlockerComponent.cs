@@ -13,12 +13,14 @@ namespace GridForge.Blockers.Unity_Editor
     {
         SerializedProperty _blockerType;
         SerializedProperty _isActive;
+        SerializedProperty _cacheCoveredNodes;
         SerializedProperty _manualBlockArea;
 
         public void OnEnable()
         {
             _blockerType = serializedObject.FindProperty("_blockerType");
             _isActive = serializedObject.FindProperty("_isActive");
+            _cacheCoveredNodes = serializedObject.FindProperty("_cacheCoveredNodes");
             _manualBlockArea = serializedObject.FindProperty("_manualBlockArea");
         }
 
@@ -34,6 +36,8 @@ namespace GridForge.Blockers.Unity_Editor
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(_isActive, new GUIContent("Is Active?"));
+
+            EditorGUILayout.PropertyField(_cacheCoveredNodes, new GUIContent("Cache Covered Nodes?"));
 
             // Show fields based on selected blocker type
             switch (selectedType)

@@ -42,50 +42,16 @@
     public enum GridChange
     {
         None = -1,
+        Add = 0,
+        Remove = 1,
+        Update = 2
+    }
 
-        /// <summary>
-        /// A new neighbor grid was added.
-        /// </summary>
-        AddGridNeighbor = 0,
-
-        /// <summary>
-        /// A neighboring grid was removed.
-        /// </summary>
-        RemoveGridNeighbor = 1,
-
-        /// <summary>
-        /// A neighboring grid was updated.
-        /// </summary>
-        UpdateGridNeighbor = 2,
-
-        /// <summary>
-        /// An obstacle was added to a node.
-        /// </summary>
-        AddNodeObstacle = 3,
-
-        /// <summary>
-        /// An obstacle was removed from a node.
-        /// </summary>
-        RemoveNodeObstacle = 4,
-
-        /// <summary>
-        /// An obstacle on a node was updated.
-        /// </summary>
-        UpdateNodeObstacle = 5,
-
-        /// <summary>
-        /// An occupant was added to a node.
-        /// </summary>
-        AddNodeOccupant = 6,
-
-        /// <summary>
-        /// An occupant was removed from a node.
-        /// </summary>
-        RemoveNodeOccupant = 7,
-
-        /// <summary>
-        /// An occupant on a node was updated.
-        /// </summary>
-        UpdateNodeOccupant = 8
+    public enum GridAddResult
+    {
+        Success = 0,         // Grid was successfully added
+        AlreadyExists = 1,   // A grid with the same bounds already exists
+        InvalidBounds = 2,   // The provided bounds are invalid
+        MaxGridsReached = 3  // The maximum number of grids has been reached
     }
 }

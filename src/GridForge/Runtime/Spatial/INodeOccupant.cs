@@ -9,12 +9,14 @@ namespace GridForge.Spatial
     /// </summary>
     public interface INodeOccupant
     {
+        bool IsNodeOccupant { get; set; }
+
         /// <summary>
-        /// The cluster key used for grouping occupants within a scan cell.
-        /// Occupants with the same cluster key belong to the same logical group.
+        /// The group Id used for grouping occupants within a scan cell.
+        /// Occupants with the same group Id belong to the same logical group.
         /// This allows efficient retrieval of related occupants in spatial queries.
         /// </summary>
-        byte ClusterKey { get; }
+        byte OccupantGroupId { get; }
 
         /// <summary>
         /// A unique ticket identifier assigned when this occupant is added to a scan cell.
@@ -23,12 +25,12 @@ namespace GridForge.Spatial
         int OccupantTicket { get; set; }
 
         /// <summary>
-        /// The world-space position of this occupant.
+        /// The absolute world-space position of the occupant, representing its precise location in the environment.
         /// </summary>
-        Vector3d WorldPosition { get; }
+        Vector3d WorldPosition { get; set; }
 
         /// <summary>
-        /// The global grid coordinates where this occupant is located.
+        /// The global grid coordinates of the <see cref="Node"/> this occupant is being added to.
         /// </summary>
         CoordinatesGlobal GridCoordinates { get; set; }
     }

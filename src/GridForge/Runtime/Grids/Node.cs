@@ -11,20 +11,6 @@ namespace GridForge.Grids
     /// </summary>
     public class Node
     {
-        #region Constants
-
-        /// <summary>
-        /// Maximum number of obstacles that can exist on a single node.
-        /// </summary>
-        public const byte MaxObstacleCount = byte.MaxValue - 1;
-
-        /// <summary>
-        /// Maximum number of occupants that can exist on a single node.
-        /// </summary>
-        public const byte MaxOccupantCount = byte.MaxValue - 1;
-
-        #endregion
-
         #region Properties & Fields
 
         /// <summary>
@@ -45,7 +31,7 @@ namespace GridForge.Grids
         /// <summary>
         /// The local coordinates of this node within its grid.
         /// </summary>
-        public CoordinatesLocal Coordinates => GlobalCoordinates.NodeCoordinates;
+        public CoordinatesLocal LocalCoordinates => GlobalCoordinates.NodeCoordinates;
 
         /// <summary>
         /// The spatial hash key of the scan cell that this node belongs to.
@@ -63,19 +49,24 @@ namespace GridForge.Grids
         private bool _isNeighborCacheValid;
 
         /// <summary>
-        /// Cached array of neighboring nodes for fast lookup.
+        /// Cached array of neighboring nodes for fast lookup representing a 3x3x3 linear direction grid
         /// </summary>
+        /// <remarks>
+        /// Unlike Grid adjacency (which is 1:many), nodes can only have 1 neighbor in any one direction (1:1).
+        /// </remarks>
         private Node[] _cachedNeighbors;
+
+        public SwiftHashSet<int> ObstacleTracker { get; internal set; }
 
         /// <summary>
         /// The current number of obstacles on this node.
         /// </summary>
-        public byte ObstacleCount { get; private set; }
+        public byte ObstacleCount { get; internal set; }
 
         /// <summary>
         /// The current number of occupants on this node.
         /// </summary>
-        public byte OccupantCount { get; private set; }
+        public byte OccupantCount { get; internal set; }
 
         /// <summary>
         /// Dictionary mapping partition names to their respective partitions.
@@ -93,19 +84,9 @@ namespace GridForge.Grids
         public bool IsBoundaryNode { get; private set; }
 
         /// <summary>
-        /// Event triggered when an obstacle is added or removed from this node.
-        /// </summary>
-        public Action<GridChange> OnObstacleChange;
-
-        /// <summary>
-        /// Event triggered when an occupant is added or removed from this node.
-        /// </summary>
-        public Action<GridChange> OnOccupantChange;
-
-        /// <summary>
         /// The current version of the grid at the time this node was created.
         /// </summary>
-        public uint GridVersion { get; private set; }
+        public uint CachedGridVersion { get; internal set; }
 
         /// <summary>
         /// Indicates whether this node is allocated within a grid.
@@ -115,12 +96,24 @@ namespace GridForge.Grids
         /// <summary>
         /// Determines whether this node is blocked due to obstacles.
         /// </summary>
-        public bool IsBlocked => !IsAllocated || ObstacleCount > 0;
+        public bool IsBlocked => IsAllocated && ObstacleCount > 0;
+
+        /// <summary>
+        /// Determines if this node can accept additional obstacles.
+        /// </summary>
+        public bool IsBlockable => IsAllocated 
+            && ObstacleCount < GridObstacleManager.MaxObstacleCount
+            && !IsOccupied;
 
         /// <summary>
         /// Determines whether this node is occupied by entities.
         /// </summary>
         public bool IsOccupied => IsAllocated && OccupantCount > 0;
+
+        /// <summary>
+        /// Checks if this node has open slots for new occupants.
+        /// </summary>
+        public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
         #endregion
 
@@ -129,32 +122,28 @@ namespace GridForge.Grids
         /// <summary>
         /// Configures the node with its position, grid version, and boundary status.
         /// </summary>
-        public void Initialize(CoordinatesGlobal coordinates, Vector3d position, uint gridVersion, bool isBoundaryNode)
+        internal void Initialize(
+            CoordinatesGlobal coordinates, 
+            Vector3d position, 
+            int scanCellKey, 
+            bool isBoundaryNode, 
+            uint gridVersion)
         {
-            if (!GlobalGridManager.GetGrid(coordinates, out Grid grid))
-                return;
+            ScanCellKey = scanCellKey;
+            IsBoundaryNode = isBoundaryNode;
 
-            ScanCellKey = grid.GetScanCellKey(coordinates.NodeCoordinates);
             GlobalCoordinates = coordinates;
             WorldPosition = position;
 
-            if (isBoundaryNode)
-            {
-                IsBoundaryNode = isBoundaryNode;
-                grid.OnBoundaryChange += InvalidateNeighborCache;
-            }
-
             SpawnToken = GetHashCode();
-
-            GridVersion = gridVersion;
-
+            CachedGridVersion = gridVersion;
             IsAllocated = true;
         }
 
         /// <summary>
         /// Resets the node, clearing all allocated data and returning it to pools.
         /// </summary>
-        public void Reset()
+        internal void Reset()
         {
             if (!IsAllocated)
                 return;
@@ -162,8 +151,7 @@ namespace GridForge.Grids
             if (_partitions != null)
             {
                 foreach (INodePartition partition in _partitions.Values)
-                    partition.Reset();
-                Pools.PartitionPool.Release(_partitions);
+                    partition.OnRemoveFromNode();
                 _partitions = null;
             }
 
@@ -176,14 +164,7 @@ namespace GridForge.Grids
             }
 
             _isNeighborCacheValid = false;
-
-            if (IsBoundaryNode)
-            {
-                if (GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid))
-                    grid.OnBoundaryChange -= InvalidateNeighborCache;
-                else
-                    Console.WriteLine($"Unable to find corresponding grid at GlobalGridIndex {GlobalCoordinates.GridIndex}");
-            }
+            IsBoundaryNode = false;
 
             SpawnToken = 0;
             ScanCellKey = 0;
@@ -199,80 +180,84 @@ namespace GridForge.Grids
         #region Partition Management
 
         /// <summary>
-        /// Adds a partition to this node, allowing specialized behaviors.
+        /// Generates a unique key for a partition based on the node's spawn token and partition name.
         /// </summary>
-        public bool AddPartition(string name, INodePartition partition)
-        {
-            if (string.IsNullOrEmpty(name) || partition == null)
-                return false;
-
-            _partitions ??= Pools.PartitionPool.Rent();
-
-            int key = GetPartitionKey(name);
-            if (_partitions.ContainsKey(key))
-            {
-                Console.WriteLine($"Partition ({name}) has already been added to Grid Node at ({Coordinates}).");
-                return false;
-            }
-
-            partition.Setup(GlobalCoordinates);
-
-            IsPartioned = true;
-
-            return _partitions.Add(key, partition);
-        }
+        public int GetPartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
 
         /// <summary>
-        /// Removes a partition from this node.
+        /// Adds a partition to this node, allowing specialized behaviors.
         /// </summary>
-        public bool RemovePartition(string name)
+        public bool TryAddPartition(INodePartition partition)
         {
-            if (string.IsNullOrEmpty(name) || !IsPartioned)
+            if (partition == null)
                 return false;
 
-            int key = GetPartitionKey(name);
-            if (!_partitions.TryGetValue(key, out INodePartition partition))
-            {
-                Console.WriteLine($"Partition {name} not found on this node.");
+            string partitionName = partition.GetType().Name;
+            int key = GetPartitionKey(partitionName);
+            _partitions ??= new SwiftDictionary<int, INodePartition>();
+            if (!_partitions.Add(key, partition))
                 return false;
+            IsPartioned = true;
+
+            try
+            {
+                partition.AddToNode(GlobalCoordinates);
             }
-
-            partition.Reset();
-            _partitions.Remove(key);
-
-            if (_partitions.Count == 0)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Releasing GridNode's unused Partitions collection.");
-                Pools.PartitionPool.Release(_partitions);
-                _partitions = null;
-                IsPartioned = false;
+                Console.WriteLine($"Error attempting to call {nameof(partition.OnAddToNode)} on {partitionName}: {ex.Message}");
             }
 
             return true;
         }
 
         /// <summary>
-        /// Checks if this node has a specific type of partition.
+        /// Removes a partition from this node.
         /// </summary>
-        public bool IsPartitioned<T>(string name) where T : INodePartition
+        public bool TryRemovePartition<T>()
         {
             if (!IsPartioned)
                 return false;
-            int key = GetPartitionKey(name);
-            return _partitions.TryGetValue(key, out INodePartition part) && part is T;
+
+            string partitionName = typeof(T).Name;
+            int key = GetPartitionKey(partitionName);
+            if (!_partitions.TryGetValue(key, out INodePartition partition))
+            {
+                Console.WriteLine($"Partition {partitionName} not found on this node.");
+                return false;
+            }
+
+            _partitions.Remove(key);
+            if (_partitions.Count == 0)
+            {
+                Console.WriteLine($"Releasing Node's unused Partitions collection.");
+                _partitions = null;
+                IsPartioned = false;
+            }
+
+            try
+            {
+                partition.RemoveFromNode();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
+            }
+
+            return true;
         }
 
         /// <summary>
         /// Retrieves a partition from the node by name.
         /// </summary>
-        public bool GetPartition<T>(string name, out T partition) where T : INodePartition
+        public bool TryGetPartition<T>(out T partition) where T : INodePartition
         {
             partition = default;
 
-            if (string.IsNullOrEmpty(name) || !IsPartioned)
+            if (!IsPartioned)
                 return false;
 
-            int key = GetPartitionKey(name);
+            int key = GetPartitionKey(typeof(T).Name);
             if (!_partitions.TryGetValue(key, out INodePartition tempPartition))
                 return false;
 
@@ -287,231 +272,12 @@ namespace GridForge.Grids
 
         #endregion
 
-        #region Obstacle & Occupant Management
-
-        /// <summary>
-        /// Adds an obstacle to this node.
-        /// </summary>
-        public bool AddObstacle()
-        {
-            if (ObstacleCount == MaxObstacleCount)
-            {
-                Console.WriteLine($"Too many obstacles on node ({Coordinates}).");
-                return false;
-            }
-
-            ObstacleCount++;
-
-            NotifyObstacleChange(GridChange.AddNodeObstacle);
-
-            return true;
-        }
-
-        /// <summary>
-        /// Removes an obstacle from this node.
-        /// </summary>
-        public bool RemoveObstacle()
-        {
-            if (ObstacleCount == 0)
-            {
-                Console.WriteLine($"No obstacle to remove on this node ({Coordinates})!");
-                return false;
-            }
-
-            ObstacleCount--;
-
-            NotifyObstacleChange(GridChange.RemoveNodeObstacle);
-
-            return true;
-        }
-
-        /// <summary>
-        /// Notifies the system when an obstacle state changes.
-        /// </summary>
-        private void NotifyObstacleChange(GridChange changeType)
-        {
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid))
-                return;
-
-            grid.NotifyGridVersionChange();
-
-            try
-            {
-                OnObstacleChange?.Invoke(changeType);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during obstacle change notification: {ex.Message}");
-            }
-
-            GridVersion = grid.Version;
-        }
-
-        /// <summary>
-        /// Adds an occupant to this node.
-        /// </summary>
-        public bool AddOccupant(INodeOccupant occupant)
-        {
-            if (occupant == null || IsBlocked)
-                return false;
-
-            if (OccupantCount == MaxOccupantCount)
-            {
-                Console.WriteLine($"Too many occupants on node ({Coordinates}.)");
-                return false;
-            }
-
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid) || !grid.RegisterActiveScanCell(ScanCellKey))
-                return false;
-
-            if (!grid.GetScanCell(ScanCellKey, out ScanCell scanCell))
-                return false;
-
-            occupant.OccupantTicket = scanCell.AddOccupant(SpawnToken, occupant);
-            occupant.GridCoordinates = GlobalCoordinates;
-
-            OccupantCount++;
-            NotifyOccupantChange(GridChange.AddNodeOccupant);
-
-            return true;
-        }
-
-        /// <summary>
-        /// Removes an occupant from this node.
-        /// </summary>
-        public bool RemoveOccupant(INodeOccupant occupant)
-        {
-            if (occupant == null || !IsOccupied)
-            {
-                Console.WriteLine($"No occupants to remove on this node ({Coordinates})!");
-                return false;
-            }
-
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid) || !grid.GetScanCell(ScanCellKey, out ScanCell scanCell))
-                return false;
-
-            if (!scanCell.RemoveOccupant(SpawnToken, occupant.OccupantTicket, occupant.ClusterKey))
-                return false;
-
-            if (!scanCell.IsOccupied)
-                grid.UnregisterActiveScanCell(ScanCellKey);
-
-            occupant.OccupantTicket = -1;
-            occupant.GridCoordinates = default;
-
-            OccupantCount--;
-            NotifyOccupantChange(GridChange.RemoveNodeOccupant);
-
-            return true;
-        }
-
-        /// <summary>
-        /// Notifies the system when an occupant state changes.
-        /// </summary>
-        private void NotifyOccupantChange(GridChange changeType)
-        {
-            try
-            {
-                // Notify all registered event listeners of the occupant change
-                OnOccupantChange?.Invoke(changeType);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error during occupant change notification: {ex.Message}");
-            }
-        }
-
-        #endregion
-
         #region Neighbor Handling
 
         /// <summary>
         /// Invalidates the neighbor cache when a boundary relationship changes.
         /// </summary>
-        public void InvalidateNeighborCache(GridChange change, LinearDirection direction)
-        {
-            if (change != GridChange.RemoveNodeObstacle || change != GridChange.AddNodeObstacle)
-                return;
-
-            if (!IsFacingDirection(direction))
-                return;
-
-            _isNeighborCacheValid = false;
-        }
-
-        /// <summary>
-        /// Determines if this node is facing a specific boundary direction.
-        /// A node is considered to be "facing" a boundary if it is at the grid edge
-        /// in the given direction, including diagonal boundaries.
-        /// </summary>
-        /// <param name="direction">The direction to check.</param>
-        /// <returns>True if the node is at the edge in the given direction, otherwise false.</returns>
-        public bool IsFacingDirection(LinearDirection direction)
-        {
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid))
-                return false;
-
-            return direction switch
-            {
-                // Principal directions (cardinal)
-                LinearDirection.West => Coordinates.x == 0,
-                LinearDirection.East => Coordinates.x == grid.Width - 1,
-                LinearDirection.North => Coordinates.z == grid.Length - 1,
-                LinearDirection.South => Coordinates.z == 0,
-                LinearDirection.Above => Coordinates.y == grid.Height - 1,
-                LinearDirection.Below => Coordinates.y == 0,
-
-                // Diagonal XY-plane
-                LinearDirection.NorthWest => Coordinates.x == 0 && Coordinates.z == grid.Length - 1,
-                LinearDirection.NorthEast => Coordinates.x == grid.Width - 1 && Coordinates.z == grid.Length - 1,
-                LinearDirection.SouthWest => Coordinates.x == 0 && Coordinates.z == 0,
-                LinearDirection.SouthEast => Coordinates.x == grid.Width - 1 && Coordinates.z == 0,
-
-                // Diagonal XZ-plane (Above & Below variants)
-                LinearDirection.AboveNorth => Coordinates.y == grid.Height - 1 && Coordinates.z == grid.Length - 1,
-                LinearDirection.AboveSouth => Coordinates.y == grid.Height - 1 && Coordinates.z == 0,
-                LinearDirection.AboveWest => Coordinates.y == grid.Height - 1 && Coordinates.x == 0,
-                LinearDirection.AboveEast => Coordinates.y == grid.Height - 1 && Coordinates.x == grid.Width - 1,
-
-                LinearDirection.BelowNorth => Coordinates.y == 0 && Coordinates.z == grid.Length - 1,
-                LinearDirection.BelowSouth => Coordinates.y == 0 && Coordinates.z == 0,
-                LinearDirection.BelowWest => Coordinates.y == 0 && Coordinates.x == 0,
-                LinearDirection.BelowEast => Coordinates.y == 0 && Coordinates.x == grid.Width - 1,
-
-                // Diagonal 3D Corners
-                LinearDirection.AboveNorthWest => Coordinates.x == 0 
-                    && Coordinates.z == grid.Length - 1 
-                    && Coordinates.y == grid.Height - 1,
-                LinearDirection.AboveNorthEast => Coordinates.x == grid.Width - 1
-                    && Coordinates.z == grid.Length - 1 
-                    && Coordinates.y == grid.Height - 1,
-                LinearDirection.AboveSouthWest => Coordinates.x == 0 
-                    && Coordinates.z == 0 
-                    && Coordinates.y == grid.Height - 1,
-                LinearDirection.AboveSouthEast => Coordinates.x == grid.Width - 1 
-                    && Coordinates.z == 0 
-                    && Coordinates.y == grid.Height - 1,
-
-                LinearDirection.BelowNorthWest => Coordinates.x == 0 
-                    && Coordinates.z == grid.Length - 1 
-                    && Coordinates.y == 0,
-                LinearDirection.BelowNorthEast => Coordinates.x == grid.Width - 1 
-                    && Coordinates.z == grid.Length - 1 
-                    && Coordinates.y == 0,
-                LinearDirection.BelowSouthWest => Coordinates.x == 0 
-                    && Coordinates.z == 0 
-                    && Coordinates.y == 0,
-                LinearDirection.BelowSouthEast => Coordinates.x == grid.Width - 1 
-                    && Coordinates.z == 0 
-                    && Coordinates.y == 0,
-
-                // No direction (should never be true)
-                LinearDirection.None => false,
-
-                // Catch-all (should never reach this)
-                _ => false
-            };
-        }
+        internal void InvalidateNeighborCache() => _isNeighborCacheValid = false;
 
         /// <summary>
         /// Retrieves the neighbors of this node, caching results if specified.
@@ -533,7 +299,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a neighbor node in a specific direction.
         /// </summary>
-        public bool GetNeighborFromDirection(LinearDirection direction, out Node neighbor, bool useCache = true)
+        public bool TryGetNeighborFromDirection(LinearDirection direction, out Node neighbor, bool useCache = true)
         {
             neighbor = default;
 
@@ -552,24 +318,30 @@ namespace GridForge.Grids
             }
 
             (int x, int y, int z) offset = GlobalGridManager.DirectionOffsets[(int)direction];
-            return GetNeighborFromOffset(offset, out neighbor);
+            return TryGetNeighborFromOffset(offset, out neighbor);
         }
 
-        public bool GetNeighborFromOffset((int x, int y, int z) offset, out Node neighbor)
+        /// <summary>
+        /// Retrieves a neighbor node based on a coordinate offset.
+        /// </summary>
+        public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Node neighbor)
         {
             neighbor = default;
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid))
+            if (!GlobalGridManager.TryGetGrid(GlobalCoordinates, out Grid grid))
                 return false;
 
             CoordinatesLocal neighborCoords = new CoordinatesLocal(
-                Coordinates.x + offset.x,
-                Coordinates.y + offset.y,
-                Coordinates.z + offset.z
+                LocalCoordinates.x + offset.x,
+                LocalCoordinates.y + offset.y,
+                LocalCoordinates.z + offset.z
             );
 
-            return grid.GetNode(neighborCoords, out neighbor);
+            return grid.TryGetNode(neighborCoords, out neighbor);
         }
 
+        /// <summary>
+        /// Updates and caches the neighboring nodes of this node.
+        /// </summary>
         private void SetNeighborCache()
         {
             _cachedNeighbors ??= Pools.NodeNeighborPool.Rent(GlobalGridManager.DirectionOffsets.Length);
@@ -578,57 +350,12 @@ namespace GridForge.Grids
             for (int i = 0; i < GlobalGridManager.DirectionOffsets.Length; i++)
             {
                 (int x, int y, int z) offset = GlobalGridManager.DirectionOffsets[i];
-                if (GetNeighborFromOffset(offset, out Node neighbor))
+                if (TryGetNeighborFromOffset(offset, out Node neighbor))
                     _cachedNeighbors[i] = neighbor;
             }
 
             _isNeighborCacheValid = true;
         }
-
-        #endregion
-
-        #region ScanCell Interaction
-
-        /// <summary>
-        /// Retrieves the scan cell associated with this node.
-        /// </summary>
-        public bool GetScanCell(out ScanCell scanCell)
-        {
-            scanCell = null;
-            if (!GlobalGridManager.GetGrid(GlobalCoordinates, out Grid grid))
-                return false;
-
-            if (!grid.GetScanCell(ScanCellKey, out scanCell))
-                return false;
-
-            return true;
-        }
-
-        /// <summary>
-        /// Retrieves all occupants of this node.
-        /// </summary>
-        public IEnumerable<INodeOccupant> GetNodeOccupants()
-        {
-            if (!IsOccupied || !GetScanCell(out ScanCell scanCell) || !scanCell.IsOccupied)
-                yield break;
-
-            foreach (INodeOccupant occupant in scanCell.GetOccupantsFor(SpawnToken))
-                yield return occupant;
-        }
-
-        /// <summary>
-        /// Retrieves all occupants of a specific type at this node.
-        /// </summary>
-        public IEnumerable<T> GetNodeOccupantsByType<T>() where T : INodeOccupant
-        {
-            foreach (INodeOccupant occupant in GetNodeOccupants())
-            {
-                if (occupant is T typedOccupant)
-                    yield return typedOccupant;
-            }
-        }
-
-        public int GetPartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
 
         #endregion
 
@@ -640,7 +367,7 @@ namespace GridForge.Grids
                 IsBoundaryNode.GetHashCode()
             );
 
-        public override string ToString() => Coordinates.ToString();
+        public override string ToString() => GlobalCoordinates.ToString();
 
         #endregion
     }

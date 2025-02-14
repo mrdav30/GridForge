@@ -24,6 +24,8 @@ namespace GridForge.Blockers.Unity_Editor
 
         [SerializeField] private bool _isActive;
 
+        [SerializeField] private bool _cacheCoveredNodes;
+
         [SerializeField] private BoundingArea _manualBlockArea;
 #pragma warning restore CS0649
 
@@ -45,6 +47,7 @@ namespace GridForge.Blockers.Unity_Editor
         }
 
         public bool IsActive => _isActive;
+        public bool CacheCoveredNodes => _cacheCoveredNodes;
         public BoundingArea ManualBlockArea => _manualBlockArea;
     }
 
@@ -54,7 +57,10 @@ namespace GridForge.Blockers.Unity_Editor
         {
             return type switch
             {
-                BlockerType.Bounds => new BoundsBlocker(component.IsActive, component.ManualBlockArea),
+                BlockerType.Bounds => new BoundsBlocker(
+                    component.ManualBlockArea, 
+                    component.IsActive, 
+                    component.CacheCoveredNodes),
                 _ => null
             };
         }

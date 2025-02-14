@@ -25,6 +25,8 @@ namespace GridForge.Spatial
         /// </summary>
         public int z;
 
+        public bool IsAllocated { get; private set; }
+
         #endregion
 
         #region Constructors
@@ -43,6 +45,8 @@ namespace GridForge.Spatial
             x = xCord;
             y = yCord;
             z = zCord;
+
+            IsAllocated = true;
         }
 
         #endregion

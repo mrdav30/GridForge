@@ -9,8 +9,10 @@ namespace GridForge.Blockers
     {
         private BoundingArea _blockArea;
 
-        public BoundsBlocker(bool isActive, BoundingArea blockArea)
-            : base(isActive)
+        public BoundsBlocker(
+            BoundingArea blockArea, 
+            bool isActive = true, 
+            bool cacheCoveredNodes = false) : base(isActive, cacheCoveredNodes)
         {
             _blockArea = blockArea;
         }

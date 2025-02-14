@@ -46,15 +46,15 @@ namespace GridForge.Configuration.Unity_Editor
             foreach (var config in SavedGridConfigurations)
             {
                 // Ensure grid bounds are valid before adding
-                if (config.GridMax.x < config.GridMin.x
-                    || config.GridMax.y < config.GridMin.y
-                    || config.GridMax.z < config.GridMin.z)
+                if (config.BoundsMax.x < config.BoundsMin.x
+                    || config.BoundsMax.y < config.BoundsMin.y
+                    || config.BoundsMax.z < config.BoundsMin.z)
                 {
                     Debug.LogWarning("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
                     continue;
                 }
 
-                GlobalGridManager.AddGrid(config);
+                GlobalGridManager.TryAddGrid(config, out _);
             }
         }
 
@@ -72,11 +72,11 @@ namespace GridForge.Configuration.Unity_Editor
 
             foreach (var config in SavedGridConfigurations)
             {
-                for (Fixed64 x = config.GridMin.x; x <= config.GridMax.x; x++)
+                for (Fixed64 x = config.BoundsMin.x; x <= config.BoundsMax.x; x++)
                 {
-                    for (Fixed64 y = config.GridMin.y; y <= config.GridMax.y; y++)
+                    for (Fixed64 y = config.BoundsMin.y; y <= config.BoundsMax.y; y++)
                     {
-                        for (Fixed64 z = config.GridMin.z; z <= config.GridMax.z; z++)
+                        for (Fixed64 z = config.BoundsMin.z; z <= config.BoundsMax.z; z++)
                         {
                             Vector3d drawPos = new Vector3d(x, y, z);
                             Gizmos.DrawCube(drawPos.ToVector3(), scale);
