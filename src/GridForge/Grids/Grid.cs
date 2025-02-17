@@ -136,7 +136,7 @@ namespace GridForge.Grids
         {
             if (IsActive)
             {
-                Console.WriteLine($"Grid at {nameof(globalIndex)} is already active.");
+                GridForgeLogger.Warn($"Grid at {nameof(globalIndex)} is already active.");
                 return;
             }
 
@@ -268,7 +268,8 @@ namespace GridForge.Grids
                         // Skip if the node is already allocated (should not happen under normal conditions)
                         if (IsNodeAllocated(x, y, z))
                         {
-                            Console.WriteLine($"Node at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");
+                            GridForgeLogger.Warn(
+                                $"Node at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");
                             continue;
                         }
 
@@ -363,7 +364,7 @@ namespace GridForge.Grids
 
             if (Neighbors[neighborDirection].Count == 0)
             {
-                Console.WriteLine($"Releasing unused neighbor collection.");
+                GridForgeLogger.Info($"Releasing unused neighbor collection.");
                 SwiftCollectionPool<SwiftHashSet<int>, int>.Release(Neighbors[neighborDirection]);
                 Neighbors.Remove(neighborDirection);
             }
@@ -506,7 +507,7 @@ namespace GridForge.Grids
                     && z >= 0 && z < Nodes.Length;
 
             if (!result)
-                Console.WriteLine($"The coordinate {(x, y, z)} is not valid for this grid.");
+                GridForgeLogger.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
 
             return result;
         }
@@ -588,13 +589,13 @@ namespace GridForge.Grids
 
             if (!IsActive)
             {
-                Console.WriteLine($"This Grid is not currently allocated.");
+                GridForgeLogger.Warn($"This Grid is not currently allocated.");
                 return false;
             }
 
             if (!IsInBounds(position))
             {
-                Console.WriteLine($"Position does not fall in the bounds of this grid");
+                GridForgeLogger.Warn($"Position does not fall in the bounds of this grid");
                 return false;
             }
 
@@ -630,13 +631,13 @@ namespace GridForge.Grids
 
             if (!IsActive)
             {
-                Console.WriteLine($"This Grid is not currently active.");
+                GridForgeLogger.Warn($"This Grid is not currently active.");
                 return false;
             }
 
             if (!IsNodeAllocated(x, y, z))
             {
-                Console.WriteLine($"Node at coorinate {(x, y, z)} is has not been allocated to the grid.");
+                GridForgeLogger.Warn($"Node at coorinate {(x, y, z)} is has not been allocated to the grid.");
                 return false;
             }
 
@@ -688,7 +689,7 @@ namespace GridForge.Grids
             int scanCellKey = GlobalGridManager.GetSpawnHash(x, y, z);
             if (!ScanCells.ContainsKey(scanCellKey))
             {
-                Console.WriteLine($"Position {coordinates} is not in the bounds for this grids Scan Cell overlay.");
+                GridForgeLogger.Warn($"Position {coordinates} is not in the bounds for this grids Scan Cell overlay.");
                 return -1;
             }
 

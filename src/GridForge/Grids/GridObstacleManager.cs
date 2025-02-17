@@ -111,7 +111,7 @@ namespace GridForge.Grids
         {
             if (targetNode.ObstacleCount == 0)
             {
-                Console.WriteLine($"No obstacle to remove on node ({targetNode.GlobalCoordinates})!");
+                GridForgeLogger.Warn($"No obstacle to remove on node ({targetNode.GlobalCoordinates})!");
                 return false;
             }
 
@@ -153,7 +153,8 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Node {targetNode.GlobalCoordinates}] Obstacle change error: {ex.Message} | Change: {change}");
+                GridForgeLogger.Error(
+                    $"[Node {targetNode.GlobalCoordinates}] Obstacle change error: {ex.Message} | Change: {change}");
             }
         }
 

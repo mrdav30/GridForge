@@ -131,7 +131,7 @@ namespace GridForge.Grids
         {
             if (IsActive)
             {
-                Console.WriteLine("Global Grid Manager already active.  Call `Reset` before attempting to setup.");
+                GridForgeLogger.Warn("Global Grid Manager already active.  Call `Reset` before attempting to setup.");
                 return;
             }
 
@@ -150,7 +150,7 @@ namespace GridForge.Grids
         {
             if (!IsActive)
             {
-                Console.WriteLine("Global Grid Manager not active.  Call `Setup` before attempting to reset.");
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` before attempting to reset.");
                 return;
             }
 
@@ -160,7 +160,7 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Global Grid reset notification error: {ex.Message}");
+                GridForgeLogger.Error($"Reset notification error: {ex.Message}");
             }
 
             if (ActiveGrids != null)
@@ -189,7 +189,7 @@ namespace GridForge.Grids
             allocatedIndex = ushort.MaxValue;
             if ((uint)ActiveGrids.Count > MaxGrids)
             {
-                Console.WriteLine($"No more grids can be added at this time.");
+                GridForgeLogger.Warn($"No more grids can be added at this time.");
                 return GridAddResult.MaxGridsReached;
             }
 
@@ -197,7 +197,7 @@ namespace GridForge.Grids
                 || configuration.BoundsMax.y < configuration.BoundsMin.y
                 || configuration.BoundsMax.z < configuration.BoundsMin.z)
             {
-                Console.WriteLine("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
+                GridForgeLogger.Error("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
                 return GridAddResult.InvalidBounds;
             }
 
@@ -209,7 +209,7 @@ namespace GridForge.Grids
             {
                 if (BoundsTracker.TryGetValue(hashedBounds, out allocatedIndex))
                 {
-                    Console.WriteLine("A grid with these bounds has already been allocated.");
+                    GridForgeLogger.Warn("A grid with these bounds has already been allocated.");
                     return GridAddResult.AlreadyExists;
                 }
             }
@@ -257,14 +257,7 @@ namespace GridForge.Grids
                 _gridLock.ExitWriteLock();
             }
 
-            try
-            {
-                OnActiveGridChange?.Invoke(GridChange.Add, allocatedIndex);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Grid {allocatedIndex}] notification error: {ex.Message} | Change: {GridChange.Add}");
-            }
+            NotifyActiveGridChange(GridChange.Add, allocatedIndex);
 
             return GridAddResult.Success;
         }
@@ -277,14 +270,8 @@ namespace GridForge.Grids
             if (!ActiveGrids.IsAllocated(removeIndex))
                 return false;
 
-            try
-            {
-                OnActiveGridChange?.Invoke(GridChange.Remove, removeIndex); // Fire off before we remove the reference
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Grid {removeIndex}] notification error: {ex.Message} | Change: {GridChange.Remove}");
-            }
+            // Fire off before we remove the reference
+            NotifyActiveGridChange(GridChange.Remove, removeIndex);
 
             Grid gridToRemove;
             _gridLock.EnterWriteLock();
@@ -341,6 +328,18 @@ namespace GridForge.Grids
             return true;
         }
 
+        private static void NotifyActiveGridChange(GridChange change, uint index)
+        {
+            try
+            {
+                OnActiveGridChange?.Invoke(change, index);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Grid {index}] notification error: {ex.Message} | Change: {change}");
+            }
+        }
+
         /// <summary>
         /// Notifies grids of a change in their structure.
         /// </summary>
@@ -372,13 +371,13 @@ namespace GridForge.Grids
             outGrid = null;
             if ((uint)index > ActiveGrids.Count)
             {
-                Console.WriteLine($"GlobalGridIndex '{index}' is out-of-bounds for ActiveGrids.");
+                GridForgeLogger.Error($"GlobalGridIndex '{index}' is out-of-bounds for ActiveGrids.");
                 return false;
             }
 
             if (!ActiveGrids.IsAllocated(index))
             {
-                Console.WriteLine($"GlobalGridIndex '{index}' has not been allocated to ActiveGrids.");
+                GridForgeLogger.Error($"GlobalGridIndex '{index}' has not been allocated to ActiveGrids.");
                 return false;
             }
 
@@ -409,7 +408,7 @@ namespace GridForge.Grids
                 }
             }
 
-            Console.WriteLine($"No grid contains position {position}.");
+            GridForgeLogger.Info($"No grid contains position {position}.");
             return false;
         }
 

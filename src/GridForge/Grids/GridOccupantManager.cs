@@ -77,7 +77,7 @@ namespace GridForge.Grids
 
             if (occupant.IsNodeOccupant)
             {
-                Console.WriteLine($"Occupant {nameof(occupant)} is already an occupant of another node.");
+                GridForgeLogger.Error($"Occupant {nameof(occupant)} is already an occupant of another node.");
                 return false;
             }
 
@@ -142,7 +142,7 @@ namespace GridForge.Grids
 
             if (!occupant.IsNodeOccupant || occupant.OccupantTicket == -1)
             {
-                Console.WriteLine($"Occupant {nameof(occupant)} is not currently an occupant of any node.");
+                GridForgeLogger.Error($"Occupant {nameof(occupant)} is not currently an occupant of any node.");
                 return false;
             }
 
@@ -163,7 +163,7 @@ namespace GridForge.Grids
                         grid.ActiveScanCells.Remove(targetNode.ScanCellKey);
                         if (!grid.IsOccupied)
                         {
-                            Console.WriteLine($"Releasing unused active scan cells collection.");
+                            GridForgeLogger.Info($"Releasing unused active scan cells collection.");
                             SwiftCollectionPool<SwiftHashSet<int>, int>.Release(grid.ActiveScanCells);
                             grid.ActiveScanCells = null;
                         }
@@ -178,14 +178,7 @@ namespace GridForge.Grids
                 occupant.GridCoordinates = default;
             }
 
-            try
-            {
-                OnOccupantChange?.Invoke(GridChange.Remove, targetNode.GlobalCoordinates);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Node {targetNode.GlobalCoordinates}] Occupant change error: {ex.Message} | Change: {GridChange.Add}");
-            }
+            NotifyOccupantChange(GridChange.Remove, targetNode);
 
             return success;
         }
@@ -205,7 +198,8 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Node {targetNode.GlobalCoordinates}] Occupant change error: {ex.Message} | Change: {change}");
+                GridForgeLogger.Error(
+                    $"[Node {targetNode.GlobalCoordinates}] Occupant change error: {ex.Message} | Change: {change}");
             }
         }
 
