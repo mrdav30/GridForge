@@ -48,8 +48,8 @@
 	<PropertyGroup>
 		<PackageId>GridForge</PackageId>
 		<Authors>mrdav30</Authors>
-		<Description></Description>
-		<PackageTags></PackageTags>
+		<Description>A high-performance, deterministic spatial grid management system for simulations and game development.</Description>
+		<PackageTags>grid, spatial, lockstep, deterministic, pathfinding, game-development, AI</PackageTags>
 		<RepositoryUrl>https://github.com/mrdav30/GridForge</RepositoryUrl>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageIconUrl>https://raw.githubusercontent.com/mrdav30/gridforge/main/icon.png</PackageIconUrl>
