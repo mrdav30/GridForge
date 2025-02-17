@@ -56,7 +56,7 @@ namespace GridForge.Configuration
             int scanCellSize = 8)
         {
             if (min.x > max.x || min.y > max.y || min.z > max.z)
-                Console.WriteLine($"Warning: GridMin was greater than GridMax, auto-correcting values.");
+                GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
 
             // Ensure GridMin <= GridMax for each coordinate axis
             BoundsMin = GlobalGridManager.FloorToNodeSize(new Vector3d(
