@@ -32,6 +32,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+          install-dir: $HOME/.dotnet
+
+      - name: Set .NET Environment Variables
+        run: |
+          echo "DOTNET_ROOT=$HOME/.dotnet" >> $GITHUB_ENV
+          echo "$HOME/.dotnet" >> $GITHUB_PATH
 
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.1
@@ -50,6 +56,11 @@ jobs:
         run: |
           chown -R $(whoami) $(pwd)
           dotnet-gitversion /output json
+          
+      - name: Verify Installations
+        run: |
+          dotnet --info
+          mono --version
 
       - name: Restore dependencies
         run: dotnet restore

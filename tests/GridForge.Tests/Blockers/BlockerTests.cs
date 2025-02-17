@@ -203,7 +203,7 @@ namespace GridForge.Blockers.Tests
 
             int failedCount = blockers.Count(b => !b.IsBlocking);
             // Out of 1000 blockers, only 101 should pass since that's all that will fit in the defined grid
-            Assert.True(failedCount == 899, $"Expected failed blockers: {failedCount} blockers applied.");
+            Assert.True(failedCount == 899, $"Expected 899 failed blockers: {failedCount} blockers failed to apply.");
 
             // 100 blockers should cover 9 nodes, with the last only covering 1
             Assert.True(grid.ObstacleCount >= 901, $"Because the grid's ObstacleCount {grid.ObstacleCount} is not > 900");
