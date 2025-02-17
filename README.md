@@ -1,5 +1,7 @@
 # GridForge
 
+![SwiftCollections Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
+
 **A high-performance, deterministic spatial grid management system for simulations and game development.**  
 
 ---
@@ -15,6 +17,13 @@
 
 ---
 
+## Dependencies
+
+- Requires [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp).
+- Requires [SwiftCollections](https://github.com/mrdav30/SwiftCollections).
+
+---
+
 ## 📦 Installation
 
 ### Non-Unity Projects
@@ -25,20 +34,16 @@
    ```
 2. **Or Download/Clone**:
    ```bash
-   git clone https://github.com/YOUR-REPO/GridForge.git
+   git clone https://github.com/mrdav30/GridForge.git
    ```
 3. **Include in Project**:
    - Add `GridForge` to your solution or reference its compiled DLL.
 
-### Unity Integration
+### Unity
 
-1. **Download the Unity Package**:
-   - Obtain the latest **`GridForge.unitypackage`** from [Releases](https://github.com/YOUR-REPO/GridForge/releases).
-2. **Import into Unity**:
-   - Navigate to **Assets > Import Package > Custom Package...**.
-   - Select the **`GridForge.unitypackage`** file.
-3. **Verify Setup**:
-   - Ensure the `GridForge` namespace is accessible.
+GridForge is maintained as a separate Unity package. For Unity-specific implementations, refer to:
+
+🔗 [GridForge-Unity Repository](https://github.com/mrdav30/GridForge-Unity).
 
 ---
 
@@ -130,9 +135,10 @@ dotnet test
 
 ## 🔄 Compatibility
 
-- **.NET Framework** 4.8+
-- **Unity 2020+**
+- **.NET Framework** 4.7.2+
+- **Unity 2020+** (via - [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity).)
 - **Supports FixedMathSharp for deterministic precision**
+- **Supports SwiftCollections for optimal performance**
 
 ---
 
