@@ -27,7 +27,7 @@ namespace GridForge.Spatial
         /// <summary>
         /// The absolute world-space position of the occupant, representing its precise location in the environment.
         /// </summary>
-        Vector3d WorldPosition { get; set; }
+        Vector3d WorldPosition { get; }
 
         /// <summary>
         /// The global grid coordinates of the <see cref="Node"/> this occupant is being added to.
