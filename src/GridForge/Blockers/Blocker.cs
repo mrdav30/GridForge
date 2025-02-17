@@ -117,7 +117,7 @@ namespace GridForge.Blockers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Blocker] Error in blockage notification: {ex.Message} | Change: {change} | Bounds: {CacheMin} -> {CacheMax}");
+                GridForgeLogger.Error($"Blockage notification: {ex.Message} | Change: {change} | Bounds: {CacheMin} -> {CacheMax}");
             }
         }
 

@@ -205,7 +205,7 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error attempting to call {nameof(partition.OnAddToNode)} on {partitionName}: {ex.Message}");
+                GridForgeLogger.Error($"Error attempting to call {nameof(partition.OnAddToNode)} on {partitionName}: {ex.Message}");
             }
 
             return true;
@@ -223,14 +223,14 @@ namespace GridForge.Grids
             int key = GetPartitionKey(partitionName);
             if (!_partitions.TryGetValue(key, out INodePartition partition))
             {
-                Console.WriteLine($"Partition {partitionName} not found on this node.");
+                GridForgeLogger.Warn($"Partition {partitionName} not found on this node.");
                 return false;
             }
 
             _partitions.Remove(key);
             if (_partitions.Count == 0)
             {
-                Console.WriteLine($"Releasing Node's unused Partitions collection.");
+                GridForgeLogger.Info($"Releasing Node's unused Partitions collection.");
                 _partitions = null;
                 IsPartioned = false;
             }
@@ -241,7 +241,8 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
+                GridForgeLogger.Error(
+                    $"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
             }
 
             return true;
