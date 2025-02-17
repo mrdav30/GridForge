@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <LangVersion>9.0</LangVersion>
-    <TargetFramework>net481</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
 	<ProjectGuid>{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}</ProjectGuid>
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-	<Configurations>Debug;Release;DebugUnity;ReleaseUnity</Configurations>
+	<Configurations>Debug;Release</Configurations>
   </PropertyGroup>
   <ItemGroup>
   	<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
