@@ -149,6 +149,7 @@ namespace GridForge.Grids
             try
             {
                 OnObstacleChange?.Invoke(change, targetNode.GlobalCoordinates);
+                targetNode.OnObstacleChange?.Invoke(change, targetNode);
                 targetNode.CachedGridVersion = gridVersion;
             }
             catch (Exception ex)

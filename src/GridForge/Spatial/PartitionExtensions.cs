@@ -1,19 +1,21 @@
-﻿namespace GridForge.Spatial
+﻿using GridForge.Grids;
+
+namespace GridForge.Spatial
 {
     public static class PartitionExtensions
     {
-        public static void AddToNode(this INodePartition partition, CoordinatesGlobal parentCoordinates)
+        public static void AddToNode(this INodePartition partition, Node node)
         {
-            partition.ParentCoordinate = parentCoordinates;
+            partition.ParentCoordinate = node.GlobalCoordinates;
             partition.IsPartitioned = true;
-            partition.OnAddToNode();
+            partition.OnAddToNode(node);
         }
 
-        public static void RemoveFromNode(this INodePartition partition)
+        public static void RemoveFromNode(this INodePartition partition, Node node)
         {
             partition.ParentCoordinate = default;
             partition.IsPartitioned = false;
-            partition.OnRemoveFromNode();
+            partition.OnRemoveFromNode(node);
         }
     }
 }
