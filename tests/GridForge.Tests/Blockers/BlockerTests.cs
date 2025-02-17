@@ -201,7 +201,8 @@ namespace GridForge.Blockers.Tests
                 blocker.ApplyBlockage();
             }
 
-            Assert.True(grid.ObstacleCount > 900); // Ensure most blockers applied correctly
+            // Ensure most blockers applied correctly
+            Assert.True(grid.ObstacleCount > 900, $"Because the grid's ObstacleCount {grid.ObstacleCount} is not > 900"); 
         }
 
         [Fact]
