@@ -80,12 +80,8 @@ GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
 ### **🔹 Querying a Grid for Nodes**
 ```csharp
 Vector3d queryPosition = new Vector3d(5, 0, 5);
-if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid))
-{
-    if (grid.TryGetNode(queryPosition, out Node node))
-    {
-        Console.WriteLine($"Node at {queryPosition} is {(node.IsOccupied ? "occupied" : "empty")}");
-    }
+if (GlobalGridManager.TryGetGridAndNode(queryPosition, out Grid grid, out Node node))
+	Console.WriteLine($"Node at {queryPosition} is {(node.IsOccupied ? "occupied" : "empty")}");
 }
 ```
 
@@ -98,7 +94,7 @@ blocker.ApplyBlockage();
 
 ### **🔹 Attaching a Partition to a Node**
 ```csharp
-if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid) && grid.TryGetNode(queryPosition, out Node node))
+if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid, out Node node))
 {
     PathPartition partition = new PathPartition();
     partition.Setup(node.GlobalCoordinates);
