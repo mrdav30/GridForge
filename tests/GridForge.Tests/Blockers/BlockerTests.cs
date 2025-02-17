@@ -75,8 +75,8 @@ namespace GridForge.Blockers.Tests
         public void RemovingOneBlocker_ShouldNotAffectOthers()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(
-                new Vector3d(-40, 0, -40), 
-                new Vector3d(-30, 0, -30)), 
+                new Vector3d(-40, 0, -40),
+                new Vector3d(-30, 0, -30)),
                 out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
@@ -85,10 +85,10 @@ namespace GridForge.Blockers.Tests
             Assert.NotNull(node);
 
             BoundingArea boundingArea1 = new BoundingArea(
-                new Vector3d(-40, 0, -40), 
+                new Vector3d(-40, 0, -40),
                 new Vector3d(-39.5, 0, -39.5));
             BoundingArea boundingArea2 = new BoundingArea(
-                new Vector3d(-39.5, 0, -39.5), 
+                new Vector3d(-39.5, 0, -39.5),
                 new Vector3d(-39, 0, -39));
 
             var blocker1 = new BoundsBlocker(boundingArea1);
@@ -106,8 +106,8 @@ namespace GridForge.Blockers.Tests
         public void DeactivatingBlocker_ShouldPreventApplication()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(
-                new Vector3d(-65, 0, -65), 
-                new Vector3d(-60, 0, -60)), 
+                new Vector3d(-65, 0, -65),
+                new Vector3d(-60, 0, -60)),
                 out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
@@ -165,11 +165,11 @@ namespace GridForge.Blockers.Tests
         {
             GlobalGridManager.TryAddGrid(
                 new GridConfiguration(new Vector3d(-40, 0, -40),
-                new Vector3d(-30, 0, -30)), 
+                new Vector3d(-30, 0, -30)),
                 out ushort grid1);
             GlobalGridManager.TryAddGrid(
-                new GridConfiguration(new Vector3d(-30, 0, -30), 
-                new Vector3d(-20, 0, -20)), 
+                new GridConfiguration(new Vector3d(-30, 0, -30),
+                new Vector3d(-20, 0, -20)),
                 out ushort grid2);
 
             BoundingArea boundingArea = new BoundingArea(new Vector3d(-31, 0, -31), new Vector3d(-29, 0, -29));
@@ -201,8 +201,12 @@ namespace GridForge.Blockers.Tests
                 blocker.ApplyBlockage();
             }
 
-            // Ensure most blockers applied correctly
-            Assert.True(grid.ObstacleCount > 900, $"Because the grid's ObstacleCount {grid.ObstacleCount} is not > 900"); 
+            int failedCount = blockers.Count(b => !b.IsBlocking);
+            // Out of 1000 blockers, only 101 should pass since that's all that will fit in the defined grid
+            Assert.True(failedCount == 899, $"Expected failed blockers: {failedCount} blockers applied.");
+
+            // 100 blockers should cover 9 nodes, with the last only covering 1
+            Assert.True(grid.ObstacleCount >= 901, $"Because the grid's ObstacleCount {grid.ObstacleCount} is not > 900");
         }
 
         [Fact]
