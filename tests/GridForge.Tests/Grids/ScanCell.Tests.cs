@@ -125,7 +125,7 @@ namespace GridForge.Grids.Tests
             // Verify only ClusterKey 1 occupants are removed, but ClusterKey 2 still exists
             bool hasCluster2Occupants = grid.GetConditionalOccupants(
                 position, 
-                key => key == 2).IsNotNullOrEmpty();
+                key => key == 2).IsPopulatedSafe();
 
             Assert.True(hasCluster2Occupants); // ClusterKey 2 should still be occupied
         }
