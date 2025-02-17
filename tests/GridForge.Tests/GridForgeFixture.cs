@@ -10,6 +10,7 @@ namespace GridForge.Grids.Tests
     {
         public GridForgeFixture()
         {
+            GridForgeLogger.Verbosity = GridForgeLogger.LogLevel.Error;
             GlobalGridManager.Setup();
         }
 
