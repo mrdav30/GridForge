@@ -101,7 +101,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Determines if this node can accept additional obstacles.
         /// </summary>
-        public bool IsBlockable => IsAllocated 
+        public bool IsBlockable => IsAllocated
             && ObstacleCount < GridObstacleManager.MaxObstacleCount
             && !IsOccupied;
 
@@ -117,16 +117,30 @@ namespace GridForge.Grids
 
         #endregion
 
+        #region Events
+
+        /// <summary>
+        /// Event triggered when an obstacle is added or removed.
+        /// </summary>
+        public Action<GridChange, Node> OnObstacleChange;
+
+        /// <summary>
+        /// Event triggered when an occupant is added or removed.
+        /// </summary>
+        public Action<GridChange, Node> OnOccupantChange;
+
+        #endregion
+
         #region Initialization & Reset
 
         /// <summary>
         /// Configures the node with its position, grid version, and boundary status.
         /// </summary>
         internal void Initialize(
-            CoordinatesGlobal coordinates, 
-            Vector3d position, 
-            int scanCellKey, 
-            bool isBoundaryNode, 
+            CoordinatesGlobal coordinates,
+            Vector3d position,
+            int scanCellKey,
+            bool isBoundaryNode,
             uint gridVersion)
         {
             ScanCellKey = scanCellKey;
@@ -151,7 +165,17 @@ namespace GridForge.Grids
             if (_partitions != null)
             {
                 foreach (INodePartition partition in _partitions.Values)
-                    partition.OnRemoveFromNode();
+                {
+                    try
+                    {
+                        partition.RemoveFromNode(this);
+                    }
+                    catch (Exception ex)
+                    {
+                        GridForgeLogger.Error(
+                            $"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partition.GetType().Name}: {ex.Message}");
+                    }
+                }
                 _partitions = null;
             }
 
@@ -201,7 +225,7 @@ namespace GridForge.Grids
 
             try
             {
-                partition.AddToNode(GlobalCoordinates);
+                partition.AddToNode(this);
             }
             catch (Exception ex)
             {
@@ -237,7 +261,7 @@ namespace GridForge.Grids
 
             try
             {
-                partition.RemoveFromNode();
+                partition.RemoveFromNode(this);
             }
             catch (Exception ex)
             {

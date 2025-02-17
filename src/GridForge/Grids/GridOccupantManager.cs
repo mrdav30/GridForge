@@ -195,6 +195,7 @@ namespace GridForge.Grids
             try
             {
                 OnOccupantChange?.Invoke(change, targetNode.GlobalCoordinates);
+                targetNode.OnOccupantChange?.Invoke(change, targetNode);
             }
             catch (Exception ex)
             {

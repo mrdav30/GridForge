@@ -21,12 +21,12 @@ namespace GridForge.Spatial
         /// <summary>
         /// Called when adding this partition to a <see cref="Node"/>.
         /// </summary>
-        void OnAddToNode();
+        void OnAddToNode(Node node);
 
         /// <summary>
         /// Called when this partition is removed from a <see cref="Node"/>.
         /// Cleans up any associated data.
         /// </summary>
-        void OnRemoveFromNode();
+        void OnRemoveFromNode(Node node);
     }
 }
