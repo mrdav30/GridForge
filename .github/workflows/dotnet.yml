@@ -22,6 +22,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          
+      - name: Install Mono (required for .NET Framework tests on Linux)
+        run: |
+          sudo apt update
+          sudo apt install -y mono-complete
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -57,7 +62,8 @@ jobs:
       - name: Test
         run: |
           dotnet --info
-          dotnet test ${{github.workspace}}/tests/GridForge.Tests/bin/Release/net48/GridForge.Tests.dll --verbosity normal
+          mono --version
+          mono ${{github.workspace}}/tests/GridForge.Tests/bin/Release/net48/GridForge.Tests.dll --verbosity normal
 
   build-and-test-windows:
     if: |
