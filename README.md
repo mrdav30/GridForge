@@ -17,13 +17,6 @@
 
 ---
 
-## Dependencies
-
-- Requires [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp).
-- Requires [SwiftCollections](https://github.com/mrdav30/SwiftCollections).
-
----
-
 ## 📦 Installation
 
 ### Non-Unity Projects
@@ -44,6 +37,17 @@
 GridForge is maintained as a separate Unity package. For Unity-specific implementations, refer to:
 
 🔗 [GridForge-Unity Repository](https://github.com/mrdav30/GridForge-Unity).
+
+---
+
+## 🧩 Dependencies
+
+GridForge depends on the following libraries:
+
+- [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp)
+- [SwiftCollections](https://github.com/mrdav30/SwiftCollections)
+
+These dependencies are automatically included when installing.
 
 ---
 
