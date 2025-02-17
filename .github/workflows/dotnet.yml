@@ -48,11 +48,6 @@ jobs:
           chown -R $(whoami) $(pwd)
           dotnet-gitversion /output json
           
-      - name: Verify Installations
-        run: |
-          dotnet --info
-          mono --version
-
       - name: Restore dependencies
         run: dotnet restore
 
@@ -64,8 +59,7 @@ jobs:
       - name: Test
         run: |
           dotnet --info
-          mono --version
-          mono ${{github.workspace}}/tests/GridForge.Tests/bin/Release/net48/GridForge.Tests.dll --verbosity normal
+          dotnet test ${{github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal
 
   build-and-test-windows:
     if: |
