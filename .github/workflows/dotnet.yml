@@ -16,6 +16,8 @@ jobs:
       || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork 
       || startsWith(github.head_ref, 'dependabot/')))
     runs-on: ubuntu-latest
+    container:
+      image: unityci/editor:ubuntu-2022.3.20f1-windows-mono-3.1.0 # because it already has mono
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,21 +25,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           
-      - name: Install Mono (required for .NET Framework tests on Linux)
-        run: |
-          sudo apt update
-          sudo apt install -y mono-complete
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-          install-dir: $HOME/.dotnet
-
-      - name: Set .NET Environment Variables
-        run: |
-          echo "DOTNET_ROOT=$HOME/.dotnet" >> $GITHUB_ENV
-          echo "$HOME/.dotnet" >> $GITHUB_PATH
 
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.1
