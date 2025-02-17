@@ -112,14 +112,6 @@ foreach (INodeOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadius
 }
 ```
 
-## 🎮 Unity Debugging Tools
-
-GridForge includes **editor utilities** for debugging:
-
-- **GridDebugger** – Visualizes **grids, nodes, and selected areas**.
-- **GridTracer Debuging** – Helps debug **line-of-sight & navigation**.
-- **Blocker Editor** – Allows **visual blocker placement** via Unity Inspector.
-
 ---
 
 ## 🧪 Testing and Validation
