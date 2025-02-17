@@ -51,13 +51,13 @@ jobs:
 
       - name: Build Solution
         run: |
-          echo "Version:${{ env.GitVersion_FullSemVer }}\nAssembley Version:${{env.GitVersion_AssemblySemFileVer }}"
+          echo "Version:${{ env.FullSemVer }}\nAssembley Version:${{env.AssemblySemFileVer }}"
           dotnet build --configuration Release --no-restore
 
       - name: Test
         run: |
           dotnet --info
-          dotnet test ${{ github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal
+          dotnet test ${{github.workspace}}/tests/GridForge.Tests/bin/Release/net48/GridForge.Tests.dll --verbosity normal
 
   build-and-test-windows:
     if: |
@@ -68,7 +68,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -103,4 +106,4 @@ jobs:
       - name: Test
         run: |
           dotnet --info
-          dotnet test ${{ github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal
+          dotnet test ${{github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal
