@@ -142,6 +142,9 @@ namespace GridForge.Utility
         {
             SwiftDictionary<Grid, SwiftHashSet<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftHashSet<Node>>();
 
+            Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
+            Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
+
             foreach (int cellIndex in GlobalGridManager.GetSpatialCells(boundsMin, boundsMax))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
@@ -160,9 +163,6 @@ namespace GridForge.Utility
 
                     SwiftHashSet<Node> nodeList = SwiftCollectionPool<SwiftHashSet<Node>, Node>.Rent();
                     gridNodeMapping.Add(currentGrid, nodeList);
-
-                    Vector3d snappedMin = currentGrid.FloorToGrid(boundsMin);
-                    Vector3d snappedMax = currentGrid.CeilToGrid(boundsMax);
 
                     Fixed64 resolution = GlobalGridManager.NodeSize;
                     for (Fixed64 x = snappedMin.x; x <= snappedMax.x; x += resolution)
@@ -205,6 +205,9 @@ namespace GridForge.Utility
             SwiftHashSet<ScanCell> scanCells = SwiftCollectionPool<SwiftHashSet<ScanCell>, ScanCell>.Rent();
             SwiftHashSet<ushort> processedGrids = SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Rent();
 
+            Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
+            Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
+
             foreach (int cellIndex in GlobalGridManager.GetSpatialCells(boundsMin, boundsMax))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
@@ -216,10 +219,6 @@ namespace GridForge.Utility
                         continue;
 
                     Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
-
-                    // Snap to node grid positions
-                    Vector3d snappedMin = currentGrid.FloorToGrid(boundsMin);
-                    Vector3d snappedMax = currentGrid.CeilToGrid(boundsMax);
 
                     // Convert snapped min/max to node indices
                     (int xMin, int yMin, int zMin) = (

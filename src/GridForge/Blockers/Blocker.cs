@@ -69,19 +69,27 @@ namespace GridForge.Blockers
                 CacheMin.GetHashCode(),
                 CacheMax.GetHashCode());
 
+            bool hasCoverage = false;
             // Iterate over all affected nodes and apply obstacles
             foreach (GridNodeSet covered in GridTracer.GetCoveredNodes(CacheMin, CacheMax))
             {
+                if (covered.Nodes.Count <= 0)
+                    continue;
+
+                hasCoverage = true;
+
                 foreach (Node node in covered.Nodes)
                     covered.Grid.TryAddObstacle(node, BlockageToken);
 
-                if(CacheCoveredNodes)
+                if (CacheCoveredNodes)
                     _cachedCoveredNodes.Add(covered);
             }
 
-            IsBlocking = true;
-
-            NotifyBlockageChanged(GridChange.Add);
+            if (hasCoverage)
+            {
+                IsBlocking = true;
+                NotifyBlockageChanged(GridChange.Add);
+            }
         }
 
         /// <summary>
@@ -92,8 +100,8 @@ namespace GridForge.Blockers
             if (!IsBlocking)
                 return;
 
-            IEnumerable<GridNodeSet> coveredNodes = CacheCoveredNodes 
-                ? _cachedCoveredNodes 
+            IEnumerable<GridNodeSet> coveredNodes = CacheCoveredNodes
+                ? _cachedCoveredNodes
                 : GridTracer.GetCoveredNodes(CacheMin, CacheMax);
 
             // Clear the obstacle markers from all affected nodes before resetting the blocker state
