@@ -44,22 +44,21 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Determine Version
-        run: |
-          chown -R $(whoami) $(pwd)
-          dotnet-gitversion /output json
+        id: version_step
+        uses: gittools/actions/gitversion/execute@v3.1.11
           
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Build Solution
         run: |
-          echo "Version:${{ env.FullSemVer }}\nAssembley Version:${{env.AssemblySemFileVer }}"
+          echo "Version: ${{ steps.version_step.outputs.fullSemVer }}\nAssembley Version: ${{ steps.version_step.outputs.fullSemVer }}"
           dotnet build --configuration Release --no-restore
 
       - name: Test
         run: |
           dotnet --info
-          dotnet test --configuration Release --verbosity normal
+          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net472/xunit.console.exe tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
 
   # build-and-test-windows:
     # if: |
