@@ -59,8 +59,7 @@ jobs:
       - name: Test
         run: |
           dotnet --info
-          dotnet test --help
-          dotnet test ${{github.workspace}}/tests/GridForge.Tests/bin/Release/net48/GridForge.Tests.dll --verbosity normal
+          dotnet test ${{github.workspace}}/tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --verbosity normal
 
   # build-and-test-windows:
     # if: |
