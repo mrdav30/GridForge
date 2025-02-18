@@ -46,6 +46,7 @@ jobs:
       - name: Determine Version
         id: version_step
         run: |
+          chown -R $(whoami) $(pwd)
           dotnet-gitversion /output json
           
       - name: Restore dependencies
