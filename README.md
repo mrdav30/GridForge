@@ -2,6 +2,8 @@
 
 ![SwiftCollections Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
 
+[![.NET CI](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml)
+
 **A high-performance, deterministic spatial grid management system for simulations and game development.**  
 
 ---
