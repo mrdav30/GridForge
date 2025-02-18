@@ -294,7 +294,7 @@ namespace GridForge.Grids
 
 #if DEBUG
             long usedMem = GC.GetTotalMemory(true) - startMem;
-            Console.WriteLine($"Grid generated using {usedMem} Bytes.");
+            GridForgeLogger.Info($"Grid generated using {usedMem} Bytes.");
 #endif
         }
 
