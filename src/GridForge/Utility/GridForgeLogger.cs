@@ -35,7 +35,7 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets or sets the minimum log level required for messages to be logged.
     /// </summary>
-    public static LogLevel MinimumLogLevel { get; set; } = LogLevel.Info;
+    public static LogLevel Verbosity { get; set; } = LogLevel.Info;
 
     /// <summary>
     /// Synchronization lock for thread-safe logging.
@@ -50,7 +50,7 @@ public static class GridForgeLogger
     /// <param name="source">The source of the log message (e.g., calling method).</param>
     private static void DefaultLogHandler(LogLevel level, string message, string source)
     {
-        if (level < MinimumLogLevel)
+        if (level < Verbosity)
             return;
 
         lock (_lock)

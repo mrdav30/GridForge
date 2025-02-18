@@ -1,0 +1,116 @@
+name: .NET CI
+'on':
+  push:
+    branches-ignore:
+      - dependabot/**
+      - gh-pages
+    tags-ignore:
+      - v*
+  pull_request:
+    branches:
+      - main
+jobs:
+  build-and-test-linux:
+    if: |
+      (github.event_name != 'pull_request' && !github.event.pull_request.head.repo.fork) 
+      || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork 
+      || startsWith(github.head_ref, 'dependabot/')))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Mono (required for .NET Framework tests on Linux)
+        run: |
+          sudo apt update
+          sudo apt install -y mono-complete    
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3.1.1
+        with:
+          versionSpec: 6.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: '${{ runner.os }}-nuget-${{ hashFiles(''**/*.csproj'', ''**/*.sln'') }}'
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Determine Version
+        id: version_step
+        run: |
+          chown -R $(whoami) $(pwd)
+          dotnet-gitversion /output json
+          
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build Solution
+        run: |
+          echo "Version: ${{ steps.version_step.outputs.fullSemVer }}\nAssembley Version: ${{ steps.version_step.outputs.fullSemVer }}"
+          dotnet build --configuration Debug --no-restore
+
+      - name: Test
+        run: |
+          dotnet --info
+          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net472/xunit.console.exe ${{github.workspace}}/tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
+
+  build-and-test-windows:
+    if: |
+      (github.event_name != 'pull_request' && !github.event.pull_request.head.repo.fork) 
+      || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork 
+      || startsWith(github.head_ref, 'dependabot/')))
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3.1.1
+        with:
+          versionSpec: 6.0.x
+          
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: '${{ runner.os }}-nuget-${{ hashFiles(''**/*.csproj'', ''**/*.sln'') }}'
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Determine Version
+        run: |
+          chown -R $(whoami) $(pwd)
+          dotnet-gitversion /output json
+          
+      - name: Restore dependencies
+        run: dotnet restore
+        
+      - name: Build Solution
+        run: |
+          echo "Version:${{ env.GitVersion_FullSemVer }}\nAssembley Version:${{env.GitVersion_AssemblySemFileVer }}"
+          dotnet build --configuration Release --no-restore
+          
+      - name: Test
+        run: |
+          dotnet --info
+          dotnet test ${{github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal

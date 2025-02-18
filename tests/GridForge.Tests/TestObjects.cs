@@ -10,8 +10,8 @@ namespace GridForge.Grids.Tests
 
         public bool IsPartitioned { get; set; }
 
-        public void OnAddToNode() { }
-        public void OnRemoveFromNode() { }
+        public void OnAddToNode(Node node) { }
+        public void OnRemoveFromNode(Node node) { }
     }
 
     public class TestOccupant : INodeOccupant
