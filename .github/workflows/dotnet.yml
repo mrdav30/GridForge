@@ -64,7 +64,7 @@ jobs:
       - name: Test
         run: |
           dotnet --info
-          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net472/xunit.console.exe tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
+          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net472/xunit.console.exe ${{github.workspace}}/tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
 
   # build-and-test-windows:
     # if: |
