@@ -30,6 +30,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Install Mono (required for .NET Framework tests on Linux)
+        run: |
+          sudo apt update
+          sudo apt install -y mono-complete    
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.1
         with:
