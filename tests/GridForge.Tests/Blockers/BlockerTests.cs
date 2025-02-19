@@ -209,13 +209,13 @@ namespace GridForge.Blockers.Tests
         [Fact]
         public void Blockers_ShouldBeThreadSafe()
         {
-            GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
+            GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-200, 0, -200), new Vector3d(-100, 0, -100)), out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Parallel.For(0, 100, i =>
             {
-                Vector3d min = new Vector3d(-50 + i, 0, -50 + i);
-                Vector3d max = new Vector3d(-49 + i, 0, -49 + i);
+                Vector3d min = new Vector3d(-200 + i, 0, -200 + i);
+                Vector3d max = new Vector3d(-199 + i, 0, -199 + i);
                 var blocker = new BoundsBlocker(new BoundingArea(min, max));
                 blocker.ApplyBlockage();
             });
