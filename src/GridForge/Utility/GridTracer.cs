@@ -9,7 +9,7 @@ namespace GridForge.Utility
     public struct GridNodeSet
     {
         public Grid Grid;
-        public SwiftHashSet<Node> Nodes;
+        public SwiftList<Node> Nodes;
     }
 
     /// <summary>
@@ -35,10 +35,25 @@ namespace GridForge.Utility
             Vector3d end,
             bool includeEnd = true)
         {
-            SwiftDictionary<Grid, SwiftHashSet<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftHashSet<Node>>();
+            SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+
+            Vector3d snappedStart = GlobalGridManager.FloorToNodeSize(start);
+            Vector3d snappedEnd = GlobalGridManager.CeilToNodeSize(end);
+
+            Vector3d diff = snappedEnd - snappedStart;
+            Vector3d delta = Vector3d.Abs(diff);
+
+            // Determine the total number of points to trace along the longest axis
+            Fixed64 steps = FixedMath.Ceiling(FixedMath.Max(FixedMath.Max(delta.x, delta.y), delta.z));
+
+            // Calculate the interval (step size) for each axis
+            Fixed64 stepX = diff.x / (steps + Fixed64.One);
+            Fixed64 stepY = diff.y / (steps + Fixed64.One);
+            Fixed64 stepZ = diff.z / (steps + Fixed64.One);
 
             // Get affected spatial cells along the traced line
-            foreach (int cellIndex in GlobalGridManager.GetSpatialCells(start, end))
+            foreach (int cellIndex in GlobalGridManager.GetSpatialCells(snappedStart, snappedEnd))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
@@ -49,60 +64,43 @@ namespace GridForge.Utility
                         continue;
 
                     Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
-
                     // If grid has already been processed, skip it
                     if (gridNodeMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftHashSet<Node> nodeList = SwiftCollectionPool<SwiftHashSet<Node>, Node>.Rent();
+                    SwiftList<Node> nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
                     gridNodeMapping.Add(currentGrid, nodeList);
 
-                    // Calculate snapped positions within this grid
-                    Vector3d snappedStart = currentGrid.FloorToGrid(start);
-                    Vector3d snappedEnd = currentGrid.CeilToGrid(end);
-
-                    Vector3d diff = snappedEnd - snappedStart;
-                    Vector3d delta = Vector3d.Abs(diff);
-
-                    // Determine the total number of points to trace along the longest axis
-                    Fixed64 steps = FixedMath.Round(FixedMath.Max(FixedMath.Max(delta.x, delta.y), delta.z)) + Fixed64.One;
-
-                    // Calculate the interval (step size) for each axis
-                    Fixed64 nodeSize = GlobalGridManager.NodeSize;
-                    Fixed64 stepX = diff.x / (steps + nodeSize);
-                    Fixed64 stepY = diff.y / (steps + nodeSize);
-                    Fixed64 stepZ = diff.z / (steps + nodeSize);
-
                     // Traverse the grid along the computed line
-                    for (Fixed64 i = nodeSize; i <= steps; i += nodeSize)
+                    for (Fixed64 i = Fixed64.Zero; i <= steps; i += Fixed64.One)
                     {
-                        Vector3d tracePos = new Vector3d(
-                            start.x + stepX * i,
-                            start.y + stepY * i,
-                            start.z + stepZ * i
-                        );
+                        Vector3d tracePos = GlobalGridManager.FloorToNodeSize(
+                            new Vector3d(start.x + stepX * i, start.y + stepY * i, start.z + stepZ * i));
 
-                        if (!currentGrid.TryGetNode(tracePos, out Node node))
+                        if (!currentGrid.TryGetNode(tracePos, out Node node) || !nodeRedundancyCheck.Add(node.SpawnToken))
                             continue;
 
                         nodeList.Add(node);
                     }
+
                 }
             }
 
             // Include end node if needed
             if (includeEnd && GlobalGridManager.TryGetGridAndNode(end, out Grid endGrid, out Node endNode))
             {
-                if (!gridNodeMapping.TryGetValue(endGrid, out SwiftHashSet<Node> nodeList))
+                if (!gridNodeMapping.TryGetValue(endGrid, out SwiftList<Node> nodeList))
                 {
-                    nodeList = SwiftCollectionPool<SwiftHashSet<Node>, Node>.Rent();
+                    nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
                     gridNodeMapping.Add(endGrid, nodeList);
                 }
-                nodeList.Add(endNode);
+
+                if (nodeRedundancyCheck.Add(endNode.SpawnToken))
+                    nodeList.Add(endNode);
             }
 
             // Yield grouped results
-            foreach (var kvp in gridNodeMapping)
+            foreach (KeyValuePair<Grid, SwiftList<Node>> kvp in gridNodeMapping)
             {
                 yield return new GridNodeSet
                 {
@@ -110,8 +108,10 @@ namespace GridForge.Utility
                     Nodes = kvp.Value
                 };
 
-                SwiftCollectionPool<SwiftHashSet<Node>, Node>.Release(kvp.Value);
+                SwiftCollectionPool<SwiftList<Node>, Node>.Release(kvp.Value);
             }
+
+            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
         }
 
         /// <summary>
@@ -140,7 +140,8 @@ namespace GridForge.Utility
         /// <param name="boundsMax">The maximum corner of the bounding area.</param>
         public static IEnumerable<GridNodeSet> GetCoveredNodes(Vector3d boundsMin, Vector3d boundsMax)
         {
-            SwiftDictionary<Grid, SwiftHashSet<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftHashSet<Node>>();
+            SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
 
             Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
             Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
@@ -161,7 +162,7 @@ namespace GridForge.Utility
                     if (gridNodeMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftHashSet<Node> nodeList = SwiftCollectionPool<SwiftHashSet<Node>, Node>.Rent();
+                    SwiftList<Node> nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
                     gridNodeMapping.Add(currentGrid, nodeList);
 
                     Fixed64 resolution = GlobalGridManager.NodeSize;
@@ -172,7 +173,7 @@ namespace GridForge.Utility
                             for (Fixed64 z = snappedMin.z; z <= snappedMax.z; z += resolution)
                             {
                                 Vector3d position = new Vector3d(x, y, z);
-                                if (!currentGrid.TryGetNode(position, out Node node))
+                                if (!currentGrid.TryGetNode(position, out Node node) || !nodeRedundancyCheck.Add(node.SpawnToken))
                                     continue;
 
                                 nodeList.Add(node);
@@ -190,8 +191,10 @@ namespace GridForge.Utility
                     Nodes = kvp.Value
                 };
 
-                SwiftCollectionPool<SwiftHashSet<Node>, Node>.Release(kvp.Value);
+                SwiftCollectionPool<SwiftList<Node>, Node>.Release(kvp.Value);
             }
+
+            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
         }
 
         /// <summary>
@@ -202,8 +205,9 @@ namespace GridForge.Utility
         /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
         public static IEnumerable<ScanCell> GetCoveredScanCells(Vector3d boundsMin, Vector3d boundsMax)
         {
-            SwiftHashSet<ScanCell> scanCells = SwiftCollectionPool<SwiftHashSet<ScanCell>, ScanCell>.Rent();
+            SwiftList<ScanCell> scanCells = SwiftCollectionPool<SwiftList<ScanCell>, ScanCell>.Rent();
             SwiftHashSet<ushort> processedGrids = SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Rent();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
 
             Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
             Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
@@ -240,8 +244,11 @@ namespace GridForge.Utility
                         {
                             for (int z = zMin; z <= zMax; z++)
                             {
-                                if (!currentGrid.TryGetScanCell(GlobalGridManager.GetSpawnHash(x, y, z), out ScanCell scanCell))
+                                if (!currentGrid.TryGetScanCell(GlobalGridManager.GetSpawnHash(x, y, z), out ScanCell scanCell)
+                                    || !nodeRedundancyCheck.Add(scanCell.SpawnToken))
+                                {
                                     continue;
+                                }
 
                                 scanCells.Add(scanCell);
                             }
@@ -253,8 +260,9 @@ namespace GridForge.Utility
             foreach (ScanCell scanCell in scanCells)
                 yield return scanCell;
 
-            SwiftCollectionPool<SwiftHashSet<ScanCell>, ScanCell>.Release(scanCells);
+            SwiftCollectionPool<SwiftList<ScanCell>, ScanCell>.Release(scanCells);
             SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Release(processedGrids);
+            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
         }
     }
 }

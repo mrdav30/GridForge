@@ -11,6 +11,11 @@ namespace GridForge.Configuration
     [Serializable]
     public struct GridConfiguration
     {
+        /// <summary>
+        /// The default size of each scan cell.
+        /// </summary>
+        public const int DefaultScanCellSize = 8;
+
         #region Properties
 
         /// <summary>
@@ -53,9 +58,9 @@ namespace GridForge.Configuration
         public GridConfiguration(
             Vector3d min,
             Vector3d max,
-            int scanCellSize = 8)
+            int scanCellSize = DefaultScanCellSize)
         {
-            if (min.x > max.x || min.y > max.y || min.z > max.z)
+            if (min > max)
                 GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
 
             // Ensure GridMin <= GridMax for each coordinate axis
@@ -74,7 +79,7 @@ namespace GridForge.Configuration
             // Calculate the center point of the corrected boundaries
             GridCenter = (BoundsMin + BoundsMax) / 2;
 
-            ScanCellSize = scanCellSize;
+            ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
 
             IsAllocated = true;
         }
