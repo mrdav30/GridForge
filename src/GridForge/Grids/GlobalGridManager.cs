@@ -23,19 +23,29 @@ namespace GridForge.Grids
         public const ushort MaxGrids = ushort.MaxValue - 1;
 
         /// <summary>
-        /// The size of a spatial hash cell used for grid lookup.
+        /// The default size of each grid node in world units.
         /// </summary>
-        private const int SpatialGridSize = 50;
+        public static readonly Fixed64 DefaultNodeSize = Fixed64.One;
 
+        /// <summary>
+        /// The default size of a spatial hash cell used for grid lookup.
+        /// </summary>
+        public const int DefaultSpatialGridCellSize = 50;
+        
         /// <summary>
         /// The size of each grid node in world units.
         /// </summary>
-        public static readonly Fixed64 NodeSize = new Fixed64(0.5f);
+        public static Fixed64 NodeSize { get; private set; }
+
+        /// <summary>
+        /// The size of a spatial hash cell used for grid lookup.
+        /// </summary>
+        public static int SpatialGridCellSize { get; private set; }
 
         /// <summary>
         /// Resolution for snapping or searching within the grid (half of NodeSize).
         /// </summary>
-        public static readonly Fixed64 NodeResolution = NodeSize * Fixed64.Half;
+        public static Fixed64 NodeResolution = NodeSize * Fixed64.Half;
 
         #endregion
 
@@ -127,13 +137,21 @@ namespace GridForge.Grids
         /// <summary>
         /// Initializes necessary collections for managing grids.
         /// </summary>
-        public static void Setup()
+        public static void Setup() => Setup(DefaultNodeSize, DefaultSpatialGridCellSize);
+
+        /// <inheritdoc cref="Setup()"/>
+        /// <param name="nodeSize"></param>
+        /// <param name="spatialGridCellSize"></param>
+        public static void Setup(Fixed64 nodeSize, int spatialGridCellSize = DefaultSpatialGridCellSize)
         {
             if (IsActive)
             {
                 GridForgeLogger.Warn("Global Grid Manager already active.  Call `Reset` before attempting to setup.");
                 return;
             }
+
+            NodeSize = nodeSize > Fixed64.One ? Fixed64.One : nodeSize > Fixed64.Zero ? nodeSize : DefaultNodeSize;
+            SpatialGridCellSize = spatialGridCellSize;
 
             ActiveGrids ??= new SwiftBucket<Grid>();
             BoundsTracker ??= new SwiftDictionary<int, ushort>();
@@ -193,9 +211,7 @@ namespace GridForge.Grids
                 return GridAddResult.MaxGridsReached;
             }
 
-            if (configuration.BoundsMax.x < configuration.BoundsMin.x
-                || configuration.BoundsMax.y < configuration.BoundsMin.y
-                || configuration.BoundsMax.z < configuration.BoundsMin.z)
+            if (configuration.BoundsMax < configuration.BoundsMin)
             {
                 GridForgeLogger.Error("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
                 return GridAddResult.InvalidBounds;
@@ -462,15 +478,15 @@ namespace GridForge.Grids
             // - Restore the original sign using Sign() after flooring.
             // - This ensures consistent and accurate placement within the correct spatial grid.
             (int xMin, int yMin, int zMin) = (
-                    (min.x.Abs() / SpatialGridSize).FloorToInt() * min.x.Sign(),
-                    (min.y.Abs() / SpatialGridSize).FloorToInt() * min.y.Sign(),
-                    (min.z.Abs() / SpatialGridSize).FloorToInt() * min.z.Sign()
+                    (min.x.Abs() / SpatialGridCellSize).FloorToInt() * min.x.Sign(),
+                    (min.y.Abs() / SpatialGridCellSize).FloorToInt() * min.y.Sign(),
+                    (min.z.Abs() / SpatialGridCellSize).FloorToInt() * min.z.Sign()
                 );
 
             (int xMax, int yMax, int zMax) = (
-                    (max.x.Abs() / SpatialGridSize).FloorToInt() * max.x.Sign(),
-                    (max.y.Abs() / SpatialGridSize).FloorToInt() * max.y.Sign(),
-                    (max.z.Abs() / SpatialGridSize).FloorToInt() * max.z.Sign()
+                    (max.x.Abs() / SpatialGridCellSize).FloorToInt() * max.x.Sign(),
+                    (max.y.Abs() / SpatialGridCellSize).FloorToInt() * max.y.Sign(),
+                    (max.z.Abs() / SpatialGridCellSize).FloorToInt() * max.z.Sign()
                 );
 
             // Ensure correct ordering of min/max values in case of inverted bounds.
@@ -571,9 +587,9 @@ namespace GridForge.Grids
         public static int GetSpatialGridKey(Vector3d position)
         {
             (int x, int y, int z) = (
-                (position.x / SpatialGridSize).FloorToInt(),
-                (position.y / SpatialGridSize).FloorToInt(),
-                (position.z / SpatialGridSize).FloorToInt()
+                (position.x / SpatialGridCellSize).FloorToInt(),
+                (position.y / SpatialGridCellSize).FloorToInt(),
+                (position.z / SpatialGridCellSize).FloorToInt()
             );
 
             return GetSpawnHash(x, y, z);
