@@ -20,9 +20,15 @@ namespace GridForge.Grids
         public ushort GridIndex { get; private set; }
 
         /// <summary>
-        /// A unique identifier for this scan cell, derived from spatial hashing.
+        /// A unique identifier for this scan cell in the grid, derived from spatial hashing.
         /// </summary>
         public int CellKey { get; private set; }
+
+
+        /// <summary>
+        /// Unique token identifying this scan cell instance.
+        /// </summary>
+        public int SpawnToken { get; private set; }
 
         /// <summary>
         /// Maps a <see cref="Node.SpawnToken"/> to a bucket of associated <see cref="INodeOccupant"/> instances.
@@ -56,6 +62,7 @@ namespace GridForge.Grids
         {
             GridIndex = gridIndex;
             CellKey = cellKey;
+            SpawnToken = GetHashCode();
             IsAllocated = true;
         }
 
@@ -200,5 +207,11 @@ namespace GridForge.Grids
         }
 
         #endregion
+
+        public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
+                GridIndex,
+                CellKey,
+                31
+            );
     }
 }

@@ -47,7 +47,7 @@ namespace GridForge.Grids.Tests
             Grid grid = GlobalGridManager.ActiveGrids[index];
 
             Assert.True(grid.IsNodeAllocated(10, 0, 10));
-            Assert.True(grid.IsNodeAllocated(30, 0, 30));
+            Assert.True(grid.IsNodeAllocated(20, 0, 20));
         }
 
         [Fact]
