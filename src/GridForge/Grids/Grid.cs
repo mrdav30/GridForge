@@ -311,7 +311,11 @@ namespace GridForge.Grids
         public static LinearDirection GetNeighborDirection(Grid a, Grid b)
         {
             Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
-            (int x, int y, int z) gridOffset = (centerDifference.x.Sign(), centerDifference.y.Sign(), centerDifference.z.Sign());
+            (int x, int y, int z) gridOffset = (
+                    centerDifference.x.Sign(), 
+                    centerDifference.y.Sign(), 
+                    centerDifference.z.Sign()
+                );
             return GlobalGridManager.GetNeighborDirectionFromOffset(gridOffset);
         }
 

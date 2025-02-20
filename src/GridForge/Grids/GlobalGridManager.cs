@@ -630,8 +630,8 @@ namespace GridForge.Grids
             // - Restore the original sign using Sign() after flooring.
             return new Vector3d(
                 (position.x.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign(),
-                (position.y.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign(),
-                (position.z.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign()
+                (position.y.Abs() / NodeSize).FloorToInt() * NodeSize * position.y.Sign(),
+                (position.z.Abs() / NodeSize).FloorToInt() * NodeSize * position.z.Sign()
             );
         }
 
