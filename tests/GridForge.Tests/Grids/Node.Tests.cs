@@ -30,11 +30,11 @@ namespace GridForge.Grids.Tests
         [Fact]
         public void Node_ShouldHandleOccupantsCorrectly()
         {
-            var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+            var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(5, 0, 5);
+            Vector3d position = new Vector3d(6, 0, 6);
             TestOccupant occupant = new TestOccupant(position);
             grid.TryAddNodeOccupant(occupant);
 
@@ -127,7 +127,7 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(0, 0, 0);
+            Vector3d position = new Vector3d(10, 0, 10);
             TestOccupant occupant1 = new TestOccupant(position);
             TestOccupant occupant2 = new TestOccupant(position);
 
@@ -141,10 +141,12 @@ namespace GridForge.Grids.Tests
 
             grid.TryRemoveNodeOccupant(targetNode, occupant1);
             Assert.False(grid.TryGetNodeOccupant(targetNode, occupant1.OccupantTicket, out _));
-            Assert.True(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _)); // Still occupied by occupant2
+            // Still occupied by occupant2
+            Assert.True(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _)); 
 
             grid.TryRemoveNodeOccupant(targetNode, occupant2);
-            Assert.False(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _)); // Now fully unoccupied
+            // Now fully unoccupied
+            Assert.False(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _));
         }
 
         [Fact]
@@ -169,11 +171,11 @@ namespace GridForge.Grids.Tests
         [Fact]
         public void Node_ShouldRetrieveOccupantsByType()
         {
-            var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+            var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(0, 0, 0);
+            Vector3d position = new Vector3d(-27, 0, -27);
             TestOccupant occupant1 = new TestOccupant(position);
             TestOccupant occupant2 = new TestOccupant(position);
 
