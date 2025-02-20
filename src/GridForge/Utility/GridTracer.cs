@@ -2,6 +2,7 @@
 using GridForge.Grids;
 using SwiftCollections;
 using SwiftCollections.Pool;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace GridForge.Utility
@@ -28,18 +29,20 @@ namespace GridForge.Utility
         /// </remarks>
         /// <param name="start">Starting position in world space.</param>
         /// <param name="end">Ending position in world space.</param>
+        /// <param name="padding">Value applied to the start/end positions before snapping.</param>
         /// <param name="includeEnd">Whether to include the end node in the traced line.</param>
         /// <returns>A collection of <see cref="GridNodeSet"/> objects representing the traced path.</returns>
         public static IEnumerable<GridNodeSet> TraceLine(
             Vector3d start,
             Vector3d end,
+            double padding = 0d,
             bool includeEnd = true)
         {
             SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
             SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
 
-            Vector3d snappedStart = GlobalGridManager.FloorToNodeSize(start);
-            Vector3d snappedEnd = GlobalGridManager.CeilToNodeSize(end);
+            (Vector3d snappedStart, Vector3d snappedEnd) = 
+                GlobalGridManager.SnapBoundsToNodeSize(start, end, padding);
 
             Vector3d diff = snappedEnd - snappedStart;
             Vector3d delta = Vector3d.Abs(diff);
@@ -53,7 +56,7 @@ namespace GridForge.Utility
             Fixed64 stepZ = diff.z / (steps + Fixed64.One);
 
             // Get affected spatial cells along the traced line
-            foreach (int cellIndex in GlobalGridManager.GetSpatialCells(snappedStart, snappedEnd))
+            foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedStart, snappedEnd))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
@@ -82,7 +85,6 @@ namespace GridForge.Utility
 
                         nodeList.Add(node);
                     }
-
                 }
             }
 
@@ -122,15 +124,20 @@ namespace GridForge.Utility
         /// </remarks>
         /// <param name="start">Starting 2D position.</param>
         /// <param name="end">Ending 2D position.</param>
+        /// <param name="padding">Value applied to the start/end positions before snapping.</param>
         /// <param name="includeEnd">Whether to include the end node.</param>
         /// <returns>A collection of <see cref="GridNodeSet"/> objects representing the traced path.</returns>
-        public static IEnumerable<GridNodeSet> TraceLine(Vector2d start, Vector2d end, bool includeEnd = true)
+        public static IEnumerable<GridNodeSet> TraceLine(
+            Vector2d start,
+            Vector2d end,
+            double padding = 0d,
+            bool includeEnd = true)
         {
             // Convert 2D positions to 3D (assuming Y = 0 for a flat projection)
             Vector3d start3D = start.ToVector3d(Fixed64.Zero);
             Vector3d end3D = end.ToVector3d(Fixed64.Zero);
 
-            return TraceLine(start3D, end3D, includeEnd);
+            return TraceLine(start3D, end3D, padding, includeEnd);
         }
 
         /// <summary>
@@ -138,15 +145,19 @@ namespace GridForge.Utility
         /// </summary>
         /// <param name="boundsMin">The minimum corner of the bounding area.</param>
         /// <param name="boundsMax">The maximum corner of the bounding area.</param>
-        public static IEnumerable<GridNodeSet> GetCoveredNodes(Vector3d boundsMin, Vector3d boundsMax)
+        /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+        public static IEnumerable<GridNodeSet> GetCoveredNodes(
+            Vector3d boundsMin, 
+            Vector3d boundsMax,
+            double padding = 0d)
         {
             SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
             SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
 
-            Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
-            Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
+            (Vector3d snappedMin, Vector3d snappedMax) = 
+                GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
 
-            foreach (int cellIndex in GlobalGridManager.GetSpatialCells(boundsMin, boundsMax))
+            foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedMin, snappedMax))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
@@ -202,17 +213,21 @@ namespace GridForge.Utility
         /// </summary>
         /// <param name="boundsMin">The minimum corner of the bounding area.</param>
         /// <param name="boundsMax">The maximum corner of the bounding area.</param>
+        /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
         /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
-        public static IEnumerable<ScanCell> GetCoveredScanCells(Vector3d boundsMin, Vector3d boundsMax)
+        public static IEnumerable<ScanCell> GetCoveredScanCells(
+            Vector3d boundsMin, 
+            Vector3d boundsMax,
+            double padding = 0d)
         {
             SwiftList<ScanCell> scanCells = SwiftCollectionPool<SwiftList<ScanCell>, ScanCell>.Rent();
             SwiftHashSet<ushort> processedGrids = SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Rent();
             SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
 
-            Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundsMin);
-            Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundsMax);
+            (Vector3d snappedMin, Vector3d snappedMax) = 
+                GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
 
-            foreach (int cellIndex in GlobalGridManager.GetSpatialCells(boundsMin, boundsMax))
+            foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(boundsMin, boundsMax))
             {
                 if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
@@ -225,17 +240,9 @@ namespace GridForge.Utility
                     Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
 
                     // Convert snapped min/max to node indices
-                    (int xMin, int yMin, int zMin) = (
-                     (int)((snappedMin.x - currentGrid.BoundsMin.x) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize,
-                     (int)((snappedMin.y - currentGrid.BoundsMin.y) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize,
-                     (int)((snappedMin.z - currentGrid.BoundsMin.z) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize
-                 );
+                    (int xMin, int yMin, int zMin) = currentGrid.SnapToScanCell(snappedMin);
 
-                    (int xMax, int yMax, int zMax) = (
-                        (int)((snappedMax.x - currentGrid.BoundsMin.x) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize,
-                        (int)((snappedMax.y - currentGrid.BoundsMin.y) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize,
-                        (int)((snappedMax.z - currentGrid.BoundsMin.z) / GlobalGridManager.NodeSize) / currentGrid.ScanCellSize
-                    );
+                    (int xMax, int yMax, int zMax) = currentGrid.SnapToScanCell(snappedMax);
 
                     // Iterate through scan cell indices and collect valid scan cells
                     for (int x = xMin; x <= xMax; x++)

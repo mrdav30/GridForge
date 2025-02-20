@@ -55,13 +55,21 @@ namespace GridForge.Blockers.Tests
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(-39.5, 0, -39.5);
+            var nodeSize = (float)GlobalGridManager.NodeSize;
+
+            Vector3d position = new Vector3d(-39 + nodeSize, 0, -39 + nodeSize);
             Node node = grid.TryGetNode(position, out Node n) ? n : null;
             Assert.NotNull(node);
 
-            BoundingArea boundingArea1 = new BoundingArea(new Vector3d(-40, 0, -40), new Vector3d(-39.5, 0, -39.5));
+            BoundingArea boundingArea1 = new BoundingArea(
+                    new Vector3d(-40, 0, -40), 
+                    new Vector3d(-39 + nodeSize, 0, -39 + nodeSize)
+                );
             var blocker1 = new BoundsBlocker(boundingArea1);
-            BoundingArea boundingArea2 = new BoundingArea(new Vector3d(-39.5, 0, -39.5), new Vector3d(-39, 0, -39));
+            BoundingArea boundingArea2 = new BoundingArea(
+                    new Vector3d(-39 + nodeSize, 0, -39 + nodeSize), 
+                    new Vector3d(-39, 0, -39)
+                );
             var blocker2 = new BoundsBlocker(boundingArea2);
 
             blocker1.ApplyBlockage();

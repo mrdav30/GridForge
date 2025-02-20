@@ -63,18 +63,8 @@ namespace GridForge.Configuration
             if (min > max)
                 GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
 
-            // Ensure GridMin <= GridMax for each coordinate axis
-            BoundsMin = GlobalGridManager.FloorToNodeSize(new Vector3d(
-                FixedMath.Min(min.x, max.x),
-                FixedMath.Min(min.y, max.y),
-                FixedMath.Min(min.z, max.z)
-            ));
-
-            BoundsMax = GlobalGridManager.CeilToNodeSize(new Vector3d(
-                FixedMath.Max(min.x, max.x),
-                FixedMath.Max(min.y, max.y),
-                FixedMath.Max(min.z, max.z)
-            ));
+            // Ensures GridMin <= GridMax for each coordinate axis
+            (BoundsMin, BoundsMax) = GlobalGridManager.SnapBoundsToNodeSize(min, max);
 
             // Calculate the center point of the corrected boundaries
             GridCenter = (BoundsMin + BoundsMax) / 2;

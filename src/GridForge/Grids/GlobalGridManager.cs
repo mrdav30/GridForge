@@ -31,7 +31,7 @@ namespace GridForge.Grids
         /// The default size of a spatial hash cell used for grid lookup.
         /// </summary>
         public const int DefaultSpatialGridCellSize = 50;
-        
+
         /// <summary>
         /// The size of each grid node in world units.
         /// </summary>
@@ -242,7 +242,7 @@ namespace GridForge.Grids
                 BoundsTracker.Add(hashedBounds, allocatedIndex);
 
                 newGrid.Initialize(allocatedIndex, configuration);
-                foreach (int cellIndex in GetSpatialCells(configuration.BoundsMin, configuration.BoundsMax))
+                foreach (int cellIndex in GetSpatialGridCells(configuration.BoundsMin, configuration.BoundsMax))
                 {
                     if (!SpatialGridHash.ContainsKey(cellIndex))
                         SpatialGridHash.Add(cellIndex, new SwiftHashSet<ushort>());
@@ -295,7 +295,7 @@ namespace GridForge.Grids
             {
                 gridToRemove = ActiveGrids[removeIndex];
                 // remove grid from spatial hash
-                foreach (int cellIndex in GetSpatialCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
+                foreach (int cellIndex in GetSpatialGridCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
                 {
                     if (!SpatialGridHash.ContainsKey(cellIndex))
                         continue;
@@ -468,32 +468,17 @@ namespace GridForge.Grids
         /// <param name="min">The minimum corner of the bounding box.</param>
         /// <param name="max">The maximum corner of the bounding box.</param>
         /// <returns>An enumerable of spatial hash cell indices covering the given bounds.</returns>
-        public static IEnumerable<int> GetSpatialCells(Vector3d min, Vector3d max)
+        public static IEnumerable<int> GetSpatialGridCells(Vector3d min, Vector3d max)
         {
             // Convert min/max positions to their respective spatial grid indices.
-            // This ensures that negative values do not shift incorrectly due to flooring behavior.
-            // Explanation:
-            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
-            // - Apply FloorToInt() to obtain the correct spatial cell index.
-            // - Restore the original sign using Sign() after flooring.
-            // - This ensures consistent and accurate placement within the correct spatial grid.
-            (int xMin, int yMin, int zMin) = (
-                    (min.x.Abs() / SpatialGridCellSize).FloorToInt() * min.x.Sign(),
-                    (min.y.Abs() / SpatialGridCellSize).FloorToInt() * min.y.Sign(),
-                    (min.z.Abs() / SpatialGridCellSize).FloorToInt() * min.z.Sign()
-                );
-
-            (int xMax, int yMax, int zMax) = (
-                    (max.x.Abs() / SpatialGridCellSize).FloorToInt() * max.x.Sign(),
-                    (max.y.Abs() / SpatialGridCellSize).FloorToInt() * max.y.Sign(),
-                    (max.z.Abs() / SpatialGridCellSize).FloorToInt() * max.z.Sign()
-                );
+            (int xMin, int yMin, int zMin) = SnapToSpatialGrid(min);
+            (int xMax, int yMax, int zMax) = SnapToSpatialGrid(max);
 
             // Ensure correct ordering of min/max values in case of inverted bounds.
             // This prevents negative ranges that would otherwise cause an empty iteration.
-            if (xMax < xMin) (xMin, xMax) = (xMax, xMin);
-            if (yMax < yMin) (yMin, yMax) = (yMax, yMin);
-            if (zMax < zMin) (zMin, zMax) = (zMax, zMin);
+            (xMin, xMax) = xMin > xMax ? (xMax, xMin) : (xMin, xMax);
+            (yMin, yMax) = yMin > yMax ? (yMax, yMin) : (yMin, yMax);
+            (zMin, zMax) = zMin > zMax ? (zMax, zMin) : (zMin, zMax);
 
             // Iterate through all spatial hash cells within the computed range.
             // This ensures we cover all relevant grid partitions.
@@ -510,6 +495,22 @@ namespace GridForge.Grids
         }
 
         /// <summary>
+        /// Ensures consistent and accurate placement within the correct spatial grid..
+        /// </summary>
+        /// <param name="position"></param>
+        private static (int xMin, int yMin, int zMin) SnapToSpatialGrid(Vector3d position)
+        {
+            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
+            // - Apply FloorToInt() to obtain the correct spatial cell index.
+            // - Restore the original sign using Sign() after flooring.
+            return (
+                    (position.x.Abs() / SpatialGridCellSize).FloorToInt() * position.x.Sign(),
+                    (position.y.Abs() / SpatialGridCellSize).FloorToInt() * position.y.Sign(),
+                    (position.z.Abs() / SpatialGridCellSize).FloorToInt() * position.z.Sign()
+                );
+        }
+
+        /// <summary>
         /// Finds grids that overlap with the specified target grid.
         /// </summary>
         public static IEnumerable<Grid> FindOverlappingGrids(Grid targetGrid)
@@ -517,7 +518,7 @@ namespace GridForge.Grids
             SwiftHashSet<Grid> overlappingGrids = new SwiftHashSet<Grid>();
 
             // Check all spatial hash cells that this grid occupies
-            foreach (int cellIndex in GetSpatialCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
+            foreach (int cellIndex in GetSpatialGridCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
             {
                 if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                     continue;
@@ -624,11 +625,42 @@ namespace GridForge.Grids
         /// </summary>
         public static Vector3d FloorToNodeSize(Vector3d position)
         {
+            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
+            // - Apply FloorToInt() to obtain the correct spatial cell index.
+            // - Restore the original sign using Sign() after flooring.
             return new Vector3d(
-                (position.x / NodeSize).FloorToInt() * NodeSize,
-                (position.y / NodeSize).FloorToInt() * NodeSize,
-                (position.z / NodeSize).FloorToInt() * NodeSize
+                (position.x.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign(),
+                (position.y.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign(),
+                (position.z.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign()
             );
+        }
+
+        public static (Vector3d min, Vector3d max) SnapBoundsToNodeSize(
+            Vector3d min,
+            Vector3d max,
+            double padding = 0)
+        {
+            // Ensure padding is non-negative
+            Fixed64 fixedPadding = FixedMath.Max((Fixed64)padding, Fixed64.Zero);
+
+            min -= fixedPadding;
+            max += fixedPadding;
+
+            Vector3d snapMin = CeilToNodeSize(min);
+            Vector3d snapMax = FloorToNodeSize(max);
+
+            // Ensure correct ordering of bounds
+            (snapMin.x, snapMax.x) = snapMin.x > snapMax.x
+                ? (snapMax.x, snapMin.x)
+                : (snapMin.x, snapMax.x);
+            (snapMin.y, snapMax.y) = snapMin.y > snapMax.y
+                ? (snapMax.y, snapMin.y)
+                : (snapMin.y, snapMax.y);
+            (snapMin.z, snapMax.z) = snapMin.z > snapMax.z
+                ? (snapMax.z, snapMin.z)
+                : (snapMin.z, snapMax.z);
+
+            return (snapMin, snapMax);
         }
 
         #endregion
