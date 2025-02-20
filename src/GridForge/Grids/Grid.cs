@@ -765,6 +765,14 @@ namespace GridForge.Grids
             );
         }
 
+        public (int x, int y, int z) SnapToScanCell(Vector3d position)
+        {
+            return (
+                    (int)((position.x - BoundsMin.x) / GlobalGridManager.NodeSize) / ScanCellSize,
+                    (int)((position.y - BoundsMin.y) / GlobalGridManager.NodeSize) / ScanCellSize,
+                    (int)((position.z - BoundsMin.z) / GlobalGridManager.NodeSize) / ScanCellSize
+                );
+        }
 
         public override int GetHashCode() =>
             GlobalGridManager.GetSpawnHash(GlobalIndex, BoundsMin.GetHashCode(), BoundsMax.GetHashCode());

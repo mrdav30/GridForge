@@ -13,10 +13,12 @@ namespace GridForge.Grids.Tests
         [Fact]
         public void GetOccupantsFor_ShouldReturnCorrectList()
         {
-            GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
+            GlobalGridManager.TryAddGrid(new GridConfiguration(
+                new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)), 
+                out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(0, 0, 0);
+            Vector3d position = new Vector3d(45, 0, 45);
 
             var occupant1 = new TestOccupant(position);
             var occupant2 = new TestOccupant(position);
@@ -31,18 +33,18 @@ namespace GridForge.Grids.Tests
         [Fact]
         public void GetConditionalOccupants_ShouldFilterCorrectly()
         {
-            GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
+            GlobalGridManager.TryAddGrid(new GridConfiguration(
+                new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)),
+                out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(2, 0, 2);
+            Vector3d position = new Vector3d(41, 0, 41);
 
             var occupant1 = new TestOccupant(position, 1);
             var occupant2 = new TestOccupant(position);
 
             grid.TryAddNodeOccupant(position, occupant1);
             grid.TryAddNodeOccupant(position, occupant2);
-
-            ;
 
             List<INodeOccupant> filtered = new List<INodeOccupant>(
                 grid.GetConditionalOccupants(occupant1.GridCoordinates.NodeCoordinates, key => key == 1));
@@ -103,10 +105,12 @@ namespace GridForge.Grids.Tests
         [Fact]
         public void RemoveAllOccupants_ShouldRemoveOnlyMatchingClusterOccupants()
         {
-            GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
+            GlobalGridManager.TryAddGrid(new GridConfiguration(
+                new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)),
+                out ushort gridIndex);
             Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            Vector3d position = new Vector3d(3, 0, 3);
+            Vector3d position = new Vector3d(49, 0, 49);
 
             var occupant1 = new TestOccupant(position, 1); // Cluster Key 1
             var occupant2 = new TestOccupant(position, 1); // Cluster Key 1
