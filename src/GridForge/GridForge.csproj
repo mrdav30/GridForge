@@ -25,8 +25,6 @@
 		<IncludeSymbols>true</IncludeSymbols>
 		<DebugType>portable</DebugType>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<!-- Optional: Suppress warnings about missing XML comments -->
-		<NoWarn>1591</NoWarn>
 		<DocumentationFile>bin\$(Configuration)\$(TargetFramework)\GridForge.xml</DocumentationFile>
 		<!-- Configuration to ensure deterministic builds -->
 		<Deterministic>true</Deterministic>
@@ -67,7 +65,7 @@
 	</PropertyGroup>
 	<!-- Dependencies and Package References -->
 	<ItemGroup>	
-		<PackageReference Include="FixedMathSharp" Version="1.0.4">
+		<PackageReference Include="FixedMathSharp" Version="1.1.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>
@@ -75,7 +73,7 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>	
-		<PackageReference Include="SwiftCollections" Version="1.0.3">
+		<PackageReference Include="SwiftCollections" Version="1.0.4">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>

@@ -9,14 +9,17 @@ namespace GridForge.Spatial
     /// </summary>
     public interface INodeOccupant
     {
-        bool IsNodeOccupant { get; set; }
-
         /// <summary>
         /// The group Id used for grouping occupants within a scan cell.
         /// Occupants with the same group Id belong to the same logical group.
         /// This allows efficient retrieval of related occupants in spatial queries.
         /// </summary>
         byte OccupantGroupId { get; }
+
+        /// <summary>
+        /// Flag used to determine if occupant is current occupying a node
+        /// </summary>
+        bool IsNodeOccupant { get; set; }
 
         /// <summary>
         /// A unique ticket identifier assigned when this occupant is added to a scan cell.

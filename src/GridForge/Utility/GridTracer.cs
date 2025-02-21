@@ -2,14 +2,23 @@
 using GridForge.Grids;
 using SwiftCollections;
 using SwiftCollections.Pool;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace GridForge.Utility
 {
+    /// <summary>
+    /// Used to group query results on a grid to node level
+    /// </summary>
     public struct GridNodeSet
     {
+        /// <summary>
+        /// The grid containing the nodes from the resulting query
+        /// </summary>
         public Grid Grid;
+
+        /// <summary>
+        /// A list of nodes that match the provided query
+        /// </summary>
         public SwiftList<Node> Nodes;
     }
 
@@ -39,7 +48,7 @@ namespace GridForge.Utility
             bool includeEnd = true)
         {
             SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedStart, Vector3d snappedEnd) = 
                 GlobalGridManager.SnapBoundsToNodeSize(start, end, padding);
@@ -71,7 +80,7 @@ namespace GridForge.Utility
                     if (gridNodeMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftList<Node> nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
+                    SwiftList<Node> nodeList = SwiftListPool<Node>.Shared.Rent();
                     gridNodeMapping.Add(currentGrid, nodeList);
 
                     // Traverse the grid along the computed line
@@ -93,7 +102,7 @@ namespace GridForge.Utility
             {
                 if (!gridNodeMapping.TryGetValue(endGrid, out SwiftList<Node> nodeList))
                 {
-                    nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
+                    nodeList = SwiftListPool<Node>.Shared.Rent();
                     gridNodeMapping.Add(endGrid, nodeList);
                 }
 
@@ -110,10 +119,10 @@ namespace GridForge.Utility
                     Nodes = kvp.Value
                 };
 
-                SwiftCollectionPool<SwiftList<Node>, Node>.Release(kvp.Value);
+                SwiftListPool<Node>.Shared.Release(kvp.Value);
             }
 
-            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
+            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
         }
 
         /// <summary>
@@ -152,7 +161,7 @@ namespace GridForge.Utility
             double padding = 0d)
         {
             SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedMin, Vector3d snappedMax) = 
                 GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
@@ -173,7 +182,7 @@ namespace GridForge.Utility
                     if (gridNodeMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftList<Node> nodeList = SwiftCollectionPool<SwiftList<Node>, Node>.Rent();
+                    SwiftList<Node> nodeList = SwiftListPool<Node>.Shared.Rent();
                     gridNodeMapping.Add(currentGrid, nodeList);
 
                     Fixed64 resolution = GlobalGridManager.NodeSize;
@@ -202,10 +211,10 @@ namespace GridForge.Utility
                     Nodes = kvp.Value
                 };
 
-                SwiftCollectionPool<SwiftList<Node>, Node>.Release(kvp.Value);
+                SwiftListPool<Node>.Shared.Release(kvp.Value);
             }
 
-            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
+            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
         }
 
         /// <summary>
@@ -220,9 +229,9 @@ namespace GridForge.Utility
             Vector3d boundsMax,
             double padding = 0d)
         {
-            SwiftList<ScanCell> scanCells = SwiftCollectionPool<SwiftList<ScanCell>, ScanCell>.Rent();
-            SwiftHashSet<ushort> processedGrids = SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Rent();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+            SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
+            SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
+            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedMin, Vector3d snappedMax) = 
                 GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
@@ -267,9 +276,9 @@ namespace GridForge.Utility
             foreach (ScanCell scanCell in scanCells)
                 yield return scanCell;
 
-            SwiftCollectionPool<SwiftList<ScanCell>, ScanCell>.Release(scanCells);
-            SwiftCollectionPool<SwiftHashSet<ushort>, ushort>.Release(processedGrids);
-            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(nodeRedundancyCheck);
+            SwiftListPool<ScanCell>.Shared.Release(scanCells);
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
+            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
         }
     }
 }

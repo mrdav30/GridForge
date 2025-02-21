@@ -56,6 +56,9 @@ namespace GridForge.Grids
         /// </remarks>
         private Node[] _cachedNeighbors;
 
+        /// <summary>
+        /// Stores a unique hash value for each obstacle added to this node to prevent adding duplicates
+        /// </summary>
         public SwiftHashSet<int> ObstacleTracker { get; internal set; }
 
         /// <summary>
@@ -386,12 +389,14 @@ namespace GridForge.Grids
 
         #region Utility
 
+        /// <inheritdoc/>
         public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
                 GlobalCoordinates.GetHashCode(),
                 WorldPosition.GetHashCode(),
                 IsBoundaryNode.GetHashCode()
             );
 
+        /// <inheritdoc/>
         public override string ToString() => GlobalCoordinates.ToString();
 
         #endregion

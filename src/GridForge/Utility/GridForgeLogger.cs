@@ -12,9 +12,11 @@ public static class GridForgeLogger
     /// </summary>
     public enum LogLevel
     {
+#pragma warning disable 1591
         Info,
         Warning,
         Error
+#pragma warning restore 1591
     }
 
     /// <summary>

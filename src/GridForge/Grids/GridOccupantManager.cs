@@ -89,7 +89,7 @@ namespace GridForge.Grids
             lock (gridLock)
             {
                 scanCell.AddOccupant(targetNode.SpawnToken, occupant, out int occupantTicket);
-                grid.ActiveScanCells ??= SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+                grid.ActiveScanCells ??= SwiftHashSetPool<int>.Shared.Rent();
                 if (!grid.ActiveScanCells.Contains(targetNode.ScanCellKey))
                     grid.ActiveScanCells.Add(targetNode.ScanCellKey);
 
@@ -164,7 +164,7 @@ namespace GridForge.Grids
                         if (!grid.IsOccupied)
                         {
                             GridForgeLogger.Info($"Releasing unused active scan cells collection.");
-                            SwiftCollectionPool<SwiftHashSet<int>, int>.Release(grid.ActiveScanCells);
+                            SwiftHashSetPool<int>.Shared.Release(grid.ActiveScanCells);
                             grid.ActiveScanCells = null;
                         }
                     }

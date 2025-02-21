@@ -56,6 +56,9 @@ namespace GridForge.Grids
         /// </summary>
         public static SwiftBucket<Grid> ActiveGrids { get; private set; }
 
+        /// <summary>
+        /// Dictionary mapping hashed bounds to grid indices to prevent duplicate grids.
+        /// </summary>
         public static SwiftDictionary<int, ushort> BoundsTracker { get; private set; }
 
         /// <summary>
@@ -635,6 +638,9 @@ namespace GridForge.Grids
             );
         }
 
+        /// <summary>
+        /// Snaps the given bounds to the the global node size
+        /// </summary>
         public static (Vector3d min, Vector3d max) SnapBoundsToNodeSize(
             Vector3d min,
             Vector3d max,

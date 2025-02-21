@@ -79,9 +79,15 @@ namespace GridForge.Grids
             {
                 foreach (SwiftBucket<INodeOccupant> nodeOccupants in _nodeOccupants.Values)
                 {
-                    SwiftCollectionPool<SwiftBucket<INodeOccupant>, INodeOccupant>.Release(nodeOccupants);
-                    _nodeOccupants = null;
+                    foreach(INodeOccupant occupant in nodeOccupants)
+                    { 
+                        occupant.OccupantTicket = -1;
+                        occupant.GridCoordinates = default;
+                    }
+                    nodeOccupants.Clear();
                 }
+
+                _nodeOccupants = null;
             }
 
             CellOccupantCount = 0;
@@ -108,7 +114,7 @@ namespace GridForge.Grids
             _nodeOccupants ??= new SwiftDictionary<int, SwiftBucket<INodeOccupant>>();
             if (!_nodeOccupants.TryGetValue(nodeSpawnToken, out SwiftBucket<INodeOccupant> bucket))
             {
-                bucket = SwiftCollectionPool<SwiftBucket<INodeOccupant>, INodeOccupant>.Rent();
+                bucket = new SwiftBucket<INodeOccupant>();
                 _nodeOccupants[nodeSpawnToken] = bucket;
             }
 
@@ -208,6 +214,7 @@ namespace GridForge.Grids
 
         #endregion
 
+        /// <inheritdoc/>
         public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
                 GridIndex,
                 CellKey,
