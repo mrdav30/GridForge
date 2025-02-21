@@ -76,6 +76,7 @@ namespace GridForge.Configuration
 
         #endregion
 
+        /// <inheritdoc/>
         public override int GetHashCode() => BoundsMin.GetHashCode() ^ BoundsMax.GetHashCode();
     }
 }

@@ -245,7 +245,7 @@ namespace GridForge.Grids
             Func<byte, bool> groupConditional = null)
         {
             Fixed64 squaredRadius = radius * radius;
-            SwiftHashSet<INodeOccupant> results = SwiftCollectionPool<SwiftHashSet<INodeOccupant>, INodeOccupant>.Rent();
+            SwiftList<INodeOccupant> results = SwiftListPool<INodeOccupant>.Shared.Rent();
 
             // Get bounds for the search area
             Vector3d boundsMin = position - radius;
@@ -270,7 +270,7 @@ namespace GridForge.Grids
             foreach (INodeOccupant result in results)
                 yield return result;
 
-            SwiftCollectionPool<SwiftHashSet<INodeOccupant>, INodeOccupant>.Release(results);
+            SwiftListPool<INodeOccupant>.Shared.Release(results);
         }
 
         /// <summary>

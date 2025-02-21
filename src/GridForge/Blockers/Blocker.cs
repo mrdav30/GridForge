@@ -37,8 +37,14 @@ namespace GridForge.Blockers
         /// </summary>
         public bool IsBlocking { get; private set; }
 
+        /// <summary>
+        /// Flags whether or not to hold onto a reference of the nodes this blocker covers.
+        /// </summary>
         public bool CacheCoveredNodes { get; private set; }
 
+        /// <summary>
+        /// The cached nodes this blocker is currently blocking if <see cref="CacheCoveredNodes"/> is true.
+        /// </summary>
         private SwiftList<GridNodeSet> _cachedCoveredNodes;
 
         /// <summary>
@@ -46,10 +52,37 @@ namespace GridForge.Blockers
         /// </summary>
         public static event Action<GridChange, Vector3d, Vector3d> OnBlockageChanged;
 
+        /// <summary>
+        /// Initializes a new blocker instance.
+        /// </summary>
+        /// <param name="active">Flag whether or not this blocker will block on update.</param>
+        /// <param name="cacheCoveredNodes">Flag whether or not to cache covered nodes that are blocked.</param>
         protected Blocker(bool active = true, bool cacheCoveredNodes = false)
         {
             IsActive = active;
             CacheCoveredNodes = cacheCoveredNodes;
+        }
+
+        /// <summary>
+        /// Toggles the blocker from inactive to active or active to inactive state
+        /// If object is currently blocking, the blocker will be removed.
+        /// If object is not active and not blocking, the blocker will be applied.
+        /// </summary>
+        /// <param name="status"></param>
+        public void ToggleStatus(bool status)
+        {
+            if (!status && IsBlocking)
+            {
+                RemoveBlockage();
+                IsActive = false;
+                return;
+            }
+
+            if(status && !IsBlocking)
+            {
+                IsActive = true;
+                ApplyBlockage();
+            }
         }
 
         /// <summary>

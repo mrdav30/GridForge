@@ -25,6 +25,9 @@ namespace GridForge.Spatial
         /// </summary>
         public int z;
 
+        /// <summary>
+        /// Flag to determine is the struct instance was constructed or is default
+        /// </summary>
         public bool IsAllocated { get; private set; }
 
         #endregion

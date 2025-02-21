@@ -6,33 +6,114 @@
     /// </summary>
     public enum LinearDirection
     {
+        /// <summary>
+        /// No linear direction from source
+        /// </summary>
         None = -1,
-        West = 0,          // (-1, 0, 0)
-        South = 1,         // (0, 0, -1)
-        East = 2,          // (0, 0, 1)
-        North = 3,         // (1, 0, 0)
-        SouthWest = 4,     // (-1, 0, -1)
-        NorthWest = 5,     // (-1, 0, 1)
-        SouthEast = 6,     // (1, 0, -1)
-        NorthEast = 7,     // (1, 0, 1)
-        BelowWest = 8,     // (-1, -1, 0)
-        BelowSouth = 9,    // (0, -1, -1)
-        BelowEast = 10,    // (0, -1, 1)
-        BelowNorth = 11,   // (1, -1, 0)
-        BelowSouthWest = 12, // (-1, -1, -1)
-        BelowNorthWest = 13, // (-1, -1, 1)
-        BelowSouthEast = 14, // (1, -1, -1)
-        BelowNorthEast = 15, // (1, -1, 1)
-        Below = 16,        // (0, -1, 0)
-        AboveWest = 17,    // (-1, 1, 0)
-        AboveSouth = 18,   // (0, 1, -1)
-        AboveEast = 19,    // (0, 1, 1)
-        AboveNorth = 20,   // (1, 1, 0)
-        AboveSouthWest = 21, // (-1, 1, -1)
-        AboveNorthWest = 22, // (-1, 1, 1)
-        AboveSouthEast = 23, // (1, 1, -1)
-        AboveNorthEast = 24, // (1, 1, 1)
-        Above = 25         // (0, 1, 0)
+        /// <summary>
+        /// (-1, 0, 0)
+        /// </summary>
+        West = 0,
+        /// <summary>
+        ///  (0, 0, -1)
+        /// </summary>
+        South = 1,
+        /// <summary>
+        /// (0, 0, 1)
+        /// </summary>
+        East = 2,
+        /// <summary>
+        /// (1, 0, 0)
+        /// </summary>
+        North = 3,
+        /// <summary>
+        /// (-1, 0, -1)
+        /// </summary>
+        SouthWest = 4,
+        /// <summary>
+        /// (-1, 0, 1)
+        /// </summary>
+        NorthWest = 5,
+        /// <summary>
+        /// (1, 0, -1)
+        /// </summary>
+        SouthEast = 6,
+        /// <summary>
+        /// (1, 0, 1)
+        /// </summary>
+        NorthEast = 7,
+        /// <summary>
+        /// (-1, -1, 0)
+        /// </summary>
+        BelowWest = 8,
+        /// <summary>
+        /// (0, -1, -1)
+        /// </summary>
+        BelowSouth = 9,
+        /// <summary>
+        /// (0, -1, 1)
+        /// </summary>
+        BelowEast = 10,
+        /// <summary>
+        /// (1, -1, 0)
+        /// </summary>
+        BelowNorth = 11,
+        /// <summary>
+        /// (-1, -1, -1)
+        /// </summary>
+        BelowSouthWest = 12,
+        /// <summary>
+        /// (-1, -1, 1)
+        /// </summary>
+        BelowNorthWest = 13,
+        /// <summary>
+        /// (1, -1, -1)
+        /// </summary>
+        BelowSouthEast = 14,
+        /// <summary>
+        /// (1, -1, 1)
+        /// </summary>
+        BelowNorthEast = 15,
+        /// <summary>
+        /// (0, -1, 0)
+        /// </summary>
+        Below = 16,
+        /// <summary>
+        /// (-1, 1, 0)
+        /// </summary>
+        AboveWest = 17,
+        /// <summary>
+        /// (0, 1, -1)
+        /// </summary>
+        AboveSouth = 18,
+        /// <summary>
+        /// (0, 1, 1)
+        /// </summary>
+        AboveEast = 19,
+        /// <summary>
+        /// (1, 1, 0)
+        /// </summary>
+        AboveNorth = 20,
+        /// <summary>
+        /// (-1, 1, -1)
+        /// </summary>
+        AboveSouthWest = 21, 
+        /// <summary>
+        /// (-1, 1, 1)
+        /// </summary>
+        AboveNorthWest = 22, 
+        /// <summary>
+        /// (1, 1, -1)
+        /// </summary>
+        AboveSouthEast = 23,
+        /// <summary>
+        /// (1, 1, 1)
+        /// </summary>
+        AboveNorthEast = 24,
+        /// <summary>
+        /// (0, 1, 0)
+        /// </summary>
+        Above = 25
     }
 
     /// <summary>
@@ -41,17 +122,45 @@
     /// </summary>
     public enum GridChange
     {
+        /// <summary>
+        /// Default, nothing happened
+        /// </summary>
         None = -1,
+        /// <summary>
+        /// Signifies an add operation occured
+        /// </summary>
         Add = 0,
+        /// <summary>
+        /// Signifies a remove operation occured
+        /// </summary>
         Remove = 1,
+        /// <summary>
+        /// Signifies an update operation occured
+        /// </summary>
         Update = 2
     }
 
+    /// <summary>
+    /// Represents the result of adding a grid to 
+    /// <see cref="GlobalGridManager.TryAddGrid(Configuration.GridConfiguration, out ushort)"/>
+    /// </summary>
     public enum GridAddResult
     {
-        Success = 0,         // Grid was successfully added
-        AlreadyExists = 1,   // A grid with the same bounds already exists
-        InvalidBounds = 2,   // The provided bounds are invalid
-        MaxGridsReached = 3  // The maximum number of grids has been reached
+        /// <summary>
+        /// Grid was successfully added
+        /// </summary>
+        Success = 0,
+        /// <summary>
+        /// A grid with the same bounds already exists
+        /// </summary>
+        AlreadyExists = 1,
+        /// <summary>
+        /// The provided bounds are invalid
+        /// </summary>
+        InvalidBounds = 2,
+        /// <summary>
+        /// The maximum number of grids has been reached
+        /// </summary>
+        MaxGridsReached = 3
     }
 }
