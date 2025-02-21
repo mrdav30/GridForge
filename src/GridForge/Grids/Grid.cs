@@ -184,14 +184,14 @@ namespace GridForge.Grids
 
             if (ActiveScanCells != null)
             {
-                SwiftCollectionPool<SwiftHashSet<int>, int>.Release(ActiveScanCells);
+                SwiftHashSetPool<int>.Shared.Release(ActiveScanCells);
                 ActiveScanCells = null;
             }
 
             if (Neighbors != null)
             {
                 foreach (SwiftHashSet<int> neighbors in Neighbors.Values)
-                    SwiftCollectionPool<SwiftHashSet<int>, int>.Release(neighbors);
+                    SwiftHashSetPool<int>.Shared.Release(neighbors);
                 Neighbors = null;
                 NeighborCount = 0;
             }
@@ -312,8 +312,8 @@ namespace GridForge.Grids
         {
             Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
             (int x, int y, int z) gridOffset = (
-                    centerDifference.x.Sign(), 
-                    centerDifference.y.Sign(), 
+                    centerDifference.x.Sign(),
+                    centerDifference.y.Sign(),
                     centerDifference.z.Sign()
                 );
             return GlobalGridManager.GetNeighborDirectionFromOffset(gridOffset);
@@ -334,7 +334,7 @@ namespace GridForge.Grids
             Neighbors ??= new SwiftDictionary<LinearDirection, SwiftHashSet<int>>();
             if (!Neighbors.TryGetValue(neighborDirection, out SwiftHashSet<int> neighborSet))
             {
-                neighborSet = SwiftCollectionPool<SwiftHashSet<int>, int>.Rent();
+                neighborSet = SwiftHashSetPool<int>.Shared.Rent();
                 Neighbors.Add(neighborDirection, neighborSet);
             }
 
@@ -369,7 +369,7 @@ namespace GridForge.Grids
             if (Neighbors[neighborDirection].Count == 0)
             {
                 GridForgeLogger.Info($"Releasing unused neighbor collection.");
-                SwiftCollectionPool<SwiftHashSet<int>, int>.Release(Neighbors[neighborDirection]);
+                SwiftHashSetPool<int>.Shared.Release(Neighbors[neighborDirection]);
                 Neighbors.Remove(neighborDirection);
             }
 
@@ -713,7 +713,6 @@ namespace GridForge.Grids
         /// </summary>
         public bool TryGetScanCell(Vector3d position, out ScanCell outScanCell)
         {
-            outScanCell = null;
             int key = GetScanCellKey(position);
             return TryGetScanCell(key, out outScanCell);
         }
@@ -769,6 +768,9 @@ namespace GridForge.Grids
             );
         }
 
+        /// <summary>
+        /// Snaps a given position to the closest scan cell in the grid
+        /// </summary>
         public (int x, int y, int z) SnapToScanCell(Vector3d position)
         {
             return (
@@ -778,6 +780,7 @@ namespace GridForge.Grids
                 );
         }
 
+        /// <inheritdoc/>
         public override int GetHashCode() =>
             GlobalGridManager.GetSpawnHash(GlobalIndex, BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
 
