@@ -6,7 +6,7 @@ namespace GridForge.Grids.Tests
 
     public class TestPartition : INodePartition
     {
-        public CoordinatesGlobal ParentCoordinate { get; set; }
+        public CoordinatesGlobal NodeCoordinates { get; set; }
 
         public bool IsPartitioned { get; set; }
 

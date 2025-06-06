@@ -11,7 +11,7 @@ namespace GridForge.Spatial
         /// <summary>
         /// The global coordinates of the parent node where this partition is attached.
         /// </summary>
-        CoordinatesGlobal ParentCoordinate { get; set; }
+        CoordinatesGlobal NodeCoordinates { get; set; }
 
         /// <summary>
         /// Flag to determine if this partition is currently attached to a <see cref="Node"/>

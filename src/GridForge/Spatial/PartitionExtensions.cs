@@ -17,7 +17,7 @@ public static class PartitionExtensions
     /// <param name="node">The target node where the partition will be added.</param>
     public static void AddToNode(this INodePartition partition, Node node)
     {
-        partition.ParentCoordinate = node.GlobalCoordinates;
+        partition.NodeCoordinates = node.GlobalCoordinates;
         partition.IsPartitioned = true;
         partition.OnAddToNode(node);
     }
@@ -29,7 +29,7 @@ public static class PartitionExtensions
     /// <param name="node">The target node from which the partition will be removed.</param>
     public static void RemoveFromNode(this INodePartition partition, Node node)
     {
-        partition.ParentCoordinate = default;
+        partition.NodeCoordinates = default;
         partition.IsPartitioned = false;
         partition.OnRemoveFromNode(node);
     }
