@@ -72,14 +72,14 @@ namespace GridForge.Grids
         public byte OccupantCount { get; internal set; }
 
         /// <summary>
-        /// Dictionary mapping partition names to their respective partitions.
+        /// Handles management of partitioned data.
         /// </summary>
-        private SwiftDictionary<int, INodePartition> _partitions;
+        private readonly PartitionProvider<INodePartition> _partitionProvider = new();
 
         /// <summary>
         /// Indicates whether this node has any active partitions.
         /// </summary>
-        public bool IsPartioned { get; private set; }
+        public bool IsPartioned => !_partitionProvider.IsEmpty;
 
         /// <summary>
         /// Determines if this node is a boundary node.
@@ -165,9 +165,9 @@ namespace GridForge.Grids
             if (!IsAllocated)
                 return;
 
-            if (_partitions != null)
+            if (!_partitionProvider.IsEmpty)
             {
-                foreach (INodePartition partition in _partitions.Values)
+                foreach (INodePartition partition in _partitionProvider.Partitions)
                 {
                     try
                     {
@@ -179,10 +179,9 @@ namespace GridForge.Grids
                             $"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partition.GetType().Name}: {ex.Message}");
                     }
                 }
-                _partitions = null;
-            }
 
-            IsPartioned = false;
+                _partitionProvider.Clear();
+            }
 
             if (_cachedNeighbors != null)
             {
@@ -209,7 +208,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Generates a unique key for a partition based on the node's spawn token and partition name.
         /// </summary>
-        public int GetPartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
+        public int GeneratePartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
 
         /// <summary>
         /// Adds a partition to this node, allowing specialized behaviors.
@@ -220,11 +219,10 @@ namespace GridForge.Grids
                 return false;
 
             string partitionName = partition.GetType().Name;
-            int key = GetPartitionKey(partitionName);
-            _partitions ??= new SwiftDictionary<int, INodePartition>();
-            if (!_partitions.Add(key, partition))
+            int key = GeneratePartitionKey(partitionName);
+
+            if (!_partitionProvider.TryAdd(key, partition))
                 return false;
-            IsPartioned = true;
 
             try
             {
@@ -241,25 +239,15 @@ namespace GridForge.Grids
         /// <summary>
         /// Removes a partition from this node.
         /// </summary>
-        public bool TryRemovePartition<T>()
+        public bool TryRemovePartition<T>() where T : INodePartition
         {
-            if (!IsPartioned)
-                return false;
-
             string partitionName = typeof(T).Name;
-            int key = GetPartitionKey(partitionName);
-            if (!_partitions.TryGetValue(key, out INodePartition partition))
+            int key = GeneratePartitionKey(partitionName);
+
+            if (!_partitionProvider.TryRemove(key, out INodePartition partition))
             {
                 GridForgeLogger.Warn($"Partition {partitionName} not found on this node.");
                 return false;
-            }
-
-            _partitions.Remove(key);
-            if (_partitions.Count == 0)
-            {
-                GridForgeLogger.Info($"Releasing Node's unused Partitions collection.");
-                _partitions = null;
-                IsPartioned = false;
             }
 
             try
@@ -268,34 +256,34 @@ namespace GridForge.Grids
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error(
-                    $"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
+                GridForgeLogger.Error($"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
             }
 
             return true;
         }
 
         /// <summary>
-        /// Retrieves a partition from the node by name.
+        /// Checks whether or not this node contains a specific partition.
+        /// </summary>
+        public bool HasPartition<T>() where T : INodePartition
+        {
+            return _partitionProvider.Has<T>(GeneratePartitionKey(typeof(T).Name));
+        }
+
+        /// <summary>
+        /// Retrieves a partition from the node by type.
         /// </summary>
         public bool TryGetPartition<T>(out T partition) where T : INodePartition
         {
-            partition = default;
+            return _partitionProvider.TryGet(GeneratePartitionKey(typeof(T).Name), out partition);
+        }
 
-            if (!IsPartioned)
-                return false;
-
-            int key = GetPartitionKey(typeof(T).Name);
-            if (!_partitions.TryGetValue(key, out INodePartition tempPartition))
-                return false;
-
-            if (tempPartition is T typedPartition)
-            {
-                partition = typedPartition;
-                return true;
-            }
-
-            return false;
+        /// <summary>
+        /// Retrieves a partition from the node by type and returns null if it doesn't exist.
+        /// </summary>
+        public T GetPartitionOrDefault<T>() where T : class, INodePartition
+        {
+            return TryGetPartition(out T partition) ? partition : null;
         }
 
         #endregion
@@ -315,13 +303,21 @@ namespace GridForge.Grids
             if (useCache && _isNeighborCacheValid)
             {
                 for (int i = 0; i < _cachedNeighbors.Length; i++)
+                {
+                    if (_cachedNeighbors[i] == null)
+                        continue;
                     yield return ((LinearDirection)i, _cachedNeighbors[i]);
+                }
             }
 
-            SetNeighborCache();
+            RefreshNeighborCache();
 
             for (int i = 0; i < _cachedNeighbors.Length; i++)
+            {
+                if (_cachedNeighbors[i] == null)
+                    continue;
                 yield return ((LinearDirection)i, _cachedNeighbors[i]);
+            }
         }
 
         /// <summary>
@@ -339,7 +335,7 @@ namespace GridForge.Grids
             if (useCache)
             {
                 if (!_isNeighborCacheValid)
-                    SetNeighborCache();
+                    RefreshNeighborCache();
 
                 neighbor = _cachedNeighbors[(int)direction];
                 return neighbor != null;
@@ -370,7 +366,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Updates and caches the neighboring nodes of this node.
         /// </summary>
-        private void SetNeighborCache()
+        private void RefreshNeighborCache()
         {
             _cachedNeighbors ??= Pools.NodeNeighborPool.Rent(GlobalGridManager.DirectionOffsets.Length);
             Array.Clear(_cachedNeighbors, 0, _cachedNeighbors.Length); // Ensure clean state
