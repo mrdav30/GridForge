@@ -591,9 +591,9 @@ namespace GridForge.Grids
         public static int GetSpatialGridKey(Vector3d position)
         {
             (int x, int y, int z) = (
-                (position.x / SpatialGridCellSize).FloorToInt(),
-                (position.y / SpatialGridCellSize).FloorToInt(),
-                (position.z / SpatialGridCellSize).FloorToInt()
+                position.x.FloorToInt() / SpatialGridCellSize,
+                position.y.FloorToInt() / SpatialGridCellSize,
+                position.z.FloorToInt() / SpatialGridCellSize
             );
 
             return GetSpawnHash(x, y, z);
