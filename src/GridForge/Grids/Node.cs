@@ -9,7 +9,7 @@ namespace GridForge.Grids
     /// <summary>
     /// Represents a node within a 3D grid, handling spatial positioning, obstacles, occupants, and neighbor relationships.
     /// </summary>
-    public class Node
+    public class Node : IEquatable<Node>
     {
         #region Properties & Fields
 
@@ -398,6 +398,9 @@ namespace GridForge.Grids
 
         /// <inheritdoc/>
         public override string ToString() => GlobalCoordinates.ToString();
+
+        /// <inheritdoc/>
+        public bool Equals(Node other) => SpawnToken == other.SpawnToken;
 
         #endregion
     }
