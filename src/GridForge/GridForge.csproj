@@ -2,7 +2,7 @@
 	<!-- Global Properties: General Configuration Settings -->
 	<PropertyGroup>
 		<LangVersion>9.0</LangVersion>
-		<TargetFramework>net48</TargetFramework>
+		<TargetFrameworks>net48;net8</TargetFrameworks>
 		<!-- Versioning and Build Configuration -->
 		<!-- Set SemVer to GitVersion_FullSemVer if available, otherwise fallback to 0.0.0 -->
 		<SemVer Condition="'$(GitVersion_FullSemVer)' != ''">$(GitVersion_FullSemVer)</SemVer>
@@ -65,7 +65,7 @@
 	</PropertyGroup>
 	<!-- Dependencies and Package References -->
 	<ItemGroup>	
-		<PackageReference Include="FixedMathSharp" Version="1.1.0">
+		<PackageReference Include="FixedMathSharp" Version="1.2.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>
@@ -73,7 +73,7 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>	
-		<PackageReference Include="SwiftCollections" Version="1.0.4">
+		<PackageReference Include="SwiftCollections" Version="1.0.5">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>
