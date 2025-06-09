@@ -16,56 +16,51 @@ jobs:
       || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork 
       || startsWith(github.head_ref, 'dependabot/')))
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-          
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-
       - name: Install Mono (required for .NET Framework tests on Linux)
         run: |
           sudo apt update
           sudo apt install -y mono-complete    
-
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.1
         with:
           versionSpec: 6.0.x
-
       - name: Cache NuGet packages
         uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          key: '${{ runner.os }}-nuget-${{ hashFiles(''**/*.csproj'', ''**/*.sln'') }}'
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
+        with: null
+        path: ~/.nuget/packages
+        key: '${{ runner.os }}-nuget-${{ hashFiles(''**/*.csproj'', ''**/*.sln'') }}'
+        restore-keys: |
+          ${{ runner.os }}-nuget-
       - name: Determine Version
         id: version_step
         run: |
           chown -R $(whoami) $(pwd)
-          dotnet-gitversion /output json
-          
+          dotnet-gitversion /output json > version.json
+          echo "FULL_SEM_VER=$(grep -oP '"FullSemVer":\s*"\K[^"]+'version.json)" >> $GITHUB_ENV
+          echo "ASSEMBLY_VERSION=$(grep -oP '"AssemblySemFileVer":\s*"\K[^"]+'version.json)" >> $GITHUB_ENV
       - name: Restore dependencies
         run: dotnet restore
-
       - name: Build Solution
         run: |
-          echo "Version: ${{ steps.version_step.outputs.fullSemVer }}\nAssembley Version: ${{ steps.version_step.outputs.fullSemVer }}"
+          echo "Version: ${{ env.FULL_SEM_VER }}"
+          echo "Assembly Version: ${{ env.ASSEMBLY_VERSION }}"
           dotnet build --configuration Debug --no-restore
-
-      - name: Test
+      - name: Test .NET48
         run: |
-          dotnet --info
-          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net472/xunit.console.exe ${{github.workspace}}/tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
-
+          mono ~/.nuget/packages/xunit.runner.console/2.9.3/tools/net48/xunit.console.exe ${{github.workspace}}/tests/GridForge.Tests/bin/Debug/net48/GridForge.Tests.dll
+      - name: Test .NET8
+        run: |
+          dotnet test -f net8 --verbosity normal
   build-and-test-windows:
     if: |
       (github.event_name != 'pull_request' && !github.event.pull_request.head.repo.fork) 
@@ -78,17 +73,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-          
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v3.1.1
         with:
           versionSpec: 6.0.x
-          
       - name: Cache NuGet packages
         uses: actions/cache@v3
         with:
@@ -96,21 +88,21 @@ jobs:
           key: '${{ runner.os }}-nuget-${{ hashFiles(''**/*.csproj'', ''**/*.sln'') }}'
           restore-keys: |
             ${{ runner.os }}-nuget-
-            
       - name: Determine Version
         run: |
-          chown -R $(whoami) $(pwd)
-          dotnet-gitversion /output json
-          
+          chown -R $env:USERNAME $(Get-Location)
+          dotnet-gitversion /output json | Out-File -FilePath version.json
+          $json = Get-Content version.json | ConvertFrom-Json
+          echo "FULL_SEM_VER=$($json.FullSemVer)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "ASSEMBLY_VERSION=$($json.AssemblySemFileVer)" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Restore dependencies
         run: dotnet restore
-        
       - name: Build Solution
         run: |
-          echo "Version:${{ env.GitVersion_FullSemVer }}\nAssembley Version:${{env.GitVersion_AssemblySemFileVer }}"
-          dotnet build --configuration Release --no-restore
-          
-      - name: Test
+          echo "Version: ${{ env.FULL_SEM_VER }}"
+          echo "Assembly Version: ${{ env.ASSEMBLY_VERSION }}"
+          dotnet build --configuration Debug --no-restore
+      - name: Test .NET48 & .NET8
         run: |
           dotnet --info
-          dotnet test ${{github.workspace}}\tests\GridForge.Tests\bin\Release\net48\GridForge.Tests.dll --verbosity normal
+          dotnet test --verbosity normal
