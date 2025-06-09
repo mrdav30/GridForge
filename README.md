@@ -130,6 +130,7 @@ dotnet test
 ## 🔄 Compatibility
 
 - **.NET Framework** 4.7.2+
+- **.NET Core / .NET** 6+
 - **Unity 2020+** (via - [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity).)
 - **Supports FixedMathSharp for deterministic precision**
 - **Supports SwiftCollections for optimal performance**
