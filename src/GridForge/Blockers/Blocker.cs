@@ -33,19 +33,19 @@ namespace GridForge.Blockers
         public Vector3d CacheMax { get; private set; }
 
         /// <summary>
-        /// Tracks whether the blocker is currently blocking nodes.
+        /// Tracks whether the blocker is currently blocking voxels.
         /// </summary>
         public bool IsBlocking { get; private set; }
 
         /// <summary>
-        /// Flags whether or not to hold onto a reference of the nodes this blocker covers.
+        /// Flags whether or not to hold onto a reference of the voxels this blocker covers.
         /// </summary>
-        public bool CacheCoveredNodes { get; private set; }
+        public bool CacheCoveredVoxels { get; private set; }
 
         /// <summary>
-        /// The cached nodes this blocker is currently blocking if <see cref="CacheCoveredNodes"/> is true.
+        /// The cached voxels this blocker is currently blocking if <see cref="CacheCoveredVoxels"/> is true.
         /// </summary>
-        private SwiftList<GridNodeSet> _cachedCoveredNodes;
+        private SwiftList<GridVoxelSet> _cachedCoveredVoxels;
 
         /// <summary>
         /// Event triggered when a blockage is added or removed.
@@ -56,11 +56,11 @@ namespace GridForge.Blockers
         /// Initializes a new blocker instance.
         /// </summary>
         /// <param name="active">Flag whether or not this blocker will block on update.</param>
-        /// <param name="cacheCoveredNodes">Flag whether or not to cache covered nodes that are blocked.</param>
-        protected Blocker(bool active = true, bool cacheCoveredNodes = false)
+        /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels that are blocked.</param>
+        protected Blocker(bool active = true, bool cacheCoveredVoxels = false)
         {
             IsActive = active;
-            CacheCoveredNodes = cacheCoveredNodes;
+            CacheCoveredVoxels = cacheCoveredVoxels;
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace GridForge.Blockers
         }
 
         /// <summary>
-        /// Applies the blockage by marking nodes as obstacles.
+        /// Applies the blockage by marking voxels as obstacles.
         /// </summary>
         public virtual void ApplyBlockage()
         {
@@ -102,19 +102,19 @@ namespace GridForge.Blockers
                 CacheMax.GetHashCode());
 
             bool hasCoverage = false;
-            // Iterate over all affected nodes and apply obstacles
-            foreach (GridNodeSet covered in GridTracer.GetCoveredNodes(CacheMin, CacheMax))
+            // Iterate over all affected voxels and apply obstacles
+            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(CacheMin, CacheMax))
             {
-                if (covered.Nodes.Count <= 0)
+                if (covered.Voxels.Count <= 0)
                     continue;
 
                 hasCoverage = true;
 
-                foreach (Node node in covered.Nodes)
-                    covered.Grid.TryAddObstacle(node, BlockageToken);
+                foreach (Voxel voxel in covered.Voxels)
+                    covered.Grid.TryAddObstacle(voxel, BlockageToken);
 
-                if (CacheCoveredNodes)
-                    _cachedCoveredNodes.Add(covered);
+                if (CacheCoveredVoxels)
+                    _cachedCoveredVoxels.Add(covered);
             }
 
             if (hasCoverage)
@@ -125,26 +125,26 @@ namespace GridForge.Blockers
         }
 
         /// <summary>
-        /// Removes the blockage by clearing obstacle markers from nodes.
+        /// Removes the blockage by clearing obstacle markers from voxels.
         /// </summary>
         public virtual void RemoveBlockage()
         {
             if (!IsBlocking)
                 return;
 
-            IEnumerable<GridNodeSet> coveredNodes = CacheCoveredNodes
-                ? _cachedCoveredNodes
-                : GridTracer.GetCoveredNodes(CacheMin, CacheMax);
+            IEnumerable<GridVoxelSet> coveredVoxels = CacheCoveredVoxels
+                ? _cachedCoveredVoxels
+                : GridTracer.GetCoveredVoxels(CacheMin, CacheMax);
 
-            // Clear the obstacle markers from all affected nodes before resetting the blocker state
-            foreach (GridNodeSet covered in coveredNodes)
+            // Clear the obstacle markers from all affected voxels before resetting the blocker state
+            foreach (GridVoxelSet covered in coveredVoxels)
             {
-                foreach (Node node in covered.Nodes)
-                    covered.Grid.TryRemoveObstacle(node, BlockageToken);
+                foreach (Voxel voxel in covered.Voxels)
+                    covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
             }
 
             IsBlocking = false;
-            _cachedCoveredNodes = null;
+            _cachedCoveredVoxels = null;
 
             NotifyBlockageChanged(GridChange.Remove);
         }

@@ -8,19 +8,19 @@ namespace GridForge.Grids
         #region Grid Pooling
 
         /// <summary>
-        /// Object pool for reusing <see cref="Grid"/> instances.
+        /// Object pool for reusing <see cref="VoxelGrid"/> instances.
         /// </summary>
-        public static readonly SwiftObjectPool<Grid> GridPool = new SwiftObjectPool<Grid>(
-                    createFunc: () => new Grid(),
+        public static readonly SwiftObjectPool<VoxelGrid> GridPool = new SwiftObjectPool<VoxelGrid>(
+                    createFunc: () => new VoxelGrid(),
                     actionOnRelease: grid => grid.Reset()
                 );
 
         /// <summary>
-        /// Object pool for reusing <see cref="Node"/> instances.
+        /// Object pool for reusing <see cref="Voxel"/> instances.
         /// </summary>
-        public static readonly SwiftObjectPool<Node> NodePool = new SwiftObjectPool<Node>(
-                createFunc: () => new Node(),
-                actionOnRelease: node => node.Reset()
+        public static readonly SwiftObjectPool<Voxel> VoxelPool = new SwiftObjectPool<Voxel>(
+                createFunc: () => new Voxel(),
+                actionOnRelease: voxel => voxel.Reset()
             );
 
         /// <summary>
@@ -33,25 +33,25 @@ namespace GridForge.Grids
 
         #endregion
 
-        #region Node Pooling
+        #region Voxel Pooling
 
         /// <summary>
-        /// Object pool for caching neighbor node arrays.
+        /// Object pool for caching neighbor voxel arrays.
         /// </summary>
-        private static readonly Lazy<SwiftArrayPool<Node>> _nodeNeighborPool =
-            new Lazy<SwiftArrayPool<Node>>(() => new SwiftArrayPool<Node>());
+        private static readonly Lazy<SwiftArrayPool<Voxel>> _voxelNeighborPool =
+            new Lazy<SwiftArrayPool<Voxel>>(() => new SwiftArrayPool<Voxel>());
 
-        /// <inheritdoc cref="_nodeNeighborPool"/>
-        public static SwiftArrayPool<Node> NodeNeighborPool => _nodeNeighborPool.Value;
+        /// <inheritdoc cref="_voxelNeighborPool"/>
+        public static SwiftArrayPool<Voxel> VoxelNeighborPool => _voxelNeighborPool.Value;
 
         #endregion
 
         public static void ClearPools()
         {
             GridPool.Clear();
-            NodePool.Clear();
+            VoxelPool.Clear();
             ScanCellPool.Clear();
-            NodeNeighborPool.Clear();
+            VoxelNeighborPool.Clear();
         }
     }
 }

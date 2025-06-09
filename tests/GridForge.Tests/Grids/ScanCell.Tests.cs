@@ -16,17 +16,17 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(new GridConfiguration(
                 new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)), 
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(45, 0, 45);
 
             var occupant1 = new TestOccupant(position);
             var occupant2 = new TestOccupant(position);
 
-            grid.TryAddNodeOccupant(occupant1);
-            grid.TryAddNodeOccupant(occupant2);
+            grid.TryAddVoxelOccupant(occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
 
-            List<INodeOccupant> occupants = new List<INodeOccupant>(grid.GetOccupants(occupant1.GridCoordinates.NodeCoordinates));
+            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(occupant1.GridCoordinates.VoxelCoordinates));
             Assert.True(occupants.Count > 0);
         }
 
@@ -36,18 +36,18 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(new GridConfiguration(
                 new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)),
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(41, 0, 41);
 
             var occupant1 = new TestOccupant(position, 1);
             var occupant2 = new TestOccupant(position);
 
-            grid.TryAddNodeOccupant(position, occupant1);
-            grid.TryAddNodeOccupant(position, occupant2);
+            grid.TryAddVoxelOccupant(position, occupant1);
+            grid.TryAddVoxelOccupant(position, occupant2);
 
-            List<INodeOccupant> filtered = new List<INodeOccupant>(
-                grid.GetConditionalOccupants(occupant1.GridCoordinates.NodeCoordinates, key => key == 1));
+            List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
+                grid.GetConditionalOccupants(occupant1.GridCoordinates.VoxelCoordinates, key => key == 1));
 
             Assert.Single(filtered);
             Assert.Equal(1, filtered[0].OccupantGroupId);
@@ -57,9 +57,9 @@ namespace GridForge.Grids.Tests
         public void GetOccupants_ShouldReturnEmptyList_WhenNoOccupantsPresent()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            List<INodeOccupant> occupants = new List<INodeOccupant>(grid.GetOccupants(new Vector3d(-25, 0, -25)));
+            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(new Vector3d(-25, 0, -25)));
 
             Assert.Empty(occupants);
         }
@@ -71,13 +71,13 @@ namespace GridForge.Grids.Tests
                 new Vector3d(-10, 0, -10), 
                 new Vector3d(10, 0, 10)), 
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(10, 0, 10);
 
             var occupant = new TestOccupant(position);
 
-            bool removed = grid.TryRemoveNodeOccupant(occupant); // Non-existent occupant
+            bool removed = grid.TryRemoveVoxelOccupant(occupant); // Non-existent occupant
 
             Assert.False(removed);
         }
@@ -86,17 +86,17 @@ namespace GridForge.Grids.Tests
         public void GetConditionalOccupants_ShouldReturnEmptyList_WhenNoMatches()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(2, 0, 2);
 
             var occupant1 = new TestOccupant(position ,5);
             var occupant2 = new TestOccupant(position, 6);
 
-            grid.TryAddNodeOccupant(occupant1);
-            grid.TryAddNodeOccupant(occupant2);
+            grid.TryAddVoxelOccupant(occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
 
-            List<INodeOccupant> filtered = new List<INodeOccupant>(
+            List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
                 grid.GetConditionalOccupants(position, key => key == 99)); // No matches
 
             Assert.Empty(filtered);
@@ -108,7 +108,7 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(new GridConfiguration(
                 new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)),
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(49, 0, 49);
 
@@ -116,12 +116,12 @@ namespace GridForge.Grids.Tests
             var occupant2 = new TestOccupant(position, 1); // Cluster Key 1
             var occupant3 = new TestOccupant(position, 2); // Cluster Key 2 (should not be removed)
 
-            grid.TryAddNodeOccupant(position, occupant1);
-            grid.TryAddNodeOccupant(occupant2);
-            grid.TryAddNodeOccupant(position, occupant3);
+            grid.TryAddVoxelOccupant(position, occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
+            grid.TryAddVoxelOccupant(position, occupant3);
 
-            bool removed1 = grid.TryRemoveNodeOccupant(occupant1.GridCoordinates.NodeCoordinates, occupant1);
-            bool removed2 = grid.TryRemoveNodeOccupant(occupant2);
+            bool removed1 = grid.TryRemoveVoxelOccupant(occupant1.GridCoordinates.VoxelCoordinates, occupant1);
+            bool removed2 = grid.TryRemoveVoxelOccupant(occupant2);
 
             Assert.True(removed1);
             Assert.True(removed2);
@@ -138,18 +138,18 @@ namespace GridForge.Grids.Tests
         public void RemoveAllOccupants_ShouldMarkIndependentGridAsUnoccupied()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(9, 9, 9), new Vector3d(10, 10, 10)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(9.5, 9.5, 9.5);
 
             var occupant1 = new TestOccupant(position, 1);
             var occupant2 = new TestOccupant(position, 2);
 
-            grid.TryAddNodeOccupant(position, occupant1);
-            grid.TryAddNodeOccupant(occupant2);
+            grid.TryAddVoxelOccupant(position, occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
 
-            bool removed1 = grid.TryRemoveNodeOccupant(occupant1);
-            bool removed2 = grid.TryRemoveNodeOccupant(occupant2.GridCoordinates.NodeCoordinates, occupant2);
+            bool removed1 = grid.TryRemoveVoxelOccupant(occupant1);
+            bool removed2 = grid.TryRemoveVoxelOccupant(occupant2.GridCoordinates.VoxelCoordinates, occupant2);
 
             Assert.True(removed1);
             Assert.True(removed2);
@@ -167,7 +167,7 @@ namespace GridForge.Grids.Tests
                 new Vector3d(-20, 0, -20), 
                 new Vector3d(20, 0, 20)), 
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d scanCenter = new Vector3d(0, 0, 0);
             Fixed64 scanRadius = (Fixed64)6; // Searching within a radius of 5 units
@@ -176,12 +176,12 @@ namespace GridForge.Grids.Tests
             var occupant2 = new TestOccupant(new Vector3d(4, 0, 4), 1);  // Within radius
             var occupant3 = new TestOccupant(new Vector3d(10, 0, 10), 1); // Outside radius
 
-            grid.TryAddNodeOccupant(occupant1);
-            grid.TryAddNodeOccupant(occupant2);
-            grid.TryAddNodeOccupant(occupant3);
+            grid.TryAddVoxelOccupant(occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
+            grid.TryAddVoxelOccupant(occupant3);
 
             // Act
-            var results = new SwiftList<INodeOccupant>(
+            var results = new SwiftList<IVoxelOccupant>(
                 ScanManager.ScanRadius(scanCenter, scanRadius));
 
             // Assert
@@ -195,7 +195,7 @@ namespace GridForge.Grids.Tests
         {
             // Arrange
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-20, 0, -20), new Vector3d(20, 0, 20)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d scanCenter = new Vector3d(0, 0, 0);
             Fixed64 scanRadius = (Fixed64)5;
@@ -204,12 +204,12 @@ namespace GridForge.Grids.Tests
             var occupant2 = new TestOccupant(new Vector3d(2, 0, 2), 2); // Group 2
             var occupant3 = new TestOccupant(new Vector3d(3, 0, 3), 3); // Group 3 (out of filter)
 
-            grid.TryAddNodeOccupant(occupant1);
-            grid.TryAddNodeOccupant(occupant2);
-            grid.TryAddNodeOccupant(occupant3);
+            grid.TryAddVoxelOccupant(occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
+            grid.TryAddVoxelOccupant(occupant3);
 
             // Act
-            var filteredResults = new SwiftList<INodeOccupant>(ScanManager.ScanRadius(
+            var filteredResults = new SwiftList<IVoxelOccupant>(ScanManager.ScanRadius(
                 scanCenter, 
                 scanRadius, groupId => groupId == 1 || groupId == 2));
 

@@ -11,7 +11,7 @@ namespace GridForge.Grids
 {
     /// <summary>
     /// Provides efficient querying methods for retrieving occupants within a grid.
-    /// Handles spatial lookups for nodes, filtering by occupant type, and fetching occupants using unique tickets.
+    /// Handles spatial lookups for voxels, filtering by occupant type, and fetching occupants using unique tickets.
     /// </summary>
     public static class ScanManager
     {
@@ -20,40 +20,40 @@ namespace GridForge.Grids
         /// </summary>
         /// <param name="grid">The grid to query.</param>
         /// <param name="position">The world position to check for occupants.</param>
-        /// <returns>An enumerable collection of node occupants.</returns>
-        public static IEnumerable<INodeOccupant> GetNodeOccupants(this Grid grid, Vector3d position)
+        /// <returns>An enumerable collection of voxel occupants.</returns>
+        public static IEnumerable<IVoxelOccupant> GetVoxelOccupants(this VoxelGrid grid, Vector3d position)
         {
-            return grid.TryGetNode(position, out Node targetNode)
-                ? GetNodeOccupants(grid, targetNode)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(position, out Voxel targetVoxel)
+                ? GetVoxelOccupants(grid, targetVoxel)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
-        /// Retrieves all occupants at a given node coordinate within the grid.
+        /// Retrieves all occupants at a given voxel coordinate within the grid.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinates">The local coordinates of the node.</param>
-        /// <returns>An enumerable collection of node occupants.</returns>
-        public static IEnumerable<INodeOccupant> GetNodeOccupants(this Grid grid, CoordinatesLocal coordinates)
+        /// <param name="coordinates">The local coordinates of the voxel.</param>
+        /// <returns>An enumerable collection of voxel occupants.</returns>
+        public static IEnumerable<IVoxelOccupant> GetVoxelOccupants(this VoxelGrid grid, VoxelIndex coordinates)
         {
-            return grid.TryGetNode(coordinates, out Node targetNode)
-                ? GetNodeOccupants(grid, targetNode)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+                ? GetVoxelOccupants(grid, targetVoxel)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
-        /// Retrieves all occupants at a given node.
+        /// Retrieves all occupants at a given voxel.
         /// </summary>
-        /// <param name="grid">The grid containing the node.</param>
-        /// <param name="targetNode">The target node to retrieve occupants from.</param>
-        /// <returns>An enumerable collection of node occupants.</returns>
-        public static IEnumerable<INodeOccupant> GetNodeOccupants(this Grid grid, Node targetNode)
+        /// <param name="grid">The grid containing the voxel.</param>
+        /// <param name="targetVoxel">The target voxel to retrieve occupants from.</param>
+        /// <returns>An enumerable collection of voxel occupants.</returns>
+        public static IEnumerable<IVoxelOccupant> GetVoxelOccupants(this VoxelGrid grid, Voxel targetVoxel)
         {
-            return targetNode.IsOccupied
-                && grid.TryGetScanCell(targetNode.ScanCellKey, out ScanCell scanCell)
+            return targetVoxel.IsOccupied
+                && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
-                ? scanCell.GetOccupantsFor(targetNode.SpawnToken)
-                : Enumerable.Empty<INodeOccupant>();
+                ? scanCell.GetOccupantsFor(targetVoxel.SpawnToken)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
@@ -61,174 +61,174 @@ namespace GridForge.Grids
         /// </summary>
         /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="position">The world position of the node.</param>
+        /// <param name="position">The world position of the voxel.</param>
         /// <returns>An enumerable collection of occupants of the specified type.</returns>
-        public static IEnumerable<T> GetNodeOccupantsByType<T>(this Grid grid, Vector3d position) where T : INodeOccupant
+        public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Vector3d position) where T : IVoxelOccupant
         {
-            return grid.TryGetNode(position, out Node targetNode)
-                ? GetNodeOccupantsByType<T>(grid, targetNode)
+            return grid.TryGetVoxel(position, out Voxel targetVoxel)
+                ? GetVoxelOccupantsByType<T>(grid, targetVoxel)
                 : Enumerable.Empty<T>();
         }
 
         /// <summary>
-        /// Retrieves all occupants of a specific type at a given node coordinate.
+        /// Retrieves all occupants of a specific type at a given voxel coordinate.
         /// </summary>
         /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinates">The local node coordinates.</param>
+        /// <param name="coordinates">The local voxel coordinates.</param>
         /// <returns>An enumerable collection of occupants of the specified type.</returns>
-        public static IEnumerable<T> GetNodeOccupantsByType<T>(this Grid grid, CoordinatesLocal coordinates) where T : INodeOccupant
+        public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex coordinates) where T : IVoxelOccupant
         {
-            return grid.TryGetNode(coordinates, out Node targetNode)
-                ? GetNodeOccupantsByType<T>(grid, targetNode)
+            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+                ? GetVoxelOccupantsByType<T>(grid, targetVoxel)
                 : Enumerable.Empty<T>();
         }
 
         /// <summary>
-        /// Retrieves all occupants of a specific type at a given node.
+        /// Retrieves all occupants of a specific type at a given voxel.
         /// </summary>
         /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-        /// <param name="grid">The grid containing the node.</param>
-        /// <param name="targetNode">The target node.</param>
+        /// <param name="grid">The grid containing the voxel.</param>
+        /// <param name="targetVoxel">The target voxel.</param>
         /// <returns>An enumerable collection of occupants of the specified type.</returns>
-        public static IEnumerable<T> GetNodeOccupantsByType<T>(this Grid grid, Node targetNode) where T : INodeOccupant
+        public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Voxel targetVoxel) where T : IVoxelOccupant
         {
-            return targetNode == null
+            return targetVoxel == null
                 ? Enumerable.Empty<T>()
-                : GetNodeOccupants(grid, targetNode).OfType<T>();
+                : GetVoxelOccupants(grid, targetVoxel).OfType<T>();
         }
 
         /// <summary>
         /// Retrieves a specific occupant at a given world position using an occupant ticket.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="position">The world position of the node.</param>
+        /// <param name="position">The world position of the voxel.</param>
         /// <param name="occupantTicket">The unique identifier of the occupant.</param>
         /// <param name="occupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
-        public static bool TryGetNodeOccupant(
-            this Grid grid,
+        public static bool TryGetVoxelOccupant(
+            this VoxelGrid grid,
             Vector3d position,
             int occupantTicket,
-            out INodeOccupant occupant)
+            out IVoxelOccupant occupant)
         {
             occupant = null;
-            return grid.TryGetNodeCoordinates(position, out CoordinatesLocal targetCoordinates)
-                && TryGetNodeOccupant(grid, targetCoordinates, occupantTicket, out occupant);
+            return grid.TryGetVoxelCoordinates(position, out VoxelIndex targetCoordinates)
+                && TryGetVoxelOccupant(grid, targetCoordinates, occupantTicket, out occupant);
         }
 
         /// <summary>
-        /// Retrieves a specific occupant at a given node coordinate using an occupant ticket.
+        /// Retrieves a specific occupant at a given voxel coordinate using an occupant ticket.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinatesLocal">The local node coordinates.</param>
+        /// <param name="coordinatesLocal">The local voxel coordinates.</param>
         /// <param name="occupantTicket">The unique identifier of the occupant.</param>
         /// <param name="occupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
-        public static bool TryGetNodeOccupant(
-            this Grid grid,
-            CoordinatesLocal coordinatesLocal,
+        public static bool TryGetVoxelOccupant(
+            this VoxelGrid grid,
+            VoxelIndex coordinatesLocal,
             int occupantTicket,
-            out INodeOccupant occupant)
+            out IVoxelOccupant occupant)
         {
             occupant = null;
-            return grid.TryGetNode(coordinatesLocal, out Node targetNode)
-                && TryGetNodeOccupant(grid, targetNode, occupantTicket, out occupant);
+            return grid.TryGetVoxel(coordinatesLocal, out Voxel targetVoxel)
+                && TryGetVoxelOccupant(grid, targetVoxel, occupantTicket, out occupant);
         }
 
         /// <summary>
-        /// Retrieves a specific occupant from a given node using an occupant ticket.
+        /// Retrieves a specific occupant from a given voxel using an occupant ticket.
         /// </summary>
-        /// <param name="grid">The grid containing the node.</param>
-        /// <param name="targetNode">The target node.</param>
+        /// <param name="grid">The grid containing the voxel.</param>
+        /// <param name="targetVoxel">The target voxel.</param>
         /// <param name="occupantTicket">The unique identifier of the occupant.</param>
         /// <param name="occupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
-        public static bool TryGetNodeOccupant(
-            this Grid grid,
-            Node targetNode,
+        public static bool TryGetVoxelOccupant(
+            this VoxelGrid grid,
+            Voxel targetVoxel,
             int occupantTicket,
-            out INodeOccupant occupant)
+            out IVoxelOccupant occupant)
         {
             occupant = null;
-            return targetNode.IsOccupied
-                && grid.TryGetScanCell(targetNode.ScanCellKey, out ScanCell scanCell)
+            return targetVoxel.IsOccupied
+                && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
-                && scanCell.TryGetOccupantAt(targetNode.SpawnToken, occupantTicket, out occupant);
+                && scanCell.TryGetOccupantAt(targetVoxel.SpawnToken, occupantTicket, out occupant);
         }
 
         /// <summary>
         /// Retrieves all occupants at a given world position within the grid.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetOccupants(this Grid grid, Vector3d position)
+        public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Vector3d position)
         {
-            return grid.TryGetNode(position, out Node targetNode)
-                ? GetOccupants(grid, targetNode)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(position, out Voxel targetVoxel)
+                ? GetOccupants(grid, targetVoxel)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
         /// Retrieves all occupants at a given coordinate within the grid.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetOccupants(this Grid grid, CoordinatesLocal coordinates)
+        public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex coordinates)
         {
-            return grid.TryGetNode(coordinates, out Node targetNode)
-                ? GetOccupants(grid, targetNode)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+                ? GetOccupants(grid, targetVoxel)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
-        /// Retrieves all occupants at a given node.
+        /// Retrieves all occupants at a given voxel.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetOccupants(this Grid grid, Node targetNode)
+        public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Voxel targetVoxel)
         {
-            return targetNode.IsOccupied
-                && grid.TryGetScanCell(targetNode.ScanCellKey, out ScanCell scanCell)
+            return targetVoxel.IsOccupied
+                && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
                 ? scanCell.GetOccupants()
-                : Enumerable.Empty<INodeOccupant>();
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
         /// Retrieves occupants whose group Ids match a given condition.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetConditionalOccupants(
-            this Grid grid,
+        public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
+            this VoxelGrid grid,
             Vector3d position,
             Func<byte, bool> groupConditional)
         {
-            return grid.TryGetNode(position, out Node targetNode)
-                ? GetConditionalOccupants(grid, targetNode, groupConditional)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(position, out Voxel targetVoxel)
+                ? GetConditionalOccupants(grid, targetVoxel, groupConditional)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
         /// Retrieves occupants whose group Ids match a given condition.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetConditionalOccupants(
-            this Grid grid,
-            CoordinatesLocal coordinates,
+        public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
+            this VoxelGrid grid,
+            VoxelIndex coordinates,
             Func<byte, bool> groupConditional)
         {
-            return grid.TryGetNode(coordinates, out Node targetNode)
-                ? GetConditionalOccupants(grid, targetNode, groupConditional)
-                : Enumerable.Empty<INodeOccupant>();
+            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+                ? GetConditionalOccupants(grid, targetVoxel, groupConditional)
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
         /// <summary>
-        /// Retrieves occupants at a given node that match a specified group condition.
+        /// Retrieves occupants at a given voxel that match a specified group condition.
         /// </summary>
-        public static IEnumerable<INodeOccupant> GetConditionalOccupants(
-            this Grid grid,
-            Node targetNode,
+        public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
+            this VoxelGrid grid,
+            Voxel targetVoxel,
             Func<byte, bool> groupConditional)
         {
             return groupConditional != null
-                && targetNode.IsOccupied
-                && grid.TryGetScanCell(targetNode.ScanCellKey, out ScanCell scanCell)
+                && targetVoxel.IsOccupied
+                && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
                 ? scanCell.GetConditionalOccupants(groupConditional)
-                : Enumerable.Empty<INodeOccupant>();
+                : Enumerable.Empty<IVoxelOccupant>();
         }
 
 
@@ -239,13 +239,13 @@ namespace GridForge.Grids
         /// <param name="radius">The search radius.</param>
         /// <param name="groupConditional">Optional filter for occupant groups.</param>
         /// <returns>An enumerable of all occupants found within the radius.</returns>
-        public static IEnumerable<INodeOccupant> ScanRadius(
+        public static IEnumerable<IVoxelOccupant> ScanRadius(
             Vector3d position,
             Fixed64 radius,
             Func<byte, bool> groupConditional = null)
         {
             Fixed64 squaredRadius = radius * radius;
-            SwiftList<INodeOccupant> results = SwiftListPool<INodeOccupant>.Shared.Rent();
+            SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
 
             // Get bounds for the search area
             Vector3d boundsMin = position - radius;
@@ -256,27 +256,27 @@ namespace GridForge.Grids
                 if (!scanCell.IsOccupied)
                     continue;
 
-                IEnumerable<INodeOccupant> occupants = groupConditional == null
+                IEnumerable<IVoxelOccupant> occupants = groupConditional == null
                     ? scanCell.GetOccupants()
                     : scanCell.GetConditionalOccupants(groupConditional);
 
-                foreach (INodeOccupant occupant in occupants)
+                foreach (IVoxelOccupant occupant in occupants)
                 {
                     if ((occupant.WorldPosition - position).SqrMagnitude <= squaredRadius)
                         results.Add(occupant);
                 }
             }
 
-            foreach (INodeOccupant result in results)
+            foreach (IVoxelOccupant result in results)
                 yield return result;
 
-            SwiftListPool<INodeOccupant>.Shared.Release(results);
+            SwiftListPool<IVoxelOccupant>.Shared.Release(results);
         }
 
         /// <summary>
         /// Scans for occupants of a specific type within a given radius.
         /// </summary>
-        public static IEnumerable<T> ScanRadius<T>(Vector3d position, Fixed64 radius) where T : INodeOccupant
+        public static IEnumerable<T> ScanRadius<T>(Vector3d position, Fixed64 radius) where T : IVoxelOccupant
         {
             return ScanRadius(position, radius).OfType<T>();
         }

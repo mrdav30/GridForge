@@ -14,11 +14,11 @@ namespace GridForge.Grids.Tests
             var end = new Vector3d(10, 0, 10);
             var config = new GridConfiguration(start, end);
             GlobalGridManager.TryAddGrid(config, out ushort index);
-            Grid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
-            int width = ((end.x - start.x) / GlobalGridManager.NodeSize).FloorToInt() + 1;
-            int height = ((end.y - start.y) / GlobalGridManager.NodeSize).FloorToInt() + 1;
-            int length = ((end.z - start.z) / GlobalGridManager.NodeSize).FloorToInt() + 1;
+            int width = ((end.x - start.x) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+            int height = ((end.y - start.y) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+            int length = ((end.z - start.z) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
 
             Assert.Equal(width, grid.Width);
             Assert.Equal(height, grid.Height);
@@ -27,27 +27,27 @@ namespace GridForge.Grids.Tests
         }
 
         [Fact]
-        public void GetNode_ShouldReturnCorrectNode()
+        public void GetVoxel_ShouldReturnCorrectVoxel()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort index);
-            Grid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
-            bool found = grid.TryGetNode(new Vector3d(0, 0, 0), out Node node);
+            bool found = grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
             Assert.True(found);
-            Assert.NotNull(node);
+            Assert.NotNull(voxel);
         }
 
         [Fact]
-        public void IsNodeAllocated_ShouldReturnCorrectState()
+        public void IsVoxelAllocated_ShouldReturnCorrectState()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort index);
-            Grid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
-            Assert.True(grid.IsNodeAllocated(10, 0, 10));
-            Assert.True(grid.IsNodeAllocated(20, 0, 20));
+            Assert.True(grid.IsVoxelAllocated(10, 0, 10));
+            Assert.True(grid.IsVoxelAllocated(20, 0, 20));
         }
 
         [Fact]
@@ -55,7 +55,7 @@ namespace GridForge.Grids.Tests
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort index);
-            Grid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
             bool found = grid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell scanCell);
 
@@ -68,7 +68,7 @@ namespace GridForge.Grids.Tests
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort index);
-            Grid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
             int count = 0;
             foreach (var cell in grid.GetActiveScanCells())
@@ -86,8 +86,8 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(config1, out ushort index1);
             GlobalGridManager.TryAddGrid(config2, out ushort index2);
 
-            Grid grid1 = GlobalGridManager.ActiveGrids[index1];
-            Grid grid2 = GlobalGridManager.ActiveGrids[index2];
+            VoxelGrid grid1 = GlobalGridManager.ActiveGrids[index1];
+            VoxelGrid grid2 = GlobalGridManager.ActiveGrids[index2];
 
             Assert.True(grid1.IsConjoined);
             Assert.True(grid2.IsConjoined);
@@ -97,7 +97,7 @@ namespace GridForge.Grids.Tests
             Assert.True(grid1.NeighborCount >= 1);
 
             // get the direction before removal
-            LinearDirection neighborDirection = Grid.GetNeighborDirection(grid1, grid2);
+            LinearDirection neighborDirection = VoxelGrid.GetNeighborDirection(grid1, grid2);
 
             GlobalGridManager.TryRemoveGrid(grid2.GlobalIndex);
 

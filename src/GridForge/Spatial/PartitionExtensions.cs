@@ -5,32 +5,32 @@ using GridForge.Spatial;
 
 
 /// <summary>
-/// Provides extension methods for managing <see cref="INodePartition"/> instances on <see cref="Node"/> objects.
+/// Provides extension methods for managing <see cref="IVoxelPartition"/> instances on <see cref="Voxel"/> objects.
 /// This allows adding and removing partitions while maintaining their state.
 /// </summary>
 public static class PartitionExtensions
 {
     /// <summary>
-    /// Attaches a partition to a specified <see cref="Node"/>, updating its state and invoking initialization logic.
+    /// Attaches a partition to a specified <see cref="Voxel"/>, updating its state and invoking initialization logic.
     /// </summary>
     /// <param name="partition">The partition to attach.</param>
-    /// <param name="node">The target node where the partition will be added.</param>
-    public static void AddToNode(this INodePartition partition, Node node)
+    /// <param name="voxel">The target voxel where the partition will be added.</param>
+    public static void AddToVoxel(this IVoxelPartition partition, Voxel voxel)
     {
-        partition.NodeCoordinates = node.GlobalCoordinates;
+        partition.VoxelCoordinates = voxel.GlobalCoordinates;
         partition.IsPartitioned = true;
-        partition.OnAddToNode(node);
+        partition.OnAddToVoxel(voxel);
     }
 
     /// <summary>
-    /// Detaches a partition from a specified <see cref="Node"/>, resetting its state and invoking cleanup logic.
+    /// Detaches a partition from a specified <see cref="Voxel"/>, resetting its state and invoking cleanup logic.
     /// </summary>
     /// <param name="partition">The partition to detach.</param>
-    /// <param name="node">The target node from which the partition will be removed.</param>
-    public static void RemoveFromNode(this INodePartition partition, Node node)
+    /// <param name="voxel">The target voxel from which the partition will be removed.</param>
+    public static void RemoveFromVoxel(this IVoxelPartition partition, Voxel voxel)
     {
-        partition.NodeCoordinates = default;
+        partition.VoxelCoordinates = default;
         partition.IsPartitioned = false;
-        partition.OnRemoveFromNode(node);
+        partition.OnRemoveFromVoxel(voxel);
     }
 }

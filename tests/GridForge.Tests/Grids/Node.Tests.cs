@@ -7,182 +7,182 @@ using System;
 namespace GridForge.Grids.Tests
 {
     [Collection("GridForgeCollection")]
-    public class NodeTests
+    public class VoxelTests
     {
         [Fact]
-        public void Node_ShouldInitializeCorrectly()
+        public void Voxel_ShouldInitializeCorrectly()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d testPosition = new Vector3d(10, 0, 10);
 
-            bool found = grid.TryGetNode(testPosition, out Node node);
+            bool found = grid.TryGetVoxel(testPosition, out Voxel voxel);
 
             Assert.True(found);
-            Assert.NotNull(node);
-            Assert.Equal(testPosition, node.WorldPosition);
-            Assert.False(node.IsOccupied);
-            Assert.False(node.IsBlocked);
+            Assert.NotNull(voxel);
+            Assert.Equal(testPosition, voxel.WorldPosition);
+            Assert.False(voxel.IsOccupied);
+            Assert.False(voxel.IsBlocked);
         }
 
         [Fact]
-        public void Node_ShouldHandleOccupantsCorrectly()
+        public void Voxel_ShouldHandleOccupantsCorrectly()
         {
             var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(6, 0, 6);
             TestOccupant occupant = new TestOccupant(position);
-            grid.TryAddNodeOccupant(occupant);
+            grid.TryAddVoxelOccupant(occupant);
 
-            grid.TryGetNode(occupant.GridCoordinates.NodeCoordinates, out Node occupantNode);
+            grid.TryGetVoxel(occupant.GridCoordinates.VoxelCoordinates, out Voxel occupantVoxel);
 
-            Assert.True(occupantNode.IsOccupied);
-            Assert.True(grid.TryGetNodeOccupant(occupantNode, occupant.OccupantTicket, out _));
+            Assert.True(occupantVoxel.IsOccupied);
+            Assert.True(grid.TryGetVoxelOccupant(occupantVoxel, occupant.OccupantTicket, out _));
 
             int previousTicket = occupant.OccupantTicket;
-            grid.TryRemoveNodeOccupant(occupantNode, occupant);
-            Assert.False(grid.TryGetNodeOccupant(occupantNode, previousTicket, out _));
+            grid.TryRemoveVoxelOccupant(occupantVoxel, occupant);
+            Assert.False(grid.TryGetVoxelOccupant(occupantVoxel, previousTicket, out _));
         }
 
         [Fact]
-        public void Node_ShouldCorrectlyBlockAndUnblock()
+        public void Voxel_ShouldCorrectlyBlockAndUnblock()
         {
             var config = new GridConfiguration(new Vector3d(35, 1, 35), new Vector3d(40, 1, 40));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
-            grid.TryGetNode(new Vector3d(36, 1, 36), out Node node);
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            grid.TryGetVoxel(new Vector3d(36, 1, 36), out Voxel voxel);
 
             int spawnHash = Guid.NewGuid().GetHashCode();
 
-            grid.TryAddObstacle(node, spawnHash);
-            Assert.True(node.IsBlocked);
+            grid.TryAddObstacle(voxel, spawnHash);
+            Assert.True(voxel.IsBlocked);
 
-            grid.TryRemoveObstacle(node, spawnHash);
-            Assert.False(node.IsBlocked);
+            grid.TryRemoveObstacle(voxel, spawnHash);
+            Assert.False(voxel.IsBlocked);
         }
 
         [Fact]
-        public void Node_ShouldCorrectlyHandlePartitions()
+        public void Voxel_ShouldCorrectlyHandlePartitions()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
-            grid.TryGetNode(new Vector3d(0, 0, 0), out Node node);
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
             var partition = new TestPartition();
-            node.TryAddPartition(partition);
+            voxel.TryAddPartition(partition);
 
-            Assert.True(node.TryGetPartition<TestPartition>(out _));
+            Assert.True(voxel.TryGetPartition<TestPartition>(out _));
 
-            node.TryGetPartition(out TestPartition nodePartition);
+            voxel.TryGetPartition(out TestPartition voxelPartition);
 
-            Assert.Equal(partition, nodePartition);
+            Assert.Equal(partition, voxelPartition);
 
-            node.TryRemovePartition<TestPartition>();
-            Assert.False(node.TryGetPartition<TestPartition>(out _));
+            voxel.TryRemovePartition<TestPartition>();
+            Assert.False(voxel.TryGetPartition<TestPartition>(out _));
         }
 
         [Fact]
-        public void Node_ShouldRespectBoundaryConditions()
+        public void Voxel_ShouldRespectBoundaryConditions()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-            grid.TryGetNode(new Vector3d(-10, 0, 0), out Node westNode);
-            grid.TryGetNode(new Vector3d(10, 0, 0), out Node eastNode);
+            grid.TryGetVoxel(new Vector3d(-10, 0, 0), out Voxel westVoxel);
+            grid.TryGetVoxel(new Vector3d(10, 0, 0), out Voxel eastVoxel);
 
-            Assert.True(grid.IsFacingBoundaryDirection(westNode.LocalCoordinates, LinearDirection.West));
-            Assert.True(grid.IsFacingBoundaryDirection(eastNode.LocalCoordinates, LinearDirection.East));
+            Assert.True(grid.IsFacingBoundaryDirection(westVoxel.LocalCoordinates, LinearDirection.West));
+            Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.LocalCoordinates, LinearDirection.East));
         }
 
         [Fact]
-        public void Node_ShouldNotIncrementObstacleCountBeyondLimit()
+        public void Voxel_ShouldNotIncrementObstacleCountBeyondLimit()
         {
             var config = new GridConfiguration(new Vector3d(36, 1, 36), new Vector3d(40, 1, 40));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
-            grid.TryGetNode(new Vector3d(37, 1, 37), out Node node);
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            grid.TryGetVoxel(new Vector3d(37, 1, 37), out Voxel voxel);
 
             int spawnHash = Guid.NewGuid().GetHashCode();
 
-            grid.TryAddObstacle(node, spawnHash);
-            grid.TryAddObstacle(node, spawnHash); // Attempt to add twice
+            grid.TryAddObstacle(voxel, spawnHash);
+            grid.TryAddObstacle(voxel, spawnHash); // Attempt to add twice
 
-            Assert.True(node.IsBlocked);
-            Assert.Equal(1, node.ObstacleCount); // Should not increase beyond 1
+            Assert.True(voxel.IsBlocked);
+            Assert.Equal(1, voxel.ObstacleCount); // Should not increase beyond 1
 
-            grid.TryRemoveObstacle(node, spawnHash);
-            Assert.False(node.IsBlocked);
+            grid.TryRemoveObstacle(voxel, spawnHash);
+            Assert.False(voxel.IsBlocked);
         }
 
         [Fact]
-        public void Node_ShouldAllowMultipleOccupants()
+        public void Voxel_ShouldAllowMultipleOccupants()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(10, 0, 10);
             TestOccupant occupant1 = new TestOccupant(position);
             TestOccupant occupant2 = new TestOccupant(position);
 
-            grid.TryAddNodeOccupant(occupant1);
-            grid.TryAddNodeOccupant(position, occupant2);
+            grid.TryAddVoxelOccupant(occupant1);
+            grid.TryAddVoxelOccupant(position, occupant2);
 
-            grid.TryGetNode(position, out Node targetNode);
+            grid.TryGetVoxel(position, out Voxel targetVoxel);
 
-            Assert.True(targetNode.IsOccupied);
-            Assert.True(targetNode.OccupantCount > 0);
+            Assert.True(targetVoxel.IsOccupied);
+            Assert.True(targetVoxel.OccupantCount > 0);
 
-            grid.TryRemoveNodeOccupant(targetNode, occupant1);
-            Assert.False(grid.TryGetNodeOccupant(targetNode, occupant1.OccupantTicket, out _));
+            grid.TryRemoveVoxelOccupant(targetVoxel, occupant1);
+            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, occupant1.OccupantTicket, out _));
             // Still occupied by occupant2
-            Assert.True(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _)); 
+            Assert.True(grid.TryGetVoxelOccupant(targetVoxel, occupant2.OccupantTicket, out _)); 
 
-            grid.TryRemoveNodeOccupant(targetNode, occupant2);
+            grid.TryRemoveVoxelOccupant(targetVoxel, occupant2);
             // Now fully unoccupied
-            Assert.False(grid.TryGetNodeOccupant(targetNode, occupant2.OccupantTicket, out _));
+            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, occupant2.OccupantTicket, out _));
         }
 
         [Fact]
-        public void Node_ShouldNotChangeStateIfRemovingNonExistentOccupant()
+        public void Voxel_ShouldNotChangeStateIfRemovingNonExistentOccupant()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
  
             Vector3d position = new Vector3d(0, 0, 0);
             TestOccupant occupant = new TestOccupant(position);
 
-            grid.TryGetNode(position, out Node node);
+            grid.TryGetVoxel(position, out Voxel voxel);
 
-            var previousState = node.IsOccupied;
+            var previousState = voxel.IsOccupied;
 
-            grid.TryRemoveNodeOccupant(node, occupant); // Removing non-existent occupant
+            grid.TryRemoveVoxelOccupant(voxel, occupant); // Removing non-existent occupant
 
-            Assert.True(node.IsOccupied == previousState); // Should remain unchanged
+            Assert.True(voxel.IsOccupied == previousState); // Should remain unchanged
         }
 
         [Fact]
-        public void Node_ShouldRetrieveOccupantsByType()
+        public void Voxel_ShouldRetrieveOccupantsByType()
         {
             var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20));
             GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d position = new Vector3d(-27, 0, -27);
             TestOccupant occupant1 = new TestOccupant(position);
             TestOccupant occupant2 = new TestOccupant(position);
 
-            grid.TryAddNodeOccupant(position, occupant1);
-            grid.TryAddNodeOccupant(occupant2);
+            grid.TryAddVoxelOccupant(position, occupant1);
+            grid.TryAddVoxelOccupant(occupant2);
 
-            var occupants = grid.GetNodeOccupantsByType<TestOccupant>(position);
+            var occupants = grid.GetVoxelOccupantsByType<TestOccupant>(position);
 
             Assert.Equal(2, occupants.Count());
             Assert.Contains(occupant1, occupants);

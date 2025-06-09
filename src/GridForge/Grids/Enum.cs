@@ -2,7 +2,7 @@
 {
     /// <summary>
     /// Represents the 26 possible neighbor directions in a 3x3x3 grid.
-    /// These directions are used for spatial relationships between grids and nodes.
+    /// These directions are used for spatial relationships between grids and voxels.
     /// </summary>
     public enum LinearDirection
     {

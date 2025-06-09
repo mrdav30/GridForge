@@ -3,25 +3,25 @@
 namespace GridForge.Spatial
 {
     /// <summary>
-    /// Represents the local coordinates of a node within a single grid.
-    /// Used to index nodes within a grid's spatial structure.
+    /// Represents the local coordinates of a voxel within a single grid.
+    /// Used to index voxels within a grid's spatial structure.
     /// </summary>
-    public struct CoordinatesLocal
+    public struct VoxelIndex
     {
         #region Properties
 
         /// <summary>
-        /// The X position of the node in the local grid.
+        /// The X position of the voxel in the local grid.
         /// </summary>
         public int x;
 
         /// <summary>
-        /// The Y position of the node in the local grid.
+        /// The Y position of the voxel in the local grid.
         /// </summary>
         public int y;
 
         /// <summary>
-        /// The Z position of the node in the local grid.
+        /// The Z position of the voxel in the local grid.
         /// </summary>
         public int z;
 
@@ -35,15 +35,15 @@ namespace GridForge.Spatial
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of <see cref="CoordinatesLocal"/> with an X and Y coordinate.
+        /// Initializes a new instance of <see cref="VoxelIndex"/> with an X and Y coordinate.
         /// Defaults Z to zero.
         /// </summary>
-        public CoordinatesLocal(int xCord, int yCord) : this(xCord, yCord, 0) { }
+        public VoxelIndex(int xCord, int yCord) : this(xCord, yCord, 0) { }
 
         /// <summary>
-        /// Initializes a new instance of <see cref="CoordinatesLocal"/> with X, Y, and Z coordinates.
+        /// Initializes a new instance of <see cref="VoxelIndex"/> with X, Y, and Z coordinates.
         /// </summary>
-        public CoordinatesLocal(int xCord, int yCord, int zCord)
+        public VoxelIndex(int xCord, int yCord, int zCord)
         {
             x = xCord;
             y = yCord;

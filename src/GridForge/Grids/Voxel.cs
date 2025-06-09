@@ -7,39 +7,39 @@ using System.Collections.Generic;
 namespace GridForge.Grids
 {
     /// <summary>
-    /// Represents a node within a 3D grid, handling spatial positioning, obstacles, occupants, and neighbor relationships.
+    /// Represents a voxel within a 3D grid, handling spatial positioning, obstacles, occupants, and neighbor relationships.
     /// </summary>
-    public class Node : IEquatable<Node>
+    public class Voxel : IEquatable<Voxel>
     {
         #region Properties & Fields
 
         /// <summary>
-        /// Unique token identifying this node instance.
+        /// Unique token identifying this voxel instance.
         /// </summary>
         public int SpawnToken { get; private set; }
 
         /// <summary>
-        /// The global and local coordinates of this node within the grid system.
+        /// The global and local coordinates of this voxel within the grid system.
         /// </summary>
-        public CoordinatesGlobal GlobalCoordinates { get; set; }
+        public GlobalVoxelIndex GlobalCoordinates { get; set; }
 
         /// <summary>
-        /// The global index of the grid this node belongs to.
+        /// The global index of the grid this voxel belongs to.
         /// </summary>
         public int GridIndex => GlobalCoordinates.GridIndex;
 
         /// <summary>
-        /// The local coordinates of this node within its grid.
+        /// The local coordinates of this voxel within its grid.
         /// </summary>
-        public CoordinatesLocal LocalCoordinates => GlobalCoordinates.NodeCoordinates;
+        public VoxelIndex LocalCoordinates => GlobalCoordinates.VoxelCoordinates;
 
         /// <summary>
-        /// The spatial hash key of the scan cell that this node belongs to.
+        /// The spatial hash key of the scan cell that this voxel belongs to.
         /// </summary>
         public int ScanCellKey { get; private set; }
 
         /// <summary>
-        /// The world-space position of this node.
+        /// The world-space position of this voxel.
         /// </summary>
         public Vector3d WorldPosition { get; private set; }
 
@@ -49,72 +49,72 @@ namespace GridForge.Grids
         private bool _isNeighborCacheValid;
 
         /// <summary>
-        /// Cached array of neighboring nodes for fast lookup representing a 3x3x3 linear direction grid
+        /// Cached array of neighboring voxels for fast lookup representing a 3x3x3 linear direction grid
         /// </summary>
         /// <remarks>
-        /// Unlike Grid adjacency (which is 1:many), nodes can only have 1 neighbor in any one direction (1:1).
+        /// Unlike Grid adjacency (which is 1:many), voxels can only have 1 neighbor in any one direction (1:1).
         /// </remarks>
-        private Node[] _cachedNeighbors;
+        private Voxel[] _cachedNeighbors;
 
         /// <summary>
-        /// Stores a unique hash value for each obstacle added to this node to prevent adding duplicates
+        /// Stores a unique hash value for each obstacle added to this voxel to prevent adding duplicates
         /// </summary>
         public SwiftHashSet<int> ObstacleTracker { get; internal set; }
 
         /// <summary>
-        /// The current number of obstacles on this node.
+        /// The current number of obstacles on this voxel.
         /// </summary>
         public byte ObstacleCount { get; internal set; }
 
         /// <summary>
-        /// The current number of occupants on this node.
+        /// The current number of occupants on this voxel.
         /// </summary>
         public byte OccupantCount { get; internal set; }
 
         /// <summary>
         /// Handles management of partitioned data.
         /// </summary>
-        private readonly PartitionProvider<INodePartition> _partitionProvider = new();
+        private readonly PartitionProvider<IVoxelPartition> _partitionProvider = new();
 
         /// <summary>
-        /// Indicates whether this node has any active partitions.
+        /// Indicates whether this voxel has any active partitions.
         /// </summary>
         public bool IsPartioned => !_partitionProvider.IsEmpty;
 
         /// <summary>
-        /// Determines if this node is a boundary node.
+        /// Determines if this voxel is a boundary voxel.
         /// </summary>
-        public bool IsBoundaryNode { get; private set; }
+        public bool IsBoundaryVoxel { get; private set; }
 
         /// <summary>
-        /// The current version of the grid at the time this node was created.
+        /// The current version of the grid at the time this voxel was created.
         /// </summary>
         public uint CachedGridVersion { get; internal set; }
 
         /// <summary>
-        /// Indicates whether this node is allocated within a grid.
+        /// Indicates whether this voxel is allocated within a grid.
         /// </summary>
         public bool IsAllocated { get; private set; }
 
         /// <summary>
-        /// Determines whether this node is blocked due to obstacles.
+        /// Determines whether this voxel is blocked due to obstacles.
         /// </summary>
         public bool IsBlocked => IsAllocated && ObstacleCount > 0;
 
         /// <summary>
-        /// Determines if this node can accept additional obstacles.
+        /// Determines if this voxel can accept additional obstacles.
         /// </summary>
         public bool IsBlockable => IsAllocated
             && ObstacleCount < GridObstacleManager.MaxObstacleCount
             && !IsOccupied;
 
         /// <summary>
-        /// Determines whether this node is occupied by entities.
+        /// Determines whether this voxel is occupied by entities.
         /// </summary>
         public bool IsOccupied => IsAllocated && OccupantCount > 0;
 
         /// <summary>
-        /// Checks if this node has open slots for new occupants.
+        /// Checks if this voxel has open slots for new occupants.
         /// </summary>
         public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
@@ -125,29 +125,29 @@ namespace GridForge.Grids
         /// <summary>
         /// Event triggered when an obstacle is added or removed.
         /// </summary>
-        public Action<GridChange, Node> OnObstacleChange;
+        public Action<GridChange, Voxel> OnObstacleChange;
 
         /// <summary>
         /// Event triggered when an occupant is added or removed.
         /// </summary>
-        public Action<GridChange, Node> OnOccupantChange;
+        public Action<GridChange, Voxel> OnOccupantChange;
 
         #endregion
 
         #region Initialization & Reset
 
         /// <summary>
-        /// Configures the node with its position, grid version, and boundary status.
+        /// Configures the voxel with its position, grid version, and boundary status.
         /// </summary>
         internal void Initialize(
-            CoordinatesGlobal coordinates,
+            GlobalVoxelIndex coordinates,
             Vector3d position,
             int scanCellKey,
-            bool isBoundaryNode,
+            bool isBoundaryVoxel,
             uint gridVersion)
         {
             ScanCellKey = scanCellKey;
-            IsBoundaryNode = isBoundaryNode;
+            IsBoundaryVoxel = isBoundaryVoxel;
 
             GlobalCoordinates = coordinates;
             WorldPosition = position;
@@ -158,7 +158,7 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Resets the node, clearing all allocated data and returning it to pools.
+        /// Resets the voxel, clearing all allocated data and returning it to pools.
         /// </summary>
         internal void Reset()
         {
@@ -167,16 +167,16 @@ namespace GridForge.Grids
 
             if (!_partitionProvider.IsEmpty)
             {
-                foreach (INodePartition partition in _partitionProvider.Partitions)
+                foreach (IVoxelPartition partition in _partitionProvider.Partitions)
                 {
                     try
                     {
-                        partition.RemoveFromNode(this);
+                        partition.RemoveFromVoxel(this);
                     }
                     catch (Exception ex)
                     {
                         GridForgeLogger.Error(
-                            $"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partition.GetType().Name}: {ex.Message}");
+                            $"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partition.GetType().Name}: {ex.Message}");
                     }
                 }
 
@@ -185,12 +185,12 @@ namespace GridForge.Grids
 
             if (_cachedNeighbors != null)
             {
-                Pools.NodeNeighborPool.Release(_cachedNeighbors);
+                Pools.VoxelNeighborPool.Release(_cachedNeighbors);
                 _cachedNeighbors = null;
             }
 
             _isNeighborCacheValid = false;
-            IsBoundaryNode = false;
+            IsBoundaryVoxel = false;
 
             SpawnToken = 0;
             ScanCellKey = 0;
@@ -206,14 +206,14 @@ namespace GridForge.Grids
         #region Partition Management
 
         /// <summary>
-        /// Generates a unique key for a partition based on the node's spawn token and partition name.
+        /// Generates a unique key for a partition based on the voxel's spawn token and partition name.
         /// </summary>
         public int GeneratePartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
 
         /// <summary>
-        /// Adds a partition to this node, allowing specialized behaviors.
+        /// Adds a partition to this voxel, allowing specialized behaviors.
         /// </summary>
-        public bool TryAddPartition(INodePartition partition)
+        public bool TryAddPartition(IVoxelPartition partition)
         {
             if (partition == null)
                 return false;
@@ -226,62 +226,62 @@ namespace GridForge.Grids
 
             try
             {
-                partition.AddToNode(this);
+                partition.AddToVoxel(this);
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"Error attempting to call {nameof(partition.OnAddToNode)} on {partitionName}: {ex.Message}");
+                GridForgeLogger.Error($"Error attempting to call {nameof(partition.OnAddToVoxel)} on {partitionName}: {ex.Message}");
             }
 
             return true;
         }
 
         /// <summary>
-        /// Removes a partition from this node.
+        /// Removes a partition from this voxel.
         /// </summary>
-        public bool TryRemovePartition<T>() where T : INodePartition
+        public bool TryRemovePartition<T>() where T : IVoxelPartition
         {
             string partitionName = typeof(T).Name;
             int key = GeneratePartitionKey(partitionName);
 
-            if (!_partitionProvider.TryRemove(key, out INodePartition partition))
+            if (!_partitionProvider.TryRemove(key, out IVoxelPartition partition))
             {
-                GridForgeLogger.Warn($"Partition {partitionName} not found on this node.");
+                GridForgeLogger.Warn($"Partition {partitionName} not found on this voxel.");
                 return false;
             }
 
             try
             {
-                partition.RemoveFromNode(this);
+                partition.RemoveFromVoxel(this);
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"Attempting to call {nameof(partition.OnRemoveFromNode)} on {partitionName}: {ex.Message}");
+                GridForgeLogger.Error($"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partitionName}: {ex.Message}");
             }
 
             return true;
         }
 
         /// <summary>
-        /// Checks whether or not this node contains a specific partition.
+        /// Checks whether or not this voxel contains a specific partition.
         /// </summary>
-        public bool HasPartition<T>() where T : INodePartition
+        public bool HasPartition<T>() where T : IVoxelPartition
         {
             return _partitionProvider.Has<T>(GeneratePartitionKey(typeof(T).Name));
         }
 
         /// <summary>
-        /// Retrieves a partition from the node by type.
+        /// Retrieves a partition from the voxel by type.
         /// </summary>
-        public bool TryGetPartition<T>(out T partition) where T : INodePartition
+        public bool TryGetPartition<T>(out T partition) where T : IVoxelPartition
         {
             return _partitionProvider.TryGet(GeneratePartitionKey(typeof(T).Name), out partition);
         }
 
         /// <summary>
-        /// Retrieves a partition from the node by type and returns null if it doesn't exist.
+        /// Retrieves a partition from the voxel by type and returns null if it doesn't exist.
         /// </summary>
-        public T GetPartitionOrDefault<T>() where T : class, INodePartition
+        public T GetPartitionOrDefault<T>() where T : class, IVoxelPartition
         {
             return TryGetPartition(out T partition) ? partition : null;
         }
@@ -296,9 +296,9 @@ namespace GridForge.Grids
         internal void InvalidateNeighborCache() => _isNeighborCacheValid = false;
 
         /// <summary>
-        /// Retrieves the neighbors of this node, caching results if specified.
+        /// Retrieves the neighbors of this voxel, caching results if specified.
         /// </summary>
-        public IEnumerable<(LinearDirection, Node)> GetNeighbors(bool useCache = true)
+        public IEnumerable<(LinearDirection, Voxel)> GetNeighbors(bool useCache = true)
         {
             if (useCache && _isNeighborCacheValid)
             {
@@ -321,9 +321,9 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves a neighbor node in a specific direction.
+        /// Retrieves a neighbor voxel in a specific direction.
         /// </summary>
-        public bool TryGetNeighborFromDirection(LinearDirection direction, out Node neighbor, bool useCache = true)
+        public bool TryGetNeighborFromDirection(LinearDirection direction, out Voxel neighbor, bool useCache = true)
         {
             neighbor = default;
 
@@ -346,35 +346,35 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves a neighbor node based on a coordinate offset.
+        /// Retrieves a neighbor voxel based on a coordinate offset.
         /// </summary>
-        public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Node neighbor)
+        public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Voxel neighbor)
         {
             neighbor = default;
-            if (!GlobalGridManager.TryGetGrid(GlobalCoordinates, out Grid grid))
+            if (!GlobalGridManager.TryGetGrid(GlobalCoordinates, out VoxelGrid grid))
                 return false;
 
-            CoordinatesLocal neighborCoords = new CoordinatesLocal(
+            VoxelIndex neighborCoords = new VoxelIndex(
                 LocalCoordinates.x + offset.x,
                 LocalCoordinates.y + offset.y,
                 LocalCoordinates.z + offset.z
             );
 
-            return grid.TryGetNode(neighborCoords, out neighbor);
+            return grid.TryGetVoxel(neighborCoords, out neighbor);
         }
 
         /// <summary>
-        /// Updates and caches the neighboring nodes of this node.
+        /// Updates and caches the neighboring voxels of this voxel.
         /// </summary>
         private void RefreshNeighborCache()
         {
-            _cachedNeighbors ??= Pools.NodeNeighborPool.Rent(GlobalGridManager.DirectionOffsets.Length);
+            _cachedNeighbors ??= Pools.VoxelNeighborPool.Rent(GlobalGridManager.DirectionOffsets.Length);
             Array.Clear(_cachedNeighbors, 0, _cachedNeighbors.Length); // Ensure clean state
 
             for (int i = 0; i < GlobalGridManager.DirectionOffsets.Length; i++)
             {
                 (int x, int y, int z) offset = GlobalGridManager.DirectionOffsets[i];
-                if (TryGetNeighborFromOffset(offset, out Node neighbor))
+                if (TryGetNeighborFromOffset(offset, out Voxel neighbor))
                     _cachedNeighbors[i] = neighbor;
             }
 
@@ -389,14 +389,14 @@ namespace GridForge.Grids
         public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
                 GlobalCoordinates.GetHashCode(),
                 WorldPosition.GetHashCode(),
-                IsBoundaryNode.GetHashCode()
+                IsBoundaryVoxel.GetHashCode()
             );
 
         /// <inheritdoc/>
         public override string ToString() => GlobalCoordinates.ToString();
 
         /// <inheritdoc/>
-        public bool Equals(Node other) => SpawnToken == other.SpawnToken;
+        public bool Equals(Voxel other) => SpawnToken == other.SpawnToken;
 
         #endregion
     }

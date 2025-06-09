@@ -4,25 +4,25 @@ using GridForge.Spatial;
 namespace GridForge.Grids.Tests
 {
 
-    public class TestPartition : INodePartition
+    public class TestPartition : IVoxelPartition
     {
-        public CoordinatesGlobal NodeCoordinates { get; set; }
+        public GlobalVoxelIndex VoxelCoordinates { get; set; }
 
         public bool IsPartitioned { get; set; }
 
-        public void OnAddToNode(Node node) { }
-        public void OnRemoveFromNode(Node node) { }
+        public void OnAddToVoxel(Voxel voxel) { }
+        public void OnRemoveFromVoxel(Voxel voxel) { }
     }
 
-    public class TestOccupant : INodeOccupant
+    public class TestOccupant : IVoxelOccupant
     {
         public byte OccupantGroupId { get; set; }
 
-        public bool IsNodeOccupant { get; set; }
+        public bool IsVoxelOccupant { get; set; }
 
         public int OccupantTicket { get; set; }
 
-        public CoordinatesGlobal GridCoordinates { get; set; }
+        public GlobalVoxelIndex GridCoordinates { get; set; }
         public Vector3d WorldPosition { get ; set; }
 
         public TestOccupant(Vector3d position, byte clusterKey = byte.MaxValue)

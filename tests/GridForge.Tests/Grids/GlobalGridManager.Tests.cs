@@ -65,19 +65,19 @@ namespace GridForge.Grids.Tests
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out _);
 
-            Assert.True(GlobalGridManager.TryGetGrid(new Vector3d(0, 0, 0), out Grid grid));
+            Assert.True(GlobalGridManager.TryGetGrid(new Vector3d(0, 0, 0), out VoxelGrid grid));
             Assert.NotNull(grid);
         }
 
         [Fact]
-        public void GetGridAndNode_ShouldReturnCorrectNode()
+        public void GetGridAndVoxel_ShouldReturnCorrectVoxel()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out _);
 
-            Assert.True(GlobalGridManager.TryGetGridAndNode(new Vector3d(0, 0, 0), out Grid grid, out Node node));
+            Assert.True(GlobalGridManager.TryGetGridAndVoxel(new Vector3d(0, 0, 0), out VoxelGrid grid, out Voxel voxel));
             Assert.NotNull(grid);
-            Assert.NotNull(node);
+            Assert.NotNull(voxel);
         }
 
         [Fact]
@@ -86,23 +86,23 @@ namespace GridForge.Grids.Tests
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out _);
 
-            bool found = GlobalGridManager.TryGetGrid(new Vector3d(100, 0, 100), out Grid grid);
+            bool found = GlobalGridManager.TryGetGrid(new Vector3d(100, 0, 100), out VoxelGrid grid);
 
             Assert.False(found);
             Assert.Null(grid);
         }
 
         [Fact]
-        public void GetGridAndNode_ShouldReturnFalseForInvalidNode()
+        public void GetGridAndVoxel_ShouldReturnFalseForInvalidVoxel()
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
             GlobalGridManager.TryAddGrid(config, out _);
 
-            bool found = GlobalGridManager.TryGetGridAndNode(new Vector3d(100, 0, 100), out Grid grid, out Node node);
+            bool found = GlobalGridManager.TryGetGridAndVoxel(new Vector3d(100, 0, 100), out VoxelGrid grid, out Voxel voxel);
 
             Assert.False(found);
             Assert.Null(grid);
-            Assert.Null(node);
+            Assert.Null(voxel);
         }
 
         [Fact]
@@ -114,8 +114,8 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(config1, out ushort index1);
             GlobalGridManager.TryAddGrid(config2, out _);
 
-            Grid targetGrid = GlobalGridManager.ActiveGrids[index1];
-            IEnumerable<Grid> overlaps = GlobalGridManager.FindOverlappingGrids(targetGrid);
+            VoxelGrid targetGrid = GlobalGridManager.ActiveGrids[index1];
+            IEnumerable<VoxelGrid> overlaps = GlobalGridManager.FindOverlappingGrids(targetGrid);
 
             Assert.Single(overlaps);
         }
@@ -129,8 +129,8 @@ namespace GridForge.Grids.Tests
             GlobalGridManager.TryAddGrid(config1, out ushort index1);
             GlobalGridManager.TryAddGrid(config2, out _);
 
-            Grid targetGrid = GlobalGridManager.ActiveGrids[index1];
-            IEnumerable<Grid> overlaps = GlobalGridManager.FindOverlappingGrids(targetGrid);
+            VoxelGrid targetGrid = GlobalGridManager.ActiveGrids[index1];
+            IEnumerable<VoxelGrid> overlaps = GlobalGridManager.FindOverlappingGrids(targetGrid);
 
             Assert.Empty(overlaps);
         }

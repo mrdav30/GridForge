@@ -4,10 +4,10 @@ using GridForge.Grids;
 namespace GridForge.Spatial
 {
     /// <summary>
-    /// Represents an entity that can occupy a <see cref="Node"/>.
+    /// Represents an entity that can occupy a <see cref="Voxel"/>.
     /// Occupants can be dynamic entities such as units or items (obstacles).
     /// </summary>
-    public interface INodeOccupant
+    public interface IVoxelOccupant
     {
         /// <summary>
         /// The group Id used for grouping occupants within a scan cell.
@@ -17,9 +17,9 @@ namespace GridForge.Spatial
         byte OccupantGroupId { get; }
 
         /// <summary>
-        /// Flag used to determine if occupant is current occupying a node
+        /// Flag used to determine if occupant is current occupying a voxel
         /// </summary>
-        bool IsNodeOccupant { get; set; }
+        bool IsVoxelOccupant { get; set; }
 
         /// <summary>
         /// A unique ticket identifier assigned when this occupant is added to a scan cell.
@@ -33,8 +33,8 @@ namespace GridForge.Spatial
         Vector3d WorldPosition { get; }
 
         /// <summary>
-        /// The global grid coordinates of the <see cref="Node"/> this occupant is being added to.
+        /// The global grid coordinates of the <see cref="Voxel"/> this occupant is being added to.
         /// </summary>
-        CoordinatesGlobal GridCoordinates { get; set; }
+        GlobalVoxelIndex GridCoordinates { get; set; }
     }
 }

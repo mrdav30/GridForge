@@ -23,9 +23,9 @@ namespace GridForge.Grids
         public const ushort MaxGrids = ushort.MaxValue - 1;
 
         /// <summary>
-        /// The default size of each grid node in world units.
+        /// The default size of each grid voxel in world units.
         /// </summary>
-        public static readonly Fixed64 DefaultNodeSize = Fixed64.One;
+        public static readonly Fixed64 DefaultVoxelSize = Fixed64.One;
 
         /// <summary>
         /// The default size of a spatial hash cell used for grid lookup.
@@ -33,9 +33,9 @@ namespace GridForge.Grids
         public const int DefaultSpatialGridCellSize = 50;
 
         /// <summary>
-        /// The size of each grid node in world units.
+        /// The size of each grid voxel in world units.
         /// </summary>
-        public static Fixed64 NodeSize { get; private set; }
+        public static Fixed64 VoxelSize { get; private set; }
 
         /// <summary>
         /// The size of a spatial hash cell used for grid lookup.
@@ -43,9 +43,9 @@ namespace GridForge.Grids
         public static int SpatialGridCellSize { get; private set; }
 
         /// <summary>
-        /// Resolution for snapping or searching within the grid (half of NodeSize).
+        /// Resolution for snapping or searching within the grid (half of VoxelSize).
         /// </summary>
-        public static Fixed64 NodeResolution = NodeSize * Fixed64.Half;
+        public static Fixed64 VoxelResolution = VoxelSize * Fixed64.Half;
 
         #endregion
 
@@ -54,7 +54,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Collection of all active grids managed by the system.
         /// </summary>
-        public static SwiftBucket<Grid> ActiveGrids { get; private set; }
+        public static SwiftBucket<VoxelGrid> ActiveGrids { get; private set; }
 
         /// <summary>
         /// Dictionary mapping hashed bounds to grid indices to prevent duplicate grids.
@@ -140,12 +140,12 @@ namespace GridForge.Grids
         /// <summary>
         /// Initializes necessary collections for managing grids.
         /// </summary>
-        public static void Setup() => Setup(DefaultNodeSize, DefaultSpatialGridCellSize);
+        public static void Setup() => Setup(DefaultVoxelSize, DefaultSpatialGridCellSize);
 
         /// <inheritdoc cref="Setup()"/>
-        /// <param name="nodeSize"></param>
+        /// <param name="voxelSize"></param>
         /// <param name="spatialGridCellSize"></param>
-        public static void Setup(Fixed64 nodeSize, int spatialGridCellSize = DefaultSpatialGridCellSize)
+        public static void Setup(Fixed64 voxelSize, int spatialGridCellSize = DefaultSpatialGridCellSize)
         {
             if (IsActive)
             {
@@ -153,10 +153,10 @@ namespace GridForge.Grids
                 return;
             }
 
-            NodeSize = nodeSize > Fixed64.One ? Fixed64.One : nodeSize > Fixed64.Zero ? nodeSize : DefaultNodeSize;
+            VoxelSize = voxelSize > Fixed64.One ? Fixed64.One : voxelSize > Fixed64.Zero ? voxelSize : DefaultVoxelSize;
             SpatialGridCellSize = spatialGridCellSize;
 
-            ActiveGrids ??= new SwiftBucket<Grid>();
+            ActiveGrids ??= new SwiftBucket<VoxelGrid>();
             BoundsTracker ??= new SwiftDictionary<int, ushort>();
             SpatialGridHash ??= new SwiftDictionary<int, SwiftHashSet<ushort>>();
 
@@ -186,7 +186,7 @@ namespace GridForge.Grids
 
             if (ActiveGrids != null)
             {
-                foreach (Grid grid in ActiveGrids)
+                foreach (VoxelGrid grid in ActiveGrids)
                     Pools.GridPool.Release(grid);
 
                 ActiveGrids.Clear();
@@ -237,7 +237,7 @@ namespace GridForge.Grids
                 _gridLock.ExitReadLock();
             }
 
-            Grid newGrid = Pools.GridPool.Rent();
+            VoxelGrid newGrid = Pools.GridPool.Rent();
             _gridLock.EnterWriteLock();
             try
             {
@@ -256,10 +256,10 @@ namespace GridForge.Grids
                         if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
                             continue;
 
-                        Grid neighborGrid = ActiveGrids[neighborIndex];
+                        VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
 
                         // Ensure the grids actually overlap before linking them as neighbors
-                        if (!Grid.IsGridOverlapValid(newGrid, neighborGrid))
+                        if (!VoxelGrid.IsGridOverlapValid(newGrid, neighborGrid))
                             continue;
 
                         newGrid.TryAddGridNeighbor(neighborGrid);
@@ -292,7 +292,7 @@ namespace GridForge.Grids
             // Fire off before we remove the reference
             NotifyActiveGridChange(GridChange.Remove, removeIndex);
 
-            Grid gridToRemove;
+            VoxelGrid gridToRemove;
             _gridLock.EnterWriteLock();
             try
             {
@@ -313,9 +313,9 @@ namespace GridForge.Grids
                             if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == removeIndex)
                                 continue;
 
-                            Grid neighborGrid = ActiveGrids[neighborIndex];
+                            VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
 
-                            if (!Grid.IsGridOverlapValid(gridToRemove, neighborGrid))
+                            if (!VoxelGrid.IsGridOverlapValid(gridToRemove, neighborGrid))
                                 continue;
 
                             neighborGrid.TryRemoveGridNeighbor(gridToRemove);
@@ -338,7 +338,7 @@ namespace GridForge.Grids
                 _gridLock.ExitWriteLock();
             }
 
-            // Clearing out neighbor relationships for this node handled on `Grid.Reset`
+            // Clearing out neighbor relationships for this voxel handled on `Grid.Reset`
             Pools.GridPool.Release(gridToRemove);
 
             if (ActiveGrids.Count == 0)
@@ -385,7 +385,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a grid by its global index.
         /// </summary>
-        public static bool TryGetGrid(int index, out Grid outGrid)
+        public static bool TryGetGrid(int index, out VoxelGrid outGrid)
         {
             outGrid = null;
             if ((uint)index > ActiveGrids.Count)
@@ -407,7 +407,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves the grid containing a given world position.
         /// </summary>
-        public static bool TryGetGrid(Vector3d position, out Grid outGrid)
+        public static bool TryGetGrid(Vector3d position, out VoxelGrid outGrid)
         {
             outGrid = null;
             int cellIndex = GetSpatialGridKey(position);
@@ -417,7 +417,7 @@ namespace GridForge.Grids
 
             foreach (ushort candidateIndex in gridList)
             {
-                if (!TryGetGrid(candidateIndex, out Grid candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
+                if (!TryGetGrid(candidateIndex, out VoxelGrid candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
                     continue;
 
                 if (candidateGrid.IsInBounds(position))
@@ -434,31 +434,31 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a grid by its unique global coordinates.
         /// </summary>
-        public static bool TryGetGrid(CoordinatesGlobal coordinates, out Grid outGrid)
+        public static bool TryGetGrid(GlobalVoxelIndex coordinates, out VoxelGrid outGrid)
         {
-            // Ensure the grid is valid and the node belongs to the expected grid version
+            // Ensure the grid is valid and the voxel belongs to the expected grid version
             return TryGetGrid(coordinates.GridIndex, out outGrid)
                 && coordinates.GridSpawnToken == outGrid.SpawnToken;
         }
 
         /// <summary>
-        /// Retrieves the grid containing a given world position and the node at that position.
+        /// Retrieves the grid containing a given world position and the voxel at that position.
         /// </summary>
-        public static bool TryGetGridAndNode(Vector3d position, out Grid outGrid, out Node outNode)
+        public static bool TryGetGridAndVoxel(Vector3d position, out VoxelGrid outGrid, out Voxel outVoxel)
         {
-            outNode = null;
+            outVoxel = null;
             return TryGetGrid(position, out outGrid)
-                && outGrid.TryGetNode(position, out outNode);
+                && outGrid.TryGetVoxel(position, out outVoxel);
         }
 
         /// <summary>
-        /// Retrieves the grid containing a given global coordinate and the node at that position.
+        /// Retrieves the grid containing a given global coordinate and the voxel at that position.
         /// </summary>
-        public static bool TryGetGridAndNode(CoordinatesGlobal coordinates, out Grid outGrid, out Node outNode)
+        public static bool TryGetGridAndVoxel(GlobalVoxelIndex coordinates, out VoxelGrid outGrid, out Voxel outVoxel)
         {
-            outNode = null;
+            outVoxel = null;
             return TryGetGrid(coordinates, out outGrid)
-                && outGrid.TryGetNode(coordinates.NodeCoordinates, out outNode);
+                && outGrid.TryGetVoxel(coordinates.VoxelCoordinates, out outVoxel);
         }
 
         #endregion
@@ -516,9 +516,9 @@ namespace GridForge.Grids
         /// <summary>
         /// Finds grids that overlap with the specified target grid.
         /// </summary>
-        public static IEnumerable<Grid> FindOverlappingGrids(Grid targetGrid)
+        public static IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
         {
-            SwiftHashSet<Grid> overlappingGrids = new SwiftHashSet<Grid>();
+            SwiftHashSet<VoxelGrid> overlappingGrids = new SwiftHashSet<VoxelGrid>();
 
             // Check all spatial hash cells that this grid occupies
             foreach (int cellIndex in GetSpatialGridCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
@@ -532,10 +532,10 @@ namespace GridForge.Grids
                     if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == targetGrid.GlobalIndex)
                         continue;
 
-                    Grid neighborGrid = ActiveGrids[neighborIndex];
+                    VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
 
                     // Only return grids that have an actual overlap with targetGrid
-                    if (Grid.IsGridOverlapValid(targetGrid, neighborGrid))
+                    if (VoxelGrid.IsGridOverlapValid(targetGrid, neighborGrid))
                         overlappingGrids.Add(neighborGrid);
                 }
             }
@@ -563,7 +563,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Converts a 3D offset into a corresponding <see cref="LinearDirection"/> in a 3x3x3 grid.
         /// </summary>
-        /// <param name="gridOffset">The (x, y, z) offset from the center node.</param>
+        /// <param name="gridOffset">The (x, y, z) offset from the center voxel.</param>
         /// <returns>The corresponding <see cref="LinearDirection"/>, or <see cref="LinearDirection.None"/> if invalid.</returns>
         public static LinearDirection GetNeighborDirectionFromOffset((int x, int y, int z) gridOffset)
         {
@@ -574,7 +574,7 @@ namespace GridForge.Grids
             // Convert the 3D offset into a 3x3x3 index (0 to 26)
             int index = ((gridOffset.z + 1) * 3 + (gridOffset.y + 1)) * 3 + (gridOffset.x + 1);
 
-            // The center node (itself) should not be assigned a direction
+            // The center voxel (itself) should not be assigned a direction
             if (index == 13)
                 return LinearDirection.None;
 
@@ -614,34 +614,34 @@ namespace GridForge.Grids
         /// <summary>
         /// Helper function to ceil snap a <see cref="Vector3d"/> to a grid.
         /// </summary>
-        public static Vector3d CeilToNodeSize(Vector3d position)
+        public static Vector3d CeilToVoxelSize(Vector3d position)
         {
             return new Vector3d(
-                (position.x / NodeSize).CeilToInt() * NodeSize,
-                (position.y / NodeSize).CeilToInt() * NodeSize,
-                (position.z / NodeSize).CeilToInt() * NodeSize
+                (position.x / VoxelSize).CeilToInt() * VoxelSize,
+                (position.y / VoxelSize).CeilToInt() * VoxelSize,
+                (position.z / VoxelSize).CeilToInt() * VoxelSize
             );
         }
 
         /// <summary>
         /// Helper function to floor snap a <see cref="Vector3d"/> to a grid.
         /// </summary>
-        public static Vector3d FloorToNodeSize(Vector3d position)
+        public static Vector3d FloorToVoxelSize(Vector3d position)
         {
             // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
             // - Apply FloorToInt() to obtain the correct spatial cell index.
             // - Restore the original sign using Sign() after flooring.
             return new Vector3d(
-                (position.x.Abs() / NodeSize).FloorToInt() * NodeSize * position.x.Sign(),
-                (position.y.Abs() / NodeSize).FloorToInt() * NodeSize * position.y.Sign(),
-                (position.z.Abs() / NodeSize).FloorToInt() * NodeSize * position.z.Sign()
+                (position.x.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.x.Sign(),
+                (position.y.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.y.Sign(),
+                (position.z.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.z.Sign()
             );
         }
 
         /// <summary>
-        /// Snaps the given bounds to the the global node size
+        /// Snaps the given bounds to the the global voxel size
         /// </summary>
-        public static (Vector3d min, Vector3d max) SnapBoundsToNodeSize(
+        public static (Vector3d min, Vector3d max) SnapBoundsToVoxelSize(
             Vector3d min,
             Vector3d max,
             double padding = 0)
@@ -652,8 +652,8 @@ namespace GridForge.Grids
             min -= fixedPadding;
             max += fixedPadding;
 
-            Vector3d snapMin = CeilToNodeSize(min);
-            Vector3d snapMax = FloorToNodeSize(max);
+            Vector3d snapMin = CeilToVoxelSize(min);
+            Vector3d snapMax = FloorToVoxelSize(max);
 
             // Ensure correct ordering of bounds
             (snapMin.x, snapMax.x) = snapMin.x > snapMax.x

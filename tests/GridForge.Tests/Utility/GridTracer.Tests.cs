@@ -12,126 +12,126 @@ namespace GridForge.Grids.Tests
     public class GridTracerTests
     {
         [Fact]
-        public void TraceLine_ShouldReturnCorrectNodes()
+        public void TraceLine_ShouldReturnCorrectVoxels()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, -1, -50), new Vector3d(50, 1, 50)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d start = new Vector3d(5, 0.5, 5);
             Vector3d end = new Vector3d(45.28, 1, 18.31);
 
-            List<Node> tracedNodes = new List<Node>();
+            List<Voxel> tracedVoxels = new List<Voxel>();
 
-            foreach (var gridNodeSet in GridTracer.TraceLine(start, end, includeEnd: true))
+            foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
             {
-                if (gridNodeSet.Grid.GlobalIndex == gridIndex)
-                    tracedNodes.AddRange(gridNodeSet.Nodes);
+                if (gridVoxelSet.Grid.GlobalIndex == gridIndex)
+                    tracedVoxels.AddRange(gridVoxelSet.Voxels);
             }
 
-            Assert.NotEmpty(tracedNodes);
+            Assert.NotEmpty(tracedVoxels);
 
-            grid.TryGetNode(start, out Node startNode);
-            grid.TryGetNode(end, out Node endNode);
+            grid.TryGetVoxel(start, out Voxel startVoxel);
+            grid.TryGetVoxel(end, out Voxel endVoxel);
 
-            // Ensure that the first and last node correspond to the start and end positions
-            Assert.Equal(startNode.GlobalCoordinates, tracedNodes.First().GlobalCoordinates);
-            Assert.Equal(endNode.GlobalCoordinates, tracedNodes.Last().GlobalCoordinates);
+            // Ensure that the first and last voxel correspond to the start and end positions
+            Assert.Equal(startVoxel.GlobalCoordinates, tracedVoxels.First().GlobalCoordinates);
+            Assert.Equal(endVoxel.GlobalCoordinates, tracedVoxels.Last().GlobalCoordinates);
         }
 
         [Fact]
         public void TraceLine_ShouldNotIncludeEndWhenSpecified()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d start = new Vector3d(-5, 0, -5);
             Vector3d end = new Vector3d(5, 0, 5);
 
-            List<Node> tracedNodes = new List<Node>();
+            List<Voxel> tracedVoxels = new List<Voxel>();
 
-            foreach (var gridNodeSet in GridTracer.TraceLine(start, end, includeEnd: false))
+            foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: false))
             {
-                if (gridNodeSet.Grid.GlobalIndex == gridIndex)
-                    tracedNodes.AddRange(gridNodeSet.Nodes);
+                if (gridVoxelSet.Grid.GlobalIndex == gridIndex)
+                    tracedVoxels.AddRange(gridVoxelSet.Voxels);
             }
 
-            Assert.NotEmpty(tracedNodes);
+            Assert.NotEmpty(tracedVoxels);
 
-            grid.TryGetNode(end, out Node endNode);
+            grid.TryGetVoxel(end, out Voxel endVoxel);
 
-            // Ensure that the last node is not the end node
-            Assert.NotEqual(endNode.SpawnToken, tracedNodes.Last().SpawnToken);
+            // Ensure that the last voxel is not the end voxel
+            Assert.NotEqual(endVoxel.SpawnToken, tracedVoxels.Last().SpawnToken);
         }
 
         [Fact]
-        public void TraceLine2D_ShouldReturnCorrectNodes()
+        public void TraceLine2D_ShouldReturnCorrectVoxels()
         {
             GlobalGridManager.TryAddGrid(
                 new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), 
                 out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector2d start = new Vector2d(-5, -5);
             Vector2d end = new Vector2d(5, 5);
 
-            List<Node> tracedNodes = new List<Node>();
+            List<Voxel> tracedVoxels = new List<Voxel>();
 
-            foreach (var gridNodeSet in GridTracer.TraceLine(start, end, includeEnd: true))
+            foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
             {
-                if (gridNodeSet.Grid.GlobalIndex == gridIndex)
-                    tracedNodes.AddRange(gridNodeSet.Nodes);
+                if (gridVoxelSet.Grid.GlobalIndex == gridIndex)
+                    tracedVoxels.AddRange(gridVoxelSet.Voxels);
             }
 
-            Assert.NotEmpty(tracedNodes);
+            Assert.NotEmpty(tracedVoxels);
 
-            grid.TryGetNode(start.ToVector3d(Fixed64.Zero), out Node startNode);
-            grid.TryGetNode(end.ToVector3d(Fixed64.Zero), out Node endNode);
+            grid.TryGetVoxel(start.ToVector3d(Fixed64.Zero), out Voxel startVoxel);
+            grid.TryGetVoxel(end.ToVector3d(Fixed64.Zero), out Voxel endVoxel);
 
-            // Ensure the start and end nodes are included
-            Assert.Equal(startNode.GlobalCoordinates, tracedNodes.First().GlobalCoordinates);
-            Assert.Equal(endNode.GlobalCoordinates, tracedNodes.Last().GlobalCoordinates);
+            // Ensure the start and end voxels are included
+            Assert.Equal(startVoxel.GlobalCoordinates, tracedVoxels.First().GlobalCoordinates);
+            Assert.Equal(endVoxel.GlobalCoordinates, tracedVoxels.Last().GlobalCoordinates);
         }
 
         [Fact]
-        public void TraceLine_ShouldFullyCoverAllNodesBetweenTwoPoints()
+        public void TraceLine_ShouldFullyCoverAllVoxelsBetweenTwoPoints()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             Vector3d start = new Vector3d(-5, 0, -5);
             Vector3d end = new Vector3d(5, 0, 5);
 
-            var tracedNodes = GridTracer.TraceLine(start, end, includeEnd: true)
-                .SelectMany(set => set.Nodes).ToList();
+            var tracedVoxels = GridTracer.TraceLine(start, end, includeEnd: true)
+                .SelectMany(set => set.Voxels).ToList();
 
-            Assert.NotEmpty(tracedNodes);
-            Assert.Contains(tracedNodes, node => node.WorldPosition == start);
-            Assert.Contains(tracedNodes, node => node.WorldPosition == end);
+            Assert.NotEmpty(tracedVoxels);
+            Assert.Contains(tracedVoxels, voxel => voxel.WorldPosition == start);
+            Assert.Contains(tracedVoxels, voxel => voxel.WorldPosition == end);
         }
 
         [Fact]
         public void Blocker_ShouldOnlyAffectSnappedBounds()
         {
             GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
-            Grid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
             BoundingArea boundingArea = new BoundingArea(new Vector3d(-5.3, 0, -5.3), new Vector3d(5.8, 0, 5.8));
             var blocker = new BoundsBlocker(boundingArea);
             blocker.ApplyBlockage();
 
-            Vector3d snappedMin = GlobalGridManager.FloorToNodeSize(boundingArea.Min);
-            Vector3d snappedMax = GlobalGridManager.CeilToNodeSize(boundingArea.Max);
+            Vector3d snappedMin = GlobalGridManager.FloorToVoxelSize(boundingArea.Min);
+            Vector3d snappedMax = GlobalGridManager.CeilToVoxelSize(boundingArea.Max);
 
-            foreach (var coveredNodes in GridTracer.GetCoveredNodes(boundingArea.Min, boundingArea.Max))
+            foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(boundingArea.Min, boundingArea.Max))
             {
-                foreach (var node in coveredNodes.Nodes)
+                foreach (var voxel in coveredVoxels.Voxels)
                 {
-                    Assert.True(node.WorldPosition.x >= snappedMin.x 
-                        && node.WorldPosition.x <= snappedMax.x, "Node X coordinate is out of bounds");
-                    Assert.True(node.WorldPosition.y >= snappedMin.y 
-                        && node.WorldPosition.y <= snappedMax.y, "Node Y coordinate is out of bounds");
-                    Assert.True(node.WorldPosition.z >= snappedMin.z 
-                        && node.WorldPosition.z <= snappedMax.z, "Node Z coordinate is out of bounds");
+                    Assert.True(voxel.WorldPosition.x >= snappedMin.x 
+                        && voxel.WorldPosition.x <= snappedMax.x, "Voxel X coordinate is out of bounds");
+                    Assert.True(voxel.WorldPosition.y >= snappedMin.y 
+                        && voxel.WorldPosition.y <= snappedMax.y, "Voxel Y coordinate is out of bounds");
+                    Assert.True(voxel.WorldPosition.z >= snappedMin.z 
+                        && voxel.WorldPosition.z <= snappedMax.z, "Voxel Z coordinate is out of bounds");
                 }
             }
         }

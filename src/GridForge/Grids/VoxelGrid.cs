@@ -10,10 +10,10 @@ using SwiftCollections.Pool;
 namespace GridForge.Grids
 {
     /// <summary>
-    /// Represents a 3D grid structure for spatial organization, managing nodes and scan cells.
+    /// Represents a 3D grid structure for spatial organization, managing voxels and scan cells.
     /// Handles initialization, neighbor relationships, and occupancy tracking.
     /// </summary>
-    public class Grid
+    public class VoxelGrid
     {
         #region Properties
 
@@ -46,35 +46,35 @@ namespace GridForge.Grids
         public Vector3d BoundsCenter => Configuration.GridCenter;
 
         /// <summary>
-        /// Grid width in number of nodes.
+        /// Grid width in number of voxels.
         /// </summary>
         public int Width { get; private set; }
 
         /// <summary>
-        /// Grid height in number of nodes.
+        /// Grid height in number of voxels.
         /// </summary>
         public int Height { get; private set; }
 
         /// <summary>
-        /// Grid length in number of nodes.
+        /// Grid length in number of voxels.
         /// </summary>
         public int Length { get; private set; }
 
         /// <summary>
-        /// Total number of nodes within the grid.
+        /// Total number of voxels within the grid.
         /// </summary>
         public int Size { get; private set; }
 
         /// <summary>
-        /// The primary 3D collection of nodes managed by this grid.
+        /// The primary 3D collection of voxels managed by this grid.
         /// </summary>
-        public Array3D<Node> Nodes { get; private set; }
+        public Array3D<Voxel> Voxels { get; private set; }
 
         /// <summary>
         /// Stores the indices of neighboring grids.
         /// </summary>
         /// <remarks>
-        /// Unlike Node adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
+        /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
         /// </remarks>
         public SwiftDictionary<LinearDirection, SwiftHashSet<int>> Neighbors { get; private set; }
 
@@ -119,7 +119,7 @@ namespace GridForge.Grids
         public int ObstacleCount { get; internal set; }
 
         /// <summary>
-        /// Tracks the version of the grid, incremented when a <see cref="Node"/> is modified.
+        /// Tracks the version of the grid, incremented when a <see cref="Voxel"/> is modified.
         /// </summary>
         public uint Version { get; internal set; }
 
@@ -149,30 +149,30 @@ namespace GridForge.Grids
             SpawnToken = GetHashCode();
 
             // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid
-            Width = ((BoundsMax.x - BoundsMin.x) / GlobalGridManager.NodeSize).FloorToInt() + 1;
-            Height = ((BoundsMax.y - BoundsMin.y) / GlobalGridManager.NodeSize).FloorToInt() + 1;
-            Length = ((BoundsMax.z - BoundsMin.z) / GlobalGridManager.NodeSize).FloorToInt() + 1;
+            Width = ((BoundsMax.x - BoundsMin.x) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+            Height = ((BoundsMax.y - BoundsMin.y) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+            Length = ((BoundsMax.z - BoundsMin.z) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
             Size = Width * Height * Length;
 
             GenerateScanCells();
-            GenerateNodes();
+            GenerateVoxels();
 
             IsActive = true;
         }
 
         /// <summary>
-        /// Resets the grid, clearing all nodes and scan cells.
+        /// Resets the grid, clearing all voxels and scan cells.
         /// </summary>
         internal void Reset()
         {
             if (!IsActive)
                 return;
 
-            if (Nodes != null)
+            if (Voxels != null)
             {
-                foreach (Node node in Nodes)
-                    Pools.NodePool.Release(node);
-                Nodes = null;
+                foreach (Voxel voxel in Voxels)
+                    Pools.VoxelPool.Release(voxel);
+                Voxels = null;
             }
 
             if (ScanCells != null)
@@ -245,13 +245,13 @@ namespace GridForge.Grids
         /// <summary>
         /// Generates the 3D grid structure based on the configured settings.
         /// </summary>
-        private void GenerateNodes()
+        private void GenerateVoxels()
         {
 #if DEBUG
             long startMem = GC.GetTotalMemory(true);
 #endif
 
-            Nodes = new Array3D<Node>(Width, Height, Length);
+            Voxels = new Array3D<Voxel>(Width, Height, Length);
 
             for (int x = 0; x < Width; x++)
             {
@@ -260,34 +260,34 @@ namespace GridForge.Grids
                     for (int z = 0; z < Length; z++)
                     {
                         Vector3d position = new Vector3d(
-                                BoundsMin.x + x * GlobalGridManager.NodeSize,
-                                BoundsMin.y + y * GlobalGridManager.NodeSize,
-                                BoundsMin.z + z * GlobalGridManager.NodeSize
+                                BoundsMin.x + x * GlobalGridManager.VoxelSize,
+                                BoundsMin.y + y * GlobalGridManager.VoxelSize,
+                                BoundsMin.z + z * GlobalGridManager.VoxelSize
                             );
 
-                        // Skip if the node is already allocated (should not happen under normal conditions)
-                        if (IsNodeAllocated(x, y, z))
+                        // Skip if the voxel is already allocated (should not happen under normal conditions)
+                        if (IsVoxelAllocated(x, y, z))
                         {
                             GridForgeLogger.Warn(
-                                $"Node at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");
+                                $"Voxel at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");
                             continue;
                         }
 
-                        // Rent a node from the object pool and initialize it
-                        Node node = Pools.NodePool.Rent();
+                        // Rent a voxel from the object pool and initialize it
+                        Voxel voxel = Pools.VoxelPool.Rent();
 
-                        CoordinatesLocal coordinates = new CoordinatesLocal(x, y, z);
-                        bool isBoundaryNode = IsOnBoundary(coordinates);
+                        VoxelIndex coordinates = new VoxelIndex(x, y, z);
+                        bool isBoundaryVoxel = IsOnBoundary(coordinates);
                         int scanCellKey = GetScanCellKey(coordinates);
 
-                        node.Initialize(
-                            new CoordinatesGlobal(GlobalIndex, coordinates, SpawnToken),
+                        voxel.Initialize(
+                            new GlobalVoxelIndex(GlobalIndex, coordinates, SpawnToken),
                             position,
                             scanCellKey,
-                            isBoundaryNode,
+                            isBoundaryVoxel,
                             Version);
 
-                        Nodes[x, y, z] = node;
+                        Voxels[x, y, z] = voxel;
                     }
                 }
             }
@@ -308,7 +308,7 @@ namespace GridForge.Grids
         /// <param name="a">The first grid.</param>
         /// <param name="b">The second grid.</param>
         /// <returns>The direction from grid 'a' to grid 'b'.</returns>
-        public static LinearDirection GetNeighborDirection(Grid a, Grid b)
+        public static LinearDirection GetNeighborDirection(VoxelGrid a, VoxelGrid b)
         {
             Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
             (int x, int y, int z) gridOffset = (
@@ -323,7 +323,7 @@ namespace GridForge.Grids
         /// Adds a neighboring grid and updates relationships.
         /// </summary>
         /// <param name="neighborGrid">The neighboring grid to add.</param>
-        internal bool TryAddGridNeighbor(Grid neighborGrid)
+        internal bool TryAddGridNeighbor(VoxelGrid neighborGrid)
         {
             LinearDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
 
@@ -344,7 +344,7 @@ namespace GridForge.Grids
             NeighborCount++;
             Version++;
 
-            // Notify grid nodes that a new neighbor has been added
+            // Notify grid voxels that a new neighbor has been added
             NotifyBoundaryChange(neighborDirection);
 
             return true;
@@ -354,7 +354,7 @@ namespace GridForge.Grids
         /// Removes a neighboring grid relationship.
         /// </summary>
         /// <param name="neighborGrid">The neighboring grid to remove.</param>
-        internal bool TryRemoveGridNeighbor(Grid neighborGrid)
+        internal bool TryRemoveGridNeighbor(VoxelGrid neighborGrid)
         {
             if (!IsConjoined)
                 return false;
@@ -378,14 +378,14 @@ namespace GridForge.Grids
 
             Version++;
 
-            NotifyBoundaryChange(neighborDirection); // Notify nodes of the removed neighbor
+            NotifyBoundaryChange(neighborDirection); // Notify voxels of the removed neighbor
 
             return true;
         }
 
         /// <summary>
-        /// Notifies only the relevant boundary nodes when a neighboring grid is added or removed.
-        /// Instead of looping through all nodes, it targets specific boundary rows or columns.
+        /// Notifies only the relevant boundary voxels when a neighboring grid is added or removed.
+        /// Instead of looping through all voxels, it targets specific boundary rows or columns.
         /// </summary>
         /// <param name="direction">The direction of the affected boundary.</param>
         public void NotifyBoundaryChange(LinearDirection direction)
@@ -416,7 +416,7 @@ namespace GridForge.Grids
                 for (int y = 0; y < Height; y++)
                 {
                     for (int z = 0; z < Length; z++)
-                        Nodes[boundaryX, y, z]?.InvalidateNeighborCache();
+                        Voxels[boundaryX, y, z]?.InvalidateNeighborCache();
                 }
             }
             else if (boundaryY != -1)
@@ -424,7 +424,7 @@ namespace GridForge.Grids
                 for (int x = 0; x < Width; x++)
                 {
                     for (int z = 0; z < Length; z++)
-                        Nodes[x, boundaryY, z]?.InvalidateNeighborCache();
+                        Voxels[x, boundaryY, z]?.InvalidateNeighborCache();
                 }
             }
             else if (boundaryZ != -1)
@@ -432,7 +432,7 @@ namespace GridForge.Grids
                 for (int x = 0; x < Width; x++)
                 {
                     for (int y = 0; y < Height; y++)
-                        Nodes[x, y, boundaryZ]?.InvalidateNeighborCache();
+                        Voxels[x, y, boundaryZ]?.InvalidateNeighborCache();
                 }
             }
         }
@@ -442,10 +442,10 @@ namespace GridForge.Grids
         #region Grid Queries
 
         /// <summary>
-        /// Determines if a node coordinate is at the boundary of the grid.
-        /// Used to determine if a node should update when a neighboring grid is added/removed.
+        /// Determines if a voxel coordinate is at the boundary of the grid.
+        /// Used to determine if a voxel should update when a neighboring grid is added/removed.
         /// </summary>
-        public bool IsOnBoundary(CoordinatesLocal coord)
+        public bool IsOnBoundary(VoxelIndex coord)
         {
             return coord.x == 0 || coord.x == Width - 1
                 || coord.y == 0 || coord.y == Height - 1
@@ -470,9 +470,9 @@ namespace GridForge.Grids
         /// <param name="b">The second grid.</param>
         /// <param name="tolerance">Optional tolerance to account for minor floating-point errors.</param>
         /// <returns>True if the grids overlap within the tolerance, otherwise false.</returns>
-        public static bool IsGridOverlapValid(Grid a, Grid b, Fixed64 tolerance = default)
+        public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64 tolerance = default)
         {
-            tolerance = tolerance == default ? GlobalGridManager.NodeResolution : tolerance;
+            tolerance = tolerance == default ? GlobalGridManager.VoxelResolution : tolerance;
 
             return a.BoundsMax.x >= b.BoundsMin.x - tolerance
                 && a.BoundsMin.x <= b.BoundsMax.x + tolerance
@@ -486,7 +486,7 @@ namespace GridForge.Grids
         /// Retrieves all neighboring grids connected to this grid.
         /// </summary>
         /// <returns>An enumeration of all neighboring grids.</returns>
-        public IEnumerable<Grid> GetAllGridNeighbors()
+        public IEnumerable<VoxelGrid> GetAllGridNeighbors()
         {
             if (!IsConjoined)
                 yield break;
@@ -495,20 +495,20 @@ namespace GridForge.Grids
             {
                 foreach (int neighborIndex in neighborSet)
                 {
-                    if (GlobalGridManager.TryGetGrid(neighborIndex, out Grid neighborGrid))
+                    if (GlobalGridManager.TryGetGrid(neighborIndex, out VoxelGrid neighborGrid))
                         yield return neighborGrid;
                 }
             }
         }
 
         /// <summary>
-        /// Determines whether the given node coordinates are within the valid range of the grid.
+        /// Determines whether the given voxel coordinates are within the valid range of the grid.
         /// </summary>
-        public bool IsValidNodeCoordinate(int x, int y, int z)
+        public bool IsValidVoxelCoordinates(int x, int y, int z)
         {
-            bool result = x >= 0 && x < Nodes.Width
-                    && y >= 0 && y < Nodes.Height
-                    && z >= 0 && z < Nodes.Length;
+            bool result = x >= 0 && x < Voxels.Width
+                    && y >= 0 && y < Voxels.Height
+                    && z >= 0 && z < Voxels.Length;
 
             if (!result)
                 GridForgeLogger.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
@@ -517,10 +517,10 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Determines if a node is facing the boundary of the grid in a specific direction.
-        /// Used to notify nodes when adjacent grids are added/removed.
+        /// Determines if a voxel is facing the boundary of the grid in a specific direction.
+        /// Used to notify voxels when adjacent grids are added/removed.
         /// </summary>
-        public bool IsFacingBoundaryDirection(CoordinatesLocal coordinates, LinearDirection direction)
+        public bool IsFacingBoundaryDirection(VoxelIndex coordinates, LinearDirection direction)
         {
             return direction switch
             {
@@ -585,9 +585,9 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Converts a world position to node coordinates within the grid.
+        /// Converts a world position to voxel coordinates within the grid.
         /// </summary>
-        public bool TryGetNodeCoordinates(Vector3d position, out CoordinatesLocal outCoordinates)
+        public bool TryGetVoxelCoordinates(Vector3d position, out VoxelIndex outCoordinates)
         {
             outCoordinates = default;
 
@@ -604,34 +604,34 @@ namespace GridForge.Grids
             }
 
             // Convert world position to grid indices by subtracting the minimum bound
-            // and dividing by the node size to get a zero-based index
+            // and dividing by the voxel size to get a zero-based index
             (int x, int y, int z) = (
-                ((position.x - BoundsMin.x) / GlobalGridManager.NodeSize).FloorToInt(),
-                ((position.y - BoundsMin.y) / GlobalGridManager.NodeSize).FloorToInt(),
-                ((position.z - BoundsMin.z) / GlobalGridManager.NodeSize).FloorToInt()
+                ((position.x - BoundsMin.x) / GlobalGridManager.VoxelSize).FloorToInt(),
+                ((position.y - BoundsMin.y) / GlobalGridManager.VoxelSize).FloorToInt(),
+                ((position.z - BoundsMin.z) / GlobalGridManager.VoxelSize).FloorToInt()
             );
 
-            if (!IsValidNodeCoordinate(x, y, z))
+            if (!IsValidVoxelCoordinates(x, y, z))
                 return false;
 
-            outCoordinates = new CoordinatesLocal(x, y, z);
+            outCoordinates = new VoxelIndex(x, y, z);
             return true;
         }
 
         /// <summary>
-        /// Checks if a node at the given coordinates is allocated within the grid.
+        /// Checks if a voxel at the given coordinates is allocated within the grid.
         /// </summary>
-        public bool IsNodeAllocated(int x, int y, int z) =>
-            IsValidNodeCoordinate(x, y, z)
-            && Nodes[x, y, z] != null
-            && Nodes[x, y, z].IsAllocated;
+        public bool IsVoxelAllocated(int x, int y, int z) =>
+            IsValidVoxelCoordinates(x, y, z)
+            && Voxels[x, y, z] != null
+            && Voxels[x, y, z].IsAllocated;
 
         /// <summary>
-        /// Retrieves the <see cref="Node"/> at the specified coordinates, if allocated.
+        /// Retrieves the <see cref="Voxel"/> at the specified coordinates, if allocated.
         /// </summary>
-        public bool TryGetNode(int x, int y, int z, out Node outGridNode)
+        public bool TryGetVoxel(int x, int y, int z, out Voxel result)
         {
-            outGridNode = null;
+            result = null;
 
             if (!IsActive)
             {
@@ -639,33 +639,33 @@ namespace GridForge.Grids
                 return false;
             }
 
-            if (!IsNodeAllocated(x, y, z))
+            if (!IsVoxelAllocated(x, y, z))
             {
-                GridForgeLogger.Warn($"Node at coorinate {(x, y, z)} is has not been allocated to the grid.");
+                GridForgeLogger.Warn($"Voxel at coorinate {(x, y, z)} is has not been allocated to the grid.");
                 return false;
             }
 
-            outGridNode = Nodes[x, y, z];
+            result = Voxels[x, y, z];
             return true;
         }
 
         /// <summary>
-        /// Retrieves a grid node from a given coordinate.
+        /// Retrieves a grid voxel from a given coordinate.
         /// </summary>
-        public bool TryGetNode(CoordinatesLocal coordinates, out Node outGridNode)
+        public bool TryGetVoxel(VoxelIndex coordinates, out Voxel result)
         {
-            return TryGetNode(coordinates.x, coordinates.y, coordinates.z, out outGridNode);
+            return TryGetVoxel(coordinates.x, coordinates.y, coordinates.z, out result);
         }
 
         /// <summary>
-        /// Retrieve <see cref="Node"/> from world <see cref="Vector3d"/> points
+        /// Retrieve <see cref="Voxel"/> from world <see cref="Vector3d"/> points
         /// </summary>
-        /// <returns>GridNode at the given position or null if the position is not valid.</returns>
-        public bool TryGetNode(Vector3d position, out Node outGridNode)
+        /// <returns><see cref="Voxel"/> at the given position or null if the position is not valid.</returns>
+        public bool TryGetVoxel(Vector3d position, out Voxel result)
         {
-            outGridNode = null;
-            return TryGetNodeCoordinates(position, out CoordinatesLocal coordinate)
-                && TryGetNode(coordinate.x, coordinate.y, coordinate.z, out outGridNode);
+            result = null;
+            return TryGetVoxelCoordinates(position, out VoxelIndex coordinate)
+                && TryGetVoxel(coordinate.x, coordinate.y, coordinate.z, out result);
         }
 
         /// <summary>
@@ -673,16 +673,16 @@ namespace GridForge.Grids
         /// </summary>
         public int GetScanCellKey(Vector3d position)
         {
-            if (!TryGetNodeCoordinates(position, out CoordinatesLocal nodeCoordinates))
+            if (!TryGetVoxelCoordinates(position, out VoxelIndex voxelCoordinates))
                 return -1;
 
-            return GetScanCellKey(nodeCoordinates);
+            return GetScanCellKey(voxelCoordinates);
         }
 
         /// <summary>
         /// Calculates the spatial cell index for a given position.
         /// </summary>
-        public int GetScanCellKey(CoordinatesLocal coordinates)
+        public int GetScanCellKey(VoxelIndex coordinates)
         {
             (int x, int y, int z) = (
                     coordinates.x / ScanCellSize,
@@ -718,13 +718,13 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves the scan cell associated with the given node coordinates.
+        /// Retrieves the scan cell associated with the given voxel coordinates.
         /// </summary>
-        public bool TryGetScanCell(CoordinatesLocal coordinates, out ScanCell outScanCell)
+        public bool TryGetScanCell(VoxelIndex coordinates, out ScanCell outScanCell)
         {
             outScanCell = null;
-            return TryGetNode(coordinates, out Node node)
-                && TryGetScanCell(node.ScanCellKey, out outScanCell);
+            return TryGetVoxel(coordinates, out Voxel voxel)
+                && TryGetScanCell(voxel.ScanCellKey, out outScanCell);
         }
 
         /// <summary>
@@ -743,28 +743,28 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Helper function to ceil snap a <see cref="Vector3d"/> to this grid's node size, ensuring it stays within grid bounds.
+        /// Helper function to ceil snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
         /// </summary>
         public Vector3d CeilToGrid(Vector3d position)
         {
-            Fixed64 nodeSize = GlobalGridManager.NodeSize;
+            Fixed64 voxelSize = GlobalGridManager.VoxelSize;
             return new Vector3d(
-                FixedMath.Clamp(((position.x - BoundsMin.x) / nodeSize).CeilToInt() * nodeSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
-                FixedMath.Clamp(((position.y - BoundsMin.y) / nodeSize).CeilToInt() * nodeSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
-                FixedMath.Clamp(((position.z - BoundsMin.z) / nodeSize).CeilToInt() * nodeSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
+                FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).CeilToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
+                FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).CeilToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
+                FixedMath.Clamp(((position.z - BoundsMin.z) / voxelSize).CeilToInt() * voxelSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
             );
         }
 
         /// <summary>
-        /// Helper function to floor snap a <see cref="Vector3d"/> to this grid's node size, ensuring it stays within grid bounds.
+        /// Helper function to floor snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
         /// </summary>
         public Vector3d FloorToGrid(Vector3d position)
         {
-            Fixed64 nodeSize = GlobalGridManager.NodeSize;
+            Fixed64 voxelSize = GlobalGridManager.VoxelSize;
             return new Vector3d(
-                FixedMath.Clamp(((position.x - BoundsMin.x) / nodeSize).FloorToInt() * nodeSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
-                FixedMath.Clamp(((position.y - BoundsMin.y) / nodeSize).FloorToInt() * nodeSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
-                FixedMath.Clamp(((position.z - BoundsMin.z) / nodeSize).FloorToInt() * nodeSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
+                FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).FloorToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
+                FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).FloorToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
+                FixedMath.Clamp(((position.z - BoundsMin.z) / voxelSize).FloorToInt() * voxelSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
             );
         }
 
@@ -774,9 +774,9 @@ namespace GridForge.Grids
         public (int x, int y, int z) SnapToScanCell(Vector3d position)
         {
             return (
-                    (int)((position.x - BoundsMin.x) / GlobalGridManager.NodeSize) / ScanCellSize,
-                    (int)((position.y - BoundsMin.y) / GlobalGridManager.NodeSize) / ScanCellSize,
-                    (int)((position.z - BoundsMin.z) / GlobalGridManager.NodeSize) / ScanCellSize
+                    (int)((position.x - BoundsMin.x) / GlobalGridManager.VoxelSize) / ScanCellSize,
+                    (int)((position.y - BoundsMin.y) / GlobalGridManager.VoxelSize) / ScanCellSize,
+                    (int)((position.z - BoundsMin.z) / GlobalGridManager.VoxelSize) / ScanCellSize
                 );
         }
 

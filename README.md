@@ -13,7 +13,7 @@
 - **Deterministic Execution** – Supports **lockstep simulation** and **fixed-point** arithmetic.
 - **Optimized Grid Management** – **Low memory allocations, spatial partitioning, and fast queries**.
 - **Multi-Layered Grid System** – **Dynamic, hierarchical, and persistent  grids**.
-- **Node-Based Spatial Queries** – Retrieve **occupants, obstacles, and meta-data partitions** efficiently.
+- **Voxel-Based Spatial Queries** – Retrieve **occupants, obstacles, and meta-data partitions** efficiently.
 - **Custom Blockers & Partitions** – Define obstacles and attach metadata dynamically.
 - **Framework Agnostic** – Works with **Unity, Lockstep Engines, and .NET-based frameworks**.
 
@@ -59,16 +59,16 @@ These dependencies are automatically included when installing.
 
 | Component | Description |
 |-----------|------------|
-| `GlobalGridManager` | Manages **grids, nodes, & spatial queries**. |
-| `Grid` | Represents a **single grid** containing **nodes & scan cells**. |
-| `Node` | Represents a grid position, storing **occupants, obstacles, & state**. |
+| `GlobalGridManager` | Manages **grids, voxels, & spatial queries**. |
+| `Grid` | Represents a **single grid** containing **voxels & scan cells**. |
+| `Voxel` | Represents a grid position, storing **occupants, obstacles, & state**. |
 | `ScanCell` | Handles **spatial indexing** for faster queries. |
-| `GridTracer` | Efficiently retrieves **covered nodes, scan cells, & paths**. |
+| `GridTracer` | Efficiently retrieves **covered voxels, scan cells, & paths**. |
 | `GridObstacleManager` | Manages **grid-wide obstacles** dynamically. |
 | `GridOccupantManager` | Handles **occupant tracking & retrieval**. |
 | `ScanManager` | Optimized **scan queries** for spatial lookups. |
 | `Blockers` | Defines **dynamic and static** obstacles. |
-| `Partitions` | Adds **meta-data and custom logic** to nodes. |
+| `Partitions` | Adds **meta-data and custom logic** to voxels. |
 ---
 
 ## 📖 Usage Examples
@@ -79,11 +79,11 @@ GridConfiguration config = new GridConfiguration(new Vector3d(-10, 0, -10), new 
 GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
 ```
 
-### **🔹 Querying a Grid for Nodes**
+### **🔹 Querying a Grid for Voxels**
 ```csharp
 Vector3d queryPosition = new Vector3d(5, 0, 5);
-if (GlobalGridManager.TryGetGridAndNode(queryPosition, out Grid grid, out Node node))
-	Console.WriteLine($"Node at {queryPosition} is {(node.IsOccupied ? "occupied" : "empty")}");
+if (GlobalGridManager.TryGetGridAndVoxel(queryPosition, out Grid grid, out Voxel voxel))
+	Console.WriteLine($"Voxel at {queryPosition} is {(voxel.IsOccupied ? "occupied" : "empty")}");
 }
 ```
 
@@ -94,13 +94,13 @@ Blocker blocker = new Blocker(blockArea);
 blocker.ApplyBlockage();
 ```
 
-### **🔹 Attaching a Partition to a Node**
+### **🔹 Attaching a Partition to a Voxel**
 ```csharp
-if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid, out Node node))
+if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid, out Voxel voxel))
 {
     PathPartition partition = new PathPartition();
-    partition.Setup(node.GlobalCoordinates);
-    node.AddPartition(partition);
+    partition.Setup(voxel.GlobalCoordinates);
+    voxel.AddPartition(partition);
 }
 ```
 
@@ -108,7 +108,7 @@ if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid, out Node node))
 ```csharp
 Vector3d scanCenter = new Vector3d(0, 0, 0);
 Fixed64 scanRadius = (Fixed64)5;
-foreach (INodeOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadius))
+foreach (IVoxelOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadius))
 {
     Console.WriteLine($"Found occupant at {occupant.WorldPosition}");
 }

@@ -7,30 +7,30 @@ using System.Collections.Generic;
 namespace GridForge.Utility
 {
     /// <summary>
-    /// Used to group query results on a grid to node level
+    /// Used to group query results on a grid to voxel level
     /// </summary>
-    public struct GridNodeSet
+    public struct GridVoxelSet
     {
         /// <summary>
-        /// The grid containing the nodes from the resulting query
+        /// The grid containing the voxels from the resulting query
         /// </summary>
-        public Grid Grid;
+        public VoxelGrid Grid;
 
         /// <summary>
-        /// A list of nodes that match the provided query
+        /// A list of voxels that match the provided query
         /// </summary>
-        public SwiftList<Node> Nodes;
+        public SwiftList<Voxel> Voxels;
     }
 
     /// <summary>
-    /// Provides utilities for tracing lines or bounding areas in a grid, aligning them to grid nodes.
+    /// Provides utilities for tracing lines or bounding areas in a grid, aligning them to grid voxels.
     /// Uses fixed-point calculations to ensure deterministic and accurate grid traversal.
     /// </summary>
     public static class GridTracer
     {
         /// <summary>
         /// Traces a 3D line between two points in the grid.
-        /// The traced points are returned as grid nodes.
+        /// The traced points are returned as grid voxels.
         /// </summary>
         /// <remarks>
         /// Uses a fractional step algorithm inspired by Bresenham’s line algorithm.
@@ -39,19 +39,19 @@ namespace GridForge.Utility
         /// <param name="start">Starting position in world space.</param>
         /// <param name="end">Ending position in world space.</param>
         /// <param name="padding">Value applied to the start/end positions before snapping.</param>
-        /// <param name="includeEnd">Whether to include the end node in the traced line.</param>
-        /// <returns>A collection of <see cref="GridNodeSet"/> objects representing the traced path.</returns>
-        public static IEnumerable<GridNodeSet> TraceLine(
+        /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+        /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the traced path.</returns>
+        public static IEnumerable<GridVoxelSet> TraceLine(
             Vector3d start,
             Vector3d end,
             double padding = 0d,
             bool includeEnd = true)
         {
-            SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+            SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
+            SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedStart, Vector3d snappedEnd) = 
-                GlobalGridManager.SnapBoundsToNodeSize(start, end, padding);
+                GlobalGridManager.SnapBoundsToVoxelSize(start, end, padding);
 
             Vector3d diff = snappedEnd - snappedStart;
             Vector3d delta = Vector3d.Abs(diff);
@@ -75,54 +75,54 @@ namespace GridForge.Utility
                     if (!GlobalGridManager.ActiveGrids.IsAllocated(gridIndex))
                         continue;
 
-                    Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
+                    VoxelGrid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
                     // If grid has already been processed, skip it
-                    if (gridNodeMapping.ContainsKey(currentGrid))
+                    if (gridVoxelMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftList<Node> nodeList = SwiftListPool<Node>.Shared.Rent();
-                    gridNodeMapping.Add(currentGrid, nodeList);
+                    SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
+                    gridVoxelMapping.Add(currentGrid, voxelList);
 
                     // Traverse the grid along the computed line
                     for (Fixed64 i = Fixed64.Zero; i <= steps; i += Fixed64.One)
                     {
-                        Vector3d tracePos = GlobalGridManager.FloorToNodeSize(
+                        Vector3d tracePos = GlobalGridManager.FloorToVoxelSize(
                             new Vector3d(start.x + stepX * i, start.y + stepY * i, start.z + stepZ * i));
 
-                        if (!currentGrid.TryGetNode(tracePos, out Node node) || !nodeRedundancyCheck.Add(node.SpawnToken))
+                        if (!currentGrid.TryGetVoxel(tracePos, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel.SpawnToken))
                             continue;
 
-                        nodeList.Add(node);
+                        voxelList.Add(voxel);
                     }
                 }
             }
 
-            // Include end node if needed
-            if (includeEnd && GlobalGridManager.TryGetGridAndNode(end, out Grid endGrid, out Node endNode))
+            // Include end voxel if needed
+            if (includeEnd && GlobalGridManager.TryGetGridAndVoxel(end, out VoxelGrid endGrid, out Voxel endVoxel))
             {
-                if (!gridNodeMapping.TryGetValue(endGrid, out SwiftList<Node> nodeList))
+                if (!gridVoxelMapping.TryGetValue(endGrid, out SwiftList<Voxel> voxelList))
                 {
-                    nodeList = SwiftListPool<Node>.Shared.Rent();
-                    gridNodeMapping.Add(endGrid, nodeList);
+                    voxelList = SwiftListPool<Voxel>.Shared.Rent();
+                    gridVoxelMapping.Add(endGrid, voxelList);
                 }
 
-                if (nodeRedundancyCheck.Add(endNode.SpawnToken))
-                    nodeList.Add(endNode);
+                if (voxelRedundancyCheck.Add(endVoxel.SpawnToken))
+                    voxelList.Add(endVoxel);
             }
 
             // Yield grouped results
-            foreach (KeyValuePair<Grid, SwiftList<Node>> kvp in gridNodeMapping)
+            foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
             {
-                yield return new GridNodeSet
+                yield return new GridVoxelSet
                 {
                     Grid = kvp.Key,
-                    Nodes = kvp.Value
+                    Voxels = kvp.Value
                 };
 
-                SwiftListPool<Node>.Shared.Release(kvp.Value);
+                SwiftListPool<Voxel>.Shared.Release(kvp.Value);
             }
 
-            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
+            SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
         }
 
         /// <summary>
@@ -134,9 +134,9 @@ namespace GridForge.Utility
         /// <param name="start">Starting 2D position.</param>
         /// <param name="end">Ending 2D position.</param>
         /// <param name="padding">Value applied to the start/end positions before snapping.</param>
-        /// <param name="includeEnd">Whether to include the end node.</param>
-        /// <returns>A collection of <see cref="GridNodeSet"/> objects representing the traced path.</returns>
-        public static IEnumerable<GridNodeSet> TraceLine(
+        /// <param name="includeEnd">Whether to include the end voxel.</param>
+        /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the traced path.</returns>
+        public static IEnumerable<GridVoxelSet> TraceLine(
             Vector2d start,
             Vector2d end,
             double padding = 0d,
@@ -150,21 +150,21 @@ namespace GridForge.Utility
         }
 
         /// <summary>
-        /// Retrieves all grid nodes covered by the given bounding area.
+        /// Retrieves all grid voxels covered by the given bounding area.
         /// </summary>
         /// <param name="boundsMin">The minimum corner of the bounding area.</param>
         /// <param name="boundsMax">The maximum corner of the bounding area.</param>
         /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
-        public static IEnumerable<GridNodeSet> GetCoveredNodes(
+        public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
             Vector3d boundsMin, 
             Vector3d boundsMax,
             double padding = 0d)
         {
-            SwiftDictionary<Grid, SwiftList<Node>> gridNodeMapping = new SwiftDictionary<Grid, SwiftList<Node>>();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+            SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
+            SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedMin, Vector3d snappedMax) = 
-                GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
+                GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
 
             foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedMin, snappedMax))
             {
@@ -176,16 +176,16 @@ namespace GridForge.Utility
                     if (!GlobalGridManager.ActiveGrids.IsAllocated(gridIndex))
                         continue;
 
-                    Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
+                    VoxelGrid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
 
                     // If grid has already been processed, skip it
-                    if (gridNodeMapping.ContainsKey(currentGrid))
+                    if (gridVoxelMapping.ContainsKey(currentGrid))
                         continue;
 
-                    SwiftList<Node> nodeList = SwiftListPool<Node>.Shared.Rent();
-                    gridNodeMapping.Add(currentGrid, nodeList);
+                    SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
+                    gridVoxelMapping.Add(currentGrid, voxelList);
 
-                    Fixed64 resolution = GlobalGridManager.NodeSize;
+                    Fixed64 resolution = GlobalGridManager.VoxelSize;
                     for (Fixed64 x = snappedMin.x; x <= snappedMax.x; x += resolution)
                     {
                         for (Fixed64 y = snappedMin.y; y <= snappedMax.y; y += resolution)
@@ -193,28 +193,28 @@ namespace GridForge.Utility
                             for (Fixed64 z = snappedMin.z; z <= snappedMax.z; z += resolution)
                             {
                                 Vector3d position = new Vector3d(x, y, z);
-                                if (!currentGrid.TryGetNode(position, out Node node) || !nodeRedundancyCheck.Add(node.SpawnToken))
+                                if (!currentGrid.TryGetVoxel(position, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel.SpawnToken))
                                     continue;
 
-                                nodeList.Add(node);
+                                voxelList.Add(voxel);
                             }
                         }
                     }
                 }
             }
 
-            foreach (var kvp in gridNodeMapping)
+            foreach (var kvp in gridVoxelMapping)
             {
-                yield return new GridNodeSet
+                yield return new GridVoxelSet
                 {
                     Grid = kvp.Key,
-                    Nodes = kvp.Value
+                    Voxels = kvp.Value
                 };
 
-                SwiftListPool<Node>.Shared.Release(kvp.Value);
+                SwiftListPool<Voxel>.Shared.Release(kvp.Value);
             }
 
-            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
+            SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
         }
 
         /// <summary>
@@ -231,10 +231,10 @@ namespace GridForge.Utility
         {
             SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
             SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
-            SwiftHashSet<int> nodeRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+            SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
             (Vector3d snappedMin, Vector3d snappedMax) = 
-                GlobalGridManager.SnapBoundsToNodeSize(boundsMin, boundsMax, padding);
+                GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
 
             foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(boundsMin, boundsMax))
             {
@@ -246,9 +246,9 @@ namespace GridForge.Utility
                     if (!GlobalGridManager.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
                         continue;
 
-                    Grid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
+                    VoxelGrid currentGrid = GlobalGridManager.ActiveGrids[gridIndex];
 
-                    // Convert snapped min/max to node indices
+                    // Convert snapped min/max to voxel indices
                     (int xMin, int yMin, int zMin) = currentGrid.SnapToScanCell(snappedMin);
 
                     (int xMax, int yMax, int zMax) = currentGrid.SnapToScanCell(snappedMax);
@@ -261,7 +261,7 @@ namespace GridForge.Utility
                             for (int z = zMin; z <= zMax; z++)
                             {
                                 if (!currentGrid.TryGetScanCell(GlobalGridManager.GetSpawnHash(x, y, z), out ScanCell scanCell)
-                                    || !nodeRedundancyCheck.Add(scanCell.SpawnToken))
+                                    || !voxelRedundancyCheck.Add(scanCell.SpawnToken))
                                 {
                                     continue;
                                 }
@@ -278,7 +278,7 @@ namespace GridForge.Utility
 
             SwiftListPool<ScanCell>.Shared.Release(scanCells);
             SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
-            SwiftHashSetPool<int>.Shared.Release(nodeRedundancyCheck);
+            SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
         }
     }
 }
