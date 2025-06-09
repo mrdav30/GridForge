@@ -276,12 +276,12 @@ namespace GridForge.Grids
                         // Rent a voxel from the object pool and initialize it
                         Voxel voxel = Pools.VoxelPool.Rent();
 
-                        VoxelIndex coordinates = new VoxelIndex(x, y, z);
-                        bool isBoundaryVoxel = IsOnBoundary(coordinates);
-                        int scanCellKey = GetScanCellKey(coordinates);
+                        VoxelIndex index = new VoxelIndex(x, y, z);
+                        bool isBoundaryVoxel = IsOnBoundary(index);
+                        int scanCellKey = GetScanCellKey(index);
 
                         voxel.Initialize(
-                            new GlobalVoxelIndex(GlobalIndex, coordinates, SpawnToken),
+                            new GlobalVoxelIndex(GlobalIndex, index, SpawnToken),
                             position,
                             scanCellKey,
                             isBoundaryVoxel,
@@ -504,7 +504,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Determines whether the given voxel coordinates are within the valid range of the grid.
         /// </summary>
-        public bool IsValidVoxelCoordinates(int x, int y, int z)
+        public bool IsValidVoxelIndex(int x, int y, int z)
         {
             bool result = x >= 0 && x < Voxels.Width
                     && y >= 0 && y < Voxels.Height
@@ -520,61 +520,61 @@ namespace GridForge.Grids
         /// Determines if a voxel is facing the boundary of the grid in a specific direction.
         /// Used to notify voxels when adjacent grids are added/removed.
         /// </summary>
-        public bool IsFacingBoundaryDirection(VoxelIndex coordinates, LinearDirection direction)
+        public bool IsFacingBoundaryDirection(VoxelIndex voxelIndex, LinearDirection direction)
         {
             return direction switch
             {
                 // Principal directions (cardinal)
-                LinearDirection.West => coordinates.x == 0,
-                LinearDirection.East => coordinates.x == Width - 1,
-                LinearDirection.North => coordinates.z == Length - 1,
-                LinearDirection.South => coordinates.z == 0,
-                LinearDirection.Above => coordinates.y == Height - 1,
-                LinearDirection.Below => coordinates.y == 0,
+                LinearDirection.West => voxelIndex.x == 0,
+                LinearDirection.East => voxelIndex.x == Width - 1,
+                LinearDirection.North => voxelIndex.z == Length - 1,
+                LinearDirection.South => voxelIndex.z == 0,
+                LinearDirection.Above => voxelIndex.y == Height - 1,
+                LinearDirection.Below => voxelIndex.y == 0,
 
                 // Diagonal XY-plane
-                LinearDirection.NorthWest => coordinates.x == 0 && coordinates.z == Length - 1,
-                LinearDirection.NorthEast => coordinates.x == Width - 1 && coordinates.z == Length - 1,
-                LinearDirection.SouthWest => coordinates.x == 0 && coordinates.z == 0,
-                LinearDirection.SouthEast => coordinates.x == Width - 1 && coordinates.z == 0,
+                LinearDirection.NorthWest => voxelIndex.x == 0 && voxelIndex.z == Length - 1,
+                LinearDirection.NorthEast => voxelIndex.x == Width - 1 && voxelIndex.z == Length - 1,
+                LinearDirection.SouthWest => voxelIndex.x == 0 && voxelIndex.z == 0,
+                LinearDirection.SouthEast => voxelIndex.x == Width - 1 && voxelIndex.z == 0,
 
                 // Diagonal XZ-plane (Above & Below variants)
-                LinearDirection.AboveNorth => coordinates.y == Height - 1 && coordinates.z == Length - 1,
-                LinearDirection.AboveSouth => coordinates.y == Height - 1 && coordinates.z == 0,
-                LinearDirection.AboveWest => coordinates.y == Height - 1 && coordinates.x == 0,
-                LinearDirection.AboveEast => coordinates.y == Height - 1 && coordinates.x == Width - 1,
+                LinearDirection.AboveNorth => voxelIndex.y == Height - 1 && voxelIndex.z == Length - 1,
+                LinearDirection.AboveSouth => voxelIndex.y == Height - 1 && voxelIndex.z == 0,
+                LinearDirection.AboveWest => voxelIndex.y == Height - 1 && voxelIndex.x == 0,
+                LinearDirection.AboveEast => voxelIndex.y == Height - 1 && voxelIndex.x == Width - 1,
 
-                LinearDirection.BelowNorth => coordinates.y == 0 && coordinates.z == Length - 1,
-                LinearDirection.BelowSouth => coordinates.y == 0 && coordinates.z == 0,
-                LinearDirection.BelowWest => coordinates.y == 0 && coordinates.x == 0,
-                LinearDirection.BelowEast => coordinates.y == 0 && coordinates.x == Width - 1,
+                LinearDirection.BelowNorth => voxelIndex.y == 0 && voxelIndex.z == Length - 1,
+                LinearDirection.BelowSouth => voxelIndex.y == 0 && voxelIndex.z == 0,
+                LinearDirection.BelowWest => voxelIndex.y == 0 && voxelIndex.x == 0,
+                LinearDirection.BelowEast => voxelIndex.y == 0 && voxelIndex.x == Width - 1,
 
                 // Diagonal 3D Corners
-                LinearDirection.AboveNorthWest => coordinates.x == 0
-                    && coordinates.z == Length - 1
-                    && coordinates.y == Height - 1,
-                LinearDirection.AboveNorthEast => coordinates.x == Width - 1
-                    && coordinates.z == Length - 1
-                    && coordinates.y == Height - 1,
-                LinearDirection.AboveSouthWest => coordinates.x == 0
-                    && coordinates.z == 0
-                    && coordinates.y == Height - 1,
-                LinearDirection.AboveSouthEast => coordinates.x == Width - 1
-                    && coordinates.z == 0
-                    && coordinates.y == Height - 1,
+                LinearDirection.AboveNorthWest => voxelIndex.x == 0
+                    && voxelIndex.z == Length - 1
+                    && voxelIndex.y == Height - 1,
+                LinearDirection.AboveNorthEast => voxelIndex.x == Width - 1
+                    && voxelIndex.z == Length - 1
+                    && voxelIndex.y == Height - 1,
+                LinearDirection.AboveSouthWest => voxelIndex.x == 0
+                    && voxelIndex.z == 0
+                    && voxelIndex.y == Height - 1,
+                LinearDirection.AboveSouthEast => voxelIndex.x == Width - 1
+                    && voxelIndex.z == 0
+                    && voxelIndex.y == Height - 1,
 
-                LinearDirection.BelowNorthWest => coordinates.x == 0
-                    && coordinates.z == Length - 1
-                    && coordinates.y == 0,
-                LinearDirection.BelowNorthEast => coordinates.x == Width - 1
-                    && coordinates.z == Length - 1
-                    && coordinates.y == 0,
-                LinearDirection.BelowSouthWest => coordinates.x == 0
-                    && coordinates.z == 0
-                    && coordinates.y == 0,
-                LinearDirection.BelowSouthEast => coordinates.x == Width - 1
-                    && coordinates.z == 0
-                    && coordinates.y == 0,
+                LinearDirection.BelowNorthWest => voxelIndex.x == 0
+                    && voxelIndex.z == Length - 1
+                    && voxelIndex.y == 0,
+                LinearDirection.BelowNorthEast => voxelIndex.x == Width - 1
+                    && voxelIndex.z == Length - 1
+                    && voxelIndex.y == 0,
+                LinearDirection.BelowSouthWest => voxelIndex.x == 0
+                    && voxelIndex.z == 0
+                    && voxelIndex.y == 0,
+                LinearDirection.BelowSouthEast => voxelIndex.x == Width - 1
+                    && voxelIndex.z == 0
+                    && voxelIndex.y == 0,
 
                 // No direction (should never be true)
                 LinearDirection.None => false,
@@ -585,11 +585,11 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Converts a world position to voxel coordinates within the grid.
+        /// Converts a world position to voxel index within the grid.
         /// </summary>
-        public bool TryGetVoxelCoordinates(Vector3d position, out VoxelIndex outCoordinates)
+        public bool TryGetVoxelIndex(Vector3d position, out VoxelIndex result)
         {
-            outCoordinates = default;
+            result = default;
 
             if (!IsActive)
             {
@@ -611,10 +611,10 @@ namespace GridForge.Grids
                 ((position.z - BoundsMin.z) / GlobalGridManager.VoxelSize).FloorToInt()
             );
 
-            if (!IsValidVoxelCoordinates(x, y, z))
+            if (!IsValidVoxelIndex(x, y, z))
                 return false;
 
-            outCoordinates = new VoxelIndex(x, y, z);
+            result = new VoxelIndex(x, y, z);
             return true;
         }
 
@@ -622,7 +622,7 @@ namespace GridForge.Grids
         /// Checks if a voxel at the given coordinates is allocated within the grid.
         /// </summary>
         public bool IsVoxelAllocated(int x, int y, int z) =>
-            IsValidVoxelCoordinates(x, y, z)
+            IsValidVoxelIndex(x, y, z)
             && Voxels[x, y, z] != null
             && Voxels[x, y, z].IsAllocated;
 
@@ -652,9 +652,9 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a grid voxel from a given coordinate.
         /// </summary>
-        public bool TryGetVoxel(VoxelIndex coordinates, out Voxel result)
+        public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel result)
         {
-            return TryGetVoxel(coordinates.x, coordinates.y, coordinates.z, out result);
+            return TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
         }
 
         /// <summary>
@@ -664,7 +664,7 @@ namespace GridForge.Grids
         public bool TryGetVoxel(Vector3d position, out Voxel result)
         {
             result = null;
-            return TryGetVoxelCoordinates(position, out VoxelIndex coordinate)
+            return TryGetVoxelIndex(position, out VoxelIndex coordinate)
                 && TryGetVoxel(coordinate.x, coordinate.y, coordinate.z, out result);
         }
 
@@ -673,27 +673,27 @@ namespace GridForge.Grids
         /// </summary>
         public int GetScanCellKey(Vector3d position)
         {
-            if (!TryGetVoxelCoordinates(position, out VoxelIndex voxelCoordinates))
+            if (!TryGetVoxelIndex(position, out VoxelIndex voxelIndex))
                 return -1;
 
-            return GetScanCellKey(voxelCoordinates);
+            return GetScanCellKey(voxelIndex);
         }
 
         /// <summary>
         /// Calculates the spatial cell index for a given position.
         /// </summary>
-        public int GetScanCellKey(VoxelIndex coordinates)
+        public int GetScanCellKey(VoxelIndex voxelIndex)
         {
             (int x, int y, int z) = (
-                    coordinates.x / ScanCellSize,
-                    coordinates.y / ScanCellSize,
-                    coordinates.z / ScanCellSize
+                    voxelIndex.x / ScanCellSize,
+                    voxelIndex.y / ScanCellSize,
+                    voxelIndex.z / ScanCellSize
                 );
 
             int scanCellKey = GlobalGridManager.GetSpawnHash(x, y, z);
             if (!ScanCells.ContainsKey(scanCellKey))
             {
-                GridForgeLogger.Warn($"Position {coordinates} is not in the bounds for this grids Scan Cell overlay.");
+                GridForgeLogger.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
                 return -1;
             }
 
@@ -718,12 +718,12 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves the scan cell associated with the given voxel coordinates.
+        /// Retrieves the scan cell associated with the given voxel index.
         /// </summary>
-        public bool TryGetScanCell(VoxelIndex coordinates, out ScanCell outScanCell)
+        public bool TryGetScanCell(VoxelIndex voxelIndex, out ScanCell outScanCell)
         {
             outScanCell = null;
-            return TryGetVoxel(coordinates, out Voxel voxel)
+            return TryGetVoxel(voxelIndex, out Voxel voxel)
                 && TryGetScanCell(voxel.ScanCellKey, out outScanCell);
         }
 

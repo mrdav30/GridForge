@@ -26,7 +26,7 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant1);
             grid.TryAddVoxelOccupant(occupant2);
 
-            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(occupant1.GridCoordinates.VoxelCoordinates));
+            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(occupant1.GlobalIndex.VoxelIndex));
             Assert.True(occupants.Count > 0);
         }
 
@@ -47,7 +47,7 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(position, occupant2);
 
             List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
-                grid.GetConditionalOccupants(occupant1.GridCoordinates.VoxelCoordinates, key => key == 1));
+                grid.GetConditionalOccupants(occupant1.GlobalIndex.VoxelIndex, key => key == 1));
 
             Assert.Single(filtered);
             Assert.Equal(1, filtered[0].OccupantGroupId);
@@ -120,7 +120,7 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant2);
             grid.TryAddVoxelOccupant(position, occupant3);
 
-            bool removed1 = grid.TryRemoveVoxelOccupant(occupant1.GridCoordinates.VoxelCoordinates, occupant1);
+            bool removed1 = grid.TryRemoveVoxelOccupant(occupant1.GlobalIndex.VoxelIndex, occupant1);
             bool removed2 = grid.TryRemoveVoxelOccupant(occupant2);
 
             Assert.True(removed1);
@@ -149,7 +149,7 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant2);
 
             bool removed1 = grid.TryRemoveVoxelOccupant(occupant1);
-            bool removed2 = grid.TryRemoveVoxelOccupant(occupant2.GridCoordinates.VoxelCoordinates, occupant2);
+            bool removed2 = grid.TryRemoveVoxelOccupant(occupant2.GlobalIndex.VoxelIndex, occupant2);
 
             Assert.True(removed1);
             Assert.True(removed2);

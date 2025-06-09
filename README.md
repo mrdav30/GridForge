@@ -4,20 +4,27 @@
 
 [![.NET CI](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml)
 
-**A high-performance, deterministic spatial grid management system for simulations and game development.**  
+**A high-performance, deterministic voxel grid system for spatial partitioning, simulation, and game development.**
+
+Lightweight, framework-agnostic, and optimized for lockstep engines.
 
 ---
 
 ## 🚀 Key Features
 
-- **Deterministic Execution** – Supports **lockstep simulation** and **fixed-point** arithmetic.
-- **Optimized Grid Management** – **Low memory allocations, spatial partitioning, and fast queries**.
-- **Multi-Layered Grid System** – **Dynamic, hierarchical, and persistent  grids**.
-- **Voxel-Based Spatial Queries** – Retrieve **occupants, obstacles, and meta-data partitions** efficiently.
-- **Custom Blockers & Partitions** – Define obstacles and attach metadata dynamically.
-- **Framework Agnostic** – Works with **Unity, Lockstep Engines, and .NET-based frameworks**.
+- **Voxel-Based Spatial Partitioning** – Build efficient 3D **voxel grids** with fast access & updates.
+- **Deterministic & Lockstep Ready** – Designed for **synchronized multiplayer** and physics-safe environments.
+- **ScanCell Overlay System** – Accelerated **proximity and radius queries** using spatial hashing.
+- **Dynamic Occupancy & Obstacle Tracking** – Manage **moving occupants, dynamic obstacles**, and voxel metadata.
+- **Minimal Allocations & Fast Queries** – Built with **SwiftCollections** and **FixedMathSharp** for optimal performance.
+- **Framework Agnostic** – Works in **Unity**, **.NET**, **lockstep engines**, and **server-side simulations**.
+- **Multi-Layered Grid System** – **Dynamic, hierarchical, and persistent grids**.
 
 ---
+
+## ❓ Why GridForge?
+
+GridForge is built for developers who need **deterministic**, **high-performance**, and **framework-agnostic** spatial grids. Whether you're building a **lockstep multiplayer game**, a **server-driven simulation**, or a **high-fidelity physics system**, GridForge provides the tools to manage voxelized spatial data with predictable and efficient results — all without relying on any specific engine.
 
 ## 📦 Installation
 
@@ -59,16 +66,16 @@ These dependencies are automatically included when installing.
 
 | Component | Description |
 |-----------|------------|
-| `GlobalGridManager` | Manages **grids, voxels, & spatial queries**. |
-| `Grid` | Represents a **single grid** containing **voxels & scan cells**. |
-| `Voxel` | Represents a grid position, storing **occupants, obstacles, & state**. |
-| `ScanCell` | Handles **spatial indexing** for faster queries. |
-| `GridTracer` | Efficiently retrieves **covered voxels, scan cells, & paths**. |
-| `GridObstacleManager` | Manages **grid-wide obstacles** dynamically. |
-| `GridOccupantManager` | Handles **occupant tracking & retrieval**. |
-| `ScanManager` | Optimized **scan queries** for spatial lookups. |
-| `Blockers` | Defines **dynamic and static** obstacles. |
-| `Partitions` | Adds **meta-data and custom logic** to voxels. |
+| `GlobalGridManager` | 	Manages **VoxelGrids**, global spatial queries, and grid registration. |
+| `VoxelGrid` | Represents a **single grid** containing **voxels & scan cells**. |
+| `Voxel` | Represents a voxel **cell** with occupant, obstacle, and partition data.. |
+| `ScanCell` | 	Handles **spatial indexing** for fast neighbor and radius queries.. |
+| `GridTracer` | Trace lines, areas, and **paths** across voxels and scan cells. |
+| `GridObstacleManager` | Manage **dynamic grid obstacles** at runtime.. |
+| `GridOccupantManager` | Manage and query **occupants** in voxels. |
+| `ScanManager` | Optimized **scan queries** (radius, box, path, etc). |
+| `Blockers` | Define static or dynamic voxel blockers. |
+| `Partitions` | Adds **meta-data** and **custom logic** to voxels. |
 ---
 
 ## 📖 Usage Examples
@@ -82,7 +89,7 @@ GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
 ### **🔹 Querying a Grid for Voxels**
 ```csharp
 Vector3d queryPosition = new Vector3d(5, 0, 5);
-if (GlobalGridManager.TryGetGridAndVoxel(queryPosition, out Grid grid, out Voxel voxel))
+if (GlobalGridManager.TryGetGridAndVoxel(queryPosition, out VoxelGrid grid, out Voxel voxel))
 	Console.WriteLine($"Voxel at {queryPosition} is {(voxel.IsOccupied ? "occupied" : "empty")}");
 }
 ```
@@ -96,10 +103,10 @@ blocker.ApplyBlockage();
 
 ### **🔹 Attaching a Partition to a Voxel**
 ```csharp
-if (GlobalGridManager.TryGetGrid(queryPosition, out Grid grid, out Voxel voxel))
+if (GlobalGridManager.TryGetGrid(queryPosition, out VoxelGrid grid, out Voxel voxel))
 {
     PathPartition partition = new PathPartition();
-    partition.Setup(voxel.GlobalCoordinates);
+    partition.Setup(voxel.GlobalVoxelIndex);
     voxel.AddPartition(partition);
 }
 ```

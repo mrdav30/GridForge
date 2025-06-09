@@ -32,11 +32,11 @@ namespace GridForge.Grids
         /// Retrieves all occupants at a given voxel coordinate within the grid.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinates">The local coordinates of the voxel.</param>
+        /// <param name="voxelIndex">The local coordinates of the voxel.</param>
         /// <returns>An enumerable collection of voxel occupants.</returns>
-        public static IEnumerable<IVoxelOccupant> GetVoxelOccupants(this VoxelGrid grid, VoxelIndex coordinates)
+        public static IEnumerable<IVoxelOccupant> GetVoxelOccupants(this VoxelGrid grid, VoxelIndex voxelIndex)
         {
-            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 ? GetVoxelOccupants(grid, targetVoxel)
                 : Enumerable.Empty<IVoxelOccupant>();
         }
@@ -75,11 +75,11 @@ namespace GridForge.Grids
         /// </summary>
         /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinates">The local voxel coordinates.</param>
+        /// <param name="voxelIndex">The local voxel coordinates.</param>
         /// <returns>An enumerable collection of occupants of the specified type.</returns>
-        public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex coordinates) where T : IVoxelOccupant
+        public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex voxelIndex) where T : IVoxelOccupant
         {
-            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 ? GetVoxelOccupantsByType<T>(grid, targetVoxel)
                 : Enumerable.Empty<T>();
         }
@@ -113,26 +113,26 @@ namespace GridForge.Grids
             out IVoxelOccupant occupant)
         {
             occupant = null;
-            return grid.TryGetVoxelCoordinates(position, out VoxelIndex targetCoordinates)
-                && TryGetVoxelOccupant(grid, targetCoordinates, occupantTicket, out occupant);
+            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
+                && TryGetVoxelOccupant(grid, voxelIndex, occupantTicket, out occupant);
         }
 
         /// <summary>
         /// Retrieves a specific occupant at a given voxel coordinate using an occupant ticket.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
-        /// <param name="coordinatesLocal">The local voxel coordinates.</param>
+        /// <param name="voxelIndex">The local voxel coordinates.</param>
         /// <param name="occupantTicket">The unique identifier of the occupant.</param>
         /// <param name="occupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
         public static bool TryGetVoxelOccupant(
             this VoxelGrid grid,
-            VoxelIndex coordinatesLocal,
+            VoxelIndex voxelIndex,
             int occupantTicket,
             out IVoxelOccupant occupant)
         {
             occupant = null;
-            return grid.TryGetVoxel(coordinatesLocal, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 && TryGetVoxelOccupant(grid, targetVoxel, occupantTicket, out occupant);
         }
 
@@ -170,9 +170,9 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves all occupants at a given coordinate within the grid.
         /// </summary>
-        public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex coordinates)
+        public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex voxelIndex)
         {
-            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 ? GetOccupants(grid, targetVoxel)
                 : Enumerable.Empty<IVoxelOccupant>();
         }
@@ -207,10 +207,10 @@ namespace GridForge.Grids
         /// </summary>
         public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
             this VoxelGrid grid,
-            VoxelIndex coordinates,
+            VoxelIndex voxelIndex,
             Func<byte, bool> groupConditional)
         {
-            return grid.TryGetVoxel(coordinates, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 ? GetConditionalOccupants(grid, targetVoxel, groupConditional)
                 : Enumerable.Empty<IVoxelOccupant>();
         }

@@ -34,8 +34,8 @@ namespace GridForge.Grids.Tests
             grid.TryGetVoxel(end, out Voxel endVoxel);
 
             // Ensure that the first and last voxel correspond to the start and end positions
-            Assert.Equal(startVoxel.GlobalCoordinates, tracedVoxels.First().GlobalCoordinates);
-            Assert.Equal(endVoxel.GlobalCoordinates, tracedVoxels.Last().GlobalCoordinates);
+            Assert.Equal(startVoxel.GlobalIndex, tracedVoxels.First().GlobalIndex);
+            Assert.Equal(endVoxel.GlobalIndex, tracedVoxels.Last().GlobalIndex);
         }
 
         [Fact]
@@ -88,8 +88,8 @@ namespace GridForge.Grids.Tests
             grid.TryGetVoxel(end.ToVector3d(Fixed64.Zero), out Voxel endVoxel);
 
             // Ensure the start and end voxels are included
-            Assert.Equal(startVoxel.GlobalCoordinates, tracedVoxels.First().GlobalCoordinates);
-            Assert.Equal(endVoxel.GlobalCoordinates, tracedVoxels.Last().GlobalCoordinates);
+            Assert.Equal(startVoxel.GlobalIndex, tracedVoxels.First().GlobalIndex);
+            Assert.Equal(endVoxel.GlobalIndex, tracedVoxels.Last().GlobalIndex);
         }
 
         [Fact]

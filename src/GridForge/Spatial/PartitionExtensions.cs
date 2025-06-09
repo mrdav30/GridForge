@@ -17,7 +17,7 @@ public static class PartitionExtensions
     /// <param name="voxel">The target voxel where the partition will be added.</param>
     public static void AddToVoxel(this IVoxelPartition partition, Voxel voxel)
     {
-        partition.VoxelCoordinates = voxel.GlobalCoordinates;
+        partition.GlobalIndex = voxel.GlobalIndex;
         partition.IsPartitioned = true;
         partition.OnAddToVoxel(voxel);
     }
@@ -29,7 +29,7 @@ public static class PartitionExtensions
     /// <param name="voxel">The target voxel from which the partition will be removed.</param>
     public static void RemoveFromVoxel(this IVoxelPartition partition, Voxel voxel)
     {
-        partition.VoxelCoordinates = default;
+        partition.GlobalIndex = default;
         partition.IsPartitioned = false;
         partition.OnRemoveFromVoxel(voxel);
     }

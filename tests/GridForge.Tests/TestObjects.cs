@@ -6,7 +6,7 @@ namespace GridForge.Grids.Tests
 
     public class TestPartition : IVoxelPartition
     {
-        public GlobalVoxelIndex VoxelCoordinates { get; set; }
+        public GlobalVoxelIndex GlobalIndex { get; set; }
 
         public bool IsPartitioned { get; set; }
 
@@ -22,7 +22,7 @@ namespace GridForge.Grids.Tests
 
         public int OccupantTicket { get; set; }
 
-        public GlobalVoxelIndex GridCoordinates { get; set; }
+        public GlobalVoxelIndex GlobalIndex { get; set; }
         public Vector3d WorldPosition { get ; set; }
 
         public TestOccupant(Vector3d position, byte clusterKey = byte.MaxValue)
