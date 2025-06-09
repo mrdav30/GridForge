@@ -45,8 +45,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryAddVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelCoordinates(occupant.WorldPosition, out VoxelIndex targetCoordinates)
-                && TryAddVoxelOccupant(grid, targetCoordinates, occupant);
+            return grid.TryGetVoxelIndex(occupant.WorldPosition, out VoxelIndex voxelIndex)
+                && TryAddVoxelOccupant(grid, voxelIndex, occupant);
         }
 
         /// <summary>
@@ -54,16 +54,16 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryAddVoxelOccupant(this VoxelGrid grid, Vector3d position, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelCoordinates(position, out VoxelIndex targetCoordinates)
-                && TryAddVoxelOccupant(grid, targetCoordinates, occupant);
+            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
+                && TryAddVoxelOccupant(grid, voxelIndex, occupant);
         }
 
         /// <summary>
-        /// Attempts to add an occupant at the specified voxel coordinates.
+        /// Attempts to add an occupant at the specified voxel index.
         /// </summary>
-        public static bool TryAddVoxelOccupant(this VoxelGrid grid, VoxelIndex coordinatesLocal, IVoxelOccupant occupant)
+        public static bool TryAddVoxelOccupant(this VoxelGrid grid, VoxelIndex voxelIndex, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxel(coordinatesLocal, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 && TryAddVoxelOccupant(grid, targetVoxel, occupant);
         }
 
@@ -97,7 +97,7 @@ namespace GridForge.Grids
 
                 occupant.IsVoxelOccupant = true;
                 occupant.OccupantTicket = occupantTicket;
-                occupant.GridCoordinates = targetVoxel.GlobalCoordinates;
+                occupant.GlobalIndex = targetVoxel.GlobalIndex;
             }
 
             NotifyOccupantChange(GridChange.Add, targetVoxel);
@@ -110,8 +110,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelCoordinates(occupant.WorldPosition, out VoxelIndex targetCoordinates)
-                && TryRemoveVoxelOccupant(grid, targetCoordinates, occupant);
+            return grid.TryGetVoxelIndex(occupant.WorldPosition, out VoxelIndex voxelIndex)
+                && TryRemoveVoxelOccupant(grid, voxelIndex, occupant);
         }
 
         /// <summary>
@@ -119,16 +119,16 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, Vector3d position, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelCoordinates(position, out VoxelIndex targetCoordinates)
-                && TryRemoveVoxelOccupant(grid, targetCoordinates, occupant);
+            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
+                && TryRemoveVoxelOccupant(grid, voxelIndex, occupant);
         }
 
         /// <summary>
         /// Attempts to remove an occupant at the specified voxel coordinates.
         /// </summary>
-        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, VoxelIndex coordinatesLocal, IVoxelOccupant occupant)
+        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, VoxelIndex voxelIndex, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxel(coordinatesLocal, out Voxel targetVoxel)
+            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 && TryRemoveVoxelOccupant(grid, targetVoxel, occupant);
         }
 
@@ -175,7 +175,7 @@ namespace GridForge.Grids
                 // Reset occupant data regardless of success
                 occupant.IsVoxelOccupant = false;
                 occupant.OccupantTicket = -1;
-                occupant.GridCoordinates = default;
+                occupant.GlobalIndex = default;
             }
 
             NotifyOccupantChange(GridChange.Remove, targetVoxel);
@@ -194,13 +194,13 @@ namespace GridForge.Grids
         {
             try
             {
-                OnOccupantChange?.Invoke(change, targetVoxel.GlobalCoordinates);
+                OnOccupantChange?.Invoke(change, targetVoxel.GlobalIndex);
                 targetVoxel.OnOccupantChange?.Invoke(change, targetVoxel);
             }
             catch (Exception ex)
             {
                 GridForgeLogger.Error(
-                    $"[Voxel {targetVoxel.GlobalCoordinates}] Occupant change error: {ex.Message} | Change: {change}");
+                    $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
             }
         }
 

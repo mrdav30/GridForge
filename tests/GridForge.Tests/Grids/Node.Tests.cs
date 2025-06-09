@@ -38,7 +38,7 @@ namespace GridForge.Grids.Tests
             TestOccupant occupant = new TestOccupant(position);
             grid.TryAddVoxelOccupant(occupant);
 
-            grid.TryGetVoxel(occupant.GridCoordinates.VoxelCoordinates, out Voxel occupantVoxel);
+            grid.TryGetVoxel(occupant.GlobalIndex.VoxelIndex, out Voxel occupantVoxel);
 
             Assert.True(occupantVoxel.IsOccupied);
             Assert.True(grid.TryGetVoxelOccupant(occupantVoxel, occupant.OccupantTicket, out _));
@@ -96,8 +96,8 @@ namespace GridForge.Grids.Tests
             grid.TryGetVoxel(new Vector3d(-10, 0, 0), out Voxel westVoxel);
             grid.TryGetVoxel(new Vector3d(10, 0, 0), out Voxel eastVoxel);
 
-            Assert.True(grid.IsFacingBoundaryDirection(westVoxel.LocalCoordinates, LinearDirection.West));
-            Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.LocalCoordinates, LinearDirection.East));
+            Assert.True(grid.IsFacingBoundaryDirection(westVoxel.Index, LinearDirection.West));
+            Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.Index, LinearDirection.East));
         }
 
         [Fact]

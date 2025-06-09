@@ -9,9 +9,9 @@ namespace GridForge.Spatial
     public interface IVoxelPartition
     {
         /// <summary>
-        /// The global coordinates of the parent voxel where this partition is attached.
+        /// The global index of the parent voxel where this partition is attached.
         /// </summary>
-        GlobalVoxelIndex VoxelCoordinates { get; set; }
+        GlobalVoxelIndex GlobalIndex { get; set; }
 
         /// <summary>
         /// Flag to determine if this partition is currently attached to a <see cref="Voxel"/>

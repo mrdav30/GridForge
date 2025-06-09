@@ -21,17 +21,17 @@ namespace GridForge.Grids
         /// <summary>
         /// The global and local coordinates of this voxel within the grid system.
         /// </summary>
-        public GlobalVoxelIndex GlobalCoordinates { get; set; }
+        public GlobalVoxelIndex GlobalIndex { get; set; }
 
         /// <summary>
         /// The global index of the grid this voxel belongs to.
         /// </summary>
-        public int GridIndex => GlobalCoordinates.GridIndex;
+        public int GridIndex => GlobalIndex.GridIndex;
 
         /// <summary>
         /// The local coordinates of this voxel within its grid.
         /// </summary>
-        public VoxelIndex LocalCoordinates => GlobalCoordinates.VoxelCoordinates;
+        public VoxelIndex Index => GlobalIndex.VoxelIndex;
 
         /// <summary>
         /// The spatial hash key of the scan cell that this voxel belongs to.
@@ -140,8 +140,8 @@ namespace GridForge.Grids
         /// Configures the voxel with its position, grid version, and boundary status.
         /// </summary>
         internal void Initialize(
-            GlobalVoxelIndex coordinates,
-            Vector3d position,
+            GlobalVoxelIndex globalVoxelIndex,
+            Vector3d worldPosition,
             int scanCellKey,
             bool isBoundaryVoxel,
             uint gridVersion)
@@ -149,8 +149,8 @@ namespace GridForge.Grids
             ScanCellKey = scanCellKey;
             IsBoundaryVoxel = isBoundaryVoxel;
 
-            GlobalCoordinates = coordinates;
-            WorldPosition = position;
+            GlobalIndex = globalVoxelIndex;
+            WorldPosition = worldPosition;
 
             SpawnToken = GetHashCode();
             CachedGridVersion = gridVersion;
@@ -351,13 +351,13 @@ namespace GridForge.Grids
         public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Voxel neighbor)
         {
             neighbor = default;
-            if (!GlobalGridManager.TryGetGrid(GlobalCoordinates, out VoxelGrid grid))
+            if (!GlobalGridManager.TryGetGrid(GlobalIndex, out VoxelGrid grid))
                 return false;
 
             VoxelIndex neighborCoords = new VoxelIndex(
-                LocalCoordinates.x + offset.x,
-                LocalCoordinates.y + offset.y,
-                LocalCoordinates.z + offset.z
+                Index.x + offset.x,
+                Index.y + offset.y,
+                Index.z + offset.z
             );
 
             return grid.TryGetVoxel(neighborCoords, out neighbor);
@@ -387,13 +387,13 @@ namespace GridForge.Grids
 
         /// <inheritdoc/>
         public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
-                GlobalCoordinates.GetHashCode(),
+                GlobalIndex.GetHashCode(),
                 WorldPosition.GetHashCode(),
                 IsBoundaryVoxel.GetHashCode()
             );
 
         /// <inheritdoc/>
-        public override string ToString() => GlobalCoordinates.ToString();
+        public override string ToString() => GlobalIndex.ToString();
 
         /// <inheritdoc/>
         public bool Equals(Voxel other) => SpawnToken == other.SpawnToken;

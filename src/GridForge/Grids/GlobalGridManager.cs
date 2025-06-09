@@ -432,19 +432,22 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Retrieves a grid by its unique global coordinates.
+        /// Retrieves a grid by its unique global index.
         /// </summary>
-        public static bool TryGetGrid(GlobalVoxelIndex coordinates, out VoxelGrid outGrid)
+        public static bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid result)
         {
             // Ensure the grid is valid and the voxel belongs to the expected grid version
-            return TryGetGrid(coordinates.GridIndex, out outGrid)
-                && coordinates.GridSpawnToken == outGrid.SpawnToken;
+            return TryGetGrid(globalVoxelIndex.GridIndex, out result)
+                && globalVoxelIndex.GridSpawnToken == result.SpawnToken;
         }
 
         /// <summary>
         /// Retrieves the grid containing a given world position and the voxel at that position.
         /// </summary>
-        public static bool TryGetGridAndVoxel(Vector3d position, out VoxelGrid outGrid, out Voxel outVoxel)
+        public static bool TryGetGridAndVoxel(
+            Vector3d position, 
+            out VoxelGrid outGrid, 
+            out Voxel outVoxel)
         {
             outVoxel = null;
             return TryGetGrid(position, out outGrid)
@@ -454,11 +457,14 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves the grid containing a given global coordinate and the voxel at that position.
         /// </summary>
-        public static bool TryGetGridAndVoxel(GlobalVoxelIndex coordinates, out VoxelGrid outGrid, out Voxel outVoxel)
+        public static bool TryGetGridAndVoxel(
+            GlobalVoxelIndex globalVoxelIndex, 
+            out VoxelGrid outGrid, 
+            out Voxel result)
         {
-            outVoxel = null;
-            return TryGetGrid(coordinates, out outGrid)
-                && outGrid.TryGetVoxel(coordinates.VoxelCoordinates, out outVoxel);
+            result = null;
+            return TryGetGrid(globalVoxelIndex, out outGrid)
+                && outGrid.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result);
         }
 
         #endregion

@@ -35,6 +35,6 @@ namespace GridForge.Spatial
         /// <summary>
         /// The global grid coordinates of the <see cref="Voxel"/> this occupant is being added to.
         /// </summary>
-        GlobalVoxelIndex GridCoordinates { get; set; }
+        GlobalVoxelIndex GlobalIndex { get; set; }
     }
 }
