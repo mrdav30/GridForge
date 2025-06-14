@@ -3,6 +3,8 @@ using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace GridForge.Grids
 {
@@ -80,6 +82,8 @@ namespace GridForge.Grids
         /// Indicates whether this voxel has any active partitions.
         /// </summary>
         public bool IsPartioned => !_partitionProvider.IsEmpty;
+
+        private readonly object _partitionLock = new();
 
         /// <summary>
         /// Determines if this voxel is a boundary voxel.
@@ -167,20 +171,23 @@ namespace GridForge.Grids
 
             if (!_partitionProvider.IsEmpty)
             {
-                foreach (IVoxelPartition partition in _partitionProvider.Partitions)
+                lock (_partitionProvider)
                 {
-                    try
+                    foreach (IVoxelPartition partition in _partitionProvider.Partitions)
                     {
-                        partition.RemoveFromVoxel(this);
+                        try
+                        {
+                            partition.RemoveFromVoxel(this);
+                        }
+                        catch (Exception ex)
+                        {
+                            GridForgeLogger.Error(
+                                $"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partition.GetType().Name}: {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        GridForgeLogger.Error(
-                            $"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partition.GetType().Name}: {ex.Message}");
-                    }
-                }
 
-                _partitionProvider.Clear();
+                    _partitionProvider.Clear();
+                }
             }
 
             if (_cachedNeighbors != null)
@@ -208,7 +215,17 @@ namespace GridForge.Grids
         /// <summary>
         /// Generates a unique key for a partition based on the voxel's spawn token and partition name.
         /// </summary>
-        public int GeneratePartitionKey(string partitionName) => SpawnToken ^ partitionName.GetHashCode();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GeneratePartitionKey(int voxelToken, string partitionName) =>
+            voxelToken ^ partitionName.GetHashCode();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int GetPartitionKey<T>(int voxelToken) where T : IVoxelPartition =>
+            GeneratePartitionKey(voxelToken, typeof(T).Name);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int GetPartitionKey<T>(int voxelToken, T partition) where T : IVoxelPartition =>
+            GeneratePartitionKey(voxelToken, partition.GetType().Name);
 
         /// <summary>
         /// Adds a partition to this voxel, allowing specialized behaviors.
@@ -219,10 +236,13 @@ namespace GridForge.Grids
                 return false;
 
             string partitionName = partition.GetType().Name;
-            int key = GeneratePartitionKey(partitionName);
+            int key = GetPartitionKey(SpawnToken, partition);
 
-            if (!_partitionProvider.TryAdd(key, partition))
-                return false;
+            lock (_partitionLock)
+            {
+                if (!_partitionProvider.TryAdd(key, partition))
+                    return false;
+            }
 
             try
             {
@@ -242,9 +262,13 @@ namespace GridForge.Grids
         public bool TryRemovePartition<T>() where T : IVoxelPartition
         {
             string partitionName = typeof(T).Name;
-            int key = GeneratePartitionKey(partitionName);
+            int key = GeneratePartitionKey(SpawnToken, partitionName);
 
-            if (!_partitionProvider.TryRemove(key, out IVoxelPartition partition))
+            IVoxelPartition partition = null;
+            lock (_partitionLock)
+                _partitionProvider.TryRemove(key, out partition);
+
+            if (partition == null)
             {
                 GridForgeLogger.Warn($"Partition {partitionName} not found on this voxel.");
                 return false;
@@ -265,17 +289,21 @@ namespace GridForge.Grids
         /// <summary>
         /// Checks whether or not this voxel contains a specific partition.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool HasPartition<T>() where T : IVoxelPartition
         {
-            return _partitionProvider.Has<T>(GeneratePartitionKey(typeof(T).Name));
+            lock (_partitionLock)
+                return _partitionProvider.Has<T>(GeneratePartitionKey(SpawnToken, typeof(T).Name));
         }
 
         /// <summary>
         /// Retrieves a partition from the voxel by type.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetPartition<T>(out T partition) where T : IVoxelPartition
         {
-            return _partitionProvider.TryGet(GeneratePartitionKey(typeof(T).Name), out partition);
+            lock (_partitionLock)
+                return _partitionProvider.TryGet(GeneratePartitionKey(SpawnToken, typeof(T).Name), out partition);
         }
 
         /// <summary>
@@ -283,7 +311,8 @@ namespace GridForge.Grids
         /// </summary>
         public T GetPartitionOrDefault<T>() where T : class, IVoxelPartition
         {
-            return TryGetPartition(out T partition) ? partition : null;
+            lock (_partitionLock)
+                return TryGetPartition(out T partition) ? partition : null;
         }
 
         #endregion
@@ -397,6 +426,12 @@ namespace GridForge.Grids
 
         /// <inheritdoc/>
         public bool Equals(Voxel other) => SpawnToken == other.SpawnToken;
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            return obj is Voxel other && Equals(other);
+        }
 
         #endregion
     }
