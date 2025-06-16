@@ -309,6 +309,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves a partition from the voxel by type and returns null if it doesn't exist.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T GetPartitionOrDefault<T>() where T : class, IVoxelPartition
         {
             lock (_partitionLock)

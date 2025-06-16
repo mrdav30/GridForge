@@ -1,6 +1,7 @@
 ﻿using SwiftCollections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial
 {
@@ -34,6 +35,7 @@ namespace GridForge.Spatial
         /// Attempts to add a partition to the provider with the specified key.
         /// Returns true if the partition was added; false if a partition with the same key already exists.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryAdd(int key, TPartitionBase partition)
         {
             _partitions ??= new SwiftDictionary<int, TPartitionBase>();
@@ -45,6 +47,7 @@ namespace GridForge.Spatial
         /// If successful, the removed partition is returned in the out parameter.
         /// Returns true if the partition was removed; otherwise, false.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryRemove(int key, out TPartitionBase partition)
         {
             partition = default;
@@ -67,6 +70,7 @@ namespace GridForge.Spatial
         /// Attempts to retrieve a partition of the specified type associated with the given key.
         /// Returns true and sets the out parameter if the partition exists and is of the requested type; otherwise, returns false.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet<T>(int key, out T partition) where T : TPartitionBase
         {
             partition = default;
@@ -87,6 +91,7 @@ namespace GridForge.Spatial
         /// Determines whether the provider contains a partition of the specified type associated with the given key.
         /// Returns true if such a partition exists; otherwise, false.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has<T>(int key) where T : TPartitionBase
         {
             return TryGet<T>(key, out _);
@@ -95,6 +100,7 @@ namespace GridForge.Spatial
         /// <summary>
         /// Removes all partitions from the provider, clearing its internal storage.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
             _partitions?.Clear();
