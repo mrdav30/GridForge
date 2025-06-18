@@ -14,11 +14,6 @@ namespace GridForge.Spatial
         GlobalVoxelIndex GlobalIndex { get; set; }
 
         /// <summary>
-        /// Flag to determine if this partition is currently attached to a <see cref="Voxel"/>
-        /// </summary>
-        bool IsPartitioned { get; set; }
-
-        /// <summary>
         /// Called when adding this partition to a <see cref="Voxel"/>.
         /// </summary>
         void OnAddToVoxel(Voxel voxel);

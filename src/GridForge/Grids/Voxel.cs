@@ -171,13 +171,13 @@ namespace GridForge.Grids
 
             if (!_partitionProvider.IsEmpty)
             {
-                lock (_partitionProvider)
+                lock (_partitionLock)
                 {
                     foreach (IVoxelPartition partition in _partitionProvider.Partitions)
                     {
                         try
                         {
-                            partition.RemoveFromVoxel(this);
+                            partition.OnRemoveFromVoxel(this);
                         }
                         catch (Exception ex)
                         {
@@ -246,7 +246,7 @@ namespace GridForge.Grids
 
             try
             {
-                partition.AddToVoxel(this);
+                partition.OnAddToVoxel(this);
             }
             catch (Exception ex)
             {
@@ -276,7 +276,7 @@ namespace GridForge.Grids
 
             try
             {
-                partition.RemoveFromVoxel(this);
+                partition.OnRemoveFromVoxel(this);
             }
             catch (Exception ex)
             {

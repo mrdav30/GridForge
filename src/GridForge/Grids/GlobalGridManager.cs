@@ -467,6 +467,30 @@ namespace GridForge.Grids
                 && outGrid.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result);
         }
 
+        /// <summary>
+        /// Retrieves the voxel from the given position.
+        /// </summary>
+        public static bool TryGetVoxel(
+            Vector3d position,
+            out Voxel result)
+        {
+            result = null;
+            return TryGetGrid(position, out VoxelGrid grid)
+                && grid.TryGetVoxel(position, out result);
+        }
+
+        /// <summary>
+        /// Retrieves the voxel from the given global coordinate.
+        /// </summary>
+        public static bool TryGetVoxel(
+            GlobalVoxelIndex globalVoxelIndex,
+            out Voxel result)
+        {
+            result = null;
+            return TryGetGrid(globalVoxelIndex, out VoxelGrid grid)
+                && grid.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result);
+        }
+
         #endregion
 
         #region Utility Methods
