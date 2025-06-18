@@ -1,9 +1,12 @@
 function Get-SolutionDirectory {
-    param ([string]$StartPath = $(Get-Location))
+    param (
+		[string]$StartPath = $(Get-Location),
+		[string]$SolutionPath = "GridForge.sln"
+	)
 
     $currentPath = $StartPath
     while ($true) {
-        if (Test-Path (Join-Path $currentPath "GridForge.sln")) {
+        if (Test-Path (Join-Path $currentPath $SolutionPath)) {
             return $currentPath
         }
         $parent = [System.IO.Directory]::GetParent($currentPath)
