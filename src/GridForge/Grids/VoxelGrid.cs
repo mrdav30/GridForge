@@ -76,7 +76,7 @@ namespace GridForge.Grids
         /// <remarks>
         /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
         /// </remarks>
-        public SwiftDictionary<LinearDirection, SwiftHashSet<int>> Neighbors { get; private set; }
+        public SwiftDictionary<SpatialDirection, SwiftHashSet<int>> Neighbors { get; private set; }
 
         /// <summary>
         /// Count of currently linked neighboring grids.
@@ -308,7 +308,7 @@ namespace GridForge.Grids
         /// <param name="a">The first grid.</param>
         /// <param name="b">The second grid.</param>
         /// <returns>The direction from grid 'a' to grid 'b'.</returns>
-        public static LinearDirection GetNeighborDirection(VoxelGrid a, VoxelGrid b)
+        public static SpatialDirection GetNeighborDirection(VoxelGrid a, VoxelGrid b)
         {
             Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
             (int x, int y, int z) gridOffset = (
@@ -325,13 +325,13 @@ namespace GridForge.Grids
         /// <param name="neighborGrid">The neighboring grid to add.</param>
         internal bool TryAddGridNeighbor(VoxelGrid neighborGrid)
         {
-            LinearDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
+            SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
 
-            if (neighborDirection == LinearDirection.None)
+            if (neighborDirection == SpatialDirection.None)
                 return false;
 
             // Ensure the neighbor array is allocated and store the new neighbor
-            Neighbors ??= new SwiftDictionary<LinearDirection, SwiftHashSet<int>>();
+            Neighbors ??= new SwiftDictionary<SpatialDirection, SwiftHashSet<int>>();
             if (!Neighbors.TryGetValue(neighborDirection, out SwiftHashSet<int> neighborSet))
             {
                 neighborSet = SwiftHashSetPool<int>.Shared.Rent();
@@ -359,8 +359,8 @@ namespace GridForge.Grids
             if (!IsConjoined)
                 return false;
 
-            LinearDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
-            if (neighborDirection == LinearDirection.None || !Neighbors.ContainsKey(neighborDirection))
+            SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
+            if (neighborDirection == SpatialDirection.None || !Neighbors.ContainsKey(neighborDirection))
                 return false;
 
             if (!Neighbors[neighborDirection].Remove(neighborGrid.GlobalIndex))
@@ -388,26 +388,26 @@ namespace GridForge.Grids
         /// Instead of looping through all voxels, it targets specific boundary rows or columns.
         /// </summary>
         /// <param name="direction">The direction of the affected boundary.</param>
-        public void NotifyBoundaryChange(LinearDirection direction)
+        public void NotifyBoundaryChange(SpatialDirection direction)
         {
             int boundaryX = direction switch
             {
-                LinearDirection.West => 0,
-                LinearDirection.East => Width - 1,
+                SpatialDirection.West => 0,
+                SpatialDirection.East => Width - 1,
                 _ => -1
             };
 
             int boundaryY = direction switch
             {
-                LinearDirection.Below => 0,
-                LinearDirection.Above => Height - 1,
+                SpatialDirection.Below => 0,
+                SpatialDirection.Above => Height - 1,
                 _ => -1
             };
 
             int boundaryZ = direction switch
             {
-                LinearDirection.South => 0,
-                LinearDirection.North => Length - 1,
+                SpatialDirection.South => 0,
+                SpatialDirection.North => Length - 1,
                 _ => -1
             };
 
@@ -520,64 +520,64 @@ namespace GridForge.Grids
         /// Determines if a voxel is facing the boundary of the grid in a specific direction.
         /// Used to notify voxels when adjacent grids are added/removed.
         /// </summary>
-        public bool IsFacingBoundaryDirection(VoxelIndex voxelIndex, LinearDirection direction)
+        public bool IsFacingBoundaryDirection(VoxelIndex voxelIndex, SpatialDirection direction)
         {
             return direction switch
             {
                 // Principal directions (cardinal)
-                LinearDirection.West => voxelIndex.x == 0,
-                LinearDirection.East => voxelIndex.x == Width - 1,
-                LinearDirection.North => voxelIndex.z == Length - 1,
-                LinearDirection.South => voxelIndex.z == 0,
-                LinearDirection.Above => voxelIndex.y == Height - 1,
-                LinearDirection.Below => voxelIndex.y == 0,
+                SpatialDirection.West => voxelIndex.x == 0,
+                SpatialDirection.East => voxelIndex.x == Width - 1,
+                SpatialDirection.North => voxelIndex.z == Length - 1,
+                SpatialDirection.South => voxelIndex.z == 0,
+                SpatialDirection.Above => voxelIndex.y == Height - 1,
+                SpatialDirection.Below => voxelIndex.y == 0,
 
                 // Diagonal XY-plane
-                LinearDirection.NorthWest => voxelIndex.x == 0 && voxelIndex.z == Length - 1,
-                LinearDirection.NorthEast => voxelIndex.x == Width - 1 && voxelIndex.z == Length - 1,
-                LinearDirection.SouthWest => voxelIndex.x == 0 && voxelIndex.z == 0,
-                LinearDirection.SouthEast => voxelIndex.x == Width - 1 && voxelIndex.z == 0,
+                SpatialDirection.NorthWest => voxelIndex.x == 0 && voxelIndex.z == Length - 1,
+                SpatialDirection.NorthEast => voxelIndex.x == Width - 1 && voxelIndex.z == Length - 1,
+                SpatialDirection.SouthWest => voxelIndex.x == 0 && voxelIndex.z == 0,
+                SpatialDirection.SouthEast => voxelIndex.x == Width - 1 && voxelIndex.z == 0,
 
                 // Diagonal XZ-plane (Above & Below variants)
-                LinearDirection.AboveNorth => voxelIndex.y == Height - 1 && voxelIndex.z == Length - 1,
-                LinearDirection.AboveSouth => voxelIndex.y == Height - 1 && voxelIndex.z == 0,
-                LinearDirection.AboveWest => voxelIndex.y == Height - 1 && voxelIndex.x == 0,
-                LinearDirection.AboveEast => voxelIndex.y == Height - 1 && voxelIndex.x == Width - 1,
+                SpatialDirection.AboveNorth => voxelIndex.y == Height - 1 && voxelIndex.z == Length - 1,
+                SpatialDirection.AboveSouth => voxelIndex.y == Height - 1 && voxelIndex.z == 0,
+                SpatialDirection.AboveWest => voxelIndex.y == Height - 1 && voxelIndex.x == 0,
+                SpatialDirection.AboveEast => voxelIndex.y == Height - 1 && voxelIndex.x == Width - 1,
 
-                LinearDirection.BelowNorth => voxelIndex.y == 0 && voxelIndex.z == Length - 1,
-                LinearDirection.BelowSouth => voxelIndex.y == 0 && voxelIndex.z == 0,
-                LinearDirection.BelowWest => voxelIndex.y == 0 && voxelIndex.x == 0,
-                LinearDirection.BelowEast => voxelIndex.y == 0 && voxelIndex.x == Width - 1,
+                SpatialDirection.BelowNorth => voxelIndex.y == 0 && voxelIndex.z == Length - 1,
+                SpatialDirection.BelowSouth => voxelIndex.y == 0 && voxelIndex.z == 0,
+                SpatialDirection.BelowWest => voxelIndex.y == 0 && voxelIndex.x == 0,
+                SpatialDirection.BelowEast => voxelIndex.y == 0 && voxelIndex.x == Width - 1,
 
                 // Diagonal 3D Corners
-                LinearDirection.AboveNorthWest => voxelIndex.x == 0
+                SpatialDirection.AboveNorthWest => voxelIndex.x == 0
                     && voxelIndex.z == Length - 1
                     && voxelIndex.y == Height - 1,
-                LinearDirection.AboveNorthEast => voxelIndex.x == Width - 1
+                SpatialDirection.AboveNorthEast => voxelIndex.x == Width - 1
                     && voxelIndex.z == Length - 1
                     && voxelIndex.y == Height - 1,
-                LinearDirection.AboveSouthWest => voxelIndex.x == 0
+                SpatialDirection.AboveSouthWest => voxelIndex.x == 0
                     && voxelIndex.z == 0
                     && voxelIndex.y == Height - 1,
-                LinearDirection.AboveSouthEast => voxelIndex.x == Width - 1
+                SpatialDirection.AboveSouthEast => voxelIndex.x == Width - 1
                     && voxelIndex.z == 0
                     && voxelIndex.y == Height - 1,
 
-                LinearDirection.BelowNorthWest => voxelIndex.x == 0
+                SpatialDirection.BelowNorthWest => voxelIndex.x == 0
                     && voxelIndex.z == Length - 1
                     && voxelIndex.y == 0,
-                LinearDirection.BelowNorthEast => voxelIndex.x == Width - 1
+                SpatialDirection.BelowNorthEast => voxelIndex.x == Width - 1
                     && voxelIndex.z == Length - 1
                     && voxelIndex.y == 0,
-                LinearDirection.BelowSouthWest => voxelIndex.x == 0
+                SpatialDirection.BelowSouthWest => voxelIndex.x == 0
                     && voxelIndex.z == 0
                     && voxelIndex.y == 0,
-                LinearDirection.BelowSouthEast => voxelIndex.x == Width - 1
+                SpatialDirection.BelowSouthEast => voxelIndex.x == Width - 1
                     && voxelIndex.z == 0
                     && voxelIndex.y == 0,
 
                 // No direction (should never be true)
-                LinearDirection.None => false,
+                SpatialDirection.None => false,
 
                 // Catch-all (should never reach this)
                 _ => false
