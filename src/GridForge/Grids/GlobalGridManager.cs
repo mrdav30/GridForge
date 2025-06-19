@@ -591,11 +591,11 @@ namespace GridForge.Grids
         }
 
         /// <summary>
-        /// Converts a 3D offset into a corresponding <see cref="LinearDirection"/> in a 3x3x3 grid.
+        /// Converts a 3D offset into a corresponding <see cref="SpatialDirection"/> in a 3x3x3 grid.
         /// </summary>
         /// <param name="gridOffset">The (x, y, z) offset from the center voxel.</param>
-        /// <returns>The corresponding <see cref="LinearDirection"/>, or <see cref="LinearDirection.None"/> if invalid.</returns>
-        public static LinearDirection GetNeighborDirectionFromOffset((int x, int y, int z) gridOffset)
+        /// <returns>The corresponding <see cref="SpatialDirection"/>, or <see cref="SpatialDirection.None"/> if invalid.</returns>
+        public static SpatialDirection GetNeighborDirectionFromOffset((int x, int y, int z) gridOffset)
         {
             Debug.Assert(gridOffset.x >= -1 && gridOffset.x <= 1, "Invalid x offset.");
             Debug.Assert(gridOffset.y >= -1 && gridOffset.y <= 1, "Invalid y offset.");
@@ -606,13 +606,13 @@ namespace GridForge.Grids
 
             // The center voxel (itself) should not be assigned a direction
             if (index == 13)
-                return LinearDirection.None;
+                return SpatialDirection.None;
 
             // Ensure index is within the defined LinearDirection values
-            if (index >= 0 && index < Enum.GetValues(typeof(LinearDirection)).Length)
-                return (LinearDirection)index;
+            if (index >= 0 && index < Enum.GetValues(typeof(SpatialDirection)).Length)
+                return (SpatialDirection)index;
 
-            return LinearDirection.None;
+            return SpatialDirection.None;
         }
 
         /// <summary>

@@ -328,7 +328,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves the neighbors of this voxel, caching results if specified.
         /// </summary>
-        public IEnumerable<(LinearDirection, Voxel)> GetNeighbors(bool useCache = true)
+        public IEnumerable<(SpatialDirection, Voxel)> GetNeighbors(bool useCache = true)
         {
             if (useCache && _isNeighborCacheValid)
             {
@@ -336,7 +336,7 @@ namespace GridForge.Grids
                 {
                     if (_cachedNeighbors[i] == null)
                         continue;
-                    yield return ((LinearDirection)i, _cachedNeighbors[i]);
+                    yield return ((SpatialDirection)i, _cachedNeighbors[i]);
                 }
             }
 
@@ -346,19 +346,19 @@ namespace GridForge.Grids
             {
                 if (_cachedNeighbors[i] == null)
                     continue;
-                yield return ((LinearDirection)i, _cachedNeighbors[i]);
+                yield return ((SpatialDirection)i, _cachedNeighbors[i]);
             }
         }
 
         /// <summary>
         /// Retrieves a neighbor voxel in a specific direction.
         /// </summary>
-        public bool TryGetNeighborFromDirection(LinearDirection direction, out Voxel neighbor, bool useCache = true)
+        public bool TryGetNeighborFromDirection(SpatialDirection direction, out Voxel neighbor, bool useCache = true)
         {
             neighbor = default;
 
             // Validate the index
-            if (direction == LinearDirection.None)
+            if (direction == SpatialDirection.None)
                 return false;
 
             // Check cached neighbors if caching is enabled

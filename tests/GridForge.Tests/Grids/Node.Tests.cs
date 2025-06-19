@@ -96,8 +96,8 @@ namespace GridForge.Grids.Tests
             grid.TryGetVoxel(new Vector3d(-10, 0, 0), out Voxel westVoxel);
             grid.TryGetVoxel(new Vector3d(10, 0, 0), out Voxel eastVoxel);
 
-            Assert.True(grid.IsFacingBoundaryDirection(westVoxel.Index, LinearDirection.West));
-            Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.Index, LinearDirection.East));
+            Assert.True(grid.IsFacingBoundaryDirection(westVoxel.Index, SpatialDirection.West));
+            Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.Index, SpatialDirection.East));
         }
 
         [Fact]

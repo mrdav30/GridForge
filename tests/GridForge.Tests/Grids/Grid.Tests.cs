@@ -97,7 +97,7 @@ namespace GridForge.Grids.Tests
             Assert.True(grid1.NeighborCount >= 1);
 
             // get the direction before removal
-            LinearDirection neighborDirection = VoxelGrid.GetNeighborDirection(grid1, grid2);
+            SpatialDirection neighborDirection = VoxelGrid.GetNeighborDirection(grid1, grid2);
 
             GlobalGridManager.TryRemoveGrid(grid2.GlobalIndex);
 
