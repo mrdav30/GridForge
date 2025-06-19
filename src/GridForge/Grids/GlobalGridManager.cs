@@ -86,6 +86,8 @@ namespace GridForge.Grids
             (0, 0, -1),
             (0, 0, 1),
             (1, 0, 0),
+            (0, -1, 0),
+            (0, 1, 0),
             (-1, 0, -1),
             (-1, 0, 1),
             (1, 0, -1),
@@ -94,22 +96,19 @@ namespace GridForge.Grids
             (0, -1, -1),
             (0, -1, 1),
             (1, -1, 0),
-            (-1, -1, -1),
-            (-1, -1, 1),
-            (1, -1, -1),
-            (1, -1, 1),
-            (0, -1, 0),
             (-1, 1, 0),
             (0, 1, -1),
             (0, 1, 1),
             (1, 1, 0),
+            (-1, -1, -1),
+            (-1, -1, 1),
+            (1, -1, -1),
+            (1, -1, 1),
             (-1, 1, -1),
             (-1, 1, 1),
             (1, 1, -1),
-            (1, 1, 1),
-            (0, 1, 0)
+            (1, 1, 1)
         };
-
 
         /// <summary>
         /// Lock for managing concurrent access to grid operations.
@@ -445,8 +444,8 @@ namespace GridForge.Grids
         /// Retrieves the grid containing a given world position and the voxel at that position.
         /// </summary>
         public static bool TryGetGridAndVoxel(
-            Vector3d position, 
-            out VoxelGrid outGrid, 
+            Vector3d position,
+            out VoxelGrid outGrid,
             out Voxel outVoxel)
         {
             outVoxel = null;
@@ -458,8 +457,8 @@ namespace GridForge.Grids
         /// Retrieves the grid containing a given global coordinate and the voxel at that position.
         /// </summary>
         public static bool TryGetGridAndVoxel(
-            GlobalVoxelIndex globalVoxelIndex, 
-            out VoxelGrid outGrid, 
+            GlobalVoxelIndex globalVoxelIndex,
+            out VoxelGrid outGrid,
             out Voxel result)
         {
             result = null;
