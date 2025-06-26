@@ -78,39 +78,6 @@ namespace GridForge.Grids
         public static bool IsActive { get; private set; }
 
         /// <summary>
-        /// Predefined offsets for a 3x3x3 neighbor structure, excluding the center position.
-        /// </summary>
-        public static readonly (int x, int y, int z)[] DirectionOffsets = new (int x, int y, int z)[26]
-        {
-            (-1, 0, 0),
-            (0, 0, -1),
-            (0, 0, 1),
-            (1, 0, 0),
-            (0, -1, 0),
-            (0, 1, 0),
-            (-1, 0, -1),
-            (-1, 0, 1),
-            (1, 0, -1),
-            (1, 0, 1),
-            (-1, -1, 0),
-            (0, -1, -1),
-            (0, -1, 1),
-            (1, -1, 0),
-            (-1, 1, 0),
-            (0, 1, -1),
-            (0, 1, 1),
-            (1, 1, 0),
-            (-1, -1, -1),
-            (-1, -1, 1),
-            (1, -1, -1),
-            (1, -1, 1),
-            (-1, 1, -1),
-            (-1, 1, 1),
-            (1, 1, -1),
-            (1, 1, 1)
-        };
-
-        /// <summary>
         /// Lock for managing concurrent access to grid operations.
         /// Ensures thread safety for read/write operations.
         /// </summary>
@@ -570,23 +537,6 @@ namespace GridForge.Grids
             }
 
             return overlappingGrids;
-        }
-
-        /// <summary>
-        /// Determines if a given neighbor index corresponds to a diagonal neighbor in the 3x3x3 structure.
-        /// </summary>
-        public static bool IsDiagonalNeighbor(int index)
-        {
-            if ((uint)index >= DirectionOffsets.Length)
-                return false;
-
-            // Retrieve the offset corresponding to the given index
-            (int x, int y, int z) = DirectionOffsets[index];
-
-            // A neighbor is diagonal if at least two of its coordinates are nonzero
-            return (x != 0 ? 1 : 0) +
-                   (y != 0 ? 1 : 0) +
-                   (z != 0 ? 1 : 0) >= 2;
         }
 
         /// <summary>

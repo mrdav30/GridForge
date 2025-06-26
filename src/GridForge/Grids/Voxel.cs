@@ -371,7 +371,7 @@ namespace GridForge.Grids
                 return neighbor != null;
             }
 
-            (int x, int y, int z) offset = GlobalGridManager.DirectionOffsets[(int)direction];
+            (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[(int)direction];
             return TryGetNeighborFromOffset(offset, out neighbor);
         }
 
@@ -398,12 +398,12 @@ namespace GridForge.Grids
         /// </summary>
         private void RefreshNeighborCache()
         {
-            _cachedNeighbors ??= Pools.VoxelNeighborPool.Rent(GlobalGridManager.DirectionOffsets.Length);
+            _cachedNeighbors ??= Pools.VoxelNeighborPool.Rent(SpatialAwareness.DirectionOffsets.Length);
             Array.Clear(_cachedNeighbors, 0, _cachedNeighbors.Length); // Ensure clean state
 
-            for (int i = 0; i < GlobalGridManager.DirectionOffsets.Length; i++)
+            for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
             {
-                (int x, int y, int z) offset = GlobalGridManager.DirectionOffsets[i];
+                (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
                 if (TryGetNeighborFromOffset(offset, out Voxel neighbor))
                     _cachedNeighbors[i] = neighbor;
             }
