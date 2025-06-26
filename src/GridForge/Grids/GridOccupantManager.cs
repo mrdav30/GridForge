@@ -1,12 +1,7 @@
-﻿using FixedMathSharp;
-using GridForge.Spatial;
-using SwiftCollections;
+﻿using GridForge.Spatial;
 using SwiftCollections.Pool;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace GridForge.Grids
 {
     /// <summary>

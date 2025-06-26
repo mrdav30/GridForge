@@ -3,7 +3,6 @@ using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Collections.Concurrent;
-using System.Threading;
 
 namespace GridForge.Grids
 {
