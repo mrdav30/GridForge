@@ -45,17 +45,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryAddVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelIndex(occupant.WorldPosition, out VoxelIndex voxelIndex)
-                && TryAddVoxelOccupant(grid, voxelIndex, occupant);
-        }
-
-        /// <summary>
-        /// Attempts to add an occupant at the given world position.
-        /// </summary>
-        public static bool TryAddVoxelOccupant(this VoxelGrid grid, Vector3d position, IVoxelOccupant occupant)
-        {
-            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
-                && TryAddVoxelOccupant(grid, voxelIndex, occupant);
+            return grid.TryGetVoxel(occupant.Position, out Voxel voxel)
+                && TryAddVoxelOccupant(grid, voxel, occupant);
         }
 
         /// <summary>
@@ -75,7 +66,7 @@ namespace GridForge.Grids
             if (occupant == null)
                 return false;
 
-            if (occupant.IsVoxelOccupant)
+            if (!occupant.OccupyingIndex.Equals(default))
             {
                 GridForgeLogger.Error($"Occupant {nameof(occupant)} is already an occupant of another voxel.");
                 return false;
@@ -95,9 +86,8 @@ namespace GridForge.Grids
 
                 targetVoxel.OccupantCount++;
 
-                occupant.IsVoxelOccupant = true;
                 occupant.OccupantTicket = occupantTicket;
-                occupant.GlobalIndex = targetVoxel.GlobalIndex;
+                occupant.OccupyingIndex = targetVoxel.GlobalIndex;
             }
 
             NotifyOccupantChange(GridChange.Add, targetVoxel);
@@ -110,17 +100,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxelIndex(occupant.WorldPosition, out VoxelIndex voxelIndex)
-                && TryRemoveVoxelOccupant(grid, voxelIndex, occupant);
-        }
-
-        /// <summary>
-        /// Attempts to remove an occupant from the given world position.
-        /// </summary>
-        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, Vector3d position, IVoxelOccupant occupant)
-        {
-            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
-                && TryRemoveVoxelOccupant(grid, voxelIndex, occupant);
+            return grid.TryGetVoxel(occupant.Position, out Voxel voxel)
+                && TryRemoveVoxelOccupant(grid, voxel, occupant);
         }
 
         /// <summary>
@@ -140,7 +121,7 @@ namespace GridForge.Grids
             if (occupant == null)
                 return false;
 
-            if (!occupant.IsVoxelOccupant || occupant.OccupantTicket == -1)
+            if (occupant.OccupyingIndex.Equals(default))
             {
                 GridForgeLogger.Error($"Occupant {nameof(occupant)} is not currently an occupant of any voxel.");
                 return false;
@@ -173,9 +154,8 @@ namespace GridForge.Grids
                 }
 
                 // Reset occupant data regardless of success
-                occupant.IsVoxelOccupant = false;
                 occupant.OccupantTicket = -1;
-                occupant.GlobalIndex = default;
+                occupant.OccupyingIndex = default;
             }
 
             NotifyOccupantChange(GridChange.Remove, targetVoxel);

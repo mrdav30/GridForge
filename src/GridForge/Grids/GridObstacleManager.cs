@@ -43,17 +43,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, int obstacleSpawnToken)
         {
-            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
-                && TryAddObstacle(grid, voxelIndex, obstacleSpawnToken);
-        }
-
-        /// <summary>
-        /// Adds an obstacle to a given voxel within the grid.
-        /// </summary>
-        public static bool TryAddObstacle(this VoxelGrid grid, VoxelIndex voxelIndex, int obstacleSpawnToken)
-        {
-            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
-                && TryAddObstacle(grid, targetVoxel, obstacleSpawnToken);
+            return grid.TryGetVoxel(position, out Voxel voxel)
+                && TryAddObstacle(grid, voxel, obstacleSpawnToken);
         }
 
         /// <summary>
@@ -91,17 +82,8 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, int obstacleSpawnToken)
         {
-            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
-                && TryRemoveObstacle(grid, voxelIndex, obstacleSpawnToken);
-        }
-
-        /// <summary>
-        /// Attempts to remove an obstacle at the specified voxel index.
-        /// </summary>
-        public static bool TryRemoveObstacle(this VoxelGrid grid, VoxelIndex voxelIndex, int obstacleSpawnToken)
-        {
-            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
-                && TryRemoveObstacle(grid, targetVoxel, obstacleSpawnToken);
+            return grid.TryGetVoxel(position, out Voxel voxel)
+                && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
         }
 
         /// <summary>

@@ -8,9 +8,8 @@ namespace GridForge.Grids.Tests
     {
         public GlobalVoxelIndex GlobalIndex { get; set; }
 
-        public bool IsPartitioned { get; set; }
-
         public void OnAddToVoxel(Voxel voxel) { }
+
         public void OnRemoveFromVoxel(Voxel voxel) { }
     }
 
@@ -18,16 +17,15 @@ namespace GridForge.Grids.Tests
     {
         public byte OccupantGroupId { get; set; }
 
-        public bool IsVoxelOccupant { get; set; }
-
         public int OccupantTicket { get; set; }
 
-        public GlobalVoxelIndex GlobalIndex { get; set; }
-        public Vector3d WorldPosition { get ; set; }
+        public GlobalVoxelIndex OccupyingIndex { get; set; }
+
+        public Vector3d Position { get ; set; }
 
         public TestOccupant(Vector3d position, byte clusterKey = byte.MaxValue)
         {
-            WorldPosition = position;
+            Position = position;
             OccupantGroupId = clusterKey;
         }
     }

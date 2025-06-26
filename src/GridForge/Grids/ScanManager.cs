@@ -262,7 +262,7 @@ namespace GridForge.Grids
 
                 foreach (IVoxelOccupant occupant in occupants)
                 {
-                    if ((occupant.WorldPosition - position).SqrMagnitude <= squaredRadius)
+                    if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
                         results.Add(occupant);
                 }
             }

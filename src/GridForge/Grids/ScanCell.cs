@@ -82,7 +82,7 @@ namespace GridForge.Grids
                     foreach(IVoxelOccupant occupant in voxelOccupants)
                     { 
                         occupant.OccupantTicket = -1;
-                        occupant.GlobalIndex = default;
+                        occupant.OccupyingIndex = default;
                     }
                     voxelOccupants.Clear();
                 }

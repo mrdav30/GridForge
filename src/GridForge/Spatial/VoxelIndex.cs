@@ -1,4 +1,5 @@
 ﻿using GridForge.Grids;
+using System;
 
 namespace GridForge.Spatial
 {
@@ -6,7 +7,7 @@ namespace GridForge.Spatial
     /// Represents the local coordinates of a voxel within a single grid.
     /// Used to index voxels within a grid's spatial structure.
     /// </summary>
-    public struct VoxelIndex
+    public struct VoxelIndex : IEquatable<VoxelIndex>
     {
         #region Properties
 
@@ -68,7 +69,21 @@ namespace GridForge.Spatial
         /// Computes a hash code for the coordinates, ensuring uniqueness in hashing collections.
         /// Uses <see cref="GlobalGridManager.GetSpawnHash"/> to generate a stable and consistent hash.
         /// </summary>
-        public override int GetHashCode() => GlobalGridManager.GetSpawnHash(x, y, z);
+        public override readonly int GetHashCode() => GlobalGridManager.GetSpawnHash(x, y, z);
+
+        /// <inheritdoc/>
+        public readonly bool Equals(VoxelIndex other)
+        {
+            return x == other.x
+                && y == other.y
+                && z == other.z;
+        }
+
+        /// <inheritdoc/>
+        public override readonly bool Equals(object obj)
+        {
+            return obj is VoxelIndex other && Equals(other);
+        }
 
         #endregion
     }

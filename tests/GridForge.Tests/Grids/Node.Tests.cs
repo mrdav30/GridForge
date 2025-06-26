@@ -38,7 +38,7 @@ namespace GridForge.Grids.Tests
             TestOccupant occupant = new TestOccupant(position);
             grid.TryAddVoxelOccupant(occupant);
 
-            grid.TryGetVoxel(occupant.GlobalIndex.VoxelIndex, out Voxel occupantVoxel);
+            grid.TryGetVoxel(occupant.OccupyingIndex.VoxelIndex, out Voxel occupantVoxel);
 
             Assert.True(occupantVoxel.IsOccupied);
             Assert.True(grid.TryGetVoxelOccupant(occupantVoxel, occupant.OccupantTicket, out _));
@@ -132,7 +132,7 @@ namespace GridForge.Grids.Tests
             TestOccupant occupant2 = new TestOccupant(position);
 
             grid.TryAddVoxelOccupant(occupant1);
-            grid.TryAddVoxelOccupant(position, occupant2);
+            grid.TryAddVoxelOccupant(occupant2);
 
             grid.TryGetVoxel(position, out Voxel targetVoxel);
 
@@ -179,7 +179,7 @@ namespace GridForge.Grids.Tests
             TestOccupant occupant1 = new TestOccupant(position);
             TestOccupant occupant2 = new TestOccupant(position);
 
-            grid.TryAddVoxelOccupant(position, occupant1);
+            grid.TryAddVoxelOccupant(occupant1);
             grid.TryAddVoxelOccupant(occupant2);
 
             var occupants = grid.GetVoxelOccupantsByType<TestOccupant>(position);
