@@ -16,6 +16,29 @@ namespace GridForge.Grids
     public static class ScanManager
     {
         /// <summary>
+        /// Attempts to register the occupant with the current voxel it is on.
+        /// </summary>
+        public static bool TryRegister(IVoxelOccupant occupant)
+        {
+            if(!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+                return false;
+
+            return grid.TryAddVoxelOccupant(voxel, occupant);
+        }
+
+        /// <summary>
+        /// Attempts to de-register the occupant from the voxel it was on.
+        /// </summary>
+        public static bool TryDeRegister(IVoxelOccupant occupant)
+        {
+            if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+                return false;
+
+            return grid.TryRemoveVoxelOccupant(voxel, occupant);
+        }
+
+
+        /// <summary>
         /// Retrieves all occupants at a given world position within the grid.
         /// </summary>
         /// <param name="grid">The grid to query.</param>
