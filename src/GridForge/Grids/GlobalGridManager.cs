@@ -176,26 +176,26 @@ namespace GridForge.Grids
         /// <summary>
         /// Adds a new grid to the world and registers it in the spatial hash.
         /// </summary>
-        public static GridAddResult TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex)
+        public static bool TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex)
         {
             allocatedIndex = ushort.MaxValue;
 
             if (!IsActive)
             {
-                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
-                return GridAddResult.InActive;
+                GridForgeLogger.Error("Global Grid Manager not active.  Call `Setup` first.");
+                return false;
             }
 
             if ((uint)ActiveGrids.Count > MaxGrids)
             {
                 GridForgeLogger.Warn($"No more grids can be added at this time.");
-                return GridAddResult.MaxGridsReached;
+                return false;
             }
 
             if (configuration.BoundsMax < configuration.BoundsMin)
             {
                 GridForgeLogger.Error("Invalid Grid Bounds: GridMax must be greater than or equal to GridMin.");
-                return GridAddResult.InvalidBounds;
+                return false;
             }
 
             // Create a unique hash based on the grid's min/max bounds to prevent duplicates
@@ -207,7 +207,7 @@ namespace GridForge.Grids
                 if (BoundsTracker.TryGetValue(hashedBounds, out allocatedIndex))
                 {
                     GridForgeLogger.Warn("A grid with these bounds has already been allocated.");
-                    return GridAddResult.AlreadyExists;
+                    return false;
                 }
             }
             finally
@@ -256,7 +256,7 @@ namespace GridForge.Grids
 
             NotifyActiveGridChange(GridChange.Add, allocatedIndex);
 
-            return GridAddResult.Success;
+            return true;
         }
 
         /// <summary>

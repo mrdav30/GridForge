@@ -34,8 +34,8 @@ namespace GridForge.Grids.Tests
         {
             var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
 
-            var result = GlobalGridManager.TryAddGrid(config, out _);
-            Assert.True(result == GridAddResult.Success || result == GridAddResult.AlreadyExists);
+            var result = GlobalGridManager.TryAddGrid(config, out ushort index);
+            Assert.True(result == true || index != ushort.MaxValue);
             Assert.True(GlobalGridManager.ActiveGrids.Count > 0);
         }
 
@@ -55,8 +55,8 @@ namespace GridForge.Grids.Tests
         {
             var invalidConfig = new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(-10, 0, -10));
 
-            GridAddResult result = GlobalGridManager.TryAddGrid(invalidConfig, out _);
-            Assert.True(result == GridAddResult.Success || result == GridAddResult.AlreadyExists);
+            bool result = GlobalGridManager.TryAddGrid(invalidConfig, out ushort index);
+            Assert.True(result == true || index != ushort.MaxValue);
         }
 
         [Fact]
