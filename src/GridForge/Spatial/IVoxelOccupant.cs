@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
+using SwiftCollections;
 
 namespace GridForge.Spatial
 {
@@ -22,14 +23,16 @@ namespace GridForge.Spatial
         byte OccupantGroupId { get; }
 
         /// <summary>
-        /// A unique ticket identifier assigned when this occupant is added to a scan cell.
-        /// Used for efficient tracking and removal.
+        /// Maps the global grid coordinates of the occupied <see cref="Voxel"/> 
+        /// to the unique ticket identifier assigned when this occupant is added to a scan cell.
         /// </summary>
-        int OccupantTicket { get; set; }
+        SwiftDictionary<GlobalVoxelIndex, int> OccupyingIndexMap { get; }
 
         /// <summary>
-        /// The global grid coordinates of the <see cref="Voxel"/> this occupant is being added to.
+        /// Called when adding/removing the occupant from a voxel.
         /// </summary>
-        GlobalVoxelIndex OccupyingIndex { get; set; }
+        /// <param name="occupyingIndex"></param>
+        /// <param name="ticket"></param>
+        void SetOccupancy(GlobalVoxelIndex occupyingIndex, int ticket);
     }
 }

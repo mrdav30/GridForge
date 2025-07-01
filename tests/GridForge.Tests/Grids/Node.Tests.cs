@@ -38,14 +38,18 @@ namespace GridForge.Grids.Tests
             TestOccupant occupant = new TestOccupant(position);
             grid.TryAddVoxelOccupant(occupant);
 
-            grid.TryGetVoxel(occupant.OccupyingIndex.VoxelIndex, out Voxel occupantVoxel);
+            int previousTicket = -1;
+            foreach (var kvp in occupant.OccupyingIndexMap)
+            {
+                grid.TryGetVoxel(kvp.Key.VoxelIndex, out Voxel occupantVoxel);
 
-            Assert.True(occupantVoxel.IsOccupied);
-            Assert.True(grid.TryGetVoxelOccupant(occupantVoxel, occupant.OccupantTicket, out _));
+                Assert.True(occupantVoxel.IsOccupied);
+                Assert.True(grid.TryGetVoxelOccupant(occupantVoxel, kvp.Value, out _));
+                previousTicket = kvp.Value;
+            }
 
-            int previousTicket = occupant.OccupantTicket;
-            grid.TryRemoveVoxelOccupant(occupantVoxel, occupant);
-            Assert.False(grid.TryGetVoxelOccupant(occupantVoxel, previousTicket, out _));
+            grid.TryRemoveVoxelOccupant(occupant);
+            Assert.False(grid.TryGetVoxelOccupant(position, previousTicket, out _));
         }
 
         [Fact]
@@ -139,14 +143,17 @@ namespace GridForge.Grids.Tests
             Assert.True(targetVoxel.IsOccupied);
             Assert.True(targetVoxel.OccupantCount > 0);
 
+            occupant1.OccupyingIndexMap.TryGetValue(targetVoxel.GlobalIndex, out int ticket1);
+            occupant2.OccupyingIndexMap.TryGetValue(targetVoxel.GlobalIndex, out int ticket2);
+
             grid.TryRemoveVoxelOccupant(targetVoxel, occupant1);
-            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, occupant1.OccupantTicket, out _));
+            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, ticket1, out _));
             // Still occupied by occupant2
-            Assert.True(grid.TryGetVoxelOccupant(targetVoxel, occupant2.OccupantTicket, out _)); 
+            Assert.True(grid.TryGetVoxelOccupant(targetVoxel, ticket2, out _)); 
 
             grid.TryRemoveVoxelOccupant(targetVoxel, occupant2);
             // Now fully unoccupied
-            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, occupant2.OccupantTicket, out _));
+            Assert.False(grid.TryGetVoxelOccupant(targetVoxel, ticket2, out _));
         }
 
         [Fact]

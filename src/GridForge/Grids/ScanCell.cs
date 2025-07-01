@@ -79,11 +79,8 @@ namespace GridForge.Grids
             {
                 foreach (SwiftBucket<IVoxelOccupant> voxelOccupants in _voxelOccupants.Values)
                 {
-                    foreach(IVoxelOccupant occupant in voxelOccupants)
-                    { 
-                        occupant.OccupantTicket = -1;
-                        occupant.OccupyingIndex = default;
-                    }
+                    foreach (IVoxelOccupant occupant in voxelOccupants)
+                        occupant.SetOccupancy(default, -1);
                     voxelOccupants.Clear();
                 }
 
@@ -126,14 +123,14 @@ namespace GridForge.Grids
         /// Removes an occupant from this scan cell.
         /// </summary>
         /// <param name="voxelSpawnToken">The spawn token of the voxel the occupant was assigned to.</param>
-        /// <param name="occupant"></param>
+        /// <param name="occupantTicket"></param>
         /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
-        internal bool TryRemoveOccupant(int voxelSpawnToken, IVoxelOccupant occupant)
+        internal bool TryRemoveOccupant(int voxelSpawnToken, int occupantTicket)
         {
             if (!IsOccupied || !_voxelOccupants.TryGetValue(voxelSpawnToken, out var bucket))
                 return false;
 
-            if (!bucket.TryRemoveAt(occupant.OccupantTicket))
+            if (!bucket.TryRemoveAt(occupantTicket))
                 return false;
 
             // If the occupant was the last in its bucket, remove the entire bucket

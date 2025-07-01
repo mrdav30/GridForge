@@ -11,7 +11,13 @@ namespace GridForge.Spatial
         /// <summary>
         /// The global index of the parent voxel where this partition is attached.
         /// </summary>
-        GlobalVoxelIndex GlobalIndex { get; set; }
+        GlobalVoxelIndex GlobalIndex { get; }
+
+        /// <summary>
+        /// Called when adding this partition to a <see cref="Voxel"/>
+        /// </summary>
+        /// <param name="parentVoxelIndex">The global index of the parent <see cref="Voxel"/>.</param>
+        void SetParentIndex(GlobalVoxelIndex parentVoxelIndex);
 
         /// <summary>
         /// Called when adding this partition to a <see cref="Voxel"/>.

@@ -26,7 +26,9 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant1);
             grid.TryAddVoxelOccupant(occupant2);
 
-            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(occupant1.OccupyingIndex.VoxelIndex));
+            grid.TryGetVoxel(position, out Voxel target);
+
+            List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(target.Index));
             Assert.True(occupants.Count > 0);
         }
 
@@ -46,8 +48,10 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant1);
             grid.TryAddVoxelOccupant(occupant2);
 
+            grid.TryGetVoxel(position, out Voxel target);
+
             List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
-                grid.GetConditionalOccupants(occupant1.OccupyingIndex.VoxelIndex, key => key == 1));
+                grid.GetConditionalOccupants(target.Index, key => key == 1));
 
             Assert.Single(filtered);
             Assert.Equal(1, filtered[0].OccupantGroupId);
@@ -120,7 +124,9 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant2);
             grid.TryAddVoxelOccupant(occupant3);
 
-            bool removed1 = grid.TryRemoveVoxelOccupant(occupant1.OccupyingIndex.VoxelIndex, occupant1);
+            grid.TryGetVoxel(position, out Voxel target);
+
+            bool removed1 = grid.TryRemoveVoxelOccupant(target.Index, occupant1);
             bool removed2 = grid.TryRemoveVoxelOccupant(occupant2);
 
             Assert.True(removed1);
@@ -148,8 +154,10 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant1);
             grid.TryAddVoxelOccupant(occupant2);
 
+            grid.TryGetVoxel(position, out Voxel target);
+
             bool removed1 = grid.TryRemoveVoxelOccupant(occupant1);
-            bool removed2 = grid.TryRemoveVoxelOccupant(occupant2.OccupyingIndex.VoxelIndex, occupant2);
+            bool removed2 = grid.TryRemoveVoxelOccupant(target.Index, occupant2);
 
             Assert.True(removed1);
             Assert.True(removed2);

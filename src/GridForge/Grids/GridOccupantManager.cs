@@ -47,23 +47,29 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to add an occupant at the specified voxel index.
         /// </summary>
-        public static bool TryAddVoxelOccupant(this VoxelGrid grid, VoxelIndex voxelIndex, IVoxelOccupant occupant)
+        public static bool TryAddVoxelOccupant(
+            this VoxelGrid grid, 
+            VoxelIndex voxelIndex, 
+            IVoxelOccupant occupant)
         {
-            return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
-                && TryAddVoxelOccupant(grid, targetVoxel, occupant);
+            return grid.TryGetVoxel(voxelIndex, out Voxel target)
+                && TryAddVoxelOccupant(grid, target, occupant);
         }
 
         /// <summary>
         /// Adds an occupant to the grid.
         /// </summary>
-        public static bool TryAddVoxelOccupant(this VoxelGrid grid, Voxel targetVoxel, IVoxelOccupant occupant)
+        public static bool TryAddVoxelOccupant(
+            this VoxelGrid grid, 
+            Voxel targetVoxel, 
+            IVoxelOccupant occupant)
         {
             if (occupant == null)
                 return false;
 
-            if (!occupant.OccupyingIndex.Equals(default))
+            if (occupant.OccupyingIndexMap.ContainsKey(targetVoxel.GlobalIndex))
             {
-                GridForgeLogger.Error($"Occupant {nameof(occupant)} is already an occupant of another voxel.");
+                GridForgeLogger.Error($"Occupant {nameof(occupant)} is already an occupying the voxel at {targetVoxel.GlobalIndex}.");
                 return false;
             }
 
@@ -74,15 +80,14 @@ namespace GridForge.Grids
 
             lock (gridLock)
             {
-                scanCell.AddOccupant(targetVoxel.SpawnToken, occupant, out int occupantTicket);
+                scanCell.AddOccupant(targetVoxel.SpawnToken, occupant, out int ticket);
                 grid.ActiveScanCells ??= SwiftHashSetPool<int>.Shared.Rent();
                 if (!grid.ActiveScanCells.Contains(targetVoxel.ScanCellKey))
                     grid.ActiveScanCells.Add(targetVoxel.ScanCellKey);
 
                 targetVoxel.OccupantCount++;
 
-                occupant.OccupantTicket = occupantTicket;
-                occupant.OccupyingIndex = targetVoxel.GlobalIndex;
+                occupant.SetOccupancy(targetVoxel.GlobalIndex, ticket);
             }
 
             NotifyOccupantChange(GridChange.Add, targetVoxel);
@@ -93,7 +98,9 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to remove an occupant from the given world position.
         /// </summary>
-        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
+        public static bool TryRemoveVoxelOccupant(
+            this VoxelGrid grid, 
+            IVoxelOccupant occupant)
         {
             return grid.TryGetVoxel(occupant.Position, out Voxel voxel)
                 && TryRemoveVoxelOccupant(grid, voxel, occupant);
@@ -102,7 +109,10 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to remove an occupant at the specified voxel coordinates.
         /// </summary>
-        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, VoxelIndex voxelIndex, IVoxelOccupant occupant)
+        public static bool TryRemoveVoxelOccupant(
+            this VoxelGrid grid,
+            VoxelIndex voxelIndex, 
+            IVoxelOccupant occupant)
         {
             return grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
                 && TryRemoveVoxelOccupant(grid, targetVoxel, occupant);
@@ -111,14 +121,17 @@ namespace GridForge.Grids
         /// <summary>
         /// Removes an occupant from this grid.
         /// </summary>
-        public static bool TryRemoveVoxelOccupant(this VoxelGrid grid, Voxel targetVoxel, IVoxelOccupant occupant)
+        public static bool TryRemoveVoxelOccupant(
+            this VoxelGrid grid, 
+            Voxel targetVoxel, 
+            IVoxelOccupant occupant)
         {
             if (occupant == null)
                 return false;
 
-            if (occupant.OccupyingIndex.Equals(default))
+            if (!occupant.OccupyingIndexMap.TryGetValue(targetVoxel.GlobalIndex, out int ticket))
             {
-                GridForgeLogger.Error($"Occupant {nameof(occupant)} is not currently an occupant of any voxel.");
+                GridForgeLogger.Error($"Occupant {nameof(occupant)} is not an occupant of of {targetVoxel.GlobalIndex}.");
                 return false;
             }
 
@@ -131,7 +144,7 @@ namespace GridForge.Grids
 
             lock (gridLock)
             {
-                success = scanCell.TryRemoveOccupant(targetVoxel.SpawnToken, occupant);
+                success = scanCell.TryRemoveOccupant(targetVoxel.SpawnToken, ticket);
                 if (success)
                 {
                     if (!scanCell.IsOccupied)
@@ -149,8 +162,7 @@ namespace GridForge.Grids
                 }
 
                 // Reset occupant data regardless of success
-                occupant.OccupantTicket = -1;
-                occupant.OccupyingIndex = default;
+                occupant.SetOccupancy(default, -1);
             }
 
             NotifyOccupantChange(GridChange.Remove, targetVoxel);

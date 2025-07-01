@@ -1,12 +1,16 @@
 ﻿using FixedMathSharp;
 using GridForge.Spatial;
+using SwiftCollections;
+using System.Collections.Generic;
 
 namespace GridForge.Grids.Tests
 {
 
     public class TestPartition : IVoxelPartition
     {
-        public GlobalVoxelIndex GlobalIndex { get; set; }
+        public GlobalVoxelIndex GlobalIndex { get; }
+
+        public void SetParentIndex(GlobalVoxelIndex globalIndex) { }
 
         public void OnAddToVoxel(Voxel voxel) { }
 
@@ -15,11 +19,9 @@ namespace GridForge.Grids.Tests
 
     public class TestOccupant : IVoxelOccupant
     {
-        public byte OccupantGroupId { get; set; }
+        public byte OccupantGroupId { get; private set; }
 
-        public int OccupantTicket { get; set; }
-
-        public GlobalVoxelIndex OccupyingIndex { get; set; }
+        public SwiftDictionary<GlobalVoxelIndex, int> OccupyingIndexMap { get; private set; } = new();
 
         public Vector3d Position { get ; set; }
 
@@ -27,6 +29,11 @@ namespace GridForge.Grids.Tests
         {
             Position = position;
             OccupantGroupId = clusterKey;
+        }
+
+        public void SetOccupancy(GlobalVoxelIndex index, int ticket)
+        {
+            OccupyingIndexMap.Add(index, ticket);
         }
     }
 }

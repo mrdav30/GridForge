@@ -136,8 +136,8 @@ namespace GridForge.Grids
             out IVoxelOccupant occupant)
         {
             occupant = null;
-            return grid.TryGetVoxelIndex(position, out VoxelIndex voxelIndex)
-                && TryGetVoxelOccupant(grid, voxelIndex, occupantTicket, out occupant);
+            return grid.TryGetVoxel(position, out Voxel voxel)
+                && TryGetVoxelOccupant(grid, voxel, occupantTicket, out occupant);
         }
 
         /// <summary>
