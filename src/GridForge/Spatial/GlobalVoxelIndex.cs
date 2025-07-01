@@ -1,6 +1,7 @@
 ﻿using GridForge.Grids;
 using SwiftCollections;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial
 {
@@ -40,6 +41,24 @@ namespace GridForge.Spatial
             GridIndex = gridIndex;
             VoxelIndex = coord;
             GridSpawnToken = gridSpawnToken;
+        }
+
+        #endregion
+
+        #region operators
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(GlobalVoxelIndex left, GlobalVoxelIndex right)
+        {
+            return left.Equals(right);
+        }
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(GlobalVoxelIndex left, GlobalVoxelIndex right)
+        {
+            return !(left == right);
         }
 
         #endregion

@@ -1,5 +1,7 @@
-﻿using SwiftCollections;
+﻿using FixedMathSharp;
+using SwiftCollections;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial
 {
@@ -55,12 +57,30 @@ namespace GridForge.Spatial
 
         #endregion
 
+        #region operators
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(VoxelIndex left, VoxelIndex right)
+        {
+            return left.Equals(right);
+        }
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(VoxelIndex left, VoxelIndex right)
+        {
+            return !(left == right);
+        }
+
+        #endregion
+
         #region Overrides
 
         /// <summary>
         /// Returns a string representation of the coordinates.
         /// </summary>
-        public override string ToString()
+        public readonly override string ToString()
         {
             return string.Format("({0}, {1}, {2})", x, y, z);
         }

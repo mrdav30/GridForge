@@ -45,7 +45,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Resolution for snapping or searching within the grid (half of VoxelSize).
         /// </summary>
-        public static Fixed64 VoxelResolution = VoxelSize * Fixed64.Half;
+        public static readonly Fixed64 VoxelResolution = VoxelSize * Fixed64.Half;
 
         #endregion
 
