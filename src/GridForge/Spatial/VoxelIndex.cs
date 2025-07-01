@@ -1,4 +1,4 @@
-﻿using GridForge.Grids;
+﻿using SwiftCollections;
 using System;
 
 namespace GridForge.Spatial
@@ -67,9 +67,9 @@ namespace GridForge.Spatial
 
         /// <summary>
         /// Computes a hash code for the coordinates, ensuring uniqueness in hashing collections.
-        /// Uses <see cref="GlobalGridManager.GetSpawnHash"/> to generate a stable and consistent hash.
+        /// Uses <see cref="HashTools"/> to generate a stable and consistent hash.
         /// </summary>
-        public override readonly int GetHashCode() => GlobalGridManager.GetSpawnHash(x, y, z);
+        public override readonly int GetHashCode() => HashTools.CombineHashCodes(x, y, z);
 
         /// <inheritdoc/>
         public readonly bool Equals(VoxelIndex other)

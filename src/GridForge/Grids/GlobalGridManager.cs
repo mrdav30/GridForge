@@ -516,7 +516,7 @@ namespace GridForge.Grids
                 for (int y = yMin; y <= yMax; y++)
                 {
                     for (int x = xMin; x <= xMax; x++)
-                        yield return GetSpawnHash(x, y, z);
+                        yield return HashTools.CombineHashCodes(x, y, z);
                 }
             }
 
@@ -611,19 +611,7 @@ namespace GridForge.Grids
                 position.z.FloorToInt() / SpatialGridCellSize
             );
 
-            return GetSpawnHash(x, y, z);
-        }
-
-        /// <summary>
-        /// Generates a hash value for a given set of 3D coordinates.
-        /// </summary>
-        public static int GetSpawnHash(int x, int y, int z)
-        {
-            int hash = 17;
-            hash = hash * 31 ^ x;
-            hash = hash * 31 ^ y;
-            hash = hash * 31 ^ z;
-            return hash;
+            return HashTools.CombineHashCodes(x, y, z);
         }
 
         /// <summary>

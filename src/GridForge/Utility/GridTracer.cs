@@ -260,7 +260,8 @@ namespace GridForge.Utility
                         {
                             for (int z = zMin; z <= zMax; z++)
                             {
-                                if (!currentGrid.TryGetScanCell(GlobalGridManager.GetSpawnHash(x, y, z), out ScanCell scanCell)
+                                int hash = HashTools.CombineHashCodes(x, y, z);
+                                if (!currentGrid.TryGetScanCell(hash, out ScanCell scanCell)
                                     || !voxelRedundancyCheck.Add(scanCell.SpawnToken))
                                 {
                                     continue;

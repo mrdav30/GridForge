@@ -232,7 +232,7 @@ namespace GridForge.Grids
                 {
                     for (int z = 0; z < scanLength; z++)
                     {
-                        int cellKey = GlobalGridManager.GetSpawnHash(x, y, z);
+                        int cellKey = HashTools.CombineHashCodes(x, y, z);
 
                         ScanCell scanCell = Pools.ScanCellPool.Rent();
                         scanCell.Initialize(GlobalIndex, cellKey);
@@ -690,7 +690,7 @@ namespace GridForge.Grids
                     voxelIndex.z / ScanCellSize
                 );
 
-            int scanCellKey = GlobalGridManager.GetSpawnHash(x, y, z);
+            int scanCellKey = HashTools.CombineHashCodes(x, y, z);
             if (!ScanCells.ContainsKey(scanCellKey))
             {
                 GridForgeLogger.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
@@ -782,7 +782,7 @@ namespace GridForge.Grids
 
         /// <inheritdoc/>
         public override int GetHashCode() =>
-            GlobalGridManager.GetSpawnHash(GlobalIndex, BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
+            HashTools.CombineHashCodes(GlobalIndex, BoundsMin, BoundsMax);
 
         #endregion
     }

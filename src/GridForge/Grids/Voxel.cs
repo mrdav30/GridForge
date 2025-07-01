@@ -416,11 +416,10 @@ namespace GridForge.Grids
         #region Utility
 
         /// <inheritdoc/>
-        public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
-                GlobalIndex.GetHashCode(),
-                WorldPosition.GetHashCode(),
-                IsBoundaryVoxel.GetHashCode()
-            );
+        public override int GetHashCode() => HashTools.CombineHashCodes(
+            GlobalIndex,
+            WorldPosition,
+            IsBoundaryVoxel);
 
         /// <inheritdoc/>
         public override string ToString() => GlobalIndex.ToString();

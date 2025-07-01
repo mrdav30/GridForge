@@ -224,10 +224,6 @@ namespace GridForge.Grids
         #endregion
 
         /// <inheritdoc/>
-        public override int GetHashCode() => GlobalGridManager.GetSpawnHash(
-                GridIndex,
-                CellKey,
-                31
-            );
+        public override int GetHashCode() => HashTools.CombineHashCodes(GridIndex, CellKey);
     }
 }

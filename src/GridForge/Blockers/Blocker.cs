@@ -96,10 +96,7 @@ namespace GridForge.Blockers
             CacheMin = GetBoundsMin();
             CacheMax = GetBoundsMax();
             // Generate a unique blockage token based on the min/max bounds
-            BlockageToken = GlobalGridManager.GetSpawnHash(
-                7,
-                CacheMin.GetHashCode(),
-                CacheMax.GetHashCode());
+            BlockageToken = HashTools.CombineHashCodes(CacheMin, CacheMax); 
 
             bool hasCoverage = false;
             // Iterate over all affected voxels and apply obstacles

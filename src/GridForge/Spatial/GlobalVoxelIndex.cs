@@ -1,4 +1,5 @@
 ﻿using GridForge.Grids;
+using SwiftCollections;
 using System;
 
 namespace GridForge.Spatial
@@ -57,7 +58,7 @@ namespace GridForge.Spatial
         /// Computes a hash code for uniquely identifying this set of global coordinates.
         /// </summary>
         public override readonly int GetHashCode() => 
-            GlobalGridManager.GetSpawnHash(GridSpawnToken, GridIndex, VoxelIndex.GetHashCode());
+            HashTools.CombineHashCodes(GridSpawnToken, GridIndex, VoxelIndex);
 
         /// <inheritdoc/>
         public readonly bool Equals(GlobalVoxelIndex other)
