@@ -3,6 +3,7 @@ using SwiftCollections;
 using SwiftCollections.Pool;
 using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
 
 namespace GridForge.Grids
 {
@@ -31,9 +32,9 @@ namespace GridForge.Grids
         public int SpawnToken { get; private set; }
 
         /// <summary>
-        /// Maps a <see cref="Voxel.SpawnToken"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
+        /// Maps a <see cref="Voxel.GlobalIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
         /// </summary>
-        private SwiftDictionary<int, SwiftBucket<IVoxelOccupant>> _voxelOccupants;
+        private SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>> _voxelOccupants;
 
         /// <summary>
         /// The total number of occupants in this scan cell.
@@ -77,11 +78,12 @@ namespace GridForge.Grids
 
             if (_voxelOccupants != null)
             {
-                foreach (SwiftBucket<IVoxelOccupant> voxelOccupants in _voxelOccupants.Values)
+                foreach (var kvp in _voxelOccupants)
                 {
-                    foreach (IVoxelOccupant occupant in voxelOccupants)
-                        occupant.SetOccupancy(default, -1);
-                    voxelOccupants.Clear();
+                    SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
+                    foreach (IVoxelOccupant occupant in bucket)
+                        occupant.RemoveOccupancy(kvp.Key);
+                    bucket.Clear();
                 }
 
                 _voxelOccupants = null;
@@ -102,40 +104,47 @@ namespace GridForge.Grids
         /// <summary>
         /// Adds an occupant to this scan cell and tracks its presence.
         /// </summary>
-        /// <param name="voxelSpawnToken">The unique spawn token of the voxel where the occupant resides.</param>
+        /// <param name="index">The global index of the voxel where the occupant resides.</param>
         /// <param name="occupant">The occupant instance to add.</param>
-        /// <param name="occupantTicket"></param>
         /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
-        internal void AddOccupant(int voxelSpawnToken, IVoxelOccupant occupant, out int occupantTicket)
+        internal void AddOccupant(GlobalVoxelIndex index, IVoxelOccupant occupant)
         {
-            _voxelOccupants ??= new SwiftDictionary<int, SwiftBucket<IVoxelOccupant>>();
-            if (!_voxelOccupants.TryGetValue(voxelSpawnToken, out SwiftBucket<IVoxelOccupant> bucket))
+            _voxelOccupants ??= new SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>>();
+            if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> bucket))
             {
                 bucket = new SwiftBucket<IVoxelOccupant>();
-                _voxelOccupants[voxelSpawnToken] = bucket;
+                _voxelOccupants[index] = bucket;
             }
 
-            occupantTicket = bucket.Add(occupant);
+            int ticket = bucket.Add(occupant);
+            occupant.SetOccupancy(index, ticket);
             CellOccupantCount++;
         }
 
         /// <summary>
         /// Removes an occupant from this scan cell.
         /// </summary>
-        /// <param name="voxelSpawnToken">The spawn token of the voxel the occupant was assigned to.</param>
-        /// <param name="occupantTicket"></param>
+        /// <param name="index">The global index of the voxel the occupant was assigned to.</param>
+        /// <param name="occupant">The occupant instance to remove.</param>
+        /// <param name="ticket">The ticket assigned to the occupant instance from this scancell.</param>
         /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
-        internal bool TryRemoveOccupant(int voxelSpawnToken, int occupantTicket)
+        internal bool TryRemoveOccupant(
+            GlobalVoxelIndex index, 
+            IVoxelOccupant occupant,
+            int ticket)
         {
-            if (!IsOccupied || !_voxelOccupants.TryGetValue(voxelSpawnToken, out var bucket))
+            // Reset occupant data regardless of success
+            occupant.RemoveOccupancy(index);
+
+            if (!IsOccupied || !_voxelOccupants.TryGetValue(index, out var bucket))
                 return false;
 
-            if (!bucket.TryRemoveAt(occupantTicket))
+            if (!bucket.TryRemoveAt(ticket))
                 return false;
 
             // If the occupant was the last in its bucket, remove the entire bucket
             if (bucket.Count == 0)
-                _voxelOccupants.Remove(voxelSpawnToken);
+                _voxelOccupants.Remove(index);
 
             CellOccupantCount--;
 
@@ -178,11 +187,11 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves all occupants associated with a specific voxel spawn token within this scan cell.
         /// </summary>
-        /// <param name="voxelSpawnKey">The unique spawn key of the voxel.</param>
+        /// <param name="index">The global index of the voxel.</param>
         /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
-        internal IEnumerable<IVoxelOccupant> GetOccupantsFor(int voxelSpawnKey)
+        internal IEnumerable<IVoxelOccupant> GetOccupantsFor(GlobalVoxelIndex index)
         {
-            if (!_voxelOccupants.TryGetValue(voxelSpawnKey, out SwiftBucket<IVoxelOccupant> voxelOccupants))
+            if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
                 yield break;
 
             foreach (IVoxelOccupant voxelOccupant in voxelOccupants)
@@ -192,14 +201,17 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to retrieve a specific occupant in this scan cell using a voxel's spawn key and occupant ticket.
         /// </summary>
-        /// <param name="voxelSpawnKey">The spawn key of the voxel the occupant belongs to.</param>
+        /// <param name="index">The global index of the voxel the occupant belongs to.</param>
         /// <param name="occupantTicket">The unique ticket identifying the occupant.</param>
         /// <param name="voxelOccupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
-        internal bool TryGetOccupantAt(int voxelSpawnKey, int occupantTicket, out IVoxelOccupant voxelOccupant)
+        internal bool TryGetOccupantAt(
+            GlobalVoxelIndex index, 
+            int occupantTicket, 
+            out IVoxelOccupant voxelOccupant)
         {
             voxelOccupant = null;
-            if (!_voxelOccupants.TryGetValue(voxelSpawnKey, out SwiftBucket<IVoxelOccupant> voxelOccupants)
+            if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants)
                 || !voxelOccupants.IsAllocated(occupantTicket))
             {
                 return false;

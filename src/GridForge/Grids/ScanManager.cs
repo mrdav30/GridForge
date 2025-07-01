@@ -75,7 +75,7 @@ namespace GridForge.Grids
             return targetVoxel.IsOccupied
                 && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
-                ? scanCell.GetOccupantsFor(targetVoxel.SpawnToken)
+                ? scanCell.GetOccupantsFor(targetVoxel.GlobalIndex)
                 : Enumerable.Empty<IVoxelOccupant>();
         }
 
@@ -177,7 +177,7 @@ namespace GridForge.Grids
             return targetVoxel.IsOccupied
                 && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
                 && scanCell.IsOccupied
-                && scanCell.TryGetOccupantAt(targetVoxel.SpawnToken, occupantTicket, out occupant);
+                && scanCell.TryGetOccupantAt(targetVoxel.GlobalIndex, occupantTicket, out occupant);
         }
 
         /// <summary>

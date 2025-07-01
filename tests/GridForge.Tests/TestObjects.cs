@@ -33,7 +33,12 @@ namespace GridForge.Grids.Tests
 
         public void SetOccupancy(GlobalVoxelIndex index, int ticket)
         {
-            OccupyingIndexMap.Add(index, ticket);
+            OccupyingIndexMap[index] = ticket;
+        }
+
+        public void RemoveOccupancy(GlobalVoxelIndex index)
+        {
+            OccupyingIndexMap.Remove(index);
         }
     }
 }

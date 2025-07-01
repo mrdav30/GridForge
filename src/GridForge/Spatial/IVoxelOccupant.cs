@@ -29,10 +29,16 @@ namespace GridForge.Spatial
         SwiftDictionary<GlobalVoxelIndex, int> OccupyingIndexMap { get; }
 
         /// <summary>
-        /// Called when adding/removing the occupant from a voxel.
+        /// Called when adding the occupant from a voxel.
         /// </summary>
-        /// <param name="occupyingIndex"></param>
-        /// <param name="ticket"></param>
+        /// <param name="occupyingIndex">The global voxel index the occupant was added to.</param>
+        /// <param name="ticket">The occupants assigned ticket in a grid's scancell.</param>
         void SetOccupancy(GlobalVoxelIndex occupyingIndex, int ticket);
+
+        /// <summary>
+        /// Called when removing the occupant from a voxel.
+        /// </summary>
+        /// <param name="occupyingIndex">The global voxel index the occupant was removed from.</param>
+        void RemoveOccupancy(GlobalVoxelIndex occupyingIndex);
     }
 }
