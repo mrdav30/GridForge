@@ -2,6 +2,7 @@
 using SwiftCollections.Pool;
 using System;
 using System.Collections.Concurrent;
+
 namespace GridForge.Grids
 {
     /// <summary>
@@ -34,6 +35,17 @@ namespace GridForge.Grids
         #endregion
 
         #region Occupant Management
+
+        /// <summary>
+        /// Attempts to add an occupant from the given global voxel index.
+        /// </summary>
+        public static bool TryAddVoxelOccupant(
+            GlobalVoxelIndex index,
+            IVoxelOccupant occupant)
+        {
+            return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
+                && TryAddVoxelOccupant(grid, voxel, occupant);
+        }
 
         /// <summary>
         /// Attempts to add an occupant at the given world position.
@@ -69,7 +81,7 @@ namespace GridForge.Grids
 
             if (occupant.OccupyingIndexMap.ContainsKey(targetVoxel.GlobalIndex))
             {
-                GridForgeLogger.Error($"Occupant {nameof(occupant)} is already an occupying the voxel at {targetVoxel.GlobalIndex}.");
+                GridForgeLogger.Warn($"Occupant {nameof(occupant)} is already an occupying the voxel at {targetVoxel.GlobalIndex}.");
                 return false;
             }
 
@@ -91,6 +103,17 @@ namespace GridForge.Grids
             NotifyOccupantChange(GridChange.Add, targetVoxel);
 
             return true;
+        }
+
+        /// <summary>
+        /// Attempts to remove an occupant from the given global voxel index.
+        /// </summary>
+        public static bool TryRemoveVoxelOccupant(
+            GlobalVoxelIndex index,
+            IVoxelOccupant occupant)
+        {
+            return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
+                && TryRemoveVoxelOccupant(grid, voxel, occupant);
         }
 
         /// <summary>
@@ -129,7 +152,7 @@ namespace GridForge.Grids
 
             if (!occupant.OccupyingIndexMap.TryGetValue(targetVoxel.GlobalIndex, out int ticket))
             {
-                GridForgeLogger.Error($"Occupant {nameof(occupant)} is not an occupant of of {targetVoxel.GlobalIndex}.");
+                GridForgeLogger.Warn($"Occupant {nameof(occupant)} is not an occupant of of {targetVoxel.GlobalIndex}.");
                 return false;
             }
 

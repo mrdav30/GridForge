@@ -1,7 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
-using System.Collections.Generic;
+using System;
 
 namespace GridForge.Grids.Tests
 {
@@ -19,6 +19,8 @@ namespace GridForge.Grids.Tests
 
     public class TestOccupant : IVoxelOccupant
     {
+        public Guid GlobalId { get; private set; } = Guid.NewGuid();
+
         public byte OccupantGroupId { get; private set; }
 
         public SwiftDictionary<GlobalVoxelIndex, int> OccupyingIndexMap { get; private set; } = new();

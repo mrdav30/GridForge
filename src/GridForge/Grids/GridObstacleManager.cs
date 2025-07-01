@@ -38,6 +38,15 @@ namespace GridForge.Grids
         #region Public Methods
 
         /// <summary>
+        /// Attempts to add an obstacle at the given global voxel index.
+        /// </summary>
+        public static bool TryAddObstacle(GlobalVoxelIndex index, int obstacleSpawnToken)
+        {
+            return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
+                && TryAddObstacle(grid, voxel, obstacleSpawnToken);
+        }
+
+        /// <summary>
         /// Attempts to add an obstacle at the given world position.
         /// </summary>
         public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, int obstacleSpawnToken)
@@ -74,6 +83,15 @@ namespace GridForge.Grids
             NotifyObstacleChange(GridChange.Add, targetVoxel, grid.Version);
 
             return true;
+        }
+
+        /// <summary>
+        /// Attempts to remove an obstacle at the given global voxel index.
+        /// </summary>
+        public static bool TryRemoveObstacle(GlobalVoxelIndex index, int obstacleSpawnToken)
+        {
+            return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
+                && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
         }
 
         /// <summary>

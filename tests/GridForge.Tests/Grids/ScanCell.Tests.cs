@@ -51,7 +51,7 @@ namespace GridForge.Grids.Tests
             grid.TryGetVoxel(position, out Voxel target);
 
             List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
-                grid.GetConditionalOccupants(target.Index, key => key == 1));
+                grid.GetConditionalOccupants(target.Index, groupCondition: key => key == 1));
 
             Assert.Single(filtered);
             Assert.Equal(1, filtered[0].OccupantGroupId);
@@ -101,7 +101,7 @@ namespace GridForge.Grids.Tests
             grid.TryAddVoxelOccupant(occupant2);
 
             List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
-                grid.GetConditionalOccupants(position, key => key == 99)); // No matches
+                grid.GetConditionalOccupants(position, groupCondition: key => key == 99)); // No matches
 
             Assert.Empty(filtered);
         }
@@ -134,8 +134,8 @@ namespace GridForge.Grids.Tests
 
             // Verify only ClusterKey 1 occupants are removed, but ClusterKey 2 still exists
             bool hasCluster2Occupants = grid.GetConditionalOccupants(
-                position, 
-                key => key == 2).IsPopulatedSafe();
+                position,
+                groupCondition: key => key == 2).IsPopulatedSafe();
 
             Assert.True(hasCluster2Occupants); // ClusterKey 2 should still be occupied
         }
@@ -219,7 +219,7 @@ namespace GridForge.Grids.Tests
             // Act
             var filteredResults = new SwiftList<IVoxelOccupant>(ScanManager.ScanRadius(
                 scanCenter, 
-                scanRadius, groupId => groupId == 1 || groupId == 2));
+                scanRadius, groupCondition: groupId => groupId == 1 || groupId == 2));
 
             // Assert
             Assert.Contains(occupant1, filteredResults);

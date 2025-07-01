@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
 using SwiftCollections;
+using System;
 
 namespace GridForge.Spatial
 {
@@ -10,6 +11,11 @@ namespace GridForge.Spatial
     /// </summary>
     public interface IVoxelOccupant
     {
+        /// <summary>
+        /// A globally unique identifier for the occupant.
+        /// </summary>
+        Guid GlobalId { get; }
+
         /// <summary>
         /// The absolute world-space position of the occupant, representing its precise location in the environment.
         /// </summary>

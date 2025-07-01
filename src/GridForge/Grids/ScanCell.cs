@@ -129,7 +129,7 @@ namespace GridForge.Grids
         /// <param name="ticket">The ticket assigned to the occupant instance from this scancell.</param>
         /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
         internal bool TryRemoveOccupant(
-            GlobalVoxelIndex index, 
+            GlobalVoxelIndex index,
             IVoxelOccupant occupant,
             int ticket)
         {
@@ -171,15 +171,22 @@ namespace GridForge.Grids
         /// <summary>
         /// Retrieves occupants whose group Ids match a given condition.
         /// </summary>
-        internal IEnumerable<IVoxelOccupant> GetConditionalOccupants(Func<byte, bool> groupConditional)
+        internal IEnumerable<IVoxelOccupant> GetConditionalOccupants(
+            Func<IVoxelOccupant, bool> occupantCondition = null,
+            Func<byte, bool> groupConditional = null)
         {
             // Loop through each voxel's bucket and filter by the cluster condition
             foreach (var bucket in _voxelOccupants.Values)
             {
                 foreach (var occupant in bucket)
                 {
-                    if (groupConditional(occupant.OccupantGroupId))
-                        yield return occupant;
+                    if (occupantCondition != null && !occupantCondition(occupant))
+                        continue;
+
+                    if (groupConditional != null && !groupConditional(occupant.OccupantGroupId))
+                        continue;
+
+                    yield return occupant;
                 }
             }
         }
@@ -206,8 +213,8 @@ namespace GridForge.Grids
         /// <param name="voxelOccupant">The retrieved occupant if found.</param>
         /// <returns>True if the occupant was found, otherwise false.</returns>
         internal bool TryGetOccupantAt(
-            GlobalVoxelIndex index, 
-            int occupantTicket, 
+            GlobalVoxelIndex index,
+            int occupantTicket,
             out IVoxelOccupant voxelOccupant)
         {
             voxelOccupant = null;
