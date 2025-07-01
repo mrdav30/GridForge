@@ -111,15 +111,19 @@ namespace GridForge.Grids
         /// <inheritdoc cref="Setup()"/>
         /// <param name="voxelSize"></param>
         /// <param name="spatialGridCellSize"></param>
-        public static void Setup(Fixed64 voxelSize, int spatialGridCellSize = DefaultSpatialGridCellSize)
+        public static void Setup(
+            Fixed64? voxelSize = null,
+            int spatialGridCellSize = DefaultSpatialGridCellSize)
         {
+            voxelSize ??= DefaultVoxelSize;
+
             if (IsActive)
             {
                 GridForgeLogger.Warn("Global Grid Manager already active.  Call `Reset` before attempting to setup.");
                 return;
             }
 
-            VoxelSize = voxelSize > Fixed64.One ? Fixed64.One : voxelSize > Fixed64.Zero ? voxelSize : DefaultVoxelSize;
+            VoxelSize = FixedMath.Clamp01(voxelSize.Value);
             SpatialGridCellSize = spatialGridCellSize;
 
             ActiveGrids ??= new SwiftBucket<VoxelGrid>();
@@ -133,7 +137,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Resets the global grid manager, clearing all grids and spatial data.
         /// </summary>
-        public static void Reset()
+        public static void Reset(bool deactivate = false)
         {
             if (!IsActive)
             {
@@ -161,7 +165,8 @@ namespace GridForge.Grids
             BoundsTracker?.Clear();
             SpatialGridHash?.Clear();
 
-            IsActive = false;
+            if (deactivate)
+                IsActive = false;
         }
 
         #endregion
@@ -174,6 +179,13 @@ namespace GridForge.Grids
         public static GridAddResult TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex)
         {
             allocatedIndex = ushort.MaxValue;
+
+            if (!IsActive)
+            {
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
+                return GridAddResult.InActive;
+            }
+
             if ((uint)ActiveGrids.Count > MaxGrids)
             {
                 GridForgeLogger.Warn($"No more grids can be added at this time.");
@@ -252,7 +264,7 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRemoveGrid(ushort removeIndex)
         {
-            if (!ActiveGrids.IsAllocated(removeIndex))
+            if (!IsActive || !ActiveGrids.IsAllocated(removeIndex))
                 return false;
 
             // Fire off before we remove the reference
@@ -330,6 +342,12 @@ namespace GridForge.Grids
         /// </summary>
         public static void IncrementGridVersion(int index, bool significant = false)
         {
+            if (!IsActive)
+            {
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
+                return;
+            }
+
             _gridLock.EnterWriteLock();
             try
             {
@@ -354,6 +372,12 @@ namespace GridForge.Grids
         public static bool TryGetGrid(int index, out VoxelGrid outGrid)
         {
             outGrid = null;
+            if (!IsActive)
+            {
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
+                return false;
+            }
+
             if ((uint)index > ActiveGrids.Count)
             {
                 GridForgeLogger.Error($"GlobalGridIndex '{index}' is out-of-bounds for ActiveGrids.");
@@ -376,6 +400,12 @@ namespace GridForge.Grids
         public static bool TryGetGrid(Vector3d position, out VoxelGrid outGrid)
         {
             outGrid = null;
+            if (!IsActive)
+            {
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
+                return false;
+            }
+
             int cellIndex = GetSpatialGridKey(position);
 
             if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
@@ -514,7 +544,13 @@ namespace GridForge.Grids
         /// </summary>
         public static IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
         {
-            SwiftHashSet<VoxelGrid> overlappingGrids = new SwiftHashSet<VoxelGrid>();
+            SwiftHashSet<VoxelGrid> overlappingGrids = new();
+
+            if (!IsActive)
+            {
+                GridForgeLogger.Warn("Global Grid Manager not active.  Call `Setup` first.");
+                return overlappingGrids;
+            }
 
             // Check all spatial hash cells that this grid occupies
             foreach (int cellIndex in GetSpatialGridCells(targetGrid.BoundsMin, targetGrid.BoundsMax))

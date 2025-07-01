@@ -7,20 +7,24 @@
     public enum GridAddResult
     {
         /// <summary>
-        /// Grid was successfully added
+        /// Grid was successfully added.
         /// </summary>
         Success = 0,
         /// <summary>
-        /// A grid with the same bounds already exists
+        /// A grid with the same bounds already exists.
         /// </summary>
         AlreadyExists = 1,
         /// <summary>
-        /// The provided bounds are invalid
+        /// The provided bounds are invalid.
         /// </summary>
         InvalidBounds = 2,
         /// <summary>
-        /// The maximum number of grids has been reached
+        /// The maximum number of grids has been reached.
         /// </summary>
-        MaxGridsReached = 3
+        MaxGridsReached = 3,
+        /// <summary>
+        /// The <see cref="GlobalGridManager"/> has not been setup yet.
+        /// </summary>
+        InActive = 4
     }
 }
