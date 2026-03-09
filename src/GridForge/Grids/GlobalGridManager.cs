@@ -57,14 +57,14 @@ namespace GridForge.Grids
         public static SwiftBucket<VoxelGrid> ActiveGrids { get; private set; }
 
         /// <summary>
-        /// Dictionary mapping hashed bounds to grid indices to prevent duplicate grids.
+        /// Dictionary mapping exact bounds keys to grid indices to prevent duplicate grids.
         /// </summary>
-        public static SwiftDictionary<int, ushort> BoundsTracker { get; private set; }
+        public static SwiftDictionary<GridBoundsKey, ushort> BoundsTracker { get; private set; }
 
         /// <summary>
         /// Dictionary mapping spatial hash keys to grid indices for fast lookups.
         /// </summary>
-        public static SwiftDictionary<int, SwiftHashSet<ushort>> SpatialGridHash { get; private set; }
+        public static SwiftSparseMap<SwiftHashSet<ushort>> SpatialGridHash { get; private set; }
 
         /// <summary>
         /// The current version of the grid system, incremented on major changes.
@@ -127,8 +127,8 @@ namespace GridForge.Grids
             SpatialGridCellSize = spatialGridCellSize;
 
             ActiveGrids ??= new SwiftBucket<VoxelGrid>();
-            BoundsTracker ??= new SwiftDictionary<int, ushort>();
-            SpatialGridHash ??= new SwiftDictionary<int, SwiftHashSet<ushort>>();
+            BoundsTracker ??= new SwiftDictionary<GridBoundsKey, ushort>();
+            SpatialGridHash ??= new SwiftSparseMap<SwiftHashSet<ushort>>();
 
             Version = 1;
             IsActive = true;
@@ -198,13 +198,12 @@ namespace GridForge.Grids
                 return false;
             }
 
-            // Create a unique hash based on the grid's min/max bounds to prevent duplicates
-            int hashedBounds = configuration.GetHashCode();
+            GridBoundsKey boundsKey = configuration.ToBoundsKey();
 
             _gridLock.EnterReadLock();
             try
             {
-                if (BoundsTracker.TryGetValue(hashedBounds, out allocatedIndex))
+                if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
                 {
                     GridForgeLogger.Warn("A grid with these bounds has already been allocated.");
                     return false;
@@ -220,7 +219,7 @@ namespace GridForge.Grids
             try
             {
                 allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
-                BoundsTracker.Add(hashedBounds, allocatedIndex);
+                BoundsTracker.Add(boundsKey, allocatedIndex);
 
                 newGrid.Initialize(allocatedIndex, configuration);
                 foreach (int cellIndex in GetSpatialGridCells(configuration.BoundsMin, configuration.BoundsMax))
@@ -305,8 +304,8 @@ namespace GridForge.Grids
                         SpatialGridHash.Remove(cellIndex);
                 }
 
-                int hashedBounds = gridToRemove.Configuration.GetHashCode();
-                BoundsTracker.Remove(hashedBounds);
+                GridBoundsKey boundsKey = gridToRemove.Configuration.ToBoundsKey();
+                BoundsTracker.Remove(boundsKey);
                 ActiveGrids.RemoveAt(removeIndex);
 
                 Version++;
