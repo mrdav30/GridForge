@@ -96,7 +96,7 @@ namespace GridForge.Blockers
             CacheMin = GetBoundsMin();
             CacheMax = GetBoundsMax();
             // Generate a unique blockage token based on the min/max bounds
-            BlockageToken = HashTools.CombineHashCodes(CacheMin, CacheMax); 
+            BlockageToken = SwiftHashTools.CombineHashCodes(CacheMin, CacheMax); 
 
             bool hasCoverage = false;
             // Iterate over all affected voxels and apply obstacles

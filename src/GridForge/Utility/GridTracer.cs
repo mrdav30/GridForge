@@ -260,7 +260,7 @@ namespace GridForge.Utility
                         {
                             for (int z = zMin; z <= zMax; z++)
                             {
-                                int hash = HashTools.CombineHashCodes(x, y, z);
+                                int hash = SwiftHashTools.CombineHashCodes(x, y, z);
                                 if (!currentGrid.TryGetScanCell(hash, out ScanCell scanCell)
                                     || !voxelRedundancyCheck.Add(scanCell.SpawnToken))
                                 {

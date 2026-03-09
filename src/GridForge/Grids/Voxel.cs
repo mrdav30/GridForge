@@ -416,7 +416,7 @@ namespace GridForge.Grids
         #region Utility
 
         /// <inheritdoc/>
-        public override int GetHashCode() => HashTools.CombineHashCodes(
+        public override int GetHashCode() => SwiftHashTools.CombineHashCodes(
             GlobalIndex,
             WorldPosition,
             IsBoundaryVoxel);

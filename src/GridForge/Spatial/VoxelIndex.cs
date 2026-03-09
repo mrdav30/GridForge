@@ -87,9 +87,9 @@ namespace GridForge.Spatial
 
         /// <summary>
         /// Computes a hash code for the coordinates, ensuring uniqueness in hashing collections.
-        /// Uses <see cref="HashTools"/> to generate a stable and consistent hash.
+        /// Uses <see cref="SwiftHashTools"/> to generate a stable and consistent hash.
         /// </summary>
-        public override readonly int GetHashCode() => HashTools.CombineHashCodes(x, y, z);
+        public override readonly int GetHashCode() => SwiftHashTools.CombineHashCodes(x, y, z);
 
         /// <inheritdoc/>
         public readonly bool Equals(VoxelIndex other)

@@ -231,6 +231,6 @@ namespace GridForge.Grids
         #endregion
 
         /// <inheritdoc/>
-        public override int GetHashCode() => HashTools.CombineHashCodes(GridIndex, CellKey);
+        public override int GetHashCode() => SwiftHashTools.CombineHashCodes(GridIndex, CellKey);
     }
 }

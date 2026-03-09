@@ -68,7 +68,7 @@ namespace GridForge.Grids
         /// <summary>
         /// The primary 3D collection of voxels managed by this grid.
         /// </summary>
-        public Array3D<Voxel> Voxels { get; private set; }
+        public SwiftArray3D<Voxel> Voxels { get; private set; }
 
         /// <summary>
         /// Stores the indices of neighboring grids.
@@ -232,7 +232,7 @@ namespace GridForge.Grids
                 {
                     for (int z = 0; z < scanLength; z++)
                     {
-                        int cellKey = HashTools.CombineHashCodes(x, y, z);
+                        int cellKey = SwiftHashTools.CombineHashCodes(x, y, z);
 
                         ScanCell scanCell = Pools.ScanCellPool.Rent();
                         scanCell.Initialize(GlobalIndex, cellKey);
@@ -251,7 +251,7 @@ namespace GridForge.Grids
             long startMem = GC.GetTotalMemory(true);
 #endif
 
-            Voxels = new Array3D<Voxel>(Width, Height, Length);
+            Voxels = new SwiftArray3D<Voxel>(Width, Height, Length);
 
             for (int x = 0; x < Width; x++)
             {
@@ -690,7 +690,7 @@ namespace GridForge.Grids
                     voxelIndex.z / ScanCellSize
                 );
 
-            int scanCellKey = HashTools.CombineHashCodes(x, y, z);
+            int scanCellKey = SwiftHashTools.CombineHashCodes(x, y, z);
             if (!ScanCells.ContainsKey(scanCellKey))
             {
                 GridForgeLogger.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
@@ -782,7 +782,7 @@ namespace GridForge.Grids
 
         /// <inheritdoc/>
         public override int GetHashCode() =>
-            HashTools.CombineHashCodes(GlobalIndex, BoundsMin, BoundsMax);
+            SwiftHashTools.CombineHashCodes(GlobalIndex, BoundsMin, BoundsMax);
 
         #endregion
     }

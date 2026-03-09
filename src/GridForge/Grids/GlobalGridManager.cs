@@ -516,7 +516,7 @@ namespace GridForge.Grids
                 for (int y = yMin; y <= yMax; y++)
                 {
                     for (int x = xMin; x <= xMax; x++)
-                        yield return HashTools.CombineHashCodes(x, y, z);
+                        yield return SwiftHashTools.CombineHashCodes(x, y, z);
                 }
             }
 
@@ -611,7 +611,7 @@ namespace GridForge.Grids
                 position.z.FloorToInt() / SpatialGridCellSize
             );
 
-            return HashTools.CombineHashCodes(x, y, z);
+            return SwiftHashTools.CombineHashCodes(x, y, z);
         }
 
         /// <summary>
