@@ -15,7 +15,7 @@ namespace GridForge.Blockers
         /// <summary>
         /// Unique token representing this blockage instance.
         /// </summary>
-        public int BlockageToken { get; private set; }
+        public int BlockageToken { get; private set; } = -1;
 
         /// <summary>
         /// Indicates whether the blocker is currently active.
@@ -98,17 +98,16 @@ namespace GridForge.Blockers
             // Generate a unique blockage token based on the min/max bounds
             BlockageToken = SwiftHashTools.CombineHashCodes(CacheMin, CacheMax); 
 
-            bool hasCoverage = false;
+            bool hasCoverage = true;
             // Iterate over all affected voxels and apply obstacles
             foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(CacheMin, CacheMax))
             {
                 if (covered.Voxels.Count <= 0)
                     continue;
 
-                hasCoverage = true;
-
                 foreach (Voxel voxel in covered.Voxels)
-                    covered.Grid.TryAddObstacle(voxel, BlockageToken);
+                    if(!covered.Grid.TryAddObstacle(voxel, BlockageToken))
+                        hasCoverage = false;
 
                 if (CacheCoveredVoxels)
                     _cachedCoveredVoxels.Add(covered);
@@ -140,6 +139,7 @@ namespace GridForge.Blockers
                     covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
             }
 
+            BlockageToken = -1;
             IsBlocking = false;
             _cachedCoveredVoxels = null;
 

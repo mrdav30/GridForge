@@ -618,10 +618,13 @@ namespace GridForge.Grids
         /// </summary>
         public static Vector3d CeilToVoxelSize(Vector3d position)
         {
+            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
+            // - Apply CeilToInt() to obtain the correct spatial cell index.
+            // - Restore the original sign using Sign() after ceiling.
             return new Vector3d(
-                (position.x / VoxelSize).CeilToInt() * VoxelSize,
-                (position.y / VoxelSize).CeilToInt() * VoxelSize,
-                (position.z / VoxelSize).CeilToInt() * VoxelSize
+                (position.x.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.x.Sign(),
+                (position.y.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.y.Sign(),
+                (position.z.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.z.Sign()
             );
         }
 
@@ -630,9 +633,6 @@ namespace GridForge.Grids
         /// </summary>
         public static Vector3d FloorToVoxelSize(Vector3d position)
         {
-            // - Use Abs() to ensure the division is done on positive values, preventing rounding issues.
-            // - Apply FloorToInt() to obtain the correct spatial cell index.
-            // - Restore the original sign using Sign() after flooring.
             return new Vector3d(
                 (position.x.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.x.Sign(),
                 (position.y.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.y.Sign(),
@@ -654,8 +654,8 @@ namespace GridForge.Grids
             min -= fixedPadding;
             max += fixedPadding;
 
-            Vector3d snapMin = CeilToVoxelSize(min);
-            Vector3d snapMax = FloorToVoxelSize(max);
+            Vector3d snapMin = FloorToVoxelSize(min);
+            Vector3d snapMax = CeilToVoxelSize(max);
 
             // Ensure correct ordering of bounds
             (snapMin.x, snapMax.x) = snapMin.x > snapMax.x

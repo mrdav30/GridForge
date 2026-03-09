@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
+using SwiftCollections;
 using System;
 
 namespace GridForge.Configuration
@@ -76,7 +77,13 @@ namespace GridForge.Configuration
 
         #endregion
 
+        /// <summary>
+        /// Creates an exact identity key for this configuration's snapped bounds.
+        /// </summary>
+        public readonly GridBoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
+
         /// <inheritdoc/>
-        public override int GetHashCode() => BoundsMin.GetHashCode() ^ BoundsMax.GetHashCode();
+        public override readonly int GetHashCode() => 
+            SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
     }
 }
