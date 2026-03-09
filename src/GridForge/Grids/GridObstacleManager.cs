@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using GridForge.Configuration;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
@@ -40,7 +41,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to add an obstacle at the given global voxel index.
         /// </summary>
-        public static bool TryAddObstacle(GlobalVoxelIndex index, int obstacleSpawnToken)
+        public static bool TryAddObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
         {
             return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
                 && TryAddObstacle(grid, voxel, obstacleSpawnToken);
@@ -49,7 +50,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to add an obstacle at the given world position.
         /// </summary>
-        public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, int obstacleSpawnToken)
+        public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
         {
             return grid.TryGetVoxel(position, out Voxel voxel)
                 && TryAddObstacle(grid, voxel, obstacleSpawnToken);
@@ -62,7 +63,7 @@ namespace GridForge.Grids
         /// <param name="targetVoxel"></param>
         /// <param name="obstacleSpawnToken"></param>
         /// <exception cref="Exception"></exception>
-        public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, int obstacleSpawnToken)
+        public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, BoundsKey obstacleSpawnToken)
         {
             if (!targetVoxel.IsBlockable)
                 return false;
@@ -71,7 +72,7 @@ namespace GridForge.Grids
 
             lock (gridLock)
             {
-                targetVoxel.ObstacleTracker ??= new SwiftHashSet<int>();
+                targetVoxel.ObstacleTracker ??= new SwiftHashSet<BoundsKey>();
                 if (!targetVoxel.ObstacleTracker.Add(obstacleSpawnToken))
                     return false;
                 targetVoxel.ObstacleCount++;
@@ -88,7 +89,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to remove an obstacle at the given global voxel index.
         /// </summary>
-        public static bool TryRemoveObstacle(GlobalVoxelIndex index, int obstacleSpawnToken)
+        public static bool TryRemoveObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
         {
             return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
                 && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
@@ -97,7 +98,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Attempts to remove an obstacle from the specified world position.
         /// </summary>
-        public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, int obstacleSpawnToken)
+        public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
         {
             return grid.TryGetVoxel(position, out Voxel voxel)
                 && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
@@ -106,7 +107,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Removes an obstacle from a given voxel.
         /// </summary>
-        public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, int obstacleSpawnToken)
+        public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, BoundsKey obstacleSpawnToken)
         {
             if (targetVoxel.ObstacleCount == 0)
             {

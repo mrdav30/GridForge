@@ -69,17 +69,17 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Voxel_ShouldCorrectlyBlockAndUnblock()
     {
-        var config = new GridConfiguration(new Vector3d(35, 1, 35), new Vector3d(40, 1, 40));
+        var config = new GridConfiguration(new(35, 1, 35), new(40, 1, 40));
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(36, 1, 36), out Voxel voxel);
 
-        int spawnHash = Guid.NewGuid().GetHashCode();
+        BoundsKey spawnKey = new BoundsKey(new(36, 1, 36), new(37, 1, 37));
 
-        grid.TryAddObstacle(voxel, spawnHash);
+        grid.TryAddObstacle(voxel, spawnKey);
         Assert.True(voxel.IsBlocked);
 
-        grid.TryRemoveObstacle(voxel, spawnHash);
+        grid.TryRemoveObstacle(voxel, spawnKey);
         Assert.False(voxel.IsBlocked);
     }
 
@@ -126,15 +126,15 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(37, 1, 37), out Voxel voxel);
 
-        int spawnHash = Guid.NewGuid().GetHashCode();
+        BoundsKey spawnKey = new BoundsKey(new(37, 1, 37), new(38, 1, 38));
 
-        grid.TryAddObstacle(voxel, spawnHash);
-        grid.TryAddObstacle(voxel, spawnHash); // Attempt to add twice
+        grid.TryAddObstacle(voxel, spawnKey);
+        grid.TryAddObstacle(voxel, spawnKey); // Attempt to add twice
 
         Assert.True(voxel.IsBlocked);
         Assert.Equal(1, voxel.ObstacleCount); // Should not increase beyond 1
 
-        grid.TryRemoveObstacle(voxel, spawnHash);
+        grid.TryRemoveObstacle(voxel, spawnKey);
         Assert.False(voxel.IsBlocked);
     }
 

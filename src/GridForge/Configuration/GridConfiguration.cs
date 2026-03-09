@@ -80,7 +80,7 @@ namespace GridForge.Configuration
         /// <summary>
         /// Creates an exact identity key for this configuration's snapped bounds.
         /// </summary>
-        public readonly GridBoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
+        public readonly BoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
 
         /// <inheritdoc/>
         public override readonly int GetHashCode() =>

@@ -59,7 +59,7 @@ namespace GridForge.Grids
         /// <summary>
         /// Dictionary mapping exact bounds keys to grid indices to prevent duplicate grids.
         /// </summary>
-        public static SwiftDictionary<GridBoundsKey, ushort> BoundsTracker { get; private set; }
+        public static SwiftDictionary<BoundsKey, ushort> BoundsTracker { get; private set; }
 
         /// <summary>
         /// Dictionary mapping spatial hash keys to grid indices for fast lookups.
@@ -127,7 +127,7 @@ namespace GridForge.Grids
             SpatialGridCellSize = spatialGridCellSize;
 
             ActiveGrids ??= new SwiftBucket<VoxelGrid>();
-            BoundsTracker ??= new SwiftDictionary<GridBoundsKey, ushort>();
+            BoundsTracker ??= new SwiftDictionary<BoundsKey, ushort>();
             SpatialGridHash ??= new SwiftSparseMap<SwiftHashSet<ushort>>();
 
             Version = 1;
@@ -198,7 +198,7 @@ namespace GridForge.Grids
                 return false;
             }
 
-            GridBoundsKey boundsKey = configuration.ToBoundsKey();
+            BoundsKey boundsKey = configuration.ToBoundsKey();
 
             _gridLock.EnterReadLock();
             try
@@ -304,7 +304,7 @@ namespace GridForge.Grids
                         SpatialGridHash.Remove(cellIndex);
                 }
 
-                GridBoundsKey boundsKey = gridToRemove.Configuration.ToBoundsKey();
+                BoundsKey boundsKey = gridToRemove.Configuration.ToBoundsKey();
                 BoundsTracker.Remove(boundsKey);
                 ActiveGrids.RemoveAt(removeIndex);
 

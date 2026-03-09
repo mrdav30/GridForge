@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Utility;
 using SwiftCollections;
@@ -15,7 +16,7 @@ namespace GridForge.Blockers
         /// <summary>
         /// Unique token representing this blockage instance.
         /// </summary>
-        public int BlockageToken { get; private set; } = -1;
+        public BoundsKey BlockageToken { get; private set; } = default;
 
         /// <summary>
         /// Indicates whether the blocker is currently active.
@@ -96,7 +97,7 @@ namespace GridForge.Blockers
             CacheMin = GetBoundsMin();
             CacheMax = GetBoundsMax();
             // Generate a unique blockage token based on the min/max bounds
-            BlockageToken = SwiftHashTools.CombineHashCodes(CacheMin, CacheMax);
+            BlockageToken = new(CacheMin, CacheMax);
 
             bool hasCoverage = true;
             // Iterate over all affected voxels and apply obstacles
@@ -139,7 +140,7 @@ namespace GridForge.Blockers
                     covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
             }
 
-            BlockageToken = -1;
+            BlockageToken = default;
             IsBlocking = false;
             _cachedCoveredVoxels = null;
 

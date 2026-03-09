@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using GridForge.Configuration;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
@@ -58,9 +59,9 @@ namespace GridForge.Grids
         private Voxel[] _cachedNeighbors;
 
         /// <summary>
-        /// Stores a unique hash value for each obstacle added to this voxel to prevent adding duplicates
+        /// Stores a unique <see cref="BoundsKey" /> for each obstacle added to this voxel to prevent adding duplicates
         /// </summary>
-        public SwiftHashSet<int> ObstacleTracker { get; internal set; }
+        public SwiftHashSet<BoundsKey> ObstacleTracker { get; internal set; }
 
         /// <summary>
         /// The current number of obstacles on this voxel.
