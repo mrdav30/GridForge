@@ -50,7 +50,7 @@ namespace GridForge.Utility
             SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
             SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
-            (Vector3d snappedStart, Vector3d snappedEnd) = 
+            (Vector3d snappedStart, Vector3d snappedEnd) =
                 GlobalGridManager.SnapBoundsToVoxelSize(start, end, padding);
 
             Vector3d diff = snappedEnd - snappedStart;
@@ -156,14 +156,14 @@ namespace GridForge.Utility
         /// <param name="boundsMax">The maximum corner of the bounding area.</param>
         /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
         public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
-            Vector3d boundsMin, 
+            Vector3d boundsMin,
             Vector3d boundsMax,
             double padding = 0d)
         {
             SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
             SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
-            (Vector3d snappedMin, Vector3d snappedMax) = 
+            (Vector3d snappedMin, Vector3d snappedMax) =
                 GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
 
             foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedMin, snappedMax))
@@ -225,7 +225,7 @@ namespace GridForge.Utility
         /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
         /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
         public static IEnumerable<ScanCell> GetCoveredScanCells(
-            Vector3d boundsMin, 
+            Vector3d boundsMin,
             Vector3d boundsMax,
             double padding = 0d)
         {
@@ -233,7 +233,7 @@ namespace GridForge.Utility
             SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
             SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
 
-            (Vector3d snappedMin, Vector3d snappedMax) = 
+            (Vector3d snappedMin, Vector3d snappedMax) =
                 GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
 
             foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(boundsMin, boundsMax))

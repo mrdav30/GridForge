@@ -76,7 +76,7 @@ namespace GridForge.Spatial
         /// <summary>
         /// Computes a hash code for uniquely identifying this set of global coordinates.
         /// </summary>
-        public override readonly int GetHashCode() => 
+        public override readonly int GetHashCode() =>
             SwiftHashTools.CombineHashCodes(GridSpawnToken, GridIndex, VoxelIndex);
 
         /// <inheritdoc/>

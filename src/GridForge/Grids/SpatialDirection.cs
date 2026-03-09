@@ -110,11 +110,11 @@
         /// <summary>
         /// (-1, 1, -1)
         /// </summary>
-        AboveSouthWest = 22, 
+        AboveSouthWest = 22,
         /// <summary>
         /// (-1, 1, 1)
         /// </summary>
-        AboveNorthWest = 23, 
+        AboveNorthWest = 23,
         /// <summary>
         /// (1, 1, -1)
         /// </summary>

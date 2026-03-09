@@ -20,7 +20,7 @@ namespace GridForge.Grids
         /// </summary>
         public static bool TryRegister(IVoxelOccupant occupant)
         {
-            if(!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+            if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
                 return false;
 
             return grid.TryAddVoxelOccupant(voxel, occupant);
@@ -327,7 +327,7 @@ namespace GridForge.Grids
         /// Scans for occupants of a specific type within a given radius.
         /// </summary>
         public static IEnumerable<T> ScanRadius<T>(
-            Vector3d position, 
+            Vector3d position,
             Fixed64 radius,
             Func<IVoxelOccupant, bool> occupantCondition = null,
             Func<byte, bool> groupCondition = null) where T : IVoxelOccupant

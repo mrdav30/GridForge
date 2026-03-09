@@ -1,5 +1,4 @@
-﻿using FixedMathSharp;
-using SwiftCollections;
+﻿using SwiftCollections;
 using System;
 using System.Runtime.CompilerServices;
 

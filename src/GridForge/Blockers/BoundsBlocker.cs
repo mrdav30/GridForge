@@ -16,8 +16,8 @@ namespace GridForge.Blockers
         /// <param name="isActive">Flag whether or not blocker is active.</param>
         /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
         public BoundsBlocker(
-            BoundingArea blockArea, 
-            bool isActive = true, 
+            BoundingArea blockArea,
+            bool isActive = true,
             bool cacheCoveredVoxels = false) : base(isActive, cacheCoveredVoxels)
         {
             _blockArea = blockArea;

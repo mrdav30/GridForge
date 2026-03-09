@@ -83,7 +83,7 @@ namespace GridForge.Configuration
         public readonly GridBoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
 
         /// <inheritdoc/>
-        public override readonly int GetHashCode() => 
+        public override readonly int GetHashCode() =>
             SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
     }
 }

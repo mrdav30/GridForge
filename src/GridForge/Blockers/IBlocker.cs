@@ -1,6 +1,4 @@
-﻿using FixedMathSharp;
-
-namespace GridForge.Blockers
+﻿namespace GridForge.Blockers
 {
     /// <summary>
     /// Defines the interface for a grid blocker, allowing custom implementations.

@@ -1,11 +1,11 @@
 ﻿using FixedMathSharp;
-using SwiftCollections;
-using SwiftCollections.Dimensions;
-using System;
-using System.Collections.Generic;
 using GridForge.Configuration;
 using GridForge.Spatial;
+using SwiftCollections;
+using SwiftCollections.Dimensions;
 using SwiftCollections.Pool;
+using System;
+using System.Collections.Generic;
 
 namespace GridForge.Grids
 {

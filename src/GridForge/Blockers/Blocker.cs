@@ -78,7 +78,7 @@ namespace GridForge.Blockers
                 return;
             }
 
-            if(status && !IsBlocking)
+            if (status && !IsBlocking)
             {
                 IsActive = true;
                 ApplyBlockage();
@@ -96,7 +96,7 @@ namespace GridForge.Blockers
             CacheMin = GetBoundsMin();
             CacheMax = GetBoundsMax();
             // Generate a unique blockage token based on the min/max bounds
-            BlockageToken = SwiftHashTools.CombineHashCodes(CacheMin, CacheMax); 
+            BlockageToken = SwiftHashTools.CombineHashCodes(CacheMin, CacheMax);
 
             bool hasCoverage = true;
             // Iterate over all affected voxels and apply obstacles
@@ -106,7 +106,7 @@ namespace GridForge.Blockers
                     continue;
 
                 foreach (Voxel voxel in covered.Voxels)
-                    if(!covered.Grid.TryAddObstacle(voxel, BlockageToken))
+                    if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
                         hasCoverage = false;
 
                 if (CacheCoveredVoxels)

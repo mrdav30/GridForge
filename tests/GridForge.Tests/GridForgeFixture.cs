@@ -1,30 +1,30 @@
 ﻿using System;
 using Xunit;
 
-namespace GridForge.Grids.Tests
+namespace GridForge.Grids.Tests;
+
+/// <summary>
+/// Class Fixture for all GridForge tests, ensuring proper setup and teardown.
+/// </summary>
+public class GridForgeFixture : IDisposable
 {
-    /// <summary>
-    /// Class Fixture for all GridForge tests, ensuring proper setup and teardown.
-    /// </summary>
-    public class GridForgeFixture : IDisposable
+    public GridForgeFixture()
     {
-        public GridForgeFixture()
-        {
-            GridForgeLogger.Verbosity = GridForgeLogger.LogLevel.Error;
-            GlobalGridManager.Setup();
-        }
-
-        public void Dispose()
-        {
-            GlobalGridManager.Reset();
-        }
+        GridForgeLogger.Verbosity = GridForgeLogger.LogLevel.Error;
+        GlobalGridManager.Setup();
     }
 
-    [CollectionDefinition("GridForgeCollection")]
-    public class GridForgeCollection : ICollectionFixture<GridForgeFixture>
+    public void Dispose()
     {
-        // This class has no code, and is never created. Its purpose is simply
-        // to be the place to apply [CollectionDefinition] and all the
-        // ICollectionFixture<> interfaces.
+        GlobalGridManager.Reset();
+        GC.SuppressFinalize(this);
     }
+}
+
+[CollectionDefinition("GridForgeCollection")]
+public class GridForgeCollection : ICollectionFixture<GridForgeFixture>
+{
+    // This class has no code, and is never created. Its purpose is simply
+    // to be the place to apply [CollectionDefinition] and all the
+    // ICollectionFixture<> interfaces.
 }
