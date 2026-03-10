@@ -7,23 +7,6 @@ using System.Collections.Generic;
 namespace GridForge.Utility;
 
 /// <summary>
-/// Used to group query results on a grid to voxel level
-/// </summary>
-// TODO: Consider using a struct of arrays approach if we find performance bottlenecks in this grouping structure.  It seems inefficient to have a list of voxels for each grid, especially if many grids are involved.  A struct of arrays could allow us to store all voxels in a single list and maintain separate index ranges for each grid, reducing overhead and improving cache locality.
-public struct GridVoxelSet
-{
-    /// <summary>
-    /// The grid containing the voxels from the resulting query
-    /// </summary>
-    public VoxelGrid Grid;
-
-    /// <summary>
-    /// A list of voxels that match the provided query
-    /// </summary>
-    public SwiftList<Voxel> Voxels;
-}
-
-/// <summary>
 /// Provides utilities for tracing lines or bounding areas in a grid, aligning them to grid voxels.
 /// Uses fixed-point calculations to ensure deterministic and accurate grid traversal.
 /// </summary>
@@ -114,11 +97,7 @@ public static class GridTracer
         // Yield grouped results
         foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
         {
-            yield return new GridVoxelSet
-            {
-                Grid = kvp.Key,
-                Voxels = kvp.Value
-            };
+            yield return new GridVoxelSet(kvp.Key, kvp.Value);
 
             SwiftListPool<Voxel>.Shared.Release(kvp.Value);
         }
@@ -206,11 +185,7 @@ public static class GridTracer
 
         foreach (var kvp in gridVoxelMapping)
         {
-            yield return new GridVoxelSet
-            {
-                Grid = kvp.Key,
-                Voxels = kvp.Value
-            };
+            yield return new GridVoxelSet(kvp.Key, kvp.Value);
 
             SwiftListPool<Voxel>.Shared.Release(kvp.Value);
         }
