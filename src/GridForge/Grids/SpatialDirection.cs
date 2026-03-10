@@ -22,11 +22,11 @@ public enum SpatialDirection
     /// </summary>
     South = 1,
     /// <summary>
-    /// (0, 0, 1)
+    /// (1, 0, 0)
     /// </summary>
     East = 2,
     /// <summary>
-    /// (1, 0, 0)
+    /// (0, 0, 1)
     /// </summary>
     North = 3,
     /// <summary>
@@ -65,11 +65,11 @@ public enum SpatialDirection
     /// </summary>
     BelowSouth = 11,
     /// <summary>
-    /// (0, -1, 1)
+    /// (1, -1, 0)
     /// </summary>
     BelowEast = 12,
     /// <summary>
-    /// (1, -1, 0)
+    /// (0, -1, 1)
     /// </summary>
     BelowNorth = 13,
     /// <summary>
@@ -81,11 +81,11 @@ public enum SpatialDirection
     /// </summary>
     AboveSouth = 15,
     /// <summary>
-    /// (0, 1, 1)
+    /// (1, 1, 0)
     /// </summary>
     AboveEast = 16,
     /// <summary>
-    /// (1, 1, 0)
+    /// (0, 1, 1)
     /// </summary>
     AboveNorth = 17,
 

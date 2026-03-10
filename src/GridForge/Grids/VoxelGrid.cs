@@ -410,49 +410,22 @@ public class VoxelGrid
     /// <param name="direction">The direction of the affected boundary.</param>
     public void NotifyBoundaryChange(SpatialDirection direction)
     {
-        int boundaryX = direction switch
-        {
-            SpatialDirection.West => 0,
-            SpatialDirection.East => Width - 1,
-            _ => -1
-        };
+        int directionIndex = (int)direction;
+        if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
+            return;
 
-        int boundaryY = direction switch
-        {
-            SpatialDirection.Below => 0,
-            SpatialDirection.Above => Height - 1,
-            _ => -1
-        };
+        (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[directionIndex];
 
-        int boundaryZ = direction switch
-        {
-            SpatialDirection.South => 0,
-            SpatialDirection.North => Length - 1,
-            _ => -1
-        };
+        (int xStart, int xEnd) = SpatialAwareness.GetBoundaryRange(offset.x, Width);
+        (int yStart, int yEnd) = SpatialAwareness.GetBoundaryRange(offset.y, Height);
+        (int zStart, int zEnd) = SpatialAwareness.GetBoundaryRange(offset.z, Length);
 
-        if (boundaryX != -1)
+        for (int x = xStart; x <= xEnd; x++)
         {
-            for (int y = 0; y < Height; y++)
+            for (int y = yStart; y <= yEnd; y++)
             {
-                for (int z = 0; z < Length; z++)
-                    Voxels[boundaryX, y, z]?.InvalidateNeighborCache();
-            }
-        }
-        else if (boundaryY != -1)
-        {
-            for (int x = 0; x < Width; x++)
-            {
-                for (int z = 0; z < Length; z++)
-                    Voxels[x, boundaryY, z]?.InvalidateNeighborCache();
-            }
-        }
-        else if (boundaryZ != -1)
-        {
-            for (int x = 0; x < Width; x++)
-            {
-                for (int y = 0; y < Height; y++)
-                    Voxels[x, y, boundaryZ]?.InvalidateNeighborCache();
+                for (int z = zStart; z <= zEnd; z++)
+                    Voxels[x, y, z]?.InvalidateNeighborCache();
             }
         }
     }
@@ -546,66 +519,15 @@ public class VoxelGrid
     /// </summary>
     public bool IsFacingBoundaryDirection(VoxelIndex voxelIndex, SpatialDirection direction)
     {
-        return direction switch
-        {
-            // Principal directions (cardinal)
-            SpatialDirection.West => voxelIndex.x == 0,
-            SpatialDirection.East => voxelIndex.x == Width - 1,
-            SpatialDirection.North => voxelIndex.z == Length - 1,
-            SpatialDirection.South => voxelIndex.z == 0,
-            SpatialDirection.Above => voxelIndex.y == Height - 1,
-            SpatialDirection.Below => voxelIndex.y == 0,
+        int directionIndex = (int)direction;
+        if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
+            return false;
 
-            // Diagonal XY-plane
-            SpatialDirection.NorthWest => voxelIndex.x == 0 && voxelIndex.z == Length - 1,
-            SpatialDirection.NorthEast => voxelIndex.x == Width - 1 && voxelIndex.z == Length - 1,
-            SpatialDirection.SouthWest => voxelIndex.x == 0 && voxelIndex.z == 0,
-            SpatialDirection.SouthEast => voxelIndex.x == Width - 1 && voxelIndex.z == 0,
+        (int x, int y, int z) = SpatialAwareness.DirectionOffsets[directionIndex];
 
-            // Diagonal XZ-plane (Above & Below variants)
-            SpatialDirection.AboveNorth => voxelIndex.y == Height - 1 && voxelIndex.z == Length - 1,
-            SpatialDirection.AboveSouth => voxelIndex.y == Height - 1 && voxelIndex.z == 0,
-            SpatialDirection.AboveWest => voxelIndex.y == Height - 1 && voxelIndex.x == 0,
-            SpatialDirection.AboveEast => voxelIndex.y == Height - 1 && voxelIndex.x == Width - 1,
-
-            SpatialDirection.BelowNorth => voxelIndex.y == 0 && voxelIndex.z == Length - 1,
-            SpatialDirection.BelowSouth => voxelIndex.y == 0 && voxelIndex.z == 0,
-            SpatialDirection.BelowWest => voxelIndex.y == 0 && voxelIndex.x == 0,
-            SpatialDirection.BelowEast => voxelIndex.y == 0 && voxelIndex.x == Width - 1,
-
-            // Diagonal 3D Corners
-            SpatialDirection.AboveNorthWest => voxelIndex.x == 0
-                && voxelIndex.z == Length - 1
-                && voxelIndex.y == Height - 1,
-            SpatialDirection.AboveNorthEast => voxelIndex.x == Width - 1
-                && voxelIndex.z == Length - 1
-                && voxelIndex.y == Height - 1,
-            SpatialDirection.AboveSouthWest => voxelIndex.x == 0
-                && voxelIndex.z == 0
-                && voxelIndex.y == Height - 1,
-            SpatialDirection.AboveSouthEast => voxelIndex.x == Width - 1
-                && voxelIndex.z == 0
-                && voxelIndex.y == Height - 1,
-
-            SpatialDirection.BelowNorthWest => voxelIndex.x == 0
-                && voxelIndex.z == Length - 1
-                && voxelIndex.y == 0,
-            SpatialDirection.BelowNorthEast => voxelIndex.x == Width - 1
-                && voxelIndex.z == Length - 1
-                && voxelIndex.y == 0,
-            SpatialDirection.BelowSouthWest => voxelIndex.x == 0
-                && voxelIndex.z == 0
-                && voxelIndex.y == 0,
-            SpatialDirection.BelowSouthEast => voxelIndex.x == Width - 1
-                && voxelIndex.z == 0
-                && voxelIndex.y == 0,
-
-            // No direction (should never be true)
-            SpatialDirection.None => false,
-
-            // Catch-all (should never reach this)
-            _ => false
-        };
+        return SpatialAwareness.IsAxisFacingBoundary(voxelIndex.x, x, Width)
+            && SpatialAwareness.IsAxisFacingBoundary(voxelIndex.y, y, Height)
+            && SpatialAwareness.IsAxisFacingBoundary(voxelIndex.z, z, Length);
     }
 
     /// <summary>
