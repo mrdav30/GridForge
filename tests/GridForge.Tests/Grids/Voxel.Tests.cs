@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Spatial;
 using System;
 using System.Linq;
 using Xunit;
@@ -399,6 +400,39 @@ public class VoxelTests : IDisposable
 
         Assert.True(GlobalGridManager.TryRemoveGrid(northEastIndex));
         Assert.False(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out _, useCache: true));
+    }
+
+    [Fact]
+    public void ReleasedVoxel_ShouldNotLeakObstaclePartitionOrNeighborCacheStateWhenReused()
+    {
+        GridConfiguration centerConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration eastConfig = new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+
+        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
+
+        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+
+        Assert.True(centerGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel oldVoxel));
+        Assert.True(oldVoxel.TryGetNeighborFromDirection(SpatialDirection.East, out Voxel eastNeighbor, useCache: true));
+        Assert.Equal(new Vector3d(1, 0, 0), eastNeighbor.WorldPosition);
+        Assert.True(oldVoxel.TryAddPartition(new TestPartition()));
+        Assert.True(centerGrid.TryAddObstacle(oldVoxel, obstacleToken));
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(eastIndex));
+        Assert.True(GlobalGridManager.TryRemoveGrid(centerIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort reusedIndex));
+
+        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+
+        Assert.True(reusedGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel reusedVoxel));
+        Assert.False(reusedVoxel.HasPartition<TestPartition>());
+        Assert.Null(reusedVoxel.GetPartitionOrDefault<TestPartition>());
+        Assert.False(reusedVoxel.IsBlocked);
+        Assert.Equal(0, reusedVoxel.ObstacleCount);
+        Assert.False(reusedVoxel.TryGetNeighborFromDirection(SpatialDirection.East, out _, useCache: true));
+        Assert.True(reusedGrid.TryAddObstacle(reusedVoxel, obstacleToken));
     }
 
 }

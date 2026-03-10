@@ -5,6 +5,7 @@ using SwiftCollections;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -286,6 +287,65 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void GetOccupantsFor_ShouldIsolateOccupantsByVoxelBucket()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Vector3d firstPosition = new Vector3d(1, 0, 1);
+        Vector3d secondPosition = new Vector3d(2, 0, 2);
+
+        TestOccupant firstBucketOccupant = new TestOccupant(firstPosition, 1);
+        TestOccupant secondBucketOccupant = new TestOccupant(firstPosition, 2);
+        TestOccupant thirdBucketOccupant = new TestOccupant(secondPosition, 3);
+
+        Assert.True(grid.TryAddVoxelOccupant(firstBucketOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(secondBucketOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(thirdBucketOccupant));
+        Assert.True(grid.TryGetVoxel(firstPosition, out Voxel firstVoxel));
+        Assert.True(grid.TryGetVoxel(secondPosition, out Voxel secondVoxel));
+        Assert.True(grid.TryGetScanCell(firstPosition, out ScanCell scanCell));
+
+        List<IVoxelOccupant> firstBucket = InvokeGetOccupantsFor(scanCell, firstVoxel.GlobalIndex).ToList();
+        List<IVoxelOccupant> secondBucket = InvokeGetOccupantsFor(scanCell, secondVoxel.GlobalIndex).ToList();
+
+        Assert.Equal(2, firstBucket.Count);
+        Assert.Contains(firstBucketOccupant, firstBucket);
+        Assert.Contains(secondBucketOccupant, firstBucket);
+        Assert.DoesNotContain(thirdBucketOccupant, firstBucket);
+
+        Assert.Single(secondBucket);
+        Assert.Same(thirdBucketOccupant, secondBucket[0]);
+    }
+
+    [Fact]
+    public void TryGetOccupantAt_ShouldReturnFalseForRemovedOrInvalidTickets()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1), 7);
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
+        Assert.True(occupant.OccupyingIndexMap.TryGetValue(voxel.GlobalIndex, out int ticket));
+
+        Assert.True(InvokeTryGetOccupantAt(scanCell, voxel.GlobalIndex, ticket, out IVoxelOccupant resolvedOccupant));
+        Assert.Same(occupant, resolvedOccupant);
+
+        Assert.True(grid.TryRemoveVoxelOccupant(occupant));
+
+        Assert.False(InvokeTryGetOccupantAt(scanCell, voxel.GlobalIndex, ticket, out IVoxelOccupant removedOccupant));
+        Assert.Null(removedOccupant);
+        Assert.False(InvokeTryGetOccupantAt(scanCell, voxel.GlobalIndex, ticket + 1, out IVoxelOccupant invalidTicketOccupant));
+        Assert.Null(invalidTicketOccupant);
+    }
+
+    [Fact]
     public void ScanRadius_ShouldRespectOccupantConditionAcrossScanCellBoundaries()
     {
         GlobalGridManager.TryAddGrid(
@@ -342,6 +402,24 @@ public class ScanCellTests : IDisposable
         Assert.False(scanCell.IsOccupied);
         Assert.Equal(0, scanCell.CellOccupantCount);
         Assert.Null(grid.ActiveScanCells);
+    }
+
+    private static IEnumerable<IVoxelOccupant> InvokeGetOccupantsFor(ScanCell scanCell, GlobalVoxelIndex index)
+    {
+        MethodInfo method = typeof(ScanCell).GetMethod("GetOccupantsFor", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find ScanCell.GetOccupantsFor.");
+
+        return (IEnumerable<IVoxelOccupant>)method.Invoke(scanCell, new object[] { index });
+    }
+
+    private static bool InvokeTryGetOccupantAt(ScanCell scanCell, GlobalVoxelIndex index, int ticket, out IVoxelOccupant occupant)
+    {
+        MethodInfo method = typeof(ScanCell).GetMethod("TryGetOccupantAt", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find ScanCell.TryGetOccupantAt.");
+        object[] args = new object[] { index, ticket, null };
+        bool result = (bool)method.Invoke(scanCell, args);
+        occupant = (IVoxelOccupant)args[2];
+        return result;
     }
 
 }

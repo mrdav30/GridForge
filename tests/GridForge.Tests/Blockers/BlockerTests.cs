@@ -301,4 +301,57 @@ public class BlockerTests : IDisposable
         Assert.False(blocker.IsBlocking);
         Assert.False(voxel.IsBlocked);
     }
+
+    [Fact]
+    public void Blocker_ShouldReapplyWhenCoveredGridIsRemovedAndReadded()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundingArea area = new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundsBlocker blocker = new BoundsBlocker(area, cacheCoveredVoxels: true);
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(voxel.IsBlocked);
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+
+        Assert.False(blocker.IsBlocking);
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort readdedIndex));
+        VoxelGrid readdedGrid = GlobalGridManager.ActiveGrids[readdedIndex];
+        Assert.True(readdedGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel readdedVoxel));
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(readdedVoxel.IsBlocked);
+    }
+
+    [Fact]
+    public void Blocker_ShouldApplyToNewOverlappingGridAddedAfterInitialApplication()
+    {
+        GridConfiguration firstConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration secondConfig = new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
+        BoundingArea area = new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
+        BoundsBlocker blocker = new BoundsBlocker(area);
+
+        Assert.True(GlobalGridManager.TryAddGrid(firstConfig, out ushort firstIndex));
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel firstVoxel));
+
+        blocker.ApplyBlockage();
+
+        Assert.True(firstVoxel.IsBlocked);
+
+        Assert.True(GlobalGridManager.TryAddGrid(secondConfig, out ushort secondIndex));
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel secondVoxel));
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(firstVoxel.IsBlocked);
+        Assert.True(secondVoxel.IsBlocked);
+    }
 }

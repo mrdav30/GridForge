@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Spatial;
 using System;
 using System.Collections.Generic;
 using Xunit;

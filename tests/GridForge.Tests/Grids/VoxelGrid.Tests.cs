@@ -250,6 +250,51 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void ReleasedGridAndScanCell_ShouldNotLeakStateWhenReused()
+    {
+        GridConfiguration centerConfig = new GridConfiguration(
+            new Vector3d(0, 0, 0),
+            new Vector3d(1, 0, 1),
+            scanCellSize: 8);
+        GridConfiguration eastConfig = new GridConfiguration(
+            new Vector3d(1, 0, 0),
+            new Vector3d(2, 0, 1),
+            scanCellSize: 8);
+        TestOccupant occupant = new TestOccupant(new Vector3d(0, 0, 0), 4);
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
+
+        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
+
+        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+
+        Assert.True(centerGrid.TryAddVoxelOccupant(occupant));
+        Assert.True(centerGrid.TryAddObstacle(new Vector3d(1, 0, 1), obstacleToken));
+        Assert.True(centerGrid.IsConjoined);
+        Assert.True(centerGrid.IsOccupied);
+        Assert.Equal(1, centerGrid.ObstacleCount);
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(eastIndex));
+        Assert.True(GlobalGridManager.TryRemoveGrid(centerIndex));
+        Assert.Empty(occupant.OccupyingIndexMap);
+
+        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort reusedIndex));
+
+        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+
+        Assert.False(reusedGrid.IsConjoined);
+        Assert.Equal(0, reusedGrid.NeighborCount);
+        Assert.False(reusedGrid.IsOccupied);
+        Assert.Equal(0, reusedGrid.ObstacleCount);
+        Assert.Empty(reusedGrid.GetAllGridNeighbors());
+        Assert.Empty(reusedGrid.GetActiveScanCells());
+        Assert.True(reusedGrid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell reusedScanCell));
+        Assert.False(reusedScanCell.IsOccupied);
+        Assert.Equal(0, reusedScanCell.CellOccupantCount);
+        Assert.Empty(reusedGrid.GetOccupants(new Vector3d(0, 0, 0)));
+    }
+
+    [Fact]
     public void GetNeighborDirection_ShouldFollowCardinalAxisOffsets()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
