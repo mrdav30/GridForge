@@ -353,7 +353,7 @@ public static class GlobalGridManager
             if (significant)
                 Version++;
             if (ActiveGrids.IsAllocated(index))
-                ActiveGrids[index].Version++;
+                ActiveGrids[index].IncrementVersion();
         }
         finally
         {

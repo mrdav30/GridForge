@@ -6,6 +6,7 @@ using SwiftCollections.Dimensions;
 using SwiftCollections.Pool;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids;
 
@@ -121,7 +122,7 @@ public class VoxelGrid
     /// <summary>
     /// Tracks the version of the grid, incremented when a <see cref="Voxel"/> is modified.
     /// </summary>
-    public uint Version { get; internal set; }
+    public uint Version { get; private set; }
 
     #endregion
 
@@ -209,6 +210,13 @@ public class VoxelGrid
         Size = 0;
 
         IsActive = false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal uint IncrementVersion()
+    {
+        Version = Version == uint.MaxValue ? 1u : Version + 1u;
+        return Version;
     }
 
     #endregion
@@ -342,7 +350,7 @@ public class VoxelGrid
             return false;
 
         NeighborCount++;
-        Version++;
+        IncrementVersion();
 
         // Notify grid voxels that a new neighbor has been added
         NotifyBoundaryChange(neighborDirection);
@@ -376,7 +384,7 @@ public class VoxelGrid
         if (--NeighborCount == 0)
             Neighbors = null;
 
-        Version++;
+        IncrementVersion();
 
         NotifyBoundaryChange(neighborDirection); // Notify voxels of the removed neighbor
 

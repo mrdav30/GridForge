@@ -78,7 +78,7 @@ public static class GridObstacleManager
             targetVoxel.ObstacleCount++;
 
             grid.ObstacleCount++;
-            grid.Version++;
+            grid.IncrementVersion();
         }
 
         NotifyObstacleChange(GridChange.Add, targetVoxel, grid.Version);
@@ -129,7 +129,7 @@ public static class GridObstacleManager
             }
 
             grid.ObstacleCount--;
-            grid.Version++;
+            grid.IncrementVersion();
         }
 
         NotifyObstacleChange(GridChange.Remove, targetVoxel, grid.Version);
