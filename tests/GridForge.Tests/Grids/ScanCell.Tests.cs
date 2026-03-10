@@ -208,7 +208,7 @@ public class ScanCellTests : IDisposable
 
         // Act
         var results = new SwiftList<IVoxelOccupant>(
-            ScanManager.ScanRadius(scanCenter, scanRadius));
+            GridScanManager.ScanRadius(scanCenter, scanRadius));
 
         // Assert
         Assert.Contains(occupant1, results);
@@ -235,7 +235,7 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(occupant3);
 
         // Act
-        var filteredResults = new SwiftList<IVoxelOccupant>(ScanManager.ScanRadius(
+        var filteredResults = new SwiftList<IVoxelOccupant>(GridScanManager.ScanRadius(
             scanCenter,
             scanRadius, groupCondition: groupId => groupId == 1 || groupId == 2));
 
@@ -361,7 +361,7 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(rightCellOccupant);
         grid.TryAddVoxelOccupant(distantOccupant);
 
-        List<IVoxelOccupant> filteredResults = ScanManager.ScanRadius(
+        List<IVoxelOccupant> filteredResults = GridScanManager.ScanRadius(
             new Vector3d(7.5, 0, 7.5),
             (Fixed64)2,
             occupantCondition: occupant => occupant.Position.x >= (Fixed64)8)

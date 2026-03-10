@@ -37,6 +37,17 @@ public static class GridOccupantManager
     #region Occupant Management
 
     /// <summary>
+    /// Attempts to register the occupant with the current voxel it is on.
+    /// </summary>
+    public static bool TryRegister(IVoxelOccupant occupant)
+    {
+        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+            return false;
+
+        return grid.TryAddVoxelOccupant(voxel, occupant);
+    }
+
+    /// <summary>
     /// Attempts to add an occupant from the given global voxel index.
     /// </summary>
     public static bool TryAddVoxelOccupant(
@@ -106,6 +117,17 @@ public static class GridOccupantManager
         NotifyOccupantChange(GridChange.Add, targetVoxel);
 
         return true;
+    }
+
+    /// <summary>
+    /// Attempts to de-register the occupant from the voxel it was on.
+    /// </summary>
+    public static bool TryDeregister(IVoxelOccupant occupant)
+    {
+        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+            return false;
+
+        return grid.TryRemoveVoxelOccupant(voxel, occupant);
     }
 
     /// <summary>

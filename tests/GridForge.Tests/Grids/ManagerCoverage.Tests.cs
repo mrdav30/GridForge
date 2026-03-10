@@ -51,13 +51,13 @@ public class ManagerCoverageTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         TestOccupant occupant = new TestOccupant(new Vector3d(2, 0, 2), 7);
 
-        Assert.True(ScanManager.TryRegister(occupant));
+        Assert.True(GridOccupantManager.TryRegister(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
         Assert.True(occupant.OccupyingIndexMap.TryGetValue(voxel.GlobalIndex, out int ticket));
-        Assert.True(ScanManager.TryGetVoxelOccupant(voxel.GlobalIndex, ticket, out IVoxelOccupant registeredOccupant));
+        Assert.True(GridScanManager.TryGetVoxelOccupant(voxel.GlobalIndex, ticket, out IVoxelOccupant registeredOccupant));
         Assert.Same(occupant, registeredOccupant);
-        Assert.Single(ScanManager.GetOccupants(voxel.GlobalIndex));
-        Assert.Single(ScanManager.GetVoxelOccupantsByType<TestOccupant>(voxel.GlobalIndex));
+        Assert.Single(GridScanManager.GetOccupants(voxel.GlobalIndex));
+        Assert.Single(GridScanManager.GetVoxelOccupantsByType<TestOccupant>(voxel.GlobalIndex));
         Assert.Single(grid.GetVoxelOccupantsByType<TestOccupant>(voxel.Index));
         Assert.Single(grid.GetConditionalOccupants(voxel.Index, groupCondition: groupId => groupId == 7));
         Assert.True(grid.TryGetScanCell(voxel.Index, out ScanCell scanCell));
@@ -84,7 +84,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(otherOccupant));
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
-        IVoxelOccupant[] byGlobalIndex = ScanManager.GetConditionalOccupants(
+        IVoxelOccupant[] byGlobalIndex = GridScanManager.GetConditionalOccupants(
             voxel.GlobalIndex,
             occupantCondition: occupant => ReferenceEquals(occupant, targetOccupant))
             .ToArray();
@@ -118,7 +118,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(secondOccupant));
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
-        IVoxelOccupant[] groupMatches = ScanManager.GetConditionalOccupants(
+        IVoxelOccupant[] groupMatches = GridScanManager.GetConditionalOccupants(
             voxel.GlobalIndex,
             groupCondition: groupId => groupId == 2)
             .ToArray();
@@ -135,7 +135,7 @@ public class ManagerCoverageTests : IDisposable
 
         GlobalVoxelIndex missingGridIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
 
-        Assert.False(ScanManager.TryGetVoxelOccupant(missingGridIndex, 0, out IVoxelOccupant missingGlobalOccupant));
+        Assert.False(GridScanManager.TryGetVoxelOccupant(missingGridIndex, 0, out IVoxelOccupant missingGlobalOccupant));
         Assert.Null(missingGlobalOccupant);
 
         Assert.False(grid.TryGetVoxelOccupant(new VoxelIndex(-1, 0, 0), 0, out IVoxelOccupant missingLocalOccupant));
@@ -212,6 +212,6 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.False(GridOccupantManager.TryAddVoxelOccupant(occupant.OccupyingIndexMap.Keys.Single(), occupant));
         Assert.False(grid.TryRemoveVoxelOccupant((IVoxelOccupant)null));
-        Assert.True(ScanManager.TryDeregister(occupant));
+        Assert.True(GridOccupantManager.TryDeregister(occupant));
     }
 }

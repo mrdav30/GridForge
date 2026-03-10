@@ -109,7 +109,7 @@ Match the surrounding code instead of imposing a new style on untouched files.
 - `VoxelGrid` owns dimensions, scan-cell generation, voxel generation, and neighbor relationships.
 - `Voxel` owns obstacle/occupant/partition state and neighbor caching.
 - `Pools` defines reusable object and array pools. Changes here can have broad memory and lifetime effects.
-- `ScanManager`, `GridOccupantManager`, and `GridObstacleManager` are behavior-heavy modules that should usually be covered by tests when changed.
+- `GridScanManager`, `GridOccupantManager`, and `GridObstacleManager` are behavior-heavy modules that should usually be covered by tests when changed.
 
 ### `src/GridForge/Spatial`
 

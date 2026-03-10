@@ -13,7 +13,7 @@ namespace GridForge.Grids;
 /// Provides efficient querying methods for retrieving occupants within a grid.
 /// Handles spatial lookups for voxels, filtering by occupant type, and fetching occupants using unique tickets.
 /// </summary>
-public static class ScanManager
+public static class GridScanManager
 {
     #region Scan Methods
 
@@ -75,28 +75,6 @@ public static class ScanManager
     #endregion
 
     #region Occupant Registration & Retrieval
-
-    /// <summary>
-    /// Attempts to register the occupant with the current voxel it is on.
-    /// </summary>
-    public static bool TryRegister(IVoxelOccupant occupant)
-    {
-        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
-            return false;
-
-        return grid.TryAddVoxelOccupant(voxel, occupant);
-    }
-
-    /// <summary>
-    /// Attempts to de-register the occupant from the voxel it was on.
-    /// </summary>
-    public static bool TryDeregister(IVoxelOccupant occupant)
-    {
-        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
-            return false;
-
-        return grid.TryRemoveVoxelOccupant(voxel, occupant);
-    }
 
     /// <summary>
     /// Retrieves all occupants of a specific type at a given global voxel index.
