@@ -266,9 +266,6 @@ public static class GlobalGridManager
         if (!IsActive || !ActiveGrids.IsAllocated(removeIndex))
             return false;
 
-        // Fire off before we remove the reference
-        NotifyActiveGridChange(GridChange.Remove, removeIndex);
-
         VoxelGrid gridToRemove;
         _gridLock.EnterWriteLock();
         try
@@ -306,6 +303,7 @@ public static class GlobalGridManager
 
             BoundsKey boundsKey = gridToRemove.Configuration.ToBoundsKey();
             BoundsTracker.Remove(boundsKey);
+
             ActiveGrids.RemoveAt(removeIndex);
 
             Version++;
@@ -317,6 +315,8 @@ public static class GlobalGridManager
 
         // Clearing out neighbor relationships for this voxel handled on `Grid.Reset`
         Pools.GridPool.Release(gridToRemove);
+
+        NotifyActiveGridChange(GridChange.Remove, removeIndex);
 
         if (ActiveGrids.Count == 0)
             ActiveGrids.TrimExcessCapacity();

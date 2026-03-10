@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Pool;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -163,7 +164,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Resets the voxel, clearing all allocated data and returning it to pools.
     /// </summary>
-    internal void Reset()
+    internal void Reset(VoxelGrid ownerGrid = null)
     {
         if (!IsAllocated)
             return;
@@ -195,13 +196,35 @@ public class Voxel : IEquatable<Voxel>
             _cachedNeighbors = null;
         }
 
+        if (ObstacleTracker != null && ObstacleTracker.Count > 0)
+        {
+            ownerGrid ??= GlobalGridManager.TryGetGrid(GlobalIndex.GridIndex, out VoxelGrid grid)
+                ? grid
+                : null;
+
+            if (ownerGrid == null)
+            {
+                if (ObstacleTracker != null)
+                {
+                    SwiftHashSetPool<BoundsKey>.Shared.Release(ObstacleTracker);
+                    ObstacleTracker = null;
+                }
+
+                ObstacleCount = 0;
+            }
+            else
+                ownerGrid?.ClearObstacles(this);
+        }
+
+        ObstacleTracker = null;
+        ObstacleCount = 0;
+
         _isNeighborCacheValid = false;
         IsBoundaryVoxel = false;
 
         SpawnToken = 0;
         ScanCellKey = 0;
 
-        ObstacleCount = 0;
         OccupantCount = 0;
 
         IsAllocated = false;

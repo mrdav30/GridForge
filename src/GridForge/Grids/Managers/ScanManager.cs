@@ -332,7 +332,7 @@ public static class ScanManager
         Func<IVoxelOccupant, bool> occupantCondition = null,
         Func<byte, bool> groupCondition = null)
     {
-        return groupCondition != null
+        return targetVoxel != null
             && targetVoxel.IsOccupied
             && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell)
             && scanCell.IsOccupied

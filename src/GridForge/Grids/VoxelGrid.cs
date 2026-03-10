@@ -16,7 +16,7 @@ namespace GridForge.Grids;
 /// </summary>
 public class VoxelGrid
 {
-    #region Properties
+    #region Fields & Properties
 
     /// <summary>
     /// Unique token identifying the grid instance.
@@ -177,9 +177,15 @@ public class VoxelGrid
         if (Voxels != null)
         {
             foreach (Voxel voxel in Voxels)
+            {
+                voxel.Reset(this);
                 Pools.VoxelPool.Release(voxel);
+            }
             Voxels = null;
         }
+
+        // Just incase since voxels should have already cleared any registered obstacles
+        ObstacleCount = 0;
 
         if (ScanCells != null)
         {

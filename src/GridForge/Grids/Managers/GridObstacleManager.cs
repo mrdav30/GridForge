@@ -1,6 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Spatial;
-using SwiftCollections;
+using SwiftCollections.Pool;
 using System;
 using System.Collections.Concurrent;
 
@@ -71,7 +71,7 @@ public static class GridObstacleManager
 
         lock (gridLock)
         {
-            targetVoxel.ObstacleTracker ??= new SwiftHashSet<BoundsKey>();
+            targetVoxel.ObstacleTracker ??= SwiftHashSetPool<BoundsKey>.Shared.Rent();
             if (!targetVoxel.ObstacleTracker.Add(obstacleSpawnToken))
                 return false;
             targetVoxel.ObstacleCount++;
@@ -123,6 +123,7 @@ public static class GridObstacleManager
 
             if (--targetVoxel.ObstacleCount <= 0)
             {
+                SwiftHashSetPool<BoundsKey>.Shared.Release(targetVoxel.ObstacleTracker);
                 targetVoxel.ObstacleTracker = null;
                 targetVoxel.ObstacleCount = 0;
             }
@@ -134,6 +135,34 @@ public static class GridObstacleManager
         NotifyObstacleChange(GridChange.Remove, targetVoxel, grid.Version);
 
         return true;
+    }
+
+    /// <summary>
+    /// Clears all obstacles from the specified voxel.
+    /// </summary>
+    /// <param name="grid"></param>
+    /// <param name="targetVoxel"></param>
+    public static void ClearObstacles(this VoxelGrid grid, Voxel targetVoxel)
+    {
+        if (targetVoxel.ObstacleCount == 0)
+            return;
+
+        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+
+        lock (gridLock)
+        {
+            if (targetVoxel.ObstacleTracker != null)
+            {
+                SwiftHashSetPool<BoundsKey>.Shared.Release(targetVoxel.ObstacleTracker);
+                targetVoxel.ObstacleTracker = null;
+            }
+
+            grid.ObstacleCount -= targetVoxel.ObstacleCount;
+            targetVoxel.ObstacleCount = 0;
+            grid.IncrementVersion();
+        }
+
+        NotifyObstacleChange(GridChange.Remove, targetVoxel, grid.Version);
     }
 
     #endregion

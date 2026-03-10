@@ -4,6 +4,8 @@ using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace GridForge.Blockers;
 
@@ -12,6 +14,9 @@ namespace GridForge.Blockers;
 /// </summary>
 public abstract class Blocker : IBlocker
 {
+    private static readonly object _gridWatcherLock = new object();
+    private static readonly SwiftHashSet<Blocker> _registeredBlockers = new SwiftHashSet<Blocker>();
+
     /// <summary>
     /// Unique token representing this blockage instance.
     /// </summary>
@@ -48,9 +53,20 @@ public abstract class Blocker : IBlocker
     protected SwiftList<GlobalVoxelIndex> _cachedCoveredVoxels;
 
     /// <summary>
+    /// Grid indices currently covered by this blocker.
+    /// </summary>
+    private readonly SwiftHashSet<uint> _watchedGridIndices = new SwiftHashSet<uint>();
+
+    /// <summary>
     /// Event triggered when a blockage is added or removed.
     /// </summary>
     public static event Action<GridChange, Vector3d, Vector3d> OnBlockageChanged;
+
+    static Blocker()
+    {
+        GlobalGridManager.OnActiveGridChange += HandleGlobalGridChange;
+        GlobalGridManager.OnReset += HandleGlobalReset;
+    }
 
     /// <summary>
     /// Initializes a new blocker instance.
@@ -71,14 +87,14 @@ public abstract class Blocker : IBlocker
     /// <param name="status"></param>
     public virtual void ToggleStatus(bool status)
     {
-        if (!status && IsBlocking)
+        if (!status)
         {
-            RemoveBlockage();
+            RemoveBlockageCore(keepWatching: false);
             IsActive = false;
             return;
         }
 
-        if (status && !IsBlocking)
+        if (!IsBlocking)
         {
             IsActive = true;
             ApplyBlockage();
@@ -101,14 +117,20 @@ public abstract class Blocker : IBlocker
         if (CacheCoveredVoxels)
             _cachedCoveredVoxels ??= new SwiftList<GlobalVoxelIndex>();
 
+        RegisterGridWatcher();
         _cachedCoveredVoxels?.Clear();
+        _watchedGridIndices.Clear();
 
         bool hasCoverage = true;
+        bool foundCoverage = false;
         // Iterate over all affected voxels and apply obstacles
         foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(CacheMin, CacheMax))
         {
             if (covered.Voxels.Count <= 0)
                 continue;
+
+            foundCoverage = true;
+            _watchedGridIndices.Add(covered.Grid.GlobalIndex);
 
             foreach (Voxel voxel in covered.Voxels)
             {
@@ -123,11 +145,16 @@ public abstract class Blocker : IBlocker
             }
         }
 
-        if (hasCoverage)
+        IsBlocking = foundCoverage && hasCoverage;
+
+        if (IsBlocking)
         {
-            IsBlocking = true;
             NotifyBlockageChanged(GridChange.Add);
+            return;
         }
+
+        if (!foundCoverage)
+            BlockageToken = default;
     }
 
     /// <summary>
@@ -135,8 +162,19 @@ public abstract class Blocker : IBlocker
     /// </summary>
     public virtual void RemoveBlockage()
     {
+        RemoveBlockageCore(keepWatching: false);
+    }
+
+    private void RemoveBlockageCore(bool keepWatching)
+    {
         if (!IsBlocking)
+        {
+            _cachedCoveredVoxels?.Clear();
+            _watchedGridIndices.Clear();
+            if (!keepWatching || !IsActive)
+                UnregisterGridWatcher();
             return;
+        }
 
         if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
@@ -155,6 +193,10 @@ public abstract class Blocker : IBlocker
         BlockageToken = default;
         IsBlocking = false;
         _cachedCoveredVoxels?.Clear();
+        _watchedGridIndices.Clear();
+
+        if (!keepWatching || !IsActive)
+            UnregisterGridWatcher();
 
         NotifyBlockageChanged(GridChange.Remove);
     }
@@ -207,15 +249,94 @@ public abstract class Blocker : IBlocker
     /// </summary>
     public virtual void Reset()
     {
-        if (IsBlocking)
-            RemoveBlockage();
+        RemoveBlockageCore(keepWatching: false);
 
         CacheCoveredVoxels = false;
         _cachedCoveredVoxels = null;
+        _watchedGridIndices.Clear();
 
         IsActive = false;
         CacheMin = Vector3d.Zero;
         CacheMax = Vector3d.Zero;
         BlockageToken = default;
+    }
+
+    private void ReapplyBlockage()
+    {
+        if (!IsActive)
+            return;
+
+        RemoveBlockageCore(keepWatching: true);
+        ApplyBlockage();
+    }
+
+    private void RegisterGridWatcher()
+    {
+        lock (_gridWatcherLock)
+            _registeredBlockers.Add(this);
+    }
+
+    private void UnregisterGridWatcher()
+    {
+        lock (_gridWatcherLock)
+            _registeredBlockers.Remove(this);
+    }
+
+    private bool ShouldReactToGridChange(GridChange change, uint gridIndex)
+    {
+        if (!IsActive)
+            return false;
+
+        if (change == GridChange.Remove)
+            return _watchedGridIndices.Contains(gridIndex);
+
+        if (!GlobalGridManager.TryGetGrid((int)gridIndex, out VoxelGrid grid))
+            return false;
+
+        return CacheMax.x >= grid.BoundsMin.x
+            && CacheMin.x <= grid.BoundsMax.x
+            && CacheMax.y >= grid.BoundsMin.y
+            && CacheMin.y <= grid.BoundsMax.y
+            && CacheMax.z >= grid.BoundsMin.z
+            && CacheMin.z <= grid.BoundsMax.z;
+    }
+
+    private static void HandleGlobalGridChange(GridChange change, uint gridIndex)
+    {
+        Blocker[] blockers;
+        lock (_gridWatcherLock)
+            blockers = _registeredBlockers.ToArray();
+
+        foreach (Blocker blocker in blockers)
+        {
+            if (!blocker.ShouldReactToGridChange(change, gridIndex))
+                continue;
+
+            blocker.ReapplyBlockage();
+        }
+    }
+
+    private static void HandleGlobalReset()
+    {
+        Blocker[] blockers;
+        lock (_gridWatcherLock)
+            blockers = _registeredBlockers.ToArray();
+
+        foreach (Blocker blocker in blockers)
+        {
+            if (!blocker.IsActive)
+            {
+                blocker.UnregisterGridWatcher();
+                continue;
+            }
+
+            blocker.IsBlocking = false;
+            blocker.BlockageToken = default;
+            blocker._cachedCoveredVoxels?.Clear();
+            blocker._watchedGridIndices.Clear();
+        }
+
+        lock (_gridWatcherLock)
+            _registeredBlockers.Clear();
     }
 }
