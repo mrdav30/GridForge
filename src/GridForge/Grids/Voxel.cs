@@ -213,21 +213,6 @@ public class Voxel : IEquatable<Voxel>
     #region Partition Management
 
     /// <summary>
-    /// Generates a unique key for a partition based on the voxel's spawn token and partition name.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int GeneratePartitionKey(int voxelToken, string partitionName) =>
-        voxelToken ^ partitionName.GetHashCode();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetPartitionKey<T>(int voxelToken) where T : IVoxelPartition =>
-        GeneratePartitionKey(voxelToken, typeof(T).Name);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int GetPartitionKey<T>(int voxelToken, T partition) where T : IVoxelPartition =>
-        GeneratePartitionKey(voxelToken, partition.GetType().Name);
-
-    /// <summary>
     /// Adds a partition to this voxel, allowing specialized behaviors.
     /// </summary>
     public bool TryAddPartition(IVoxelPartition partition)
@@ -235,25 +220,29 @@ public class Voxel : IEquatable<Voxel>
         if (partition == null)
             return false;
 
-        string partitionName = partition.GetType().Name;
-        int key = GetPartitionKey(SpawnToken, partition);
+        Type partitionType = partition.GetType();
+        string partitionName = partitionType.Name;
 
         lock (_partitionLock)
         {
-            if (!_partitionProvider.TryAdd(key, partition))
+            if (!_partitionProvider.TryAdd(partitionType, partition))
                 return false;
         }
 
         try
         {
+            partition.SetParentIndex(GlobalIndex);
             partition.OnAddToVoxel(this);
+            return true;
         }
         catch (Exception ex)
         {
-            GridForgeLogger.Error($"Error attempting to call {nameof(partition.OnAddToVoxel)} on {partitionName}: {ex.Message}");
-        }
+            lock (_partitionLock)
+                _partitionProvider.TryRemove(partitionType, out _);
 
-        return true;
+            GridForgeLogger.Error($"Error attempting to attach partition {partitionName}: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -261,12 +250,12 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     public bool TryRemovePartition<T>() where T : IVoxelPartition
     {
-        string partitionName = typeof(T).Name;
-        int key = GeneratePartitionKey(SpawnToken, partitionName);
+        Type partitionType = typeof(T);
+        string partitionName = partitionType.Name;
 
         IVoxelPartition partition = null;
         lock (_partitionLock)
-            _partitionProvider.TryRemove(key, out partition);
+            _partitionProvider.TryRemove(partitionType, out partition);
 
         if (partition == null)
         {
@@ -293,7 +282,7 @@ public class Voxel : IEquatable<Voxel>
     public bool HasPartition<T>() where T : IVoxelPartition
     {
         lock (_partitionLock)
-            return _partitionProvider.Has<T>(GeneratePartitionKey(SpawnToken, typeof(T).Name));
+            return _partitionProvider.Has<T>();
     }
 
     /// <summary>
@@ -303,7 +292,7 @@ public class Voxel : IEquatable<Voxel>
     public bool TryGetPartition<T>(out T partition) where T : IVoxelPartition
     {
         lock (_partitionLock)
-            return _partitionProvider.TryGet(GeneratePartitionKey(SpawnToken, typeof(T).Name), out partition);
+            return _partitionProvider.TryGet(out partition);
     }
 
     /// <summary>
@@ -313,7 +302,7 @@ public class Voxel : IEquatable<Voxel>
     public T GetPartitionOrDefault<T>() where T : class, IVoxelPartition
     {
         lock (_partitionLock)
-            return TryGetPartition(out T partition) ? partition : null;
+            return _partitionProvider.TryGet(out T partition) ? partition : null;
     }
 
     #endregion

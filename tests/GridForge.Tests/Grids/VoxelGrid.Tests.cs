@@ -6,9 +6,9 @@ using Xunit;
 namespace GridForge.Grids.Tests;
 
 [Collection("GridForgeCollection")]
-public class GridTests : IDisposable
+public class VoxelGridTests : IDisposable
 {
-    public GridTests()
+    public VoxelGridTests()
     {
         if (GlobalGridManager.IsActive)
             GlobalGridManager.Reset();
@@ -112,16 +112,14 @@ public class GridTests : IDisposable
         Assert.True(grid1.NeighborCount >= 1);
 
         // get the direction before removal
-        SpatialDirection neighborDirection = VoxelGrid.GetNeighborDirection(grid1, grid2);
+        int neighborIndex = (int)VoxelGrid.GetNeighborDirection(grid1, grid2);
 
         GlobalGridManager.TryRemoveGrid(grid2.GlobalIndex);
 
         if (grid1.Neighbors != null)
         {
-            if (grid1.Neighbors.ContainsKey(neighborDirection))
-                Assert.DoesNotContain(grid2.GlobalIndex, grid1.Neighbors[neighborDirection]);
-            else
-                Assert.DoesNotContain(neighborDirection, grid1.Neighbors);
+            if (grid1.Neighbors.ContainsKey(neighborIndex))
+                Assert.DoesNotContain(grid2.GlobalIndex, grid1.Neighbors[neighborIndex]);
         }
         else
             Assert.False(grid1.IsConjoined);

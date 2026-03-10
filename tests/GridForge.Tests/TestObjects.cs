@@ -7,13 +7,50 @@ namespace GridForge.Grids.Tests;
 
 public class TestPartition : IVoxelPartition
 {
-    public GlobalVoxelIndex GlobalIndex { get; }
+    public GlobalVoxelIndex GlobalIndex { get; private set; }
 
-    public void SetParentIndex(GlobalVoxelIndex globalIndex) { }
+    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    {
+        GlobalIndex = globalIndex;
+    }
 
     public void OnAddToVoxel(Voxel voxel) { }
 
     public void OnRemoveFromVoxel(Voxel voxel) { }
+}
+
+public static class PartitionFamilyA
+{
+    public sealed class SharedPartition : IVoxelPartition
+    {
+        public GlobalVoxelIndex GlobalIndex { get; private set; }
+
+        public void SetParentIndex(GlobalVoxelIndex globalIndex)
+        {
+            GlobalIndex = globalIndex;
+        }
+
+        public void OnAddToVoxel(Voxel voxel) { }
+
+        public void OnRemoveFromVoxel(Voxel voxel) { }
+    }
+}
+
+public static class PartitionFamilyB
+{
+    public sealed class SharedPartition : IVoxelPartition
+    {
+        public GlobalVoxelIndex GlobalIndex { get; private set; }
+
+        public void SetParentIndex(GlobalVoxelIndex globalIndex)
+        {
+            GlobalIndex = globalIndex;
+        }
+
+        public void OnAddToVoxel(Voxel voxel) { }
+
+        public void OnRemoveFromVoxel(Voxel voxel) { }
+    }
 }
 
 public class TestOccupant : IVoxelOccupant

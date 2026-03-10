@@ -42,6 +42,17 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void Voxel_Equals_ShouldUseReferenceIdentity()
+    {
+        Voxel first = new Voxel();
+        Voxel second = new Voxel();
+
+        Assert.True(first.Equals(first));
+        Assert.False(first.Equals(second));
+        Assert.NotEqual(0, first.GetHashCode());
+    }
+
+    [Fact]
     public void Voxel_ShouldHandleOccupantsCorrectly()
     {
         var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(10, 0, 10));
@@ -92,7 +103,8 @@ public class VoxelTests : IDisposable
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         var partition = new TestPartition();
-        voxel.TryAddPartition(partition);
+        Assert.True(voxel.TryAddPartition(partition));
+        Assert.False(voxel.TryAddPartition(new TestPartition()));
 
         Assert.True(voxel.TryGetPartition<TestPartition>(out _));
 
@@ -102,6 +114,41 @@ public class VoxelTests : IDisposable
 
         voxel.TryRemovePartition<TestPartition>();
         Assert.False(voxel.TryGetPartition<TestPartition>(out _));
+    }
+
+    [Fact]
+    public void Voxel_ShouldSetPartitionParentIndex()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        var partition = new TestPartition();
+
+        Assert.True(voxel.TryAddPartition(partition));
+        Assert.Equal(voxel.GlobalIndex, partition.GlobalIndex);
+    }
+
+    [Fact]
+    public void Voxel_ShouldAllowDistinctConcretePartitionsWithSameTypeName()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        var partitionA = new PartitionFamilyA.SharedPartition();
+        var partitionB = new PartitionFamilyB.SharedPartition();
+
+        Assert.True(voxel.TryAddPartition(partitionA));
+        Assert.True(voxel.TryAddPartition(partitionB));
+        Assert.True(voxel.TryGetPartition<PartitionFamilyA.SharedPartition>(out PartitionFamilyA.SharedPartition storedA));
+        Assert.True(voxel.TryGetPartition<PartitionFamilyB.SharedPartition>(out PartitionFamilyB.SharedPartition storedB));
+        Assert.Equal(voxel.GlobalIndex, partitionA.GlobalIndex);
+        Assert.Equal(voxel.GlobalIndex, partitionB.GlobalIndex);
+        Assert.Same(partitionA, storedA);
+        Assert.Same(partitionB, storedB);
     }
 
     [Fact]

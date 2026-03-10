@@ -213,6 +213,10 @@ public class VoxelGrid
         Height = 0;
         Length = 0;
         Size = 0;
+        _scanWidth = 0;
+        _scanHeight = 0;
+        _scanLength = 0;
+        _scanLayerSize = 0;
 
         IsActive = false;
     }
@@ -233,19 +237,20 @@ public class VoxelGrid
     /// </summary>
     private void GenerateScanCells()
     {
-        int scanWidth = ((Width - 1) / ScanCellSize) + 1;
-        int scanHeight = ((Height - 1) / ScanCellSize) + 1;
-        int scanLength = ((Length - 1) / ScanCellSize) + 1;
+        _scanWidth = ((Width - 1) / ScanCellSize) + 1;
+        _scanHeight = ((Height - 1) / ScanCellSize) + 1;
+        _scanLength = ((Length - 1) / ScanCellSize) + 1;
+        _scanLayerSize = _scanWidth * _scanHeight;
 
-        ScanCells = new SwiftDictionary<int, ScanCell>();
+        ScanCells = new SwiftSparseMap<ScanCell>();
 
-        for (int x = 0; x < scanWidth; x++)
+        for (int x = 0; x < _scanWidth; x++)
         {
-            for (int y = 0; y < scanHeight; y++)
+            for (int y = 0; y < _scanHeight; y++)
             {
-                for (int z = 0; z < scanLength; z++)
+                for (int z = 0; z < _scanLength; z++)
                 {
-                    int cellKey = SwiftHashTools.CombineHashCodes(x, y, z);
+                    int cellKey = x + y * _scanWidth + z * _scanLayerSize;
 
                     ScanCell scanCell = Pools.ScanCellPool.Rent();
                     scanCell.Initialize(GlobalIndex, cellKey);
@@ -339,16 +344,17 @@ public class VoxelGrid
     internal bool TryAddGridNeighbor(VoxelGrid neighborGrid)
     {
         SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
+        int neightborIndex = (int)neighborDirection;
 
-        if (neighborDirection == SpatialDirection.None)
+        if (neightborIndex == -1)
             return false;
 
         // Ensure the neighbor array is allocated and store the new neighbor
-        Neighbors ??= new SwiftDictionary<SpatialDirection, SwiftHashSet<int>>();
-        if (!Neighbors.TryGetValue(neighborDirection, out SwiftHashSet<int> neighborSet))
+        Neighbors ??= new SwiftSparseMap<SwiftHashSet<int>>();
+        if (!Neighbors.TryGetValue(neightborIndex, out SwiftHashSet<int> neighborSet))
         {
             neighborSet = SwiftHashSetPool<int>.Shared.Rent();
-            Neighbors.Add(neighborDirection, neighborSet);
+            Neighbors.Add(neightborIndex, neighborSet);
         }
 
         if (!neighborSet.Add(neighborGrid.GlobalIndex))
@@ -373,17 +379,18 @@ public class VoxelGrid
             return false;
 
         SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
-        if (neighborDirection == SpatialDirection.None || !Neighbors.TryGetValue(neighborDirection, out SwiftHashSet<int> neighborSet))
+        var neighborIndex = (int)neighborDirection;
+        if (neighborIndex == -1 || !Neighbors.TryGetValue(neighborIndex, out SwiftHashSet<int> neighborSet))
             return false;
 
         if (!neighborSet.Remove(neighborGrid.GlobalIndex))
             return false;
 
-        if (Neighbors[neighborDirection].Count == 0)
+        if (Neighbors[neighborIndex].Count == 0)
         {
             GridForgeLogger.Info($"Releasing unused neighbor collection.");
-            SwiftHashSetPool<int>.Shared.Release(Neighbors[neighborDirection]);
-            Neighbors.Remove(neighborDirection);
+            SwiftHashSetPool<int>.Shared.Release(Neighbors[neighborIndex]);
+            Neighbors.Remove(neighborIndex);
         }
 
         if (--NeighborCount == 0)
@@ -504,8 +511,12 @@ public class VoxelGrid
         if (!IsConjoined)
             yield break;
 
-        foreach (SwiftHashSet<int> neighborSet in Neighbors.Values)
+        var values = Neighbors.DenseValues;
+        int count = Neighbors.Count;
+
+        for (int i = 0; i < count; i++)
         {
+            SwiftHashSet<int> neighborSet = values[i];
             foreach (int neighborIndex in neighborSet)
             {
                 if (GlobalGridManager.TryGetGrid(neighborIndex, out VoxelGrid neighborGrid))
@@ -703,8 +714,8 @@ public class VoxelGrid
                 voxelIndex.z / ScanCellSize
             );
 
-        int scanCellKey = SwiftHashTools.CombineHashCodes(x, y, z);
-        if (!ScanCells.ContainsKey(scanCellKey))
+        int scanCellKey = GetScanCellKey(x, y, z);
+        if (scanCellKey == -1)
         {
             GridForgeLogger.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
             return -1;
@@ -714,7 +725,23 @@ public class VoxelGrid
     }
 
     /// <summary>
-    /// Retrieves a scan cell from the grid using its hashed key.
+    /// Calculates a unique scan cell key from grid-local scan cell coordinates.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int GetScanCellKey(int x, int y, int z)
+    {
+        if ((uint)x >= (uint)_scanWidth
+            || (uint)y >= (uint)_scanHeight
+            || (uint)z >= (uint)_scanLength)
+        {
+            return -1;
+        }
+
+        return x + y * _scanWidth + z * _scanLayerSize;
+    }
+
+    /// <summary>
+    /// Retrieves a scan cell from the grid using its key.
     /// </summary>
     public bool TryGetScanCell(int key, out ScanCell outScanCell)
     {
