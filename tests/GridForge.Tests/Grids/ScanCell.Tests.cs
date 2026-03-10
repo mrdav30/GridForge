@@ -4,6 +4,8 @@ using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -241,6 +243,105 @@ public class ScanCellTests : IDisposable
         Assert.Contains(occupant2, filteredResults);
         // Should be excluded based on group condition
         Assert.DoesNotContain(occupant3, filteredResults);
+    }
+
+    [Fact]
+    public void ScanCell_ShouldRemainEmptyUntilOccupied()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(15, 0, 15), scanCellSize: 4),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetScanCell(new Vector3d(1, 0, 1), out ScanCell scanCell));
+
+        Assert.False(scanCell.IsOccupied);
+        Assert.Equal(0, scanCell.CellOccupantCount);
+        Assert.Empty(grid.GetOccupants(new Vector3d(1, 0, 1)));
+    }
+
+    [Fact]
+    public void ScanCell_ShouldTrackHighOccupancyWithinSingleCell()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(15, 0, 15), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(2, 0, 2);
+
+        List<TestOccupant> occupants = Enumerable.Range(0, 64)
+            .Select(_ => new TestOccupant(position))
+            .ToList();
+
+        foreach (TestOccupant occupant in occupants)
+            Assert.True(grid.TryAddVoxelOccupant(occupant));
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(position, out ScanCell scanCell));
+        Assert.NotNull(grid.ActiveScanCells);
+        Assert.Single(grid.ActiveScanCells);
+        Assert.Equal(64, voxel.OccupantCount);
+        Assert.Equal(64, scanCell.CellOccupantCount);
+        Assert.Equal(64, grid.GetOccupants(position).Count());
+    }
+
+    [Fact]
+    public void ScanRadius_ShouldRespectOccupantConditionAcrossScanCellBoundaries()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 20), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        TestOccupant leftCellOccupant = new TestOccupant(new Vector3d(7, 0, 7), 1);
+        TestOccupant rightCellOccupant = new TestOccupant(new Vector3d(8, 0, 8), 1);
+        TestOccupant distantOccupant = new TestOccupant(new Vector3d(14, 0, 14), 1);
+
+        grid.TryAddVoxelOccupant(leftCellOccupant);
+        grid.TryAddVoxelOccupant(rightCellOccupant);
+        grid.TryAddVoxelOccupant(distantOccupant);
+
+        List<IVoxelOccupant> filteredResults = ScanManager.ScanRadius(
+            new Vector3d(7.5, 0, 7.5),
+            (Fixed64)2,
+            occupantCondition: occupant => occupant.Position.x >= (Fixed64)8)
+            .ToList();
+
+        Assert.DoesNotContain(leftCellOccupant, filteredResults);
+        Assert.Contains(rightCellOccupant, filteredResults);
+        Assert.DoesNotContain(distantOccupant, filteredResults);
+    }
+
+    [Fact]
+    public void OccupantOperations_ShouldRemainConsistentUnderConcurrentLoad()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(15, 0, 15), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(2, 0, 2);
+
+        TestOccupant[] occupants = Enumerable.Range(0, 128)
+            .Select(_ => new TestOccupant(position))
+            .ToArray();
+        bool[] addResults = new bool[occupants.Length];
+        bool[] removeResults = new bool[occupants.Length];
+
+        Parallel.For(0, occupants.Length, i => addResults[i] = grid.TryAddVoxelOccupant(occupants[i]));
+
+        Assert.All(addResults, Assert.True);
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(position, out ScanCell scanCell));
+        Assert.Equal(128, voxel.OccupantCount);
+        Assert.Equal(128, scanCell.CellOccupantCount);
+
+        Parallel.For(0, occupants.Length, i => removeResults[i] = grid.TryRemoveVoxelOccupant(occupants[i]));
+
+        Assert.All(removeResults, Assert.True);
+        Assert.False(voxel.IsOccupied);
+        Assert.False(scanCell.IsOccupied);
+        Assert.Equal(0, scanCell.CellOccupantCount);
+        Assert.Null(grid.ActiveScanCells);
     }
 
 }

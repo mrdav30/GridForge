@@ -257,4 +257,148 @@ public class VoxelTests : IDisposable
         Assert.Contains(occupant2, occupants);
     }
 
+    [Fact]
+    public void GetNeighbors_ShouldReturnDeterministicDirectionOrderForInteriorVoxel()
+    {
+        var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
+
+        var neighbors = voxel.GetNeighbors(useCache: false).ToList();
+
+        Assert.Equal(SpatialAwareness.DirectionOffsets.Length, neighbors.Count);
+
+        for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
+        {
+            (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
+            Vector3d expectedPosition = voxel.WorldPosition + new Vector3d(offset.x, offset.y, offset.z);
+
+            Assert.Equal((SpatialDirection)i, neighbors[i].Item1);
+            Assert.Equal(expectedPosition, neighbors[i].Item2.WorldPosition);
+        }
+    }
+
+    [Fact]
+    public void GetNeighbors_ShouldReturnOnlyValidDirectionsForCornerVoxel()
+    {
+        var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        var actualDirections = voxel.GetNeighbors(useCache: false)
+            .Select(result => result.Item1)
+            .ToList();
+        var expectedDirections = SpatialAwareness.AllDirections
+            .Where(direction =>
+            {
+                (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[(int)direction];
+                return offset.x >= 0 && offset.y >= 0 && offset.z >= 0;
+            })
+            .ToList();
+
+        Assert.Equal(expectedDirections, actualDirections);
+        Assert.Equal(7, actualDirections.Count);
+    }
+
+    [Fact]
+    public void GetNeighbors_ShouldResolveIdenticallyWithAndWithoutCache()
+    {
+        var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
+
+        foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
+        {
+            bool foundWithoutCache = voxel.TryGetNeighborFromDirection(
+                direction,
+                out Voxel uncachedNeighbor,
+                useCache: false);
+            bool foundWithCache = voxel.TryGetNeighborFromDirection(
+                direction,
+                out Voxel cachedNeighbor,
+                useCache: true);
+
+            Assert.Equal(foundWithoutCache, foundWithCache);
+
+            if (foundWithoutCache)
+                Assert.Same(uncachedNeighbor, cachedNeighbor);
+        }
+    }
+
+    [Fact]
+    public void GetNeighbors_ShouldNotDuplicateResultsWhenCacheIsReused()
+    {
+        var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
+
+        var firstPass = voxel.GetNeighbors(useCache: true).ToList();
+        var secondPass = voxel.GetNeighbors(useCache: true).ToList();
+
+        Assert.Equal(firstPass.Count, secondPass.Count);
+        Assert.Equal(firstPass.Select(result => result.Item1), secondPass.Select(result => result.Item1));
+    }
+
+    [Fact]
+    public void TryGetNeighborFromOffset_ShouldResolveAcrossConjoinedGridBoundary()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort firstGridIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0)),
+            out ushort secondGridIndex));
+
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstGridIndex];
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondGridIndex];
+
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(2, 0, 0), out Voxel adjacentVoxel));
+
+        Assert.True(boundaryVoxel.TryGetNeighborFromOffset((1, 0, 0), out Voxel resolvedNeighbor));
+        Assert.Same(adjacentVoxel, resolvedNeighbor);
+    }
+
+    [Fact]
+    public void TryGetNeighborFromDirection_ShouldHandleInvalidDirectionsGracefully()
+    {
+        Voxel detachedVoxel = new Voxel();
+
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.None, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.West, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromOffset((1, 0, 0), out _));
+    }
+
+    [Fact]
+    public void BoundaryNeighborCache_ShouldRefreshWhenAdjacentGridsLoadAndUnload()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort centerIndex));
+        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+
+        Assert.True(centerGrid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel boundaryVoxel));
+        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out _, useCache: true));
+
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2)),
+            out ushort northEastIndex));
+        VoxelGrid northEastGrid = GlobalGridManager.ActiveGrids[northEastIndex];
+
+        Assert.True(northEastGrid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel expectedNeighbor));
+        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out Voxel cachedNeighbor, useCache: true));
+        Assert.Same(expectedNeighbor, cachedNeighbor);
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(northEastIndex));
+        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out _, useCache: true));
+    }
+
 }
