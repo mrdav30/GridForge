@@ -9,6 +9,7 @@ namespace GridForge.Utility;
 /// <summary>
 /// Used to group query results on a grid to voxel level
 /// </summary>
+// TODO: Consider using a struct of arrays approach if we find performance bottlenecks in this grouping structure.  It seems inefficient to have a list of voxels for each grid, especially if many grids are involved.  A struct of arrays could allow us to store all voxels in a single list and maintain separate index ranges for each grid, reducing overhead and improving cache locality.
 public struct GridVoxelSet
 {
     /// <summary>

@@ -21,7 +21,7 @@ public static class GridOccupantManager
     /// <summary>
     /// Event triggered when an occupant is added or removed.
     /// </summary>
-    public static Action<GridChange, GlobalVoxelIndex> OnOccupantChange;
+    public static event Action<GridChange, GlobalVoxelIndex> OnOccupantChange;
 
     #endregion
 
@@ -204,15 +204,38 @@ public static class GridOccupantManager
     /// </summary>
     private static void NotifyOccupantChange(GridChange change, Voxel targetVoxel)
     {
-        try
+        Action<GridChange, GlobalVoxelIndex> handlers = OnOccupantChange;
+        if (handlers != null)
         {
-            OnOccupantChange?.Invoke(change, targetVoxel.GlobalIndex);
-            targetVoxel.OnOccupantChange?.Invoke(change, targetVoxel);
+            foreach (Action<GridChange, GlobalVoxelIndex> handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(change, targetVoxel.GlobalIndex);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error(
+                        $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+                }
+            }
         }
-        catch (Exception ex)
+
+        Action<GridChange, Voxel> voxelHandlers = targetVoxel.OnOccupantChange;
+        if (voxelHandlers != null)
         {
-            GridForgeLogger.Error(
-                $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+            foreach (Action<GridChange, Voxel> handler in voxelHandlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(change, targetVoxel);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error(
+                        $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+                }
+            }
         }
     }
 

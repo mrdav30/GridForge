@@ -22,7 +22,7 @@ public static class GridObstacleManager
     /// <summary>
     /// Event triggered when an obstacle is added or removed.
     /// </summary>
-    public static Action<GridChange, GlobalVoxelIndex> OnObstacleChange;
+    public static event Action<GridChange, GlobalVoxelIndex> OnObstacleChange;
 
     #endregion
 
@@ -174,17 +174,41 @@ public static class GridObstacleManager
     /// </summary>
     private static void NotifyObstacleChange(GridChange change, Voxel targetVoxel, uint gridVersion)
     {
-        try
+        Action<GridChange, GlobalVoxelIndex> handlers = OnObstacleChange;
+        if (handlers != null)
         {
-            OnObstacleChange?.Invoke(change, targetVoxel.GlobalIndex);
-            targetVoxel.OnObstacleChange?.Invoke(change, targetVoxel);
-            targetVoxel.CachedGridVersion = gridVersion;
+            foreach (Action<GridChange, GlobalVoxelIndex> handler in handlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(change, targetVoxel.GlobalIndex);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error(
+                        $"[Voxel {targetVoxel.GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+                }
+            }
         }
-        catch (Exception ex)
+
+        Action<GridChange, Voxel> voxelHandlers = targetVoxel.OnObstacleChange;
+        if (voxelHandlers != null)
         {
-            GridForgeLogger.Error(
-                $"[Voxel {targetVoxel.GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+            foreach (Action<GridChange, Voxel> handler in voxelHandlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(change, targetVoxel);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error(
+                        $"[Voxel {targetVoxel.GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+                }
+            }
         }
+
+        targetVoxel.CachedGridVersion = gridVersion;
     }
 
     #endregion

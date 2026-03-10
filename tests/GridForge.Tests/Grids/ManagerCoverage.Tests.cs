@@ -20,8 +20,6 @@ public class ManagerCoverageTests : IDisposable
 
     public void Dispose()
     {
-        GridObstacleManager.OnObstacleChange = null;
-        GridOccupantManager.OnOccupantChange = null;
         GlobalGridManager.Reset();
         GC.SuppressFinalize(this);
     }
@@ -152,20 +150,32 @@ public class ManagerCoverageTests : IDisposable
         Vector3d position = new Vector3d(1, 0, 1);
         BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
         TestOccupant occupant = new TestOccupant(position);
+        Action<GridChange, GlobalVoxelIndex> obstacleHandler = (_, _) => throw new InvalidOperationException("obstacle event");
+        Action<GridChange, GlobalVoxelIndex> occupantHandler = (_, _) => throw new InvalidOperationException("occupant event");
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
-        GridObstacleManager.OnObstacleChange = (_, _) => throw new InvalidOperationException("obstacle event");
-        voxel.OnObstacleChange = (_, _) => throw new InvalidOperationException("voxel obstacle event");
+        try
+        {
+            GridObstacleManager.OnObstacleChange += obstacleHandler;
+            voxel.OnObstacleChange = (_, _) => throw new InvalidOperationException("voxel obstacle event");
 
-        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
-        Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
+            Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+            Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
 
-        GridOccupantManager.OnOccupantChange = (_, _) => throw new InvalidOperationException("occupant event");
-        voxel.OnOccupantChange = (_, _) => throw new InvalidOperationException("voxel occupant event");
+            GridOccupantManager.OnOccupantChange += occupantHandler;
+            voxel.OnOccupantChange = (_, _) => throw new InvalidOperationException("voxel occupant event");
 
-        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
-        Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+            Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+            Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+        }
+        finally
+        {
+            GridObstacleManager.OnObstacleChange -= obstacleHandler;
+            GridOccupantManager.OnOccupantChange -= occupantHandler;
+            voxel.OnObstacleChange = null;
+            voxel.OnOccupantChange = null;
+        }
     }
 
     [Fact]

@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 
 namespace GridForge;
 
+// TODO: move this into a global package for use across all projects
+
 /// <summary>
 /// Provides a configurable logging system for GridForge with support for log levels, formatting, and file output.
 /// </summary>
@@ -24,12 +26,32 @@ public static class GridForgeLogger
     /// <summary>
     /// Delegate for handling log messages. Defaults to <see cref="DefaultLogHandler"/>.
     /// </summary>
-    public static Action<LogLevel, string, string> LogHandler = DefaultLogHandler;
+    private static Action<LogLevel, string, string> _logHandler = DefaultLogHandler;
+
+    /// <summary>
+    /// Gets or sets the delegate used to write formatted log messages.
+    /// Assigning <see langword="null"/> restores <see cref="DefaultLogHandler"/>.
+    /// </summary>
+    public static Action<LogLevel, string, string> LogHandler
+    {
+        get => _logHandler;
+        set => _logHandler = value ?? DefaultLogHandler;
+    }
 
     /// <summary>
     /// Delegate for custom log formatting. Defaults to <see cref="DefaultLogFormatter"/>.
     /// </summary>
-    public static Func<LogLevel, string, string, string> CustomFormatter = DefaultLogFormatter;
+    private static Func<LogLevel, string, string, string> _customFormatter = DefaultLogFormatter;
+
+    /// <summary>
+    /// Gets or sets the formatter used to transform log arguments into a final log entry.
+    /// Assigning <see langword="null"/> restores <see cref="DefaultLogFormatter"/>.
+    /// </summary>
+    public static Func<LogLevel, string, string, string> CustomFormatter
+    {
+        get => _customFormatter;
+        set => _customFormatter = value ?? DefaultLogFormatter;
+    }
 
     /// <summary>
     /// Gets or sets the file path for logging. If null, file logging is disabled.

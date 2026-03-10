@@ -303,13 +303,13 @@ public class GlobalGridManagerTests : IDisposable
     [Fact]
     public void GridNotifications_ShouldSwallowSubscriberExceptions()
     {
-        Action<GridChange, uint> originalGridChange = GlobalGridManager.OnActiveGridChange;
-        Action originalReset = GlobalGridManager.OnReset;
+        Action<GridChange, uint> gridChangeHandler = (_, _) => throw new InvalidOperationException("grid change");
+        Action resetHandler = () => throw new InvalidOperationException("reset");
 
         try
         {
-            GlobalGridManager.OnActiveGridChange = (_, _) => throw new InvalidOperationException("grid change");
-            GlobalGridManager.OnReset = () => throw new InvalidOperationException("reset");
+            GlobalGridManager.OnActiveGridChange += gridChangeHandler;
+            GlobalGridManager.OnReset += resetHandler;
 
             Assert.True(GlobalGridManager.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
@@ -322,8 +322,8 @@ public class GlobalGridManagerTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.OnActiveGridChange = originalGridChange;
-            GlobalGridManager.OnReset = originalReset;
+            GlobalGridManager.OnActiveGridChange -= gridChangeHandler;
+            GlobalGridManager.OnReset -= resetHandler;
         }
     }
 }

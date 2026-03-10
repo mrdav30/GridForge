@@ -85,19 +85,19 @@ public static class GlobalGridManager
 
     #endregion
 
-    #region Action Delegates
+    #region Events
 
     /// <summary>
     /// Event triggers when grid is added or removed.
     /// Allows external systems to react to the active grid mutation.
     /// </summary>
-    public static Action<GridChange, uint> OnActiveGridChange;
+    public static event Action<GridChange, uint> OnActiveGridChange;
 
     /// <summary>
     /// Event triggered when the GlobalGridManager is reset.
     /// Allows external systems to react to a full grid wipe.
     /// </summary>
-    public static Action OnReset;
+    public static event Action OnReset;
 
     #endregion
 
@@ -145,13 +145,20 @@ public static class GlobalGridManager
             return;
         }
 
-        try
+        Action resetHandlers = OnReset;
+        if (resetHandlers != null)
         {
-            OnReset?.Invoke(); // Fire off before we remove the reference
-        }
-        catch (Exception ex)
-        {
-            GridForgeLogger.Error($"Reset notification error: {ex.Message}");
+            foreach (Action handler in resetHandlers.GetInvocationList())
+            {
+                try
+                {
+                    handler(); // Fire off before we remove the reference
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error($"Reset notification error: {ex.Message}");
+                }
+            }
         }
 
         if (ActiveGrids != null)
@@ -326,13 +333,20 @@ public static class GlobalGridManager
 
     private static void NotifyActiveGridChange(GridChange change, uint index)
     {
-        try
+        Action<GridChange, uint> handlers = OnActiveGridChange;
+        if (handlers == null)
+            return;
+
+        foreach (Action<GridChange, uint> handler in handlers.GetInvocationList())
         {
-            OnActiveGridChange?.Invoke(change, index);
-        }
-        catch (Exception ex)
-        {
-            GridForgeLogger.Error($"[Grid {index}] notification error: {ex.Message} | Change: {change}");
+            try
+            {
+                handler(change, index);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Grid {index}] notification error: {ex.Message} | Change: {change}");
+            }
         }
     }
 
