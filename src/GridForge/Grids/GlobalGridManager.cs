@@ -585,16 +585,14 @@ public static class GlobalGridManager
         Debug.Assert(gridOffset.y >= -1 && gridOffset.y <= 1, "Invalid y offset.");
         Debug.Assert(gridOffset.z >= -1 && gridOffset.z <= 1, "Invalid z offset.");
 
-        // Convert the 3D offset into a 3x3x3 index (0 to 26)
-        int index = ((gridOffset.z + 1) * 3 + (gridOffset.y + 1)) * 3 + (gridOffset.x + 1);
-
-        // The center voxel (itself) should not be assigned a direction
-        if (index == 13)
+        if (gridOffset == (0, 0, 0))
             return SpatialDirection.None;
 
-        // Ensure index is within the defined LinearDirection values
-        if (index >= 0 && index < Enum.GetValues(typeof(SpatialDirection)).Length)
-            return (SpatialDirection)index;
+        for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
+        {
+            if (SpatialAwareness.DirectionOffsets[i] == gridOffset)
+                return (SpatialDirection)i;
+        }
 
         return SpatialDirection.None;
     }
