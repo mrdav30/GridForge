@@ -4,6 +4,7 @@ using SwiftCollections;
 using SwiftCollections.Pool;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids;
@@ -122,6 +123,9 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
+    private Action<GridChange, Voxel> _onObstacleChange;
+    private Action<GridChange, Voxel> _onOccupantChange;
+
     #endregion
 
     #region Events
@@ -129,12 +133,20 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when an obstacle is added or removed.
     /// </summary>
-    public Action<GridChange, Voxel> OnObstacleChange;
+    public event Action<GridChange, Voxel> OnObstacleChange
+    {
+        add => _onObstacleChange += value;
+        remove => _onObstacleChange -= value;
+    }
 
     /// <summary>
     /// Event triggered when an occupant is added or removed.
     /// </summary>
-    public Action<GridChange, Voxel> OnOccupantChange;
+    public event Action<GridChange, Voxel> OnOccupantChange
+    {
+        add => _onOccupantChange += value;
+        remove => _onOccupantChange -= value;
+    }
 
     #endregion
 
@@ -226,8 +238,55 @@ public class Voxel : IEquatable<Voxel>
         ScanCellKey = 0;
 
         OccupantCount = 0;
+        _onObstacleChange = null;
+        _onOccupantChange = null;
 
         IsAllocated = false;
+    }
+
+    #endregion
+
+    #region Notifications
+
+    internal void NotifyObstacleChange(GridChange change)
+    {
+        Action<GridChange, Voxel> handlers = _onObstacleChange;
+        if (handlers == null)
+            return;
+
+        var invocationList = handlers.GetInvocationList().Cast<Action<GridChange, Voxel>>();
+        foreach (Action<GridChange, Voxel> handler in invocationList)
+        {
+            try
+            {
+                handler(change, this);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error(
+                    $"[Voxel {GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+            }
+        }
+    }
+
+    internal void NotifyOccupantChange(GridChange change)
+    {
+        Action<GridChange, Voxel> handlers = _onOccupantChange;
+        if (handlers == null)
+            return;
+
+        foreach (Delegate handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action<GridChange, Voxel>)handler)(change, this);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error(
+                    $"[Voxel {GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+            }
+        }
     }
 
     #endregion

@@ -191,22 +191,7 @@ public static class GridObstacleManager
             }
         }
 
-        Action<GridChange, Voxel> voxelHandlers = targetVoxel.OnObstacleChange;
-        if (voxelHandlers != null)
-        {
-            foreach (Action<GridChange, Voxel> handler in voxelHandlers.GetInvocationList())
-            {
-                try
-                {
-                    handler(change, targetVoxel);
-                }
-                catch (Exception ex)
-                {
-                    GridForgeLogger.Error(
-                        $"[Voxel {targetVoxel.GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
-                }
-            }
-        }
+        targetVoxel.NotifyObstacleChange(change);
 
         targetVoxel.CachedGridVersion = gridVersion;
     }

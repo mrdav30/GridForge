@@ -221,22 +221,7 @@ public static class GridOccupantManager
             }
         }
 
-        Action<GridChange, Voxel> voxelHandlers = targetVoxel.OnOccupantChange;
-        if (voxelHandlers != null)
-        {
-            foreach (Action<GridChange, Voxel> handler in voxelHandlers.GetInvocationList())
-            {
-                try
-                {
-                    handler(change, targetVoxel);
-                }
-                catch (Exception ex)
-                {
-                    GridForgeLogger.Error(
-                        $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
-                }
-            }
-        }
+        targetVoxel.NotifyOccupantChange(change);
     }
 
     #endregion

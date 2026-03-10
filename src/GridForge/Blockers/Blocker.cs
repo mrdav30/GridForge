@@ -206,13 +206,21 @@ public abstract class Blocker : IBlocker
     /// </summary>
     protected virtual void NotifyBlockageChanged(GridChange change)
     {
-        try
+        Action<GridChange, Vector3d, Vector3d> handlers = OnBlockageChanged;
+        if (handlers == null)
+            return;
+
+        foreach (Delegate handler in handlers.GetInvocationList())
         {
-            OnBlockageChanged?.Invoke(change, CacheMin, CacheMax);
-        }
-        catch (Exception ex)
-        {
-            GridForgeLogger.Error($"Blockage notification: {ex.Message} | Change: {change} | Bounds: {CacheMin} -> {CacheMax}");
+            try
+            {
+                ((Action<GridChange, Vector3d, Vector3d>)handler)(change, CacheMin, CacheMax);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error(
+                    $"Blockage notification: {ex.Message} | Change: {change} | Bounds: {CacheMin} -> {CacheMax}");
+            }
         }
     }
 
