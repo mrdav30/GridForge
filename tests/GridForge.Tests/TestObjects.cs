@@ -19,6 +19,40 @@ public class TestPartition : IVoxelPartition
     public void OnRemoveFromVoxel(Voxel voxel) { }
 }
 
+public sealed class ThrowOnAddPartition : IVoxelPartition
+{
+    public GlobalVoxelIndex GlobalIndex { get; private set; }
+
+    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    {
+        GlobalIndex = globalIndex;
+    }
+
+    public void OnAddToVoxel(Voxel voxel)
+    {
+        throw new InvalidOperationException("add failure");
+    }
+
+    public void OnRemoveFromVoxel(Voxel voxel) { }
+}
+
+public sealed class ThrowOnRemovePartition : IVoxelPartition
+{
+    public GlobalVoxelIndex GlobalIndex { get; private set; }
+
+    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    {
+        GlobalIndex = globalIndex;
+    }
+
+    public void OnAddToVoxel(Voxel voxel) { }
+
+    public void OnRemoveFromVoxel(Voxel voxel)
+    {
+        throw new InvalidOperationException("remove failure");
+    }
+}
+
 public static class PartitionFamilyA
 {
     public sealed class SharedPartition : IVoxelPartition

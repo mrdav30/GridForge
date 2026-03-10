@@ -150,32 +150,55 @@ public class ManagerCoverageTests : IDisposable
         Vector3d position = new Vector3d(1, 0, 1);
         BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
         TestOccupant occupant = new TestOccupant(position);
-        Action<GridChange, GlobalVoxelIndex> obstacleHandler = (_, _) => throw new InvalidOperationException("obstacle event");
-        Action<GridChange, GlobalVoxelIndex> occupantHandler = (_, _) => throw new InvalidOperationException("occupant event");
+        int obstacleManagerNotifications = 0;
+        int obstacleVoxelNotifications = 0;
+        int occupantManagerNotifications = 0;
+        int occupantVoxelNotifications = 0;
+        Action<GridChange, GlobalVoxelIndex> throwingObstacleHandler = (_, _) => throw new InvalidOperationException("obstacle event");
+        Action<GridChange, GlobalVoxelIndex> recordingObstacleHandler = (_, _) => obstacleManagerNotifications++;
+        Action<GridChange, GlobalVoxelIndex> throwingOccupantHandler = (_, _) => throw new InvalidOperationException("occupant event");
+        Action<GridChange, GlobalVoxelIndex> recordingOccupantHandler = (_, _) => occupantManagerNotifications++;
+        Action<GridChange, Voxel> throwingVoxelObstacleHandler = (_, _) => throw new InvalidOperationException("voxel obstacle event");
+        Action<GridChange, Voxel> recordingVoxelObstacleHandler = (_, _) => obstacleVoxelNotifications++;
+        Action<GridChange, Voxel> throwingVoxelOccupantHandler = (_, _) => throw new InvalidOperationException("voxel occupant event");
+        Action<GridChange, Voxel> recordingVoxelOccupantHandler = (_, _) => occupantVoxelNotifications++;
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
         try
         {
-            GridObstacleManager.OnObstacleChange += obstacleHandler;
-            voxel.OnObstacleChange = (_, _) => throw new InvalidOperationException("voxel obstacle event");
+            GridObstacleManager.OnObstacleChange += throwingObstacleHandler;
+            GridObstacleManager.OnObstacleChange += recordingObstacleHandler;
+            voxel.OnObstacleChange += throwingVoxelObstacleHandler;
+            voxel.OnObstacleChange += recordingVoxelObstacleHandler;
 
             Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
             Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
 
-            GridOccupantManager.OnOccupantChange += occupantHandler;
-            voxel.OnOccupantChange = (_, _) => throw new InvalidOperationException("voxel occupant event");
+            GridOccupantManager.OnOccupantChange += throwingOccupantHandler;
+            GridOccupantManager.OnOccupantChange += recordingOccupantHandler;
+            voxel.OnOccupantChange += throwingVoxelOccupantHandler;
+            voxel.OnOccupantChange += recordingVoxelOccupantHandler;
 
             Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
             Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
         }
         finally
         {
-            GridObstacleManager.OnObstacleChange -= obstacleHandler;
-            GridOccupantManager.OnOccupantChange -= occupantHandler;
-            voxel.OnObstacleChange = null;
-            voxel.OnOccupantChange = null;
+            GridObstacleManager.OnObstacleChange -= throwingObstacleHandler;
+            GridObstacleManager.OnObstacleChange -= recordingObstacleHandler;
+            GridOccupantManager.OnOccupantChange -= throwingOccupantHandler;
+            GridOccupantManager.OnOccupantChange -= recordingOccupantHandler;
+            voxel.OnObstacleChange -= throwingVoxelObstacleHandler;
+            voxel.OnObstacleChange -= recordingVoxelObstacleHandler;
+            voxel.OnOccupantChange -= throwingVoxelOccupantHandler;
+            voxel.OnOccupantChange -= recordingVoxelOccupantHandler;
         }
+
+        Assert.Equal(2, obstacleManagerNotifications);
+        Assert.Equal(2, obstacleVoxelNotifications);
+        Assert.Equal(2, occupantManagerNotifications);
+        Assert.Equal(2, occupantVoxelNotifications);
     }
 
     [Fact]

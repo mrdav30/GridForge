@@ -118,6 +118,68 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void TryAddPartition_ShouldRejectDuplicateTypeAndRetainOriginalPartition()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        TestPartition originalPartition = new TestPartition();
+        TestPartition duplicatePartition = new TestPartition();
+
+        Assert.True(voxel.TryAddPartition(originalPartition));
+        Assert.False(voxel.TryAddPartition(duplicatePartition));
+        Assert.True(voxel.TryGetPartition<TestPartition>(out TestPartition storedPartition));
+        Assert.Same(originalPartition, storedPartition);
+    }
+
+    [Fact]
+    public void PartitionQueries_ShouldReturnGracefulDefaultsWhenPartitionIsAbsent()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        Assert.False(voxel.HasPartition<TestPartition>());
+        Assert.False(voxel.TryGetPartition<TestPartition>(out _));
+        Assert.Null(voxel.GetPartitionOrDefault<TestPartition>());
+        Assert.False(voxel.TryRemovePartition<TestPartition>());
+    }
+
+    [Fact]
+    public void TryAddPartition_ShouldRollbackProviderStateWhenOnAddThrows()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        ThrowOnAddPartition partition = new ThrowOnAddPartition();
+
+        Assert.False(voxel.TryAddPartition(partition));
+        Assert.False(voxel.HasPartition<ThrowOnAddPartition>());
+        Assert.Null(voxel.GetPartitionOrDefault<ThrowOnAddPartition>());
+    }
+
+    [Fact]
+    public void TryRemovePartition_ShouldRemovePartitionEvenWhenOnRemoveThrows()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+
+        ThrowOnRemovePartition partition = new ThrowOnRemovePartition();
+
+        Assert.True(voxel.TryAddPartition(partition));
+        Assert.True(voxel.TryRemovePartition<ThrowOnRemovePartition>());
+        Assert.False(voxel.HasPartition<ThrowOnRemovePartition>());
+        Assert.Null(voxel.GetPartitionOrDefault<ThrowOnRemovePartition>());
+    }
+
+    [Fact]
     public void Voxel_ShouldSetPartitionParentIndex()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));

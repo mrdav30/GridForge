@@ -3,6 +3,7 @@ using GridForge.Configuration;
 using GridForge.Spatial;
 using System;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -185,6 +186,39 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void TryGetVoxelIndex_ShouldIncludeExactBoundsMaxAndRejectOutsidePositions()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
+            out ushort index));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+
+        Assert.True(grid.TryGetVoxelIndex(new Vector3d(2, 0, 2), out VoxelIndex maxIndex));
+        Assert.Equal(new VoxelIndex(2, 0, 2), maxIndex);
+        Assert.True(grid.IsVoxelAllocated(maxIndex.x, maxIndex.y, maxIndex.z));
+
+        Assert.False(grid.TryGetVoxelIndex(new Vector3d(2.01, 0, 2), out _));
+        Assert.False(grid.TryGetVoxelIndex(new Vector3d(2, 0, 2.01), out _));
+        Assert.False(grid.IsVoxelAllocated(3, 0, 2));
+        Assert.False(grid.TryGetVoxel(new VoxelIndex(3, 0, 2), out _));
+    }
+
+    [Fact]
+    public void ScanCellQueries_ShouldReturnGracefulDefaultsForInvalidKeysAndIndices()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 2),
+            out ushort index));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+
+        Assert.Equal(-1, grid.GetScanCellKey(new Vector3d(8, 0, 8)));
+        Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(99, 0, 99)));
+        Assert.False(grid.TryGetScanCell(-1, out _));
+        Assert.False(grid.TryGetScanCell(999, out _));
+        Assert.False(grid.TryGetScanCell(new VoxelIndex(99, 0, 99), out _));
+    }
+
+    [Fact]
     public void GetActiveScanCells_ShouldReturnEmptyWhenGridHasNoOccupants()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
@@ -193,6 +227,32 @@ public class VoxelGridTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
         Assert.Empty(grid.GetActiveScanCells());
+    }
+
+    [Fact]
+    public void GetActiveScanCells_ShouldReturnOnlyOccupiedCells()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 2),
+            out ushort index));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        TestOccupant firstOccupant = new TestOccupant(new Vector3d(0, 0, 0));
+        TestOccupant secondOccupant = new TestOccupant(new Vector3d(4, 0, 4));
+
+        Assert.True(grid.TryAddVoxelOccupant(firstOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(secondOccupant));
+        Assert.True(grid.TryGetScanCell(firstOccupant.Position, out ScanCell firstCell));
+        Assert.True(grid.TryGetScanCell(secondOccupant.Position, out ScanCell secondCell));
+
+        ScanCell[] activeCells = grid.GetActiveScanCells().ToArray();
+
+        Assert.Equal(2, activeCells.Length);
+        Assert.All(activeCells, scanCell => Assert.True(scanCell.IsOccupied));
+        Assert.Contains(firstCell, activeCells);
+        Assert.Contains(secondCell, activeCells);
+        Assert.DoesNotContain(
+            activeCells,
+            scanCell => scanCell.CellKey == grid.GetScanCellKey(new Vector3d(2, 0, 2)));
     }
 
     [Theory]
@@ -313,6 +373,52 @@ public class VoxelGridTests : IDisposable
 
         Assert.Equal(SpatialDirection.East, VoxelGrid.GetNeighborDirection(centerGrid, eastGrid));
         Assert.Equal(SpatialDirection.North, VoxelGrid.GetNeighborDirection(centerGrid, northGrid));
+    }
+
+    [Fact]
+    public void ClearPools_ShouldAllowFreshGridAllocationAfterPoolReset()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+
+        Type poolsType = typeof(VoxelGrid).Assembly.GetType("GridForge.Grids.Pools");
+        MethodInfo clearPools = poolsType?.GetMethod(
+            "ClearPools",
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+        Assert.NotNull(clearPools);
+        clearPools.Invoke(null, null);
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort reusedIndex));
+        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+
+        Assert.True(reusedGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+        Assert.NotNull(voxel);
+    }
+
+    [Fact]
+    public void GridConfigurationAndBoundsKey_ShouldProvideStableIdentityForMatchingBounds()
+    {
+        GridConfiguration first = new GridConfiguration(
+            new Vector3d(0, 0, 0),
+            new Vector3d(5, 0, 5),
+            scanCellSize: 2);
+        GridConfiguration second = new GridConfiguration(
+            new Vector3d(0, 0, 0),
+            new Vector3d(5, 0, 5),
+            scanCellSize: 16);
+        BoundsKey firstKey = first.ToBoundsKey();
+        BoundsKey secondKey = second.ToBoundsKey();
+        BoundsKey differentKey = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(5, 0, 5));
+
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+        Assert.Equal(first.BoundsMin, firstKey.BoundsMin);
+        Assert.Equal(first.BoundsMax, firstKey.BoundsMax);
+        Assert.Equal(firstKey, secondKey);
+        Assert.Equal(firstKey.GetHashCode(), secondKey.GetHashCode());
+        Assert.NotEqual(firstKey, differentKey);
     }
 
     private static TheoryData<SpatialDirection, VoxelIndex> CreateBoundaryDirectionCases()
