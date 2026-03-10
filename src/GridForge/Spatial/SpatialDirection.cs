@@ -1,4 +1,4 @@
-﻿namespace GridForge.Grids;
+﻿namespace GridForge.Spatial;
 
 /// <summary>
 /// Represents the 26 possible neighbor directions in a 3x3x3 grid.

@@ -15,6 +15,67 @@ namespace GridForge.Grids;
 /// </summary>
 public static class ScanManager
 {
+    #region Scan Methods
+
+    /// <summary>
+    /// Scans for occupants within a given radius from a specified position.
+    /// </summary>
+    /// <param name="position">The center position to scan from.</param>
+    /// <param name="radius">The search radius.</param>
+    /// <param name="occupantCondition">Optional filter for occupants.</param>
+    /// <param name="groupCondition">Optional filter for occupant groups.</param>
+    /// <returns>An enumerable of all occupants found within the radius.</returns>
+    public static IEnumerable<IVoxelOccupant> ScanRadius(
+        Vector3d position,
+        Fixed64 radius,
+        Func<IVoxelOccupant, bool> occupantCondition = null,
+        Func<byte, bool> groupCondition = null)
+    {
+        Fixed64 squaredRadius = radius * radius;
+        SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
+
+        // Get bounds for the search area
+        Vector3d boundsMin = position - radius;
+        Vector3d boundsMax = position + radius;
+
+        foreach (ScanCell scanCell in GridTracer.GetCoveredScanCells(boundsMin, boundsMax))
+        {
+            if (!scanCell.IsOccupied)
+                continue;
+
+            IEnumerable<IVoxelOccupant> occupants = occupantCondition == null && groupCondition == null
+                ? scanCell.GetOccupants()
+                : scanCell.GetConditionalOccupants(occupantCondition, groupCondition);
+
+            foreach (IVoxelOccupant occupant in occupants)
+            {
+                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
+                    results.Add(occupant);
+            }
+        }
+
+        foreach (IVoxelOccupant result in results)
+            yield return result;
+
+        SwiftListPool<IVoxelOccupant>.Shared.Release(results);
+    }
+
+    /// <summary>
+    /// Scans for occupants of a specific type within a given radius.
+    /// </summary>
+    public static IEnumerable<T> ScanRadius<T>(
+        Vector3d position,
+        Fixed64 radius,
+        Func<IVoxelOccupant, bool> occupantCondition = null,
+        Func<byte, bool> groupCondition = null) where T : IVoxelOccupant
+    {
+        return ScanRadius(position, radius, occupantCondition, groupCondition).OfType<T>();
+    }
+
+    #endregion
+
+    #region Occupant Registration & Retrieval
+
     /// <summary>
     /// Attempts to register the occupant with the current voxel it is on.
     /// </summary>
@@ -279,59 +340,5 @@ public static class ScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-
-    /// <summary>
-    /// Scans for occupants within a given radius from a specified position.
-    /// </summary>
-    /// <param name="position">The center position to scan from.</param>
-    /// <param name="radius">The search radius.</param>
-    /// <param name="occupantCondition">Optional filter for occupants.</param>
-    /// <param name="groupCondition">Optional filter for occupant groups.</param>
-    /// <returns>An enumerable of all occupants found within the radius.</returns>
-    public static IEnumerable<IVoxelOccupant> ScanRadius(
-        Vector3d position,
-        Fixed64 radius,
-        Func<IVoxelOccupant, bool> occupantCondition = null,
-        Func<byte, bool> groupCondition = null)
-    {
-        Fixed64 squaredRadius = radius * radius;
-        SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
-
-        // Get bounds for the search area
-        Vector3d boundsMin = position - radius;
-        Vector3d boundsMax = position + radius;
-
-        foreach (ScanCell scanCell in GridTracer.GetCoveredScanCells(boundsMin, boundsMax))
-        {
-            if (!scanCell.IsOccupied)
-                continue;
-
-            IEnumerable<IVoxelOccupant> occupants = occupantCondition == null && groupCondition == null
-                ? scanCell.GetOccupants()
-                : scanCell.GetConditionalOccupants(occupantCondition, groupCondition);
-
-            foreach (IVoxelOccupant occupant in occupants)
-            {
-                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
-                    results.Add(occupant);
-            }
-        }
-
-        foreach (IVoxelOccupant result in results)
-            yield return result;
-
-        SwiftListPool<IVoxelOccupant>.Shared.Release(results);
-    }
-
-    /// <summary>
-    /// Scans for occupants of a specific type within a given radius.
-    /// </summary>
-    public static IEnumerable<T> ScanRadius<T>(
-        Vector3d position,
-        Fixed64 radius,
-        Func<IVoxelOccupant, bool> occupantCondition = null,
-        Func<byte, bool> groupCondition = null) where T : IVoxelOccupant
-    {
-        return ScanRadius(position, radius, occupantCondition, groupCondition).OfType<T>();
-    }
+    #endregion
 }

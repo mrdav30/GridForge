@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
 
-namespace GridForge.Grids;
+namespace GridForge.Spatial;
 
 /// <summary>
 /// Provides global spatial awareness utilities to find neighboring grids or voxels
