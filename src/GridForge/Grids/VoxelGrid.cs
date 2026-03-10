@@ -72,12 +72,12 @@ public class VoxelGrid
     public SwiftArray3D<Voxel> Voxels { get; private set; }
 
     /// <summary>
-    /// Stores the indices of neighboring grids.
+    /// Stores <see cref="SpatialDirection"/> as indices of neighboring grids based on their relative positions.
     /// </summary>
     /// <remarks>
     /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
     /// </remarks>
-    public SwiftDictionary<SpatialDirection, SwiftHashSet<int>> Neighbors { get; private set; }
+    public SwiftSparseMap<SwiftHashSet<int>> Neighbors { get; private set; }
 
     /// <summary>
     /// Count of currently linked neighboring grids.
@@ -95,9 +95,9 @@ public class VoxelGrid
     public int ScanCellSize => Configuration.ScanCellSize;
 
     /// <summary>
-    /// Collection of scan cells indexed by their spatial hash key.
+    /// Collection of scan cells indexed by their grid-local scan cell key.
     /// </summary>
-    public SwiftDictionary<int, ScanCell> ScanCells { get; private set; }
+    public SwiftSparseMap<ScanCell> ScanCells { get; private set; }
 
     /// <summary>
     /// Stores currently active (occupied) scan cells within the grid.
@@ -123,6 +123,11 @@ public class VoxelGrid
     /// Tracks the version of the grid, incremented when a <see cref="Voxel"/> is modified.
     /// </summary>
     public uint Version { get; private set; }
+
+    private int _scanWidth;
+    private int _scanHeight;
+    private int _scanLength;
+    private int _scanLayerSize;
 
     #endregion
 

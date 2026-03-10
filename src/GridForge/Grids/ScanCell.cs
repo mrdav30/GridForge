@@ -19,7 +19,7 @@ public class ScanCell
     public ushort GridIndex { get; private set; }
 
     /// <summary>
-    /// A unique identifier for this scan cell in the grid, derived from spatial hashing.
+    /// A unique identifier for this scan cell in the grid.
     /// </summary>
     public int CellKey { get; private set; }
 

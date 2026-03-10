@@ -36,7 +36,7 @@ public class Voxel : IEquatable<Voxel>
     public VoxelIndex Index => GlobalIndex.VoxelIndex;
 
     /// <summary>
-    /// The spatial hash key of the scan cell that this voxel belongs to.
+    /// The grid-local key of the scan cell that this voxel belongs to.
     /// </summary>
     public int ScanCellKey { get; private set; }
 
@@ -416,21 +416,18 @@ public class Voxel : IEquatable<Voxel>
     #region Utility
 
     /// <inheritdoc/>
-    public override int GetHashCode() => SwiftHashTools.CombineHashCodes(
-        GlobalIndex,
-        WorldPosition,
-        IsBoundaryVoxel);
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
     /// <inheritdoc/>
     public override string ToString() => GlobalIndex.ToString();
 
     /// <inheritdoc/>
-    public bool Equals(Voxel other) => SpawnToken == other.SpawnToken;
+    public bool Equals(Voxel other) => ReferenceEquals(this, other);
 
     /// <inheritdoc/>
     public override bool Equals(object obj)
     {
-        return obj is Voxel other && Equals(other);
+        return ReferenceEquals(this, obj);
     }
 
     #endregion

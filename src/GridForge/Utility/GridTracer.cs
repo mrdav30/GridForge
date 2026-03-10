@@ -48,7 +48,7 @@ public static class GridTracer
         bool includeEnd = true)
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
-        SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+        SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
 
         (Vector3d snappedStart, Vector3d snappedEnd) =
             GlobalGridManager.SnapBoundsToVoxelSize(start, end, padding);
@@ -89,7 +89,7 @@ public static class GridTracer
                     Vector3d tracePos = GlobalGridManager.FloorToVoxelSize(
                         new Vector3d(start.x + stepX * i, start.y + stepY * i, start.z + stepZ * i));
 
-                    if (!currentGrid.TryGetVoxel(tracePos, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel.SpawnToken))
+                    if (!currentGrid.TryGetVoxel(tracePos, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel))
                         continue;
 
                     voxelList.Add(voxel);
@@ -106,7 +106,7 @@ public static class GridTracer
                 gridVoxelMapping.Add(endGrid, voxelList);
             }
 
-            if (voxelRedundancyCheck.Add(endVoxel.SpawnToken))
+            if (voxelRedundancyCheck.Add(endVoxel))
                 voxelList.Add(endVoxel);
         }
 
@@ -122,7 +122,7 @@ public static class GridTracer
             SwiftListPool<Voxel>.Shared.Release(kvp.Value);
         }
 
-        SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
+        SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public static class GridTracer
         double padding = 0d)
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
-        SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+        SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
 
         (Vector3d snappedMin, Vector3d snappedMax) =
             GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
@@ -193,7 +193,7 @@ public static class GridTracer
                         for (Fixed64 z = snappedMin.z; z <= snappedMax.z; z += resolution)
                         {
                             Vector3d position = new Vector3d(x, y, z);
-                            if (!currentGrid.TryGetVoxel(position, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel.SpawnToken))
+                            if (!currentGrid.TryGetVoxel(position, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel))
                                 continue;
 
                             voxelList.Add(voxel);
@@ -214,7 +214,7 @@ public static class GridTracer
             SwiftListPool<Voxel>.Shared.Release(kvp.Value);
         }
 
-        SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
+        SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
     }
 
     /// <summary>
@@ -231,7 +231,7 @@ public static class GridTracer
     {
         SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
         SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
-        SwiftHashSet<int> voxelRedundancyCheck = SwiftHashSetPool<int>.Shared.Rent();
+        SwiftHashSet<ScanCell> voxelRedundancyCheck = SwiftHashSetPool<ScanCell>.Shared.Rent();
 
         (Vector3d snappedMin, Vector3d snappedMax) =
             GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
@@ -260,9 +260,10 @@ public static class GridTracer
                     {
                         for (int z = zMin; z <= zMax; z++)
                         {
-                            int hash = SwiftHashTools.CombineHashCodes(x, y, z);
-                            if (!currentGrid.TryGetScanCell(hash, out ScanCell scanCell)
-                                || !voxelRedundancyCheck.Add(scanCell.SpawnToken))
+                            int scanCellKey = currentGrid.GetScanCellKey(x, y, z);
+                            if (scanCellKey == -1
+                                || !currentGrid.TryGetScanCell(scanCellKey, out ScanCell scanCell)
+                                || !voxelRedundancyCheck.Add(scanCell))
                             {
                                 continue;
                             }
@@ -279,7 +280,6 @@ public static class GridTracer
 
         SwiftListPool<ScanCell>.Shared.Release(scanCells);
         SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
-        SwiftHashSetPool<int>.Shared.Release(voxelRedundancyCheck);
+        SwiftHashSetPool<ScanCell>.Shared.Release(voxelRedundancyCheck);
     }
 }
-

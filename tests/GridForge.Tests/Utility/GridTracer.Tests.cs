@@ -75,7 +75,7 @@ public class GridTracerTests : IDisposable
         grid.TryGetVoxel(end, out Voxel endVoxel);
 
         // Ensure that the last voxel is not the end voxel
-        Assert.NotEqual(endVoxel.SpawnToken, tracedVoxels.Last().SpawnToken);
+        Assert.NotEqual(endVoxel, tracedVoxels.Last());
     }
 
     [Fact]
