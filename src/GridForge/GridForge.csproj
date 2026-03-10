@@ -69,6 +69,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>	
+		<PackageReference Include="MemoryPack" Version="1.21.4" />	
 		<PackageReference Include="SwiftCollections" Version="2.0.0" />
 	</ItemGroup>
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->

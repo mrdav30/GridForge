@@ -1,7 +1,15 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
+using MemoryPack;
 using SwiftCollections;
 using System;
+
+#if NET8_0_OR_GREATER
+using System.Text.Json.Serialization;
+#endif
+#if !NET8_0_OR_GREATER
+using System.Text.Json.Serialization.Shim;
+#endif
 
 namespace GridForge.Configuration;
 
@@ -10,7 +18,8 @@ namespace GridForge.Configuration;
 /// Used to initialize and validate grid properties before creation.
 /// </summary>
 [Serializable]
-public struct GridConfiguration
+[MemoryPackable]
+public readonly partial struct GridConfiguration
 {
     /// <summary>
     /// The default size of each scan cell.
@@ -22,28 +31,31 @@ public struct GridConfiguration
     /// <summary>
     /// The minimum boundary of the grid in world coordinates.
     /// </summary>
-    public Vector3d BoundsMin { get; private set; }
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly Vector3d BoundsMin;
 
     /// <summary>
     /// The maximum boundary of the grid in world coordinates.
     /// </summary>
-    public Vector3d BoundsMax { get; private set; }
-
-    /// <summary>
-    /// The center point of the grid's bounding volume.
-    /// </summary>
-    public Vector3d GridCenter { get; private set; }
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly Vector3d BoundsMax;
 
     /// <summary>
     /// The size of each scan cell, determining the granularity of spatial partitioning.
     /// Customizable based on grid density and expected entity distribution.
     /// </summary>
-    public int ScanCellSize { get; private set; }
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly int ScanCellSize;
 
     /// <summary>
-    /// Indicates whether this grid configuration has been set.
+    /// The center point of the grid's bounding volume.
     /// </summary>
-    public bool IsAllocated { get; private set; }
+    [JsonIgnore]
+    [MemoryPackIgnore]
+    public readonly Vector3d GridCenter => (BoundsMin + BoundsMax) * Fixed64.Half;
 
     #endregion
 
@@ -67,12 +79,7 @@ public struct GridConfiguration
         // Ensures GridMin <= GridMax for each coordinate axis
         (BoundsMin, BoundsMax) = GlobalGridManager.SnapBoundsToVoxelSize(min, max);
 
-        // Calculate the center point of the corrected boundaries
-        GridCenter = (BoundsMin + BoundsMax) / 2;
-
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
-
-        IsAllocated = true;
     }
 
     #endregion
