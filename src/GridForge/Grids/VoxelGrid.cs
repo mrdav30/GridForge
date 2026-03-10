@@ -505,7 +505,7 @@ public class VoxelGrid
     {
         bool result = x >= 0 && x < Voxels.Width
                 && y >= 0 && y < Voxels.Height
-                && z >= 0 && z < Voxels.Length;
+                && z >= 0 && z < Voxels.Depth;
 
         if (!result)
             GridForgeLogger.Info($"The coordinate {(x, y, z)} is not valid for this grid.");

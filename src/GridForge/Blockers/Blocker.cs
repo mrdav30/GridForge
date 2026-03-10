@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
 using System;
@@ -44,9 +45,9 @@ public abstract class Blocker : IBlocker
     public bool CacheCoveredVoxels { get; protected set; }
 
     /// <summary>
-    /// The cached voxels this blocker is currently blocking if <see cref="CacheCoveredVoxels"/> is true.
+    /// Stable voxel identifiers cached for safe blocker removal when <see cref="CacheCoveredVoxels"/> is true.
     /// </summary>
-    protected SwiftList<GridVoxelSet> _cachedCoveredVoxels;
+    protected SwiftList<GlobalVoxelIndex> _cachedCoveredVoxels;
 
     /// <summary>
     /// Event triggered when a blockage is added or removed.
@@ -99,6 +100,11 @@ public abstract class Blocker : IBlocker
         // Generate a unique blockage token based on the min/max bounds
         BlockageToken = new(CacheMin, CacheMax);
 
+        if (CacheCoveredVoxels)
+            _cachedCoveredVoxels ??= new SwiftList<GlobalVoxelIndex>();
+
+        _cachedCoveredVoxels?.Clear();
+
         bool hasCoverage = true;
         // Iterate over all affected voxels and apply obstacles
         foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(CacheMin, CacheMax))
@@ -107,14 +113,16 @@ public abstract class Blocker : IBlocker
                 continue;
 
             foreach (Voxel voxel in covered.Voxels)
-                if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
-                    hasCoverage = false;
-
-            if (CacheCoveredVoxels)
             {
-                _cachedCoveredVoxels ??= new SwiftList<GridVoxelSet>();
-                _cachedCoveredVoxels.Add(covered);
-            }   
+                if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
+                {
+                    hasCoverage = false;
+                    continue;
+                }
+
+                if (CacheCoveredVoxels)
+                    _cachedCoveredVoxels.Add(voxel.GlobalIndex);
+            }
         }
 
         if (hasCoverage)
@@ -132,15 +140,18 @@ public abstract class Blocker : IBlocker
         if (!IsBlocking)
             return;
 
-        IEnumerable<GridVoxelSet> coveredVoxels = CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0
-            ? _cachedCoveredVoxels
-            : GridTracer.GetCoveredVoxels(CacheMin, CacheMax);
-
-        // Clear the obstacle markers from all affected voxels before resetting the blocker state
-        foreach (GridVoxelSet covered in coveredVoxels)
+        if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
-            foreach (Voxel voxel in covered.Voxels)
-                covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
+            foreach (GlobalVoxelIndex voxelIndex in _cachedCoveredVoxels)
+                GridObstacleManager.TryRemoveObstacle(voxelIndex, BlockageToken);
+        }
+        else
+        {
+            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(CacheMin, CacheMax))
+            {
+                foreach (Voxel voxel in covered.Voxels)
+                    covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
+            }
         }
 
         BlockageToken = default;
@@ -188,7 +199,7 @@ public abstract class Blocker : IBlocker
 
         CacheCoveredVoxels = cache;
         if (cache && _cachedCoveredVoxels == null)
-            _cachedCoveredVoxels = new SwiftList<GridVoxelSet>();
+            _cachedCoveredVoxels = new SwiftList<GlobalVoxelIndex>();
         else if (!cache)
             _cachedCoveredVoxels = null;
     }
