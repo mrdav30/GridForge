@@ -327,6 +327,8 @@ public class Voxel : IEquatable<Voxel>
                     continue;
                 yield return ((SpatialDirection)i, _cachedNeighbors[i]);
             }
+
+            yield break;
         }
 
         RefreshNeighborCache();
@@ -347,7 +349,10 @@ public class Voxel : IEquatable<Voxel>
         neighbor = default;
 
         // Validate the index
-        if (direction == SpatialDirection.None)
+        int directionIndex = (int)direction;
+        if (direction == SpatialDirection.None
+            || directionIndex < 0
+            || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
             return false;
 
         // Check cached neighbors if caching is enabled
@@ -356,11 +361,11 @@ public class Voxel : IEquatable<Voxel>
             if (!_isNeighborCacheValid)
                 RefreshNeighborCache();
 
-            neighbor = _cachedNeighbors[(int)direction];
+            neighbor = _cachedNeighbors[directionIndex];
             return neighbor != null;
         }
 
-        (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[(int)direction];
+        (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[directionIndex];
         return TryGetNeighborFromOffset(offset, out neighbor);
     }
 
@@ -379,7 +384,15 @@ public class Voxel : IEquatable<Voxel>
             Index.z + offset.z
         );
 
-        return grid.TryGetVoxel(neighborCoords, out neighbor);
+        if (grid.TryGetVoxel(neighborCoords, out neighbor))
+            return true;
+
+        Vector3d neighborPosition = new Vector3d(
+            WorldPosition.x + offset.x * GlobalGridManager.VoxelSize,
+            WorldPosition.y + offset.y * GlobalGridManager.VoxelSize,
+            WorldPosition.z + offset.z * GlobalGridManager.VoxelSize);
+
+        return GlobalGridManager.TryGetVoxel(neighborPosition, out neighbor);
     }
 
     /// <summary>
