@@ -67,7 +67,7 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            &&  grid.TryGetVoxel(voxelIndex, out Voxel target)
+            && grid.TryGetVoxel(voxelIndex, out Voxel target)
             && TryAddVoxelOccupant(grid, target, occupant);
     }
 
@@ -116,7 +116,7 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            &&  GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
+            && GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
             && TryRemoveVoxelOccupant(grid, voxel, occupant);
     }
 
@@ -128,7 +128,7 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            &&  grid.TryGetVoxel(occupant.Position, out Voxel voxel)
+            && grid.TryGetVoxel(occupant.Position, out Voxel voxel)
             && TryRemoveVoxelOccupant(grid, voxel, occupant);
     }
 

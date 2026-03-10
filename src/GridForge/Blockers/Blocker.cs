@@ -1,11 +1,9 @@
 ﻿using FixedMathSharp;
-using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
 using System;
-using System.Collections.Generic;
 
 namespace GridForge.Blockers;
 

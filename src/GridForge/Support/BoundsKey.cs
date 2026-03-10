@@ -5,7 +5,7 @@ using SwiftCollections;
 
 using FixedMathSharp;
 
-namespace GridForge.Configuration;
+namespace GridForge;
 
 /// <summary>
 /// Exact identity key for a grid's snapped bounds.

@@ -1,5 +1,4 @@
-﻿using GridForge.Spatial;
-using System;
+﻿using System;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;
