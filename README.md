@@ -135,13 +135,22 @@ foreach (IVoxelOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadiu
 
 ## 🧪 Testing and Validation
 
-GridForge includes **comprehensive unit tests**.
+GridForge includes **comprehensive unit tests** and a BenchmarkDotNet performance suite.
 
 Run tests with:
 
 ```bash
 dotnet test
 ```
+
+Run benchmarks with:
+
+```bash
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
+```
+
+Benchmark reports are written to `BenchmarkDotNet.Artifacts/results/`.
 
 ---
 

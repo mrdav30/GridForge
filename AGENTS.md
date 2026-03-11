@@ -13,17 +13,19 @@ GridForge is a deterministic voxel-grid library for spatial partitioning, simula
 - deterministic fixed-point math through `FixedMathSharp`
 - allocation-conscious collections and pools through `SwiftCollections`
 
-The repository currently contains one library project and one test project:
+The repository currently contains one library project and two validation projects:
 
 - `src/GridForge` - main library
 - `tests/GridForge.Tests` - xUnit test suite
+- `tests/GridForge.Benchmarks` - BenchmarkDotNet performance and allocation benchmarks
 
 ## Technology and Build Facts
 
 - **Language:** C# 11
 - **Library target frameworks:** `netstandard2.1`, `net8.0`
-- **Test target framework:** `net8.0`
+- **Validation target frameworks:** `net8.0`
 - **Test framework:** xUnit v3
+- **Benchmark framework:** BenchmarkDotNet
 - **Main dependencies:** `FixedMathSharp` `2.1.0`, `SwiftCollections` `2.0.0`
 - **Build behavior:** `dotnet build` on the library also produces NuGet packages because `GeneratePackageOnBuild` is enabled in `src/GridForge/GridForge.csproj`
 - **CI:** runs on Ubuntu and Windows via `.github/workflows/dotnet.yml`
@@ -40,6 +42,7 @@ The repository currently contains one library project and one test project:
 - `src/GridForge/Blockers` - area/blocking abstractions built on top of grid coverage
 - `src/GridForge/Utility` - tracing and logging helpers
 - `tests/GridForge.Tests` - unit tests organized by subsystem
+- `tests/GridForge.Benchmarks` - benchmark scenarios for pooling, tracing, caching, and registration performance
 - `.github/workflows` - CI and release automation
 - `.assets/scripts` - PowerShell helpers for versioned build and release packaging
 
@@ -143,9 +146,19 @@ dotnet build GridForge.sln --configuration Debug
 dotnet test GridForge.sln --configuration Debug --no-build
 ```
 
+Run benchmarks when changing pooling, tracing, registration, or other performance-sensitive paths:
+
+```bash
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
+```
+
+Benchmark reports are emitted under `BenchmarkDotNet.Artifacts/results/`.
+
 Repo-specific testing guidance:
 
 - Use the existing xUnit suite in `tests/GridForge.Tests` as the reference for expected behavior.
+- Use `tests/GridForge.Benchmarks` to validate allocation-sensitive changes and pooling or caching regressions.
 - Tests frequently need to guard shared global state with `GlobalGridManager.Setup()` and `GlobalGridManager.Reset()`.
 - Many tests use `[Collection("GridForgeCollection")]` or explicit setup/teardown to avoid leaked static state.
 - Prefer deterministic coordinates and explicit assertions over fuzzy tolerances.

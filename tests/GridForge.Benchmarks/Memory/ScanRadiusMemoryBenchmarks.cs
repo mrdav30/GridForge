@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Jobs;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
@@ -9,7 +8,7 @@ using System;
 namespace GridForge.Benchmarks;
 
 [MemoryDiagnoser]
-[ShortRunJob(RuntimeMoniker.Net80)]
+[Config(typeof(InProcessShortRunConfig))]
 public class ScanRadiusMemoryBenchmarks
 {
     private Vector3d _queryCenter;
