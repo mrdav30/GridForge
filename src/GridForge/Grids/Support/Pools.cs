@@ -1,5 +1,6 @@
-﻿using SwiftCollections.Pool;
-using System;
+﻿using GridForge.Spatial;
+using SwiftCollections;
+using SwiftCollections.Pool;
 
 namespace GridForge.Grids;
 
@@ -10,39 +11,47 @@ internal static class Pools
     /// <summary>
     /// Object pool for reusing <see cref="VoxelGrid"/> instances.
     /// </summary>
-    public static readonly SwiftObjectPool<VoxelGrid> GridPool = new SwiftObjectPool<VoxelGrid>(
-                createFunc: () => new VoxelGrid(),
-                actionOnRelease: grid => grid.Reset()
-            );
+    public static readonly SwiftObjectPool<VoxelGrid> GridPool = new(
+        createFunc: () => new VoxelGrid(),
+        actionOnRelease: grid => grid.Reset()
+    );
 
     /// <summary>
     /// Object pool for reusing <see cref="Voxel"/> instances.
     /// </summary>
-    public static readonly SwiftObjectPool<Voxel> VoxelPool = new SwiftObjectPool<Voxel>(
-            createFunc: () => new Voxel(),
-            actionOnRelease: voxel => voxel.Reset()
-        );
+    public static readonly SwiftObjectPool<Voxel> VoxelPool = new(
+        createFunc: () => new Voxel(),
+        actionOnRelease: voxel => voxel.Reset()
+    );
+
+    public static readonly SwiftObjectPool<SwiftSparseMap<ScanCell>> ScanCellMapPool = new(
+        createFunc: () => new SwiftSparseMap<ScanCell>(),
+        actionOnRelease: map => map.Clear()
+    );
 
     /// <summary>
     /// Object pool for reusing <see cref="ScanCell"/> instances.
     /// </summary>
-    public static readonly SwiftObjectPool<ScanCell> ScanCellPool = new SwiftObjectPool<ScanCell>(
-            createFunc: () => new ScanCell(),
-            actionOnRelease: cell => cell.Reset()
-        );
+    public static readonly SwiftObjectPool<ScanCell> ScanCellPool = new(
+        createFunc: () => new ScanCell(),
+        actionOnRelease: cell => cell.Reset()
+    );
 
     #endregion
 
-    #region Voxel Pooling
+    #region Node Pooling
 
     /// <summary>
     /// Object pool for caching neighbor voxel arrays.
     /// </summary>
-    private static readonly Lazy<SwiftArrayPool<Voxel>> _voxelNeighborPool =
-        new Lazy<SwiftArrayPool<Voxel>>(() => new SwiftArrayPool<Voxel>());
+    public static readonly SwiftArrayPool<Voxel> VoxelNeighborPool = new();
 
-    /// <inheritdoc cref="_voxelNeighborPool"/>
-    public static SwiftArrayPool<Voxel> VoxelNeighborPool => _voxelNeighborPool.Value;
+    public static readonly SwiftDictionaryPool<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>> VoxelOccupantDictionaryPool = new();
+
+    public static readonly SwiftObjectPool<SwiftBucket<IVoxelOccupant>> VoxelOccupantBucketPool = new(
+        createFunc: () => new SwiftBucket<IVoxelOccupant>(),
+        actionOnRelease: bucket => bucket.Clear()
+    );
 
     #endregion
 
@@ -52,5 +61,7 @@ internal static class Pools
         VoxelPool.Clear();
         ScanCellPool.Clear();
         VoxelNeighborPool.Clear();
+        VoxelOccupantDictionaryPool.Clear();
+        VoxelOccupantBucketPool.Clear();
     }
 }

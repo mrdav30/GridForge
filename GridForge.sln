@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.5.33516.290
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11520.95 d18.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GridForge", "src\GridForge\GridForge.csproj", "{30876934-77AD-43EA-83C0-B55B7F15BB4A}"
 EndProject
@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GridForge.Tests", "tests\GridForge.Tests\GridForge.Tests.csproj", "{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GridForge.Benchmarks", "tests\GridForge.Benchmarks\GridForge.Benchmarks.csproj", "{788402DE-FBD1-4B0C-8FC5-832BF9A4F4DA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}.Release|Any CPU.Build.0 = Release|Any CPU
+		{788402DE-FBD1-4B0C-8FC5-832BF9A4F4DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{788402DE-FBD1-4B0C-8FC5-832BF9A4F4DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{788402DE-FBD1-4B0C-8FC5-832BF9A4F4DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{788402DE-FBD1-4B0C-8FC5-832BF9A4F4DA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

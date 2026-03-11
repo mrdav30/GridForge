@@ -81,9 +81,10 @@ public class ScanCell
                 SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
                 foreach (IVoxelOccupant occupant in bucket)
                     occupant.RemoveOccupancy(kvp.Key);
-                bucket.Clear();
+                Pools.VoxelOccupantBucketPool.Release(bucket);
             }
 
+            Pools.VoxelOccupantDictionaryPool.Release(_voxelOccupants);
             _voxelOccupants = null;
         }
 
@@ -107,10 +108,10 @@ public class ScanCell
     /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
     internal void AddOccupant(GlobalVoxelIndex index, IVoxelOccupant occupant)
     {
-        _voxelOccupants ??= new SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>>();
+        _voxelOccupants ??= Pools.VoxelOccupantDictionaryPool.Rent();
         if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> bucket))
         {
-            bucket = new SwiftBucket<IVoxelOccupant>();
+            bucket = Pools.VoxelOccupantBucketPool.Rent();
             _voxelOccupants[index] = bucket;
         }
 
@@ -142,7 +143,10 @@ public class ScanCell
 
         // If the occupant was the last in its bucket, remove the entire bucket
         if (bucket.Count == 0)
+        {
             _voxelOccupants.Remove(index);
+            Pools.VoxelOccupantBucketPool.Release(bucket);
+        }
 
         CellOccupantCount--;
 

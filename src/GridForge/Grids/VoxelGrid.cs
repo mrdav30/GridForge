@@ -191,6 +191,7 @@ public class VoxelGrid
         {
             foreach (ScanCell cell in ScanCells.Values)
                 Pools.ScanCellPool.Release(cell);
+            Pools.ScanCellMapPool.Release(ScanCells);
             ScanCells = null;
         }
 
@@ -248,7 +249,7 @@ public class VoxelGrid
         _scanLength = ((Length - 1) / ScanCellSize) + 1;
         _scanLayerSize = _scanWidth * _scanHeight;
 
-        ScanCells = new SwiftSparseMap<ScanCell>();
+        ScanCells = Pools.ScanCellMapPool.Rent();
 
         for (int x = 0; x < _scanWidth; x++)
         {
