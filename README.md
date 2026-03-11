@@ -31,13 +31,17 @@ GridForge is built for developers who need **deterministic**, **high-performance
 ### Non-Unity Projects
 
 1. **Install via NuGet**:
+
    ```bash
    dotnet add package GridForge
    ```
+
 2. **Or Download/Clone**:
+
    ```bash
    git clone https://github.com/mrdav30/GridForge.git
    ```
+
 3. **Include in Project**:
    - Add `GridForge` to your solution or reference its compiled DLL.
 
@@ -65,36 +69,40 @@ These dependencies are automatically included when installing.
 ### **🗂 Core Components**
 
 | Component | Description |
-|-----------|------------|
-| `GlobalGridManager` | 	Manages **VoxelGrids**, global spatial queries, and grid registration. |
+| ----------- | ------------ |
+| `GlobalGridManager` | Manages **VoxelGrids**, global spatial queries, and grid registration. |
 | `VoxelGrid` | Represents a **single grid** containing **voxels & scan cells**. |
 | `Voxel` | Represents a voxel **cell** with occupant, obstacle, and partition data.. |
-| `ScanCell` | 	Handles **spatial indexing** for fast neighbor and radius queries.. |
+| `ScanCell` | Handles **spatial indexing** for fast neighbor and radius queries.. |
 | `GridTracer` | Trace lines, areas, and **paths** across voxels and scan cells. |
 | `GridObstacleManager` | Manage **dynamic grid obstacles** at runtime.. |
 | `GridOccupantManager` | Manage and query **occupants** in voxels. |
-| `ScanManager` | Optimized **scan queries** (radius, box, path, etc). |
+| `GridScanManager` | Optimized **scan queries** (radius, box, path, etc). |
 | `Blockers` | Define static or dynamic voxel blockers. |
 | `Partitions` | Adds **meta-data** and **custom logic** to voxels. |
+
 ---
 
 ## 📖 Usage Examples
 
 ### **🔹 Creating a Grid**
+
 ```csharp
 GridConfiguration config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
 GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
 ```
 
 ### **🔹 Querying a Grid for Voxels**
+
 ```csharp
 Vector3d queryPosition = new Vector3d(5, 0, 5);
 if (GlobalGridManager.TryGetGridAndVoxel(queryPosition, out VoxelGrid grid, out Voxel voxel))
-	Console.WriteLine($"Voxel at {queryPosition} is {(voxel.IsOccupied ? "occupied" : "empty")}");
+ Console.WriteLine($"Voxel at {queryPosition} is {(voxel.IsOccupied ? "occupied" : "empty")}");
 }
 ```
 
 ### **🔹 Adding a Blocker**
+
 ```csharp
 BoundingArea blockArea = new BoundingArea(new Vector3d(3, 0, 3), new Vector3d(5, 0, 5));
 Blocker blocker = new Blocker(blockArea);
@@ -102,6 +110,7 @@ blocker.ApplyBlockage();
 ```
 
 ### **🔹 Attaching a Partition to a Voxel**
+
 ```csharp
 if (GlobalGridManager.TryGetGrid(queryPosition, out VoxelGrid grid, out Voxel voxel))
 {
@@ -112,6 +121,7 @@ if (GlobalGridManager.TryGetGrid(queryPosition, out VoxelGrid grid, out Voxel vo
 ```
 
 ### **🔹 Scanning for Nearby Occupants**
+
 ```csharp
 Vector3d scanCenter = new Vector3d(0, 0, 0);
 Fixed64 scanRadius = (Fixed64)5;
@@ -125,22 +135,30 @@ foreach (IVoxelOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadiu
 
 ## 🧪 Testing and Validation
 
-GridForge includes **comprehensive unit tests**.
+GridForge includes **comprehensive unit tests** and a BenchmarkDotNet performance suite.
 
 Run tests with:
+
 ```bash
 dotnet test
 ```
+
+Run benchmarks with:
+
+```bash
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
+```
+
+Benchmark reports are written to `BenchmarkDotNet.Artifacts/results/`.
 
 ---
 
 ## 🔄 Compatibility
 
-- **.NET Framework** 4.7.2+
-- **.NET Core / .NET** 6+
-- **Unity 2020+** (via - [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity).)
-- **Supports FixedMathSharp for deterministic precision**
-- **Supports SwiftCollections for optimal performance**
+- **.NET Standard** 2.1+
+- **.NET** 8+
+- **Unity** 2020+ (via - [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity))
 
 ---
 
