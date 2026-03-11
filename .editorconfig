@@ -1,4 +1,8 @@
-﻿[*.cs]
+﻿root = true
+[*]
+end_of_line = lf
+
+[*.cs]
 
 # IDE0090: Use 'new(...)'
 csharp_style_implicit_object_creation_when_type_is_apparent = false
