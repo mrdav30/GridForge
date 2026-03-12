@@ -162,9 +162,9 @@ Benchmark reports are written to `BenchmarkDotNet.Artifacts/results/`.
 
 ---
 
-## 📄 License
+## 🤝 Contributing
 
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+We welcome contributions! Please see our [CONTRIBUTING](https://github.com/mrdav30/GridForge/blob/main/CONTRIBUTING.md) guide for details on how to propose changes, report issues, and interact with the community.
 
 ---
 
@@ -186,3 +186,13 @@ For bug reports or feature requests, please open an issue in this repository.
 We welcome feedback, contributors, and community discussion across all projects.
 
 ---
+
+## License
+
+This project is licensed under the MIT License.
+
+See the following files for details:
+
+- LICENSE – standard MIT license
+- NOTICE – additional terms regarding project branding and redistribution
+- COPYRIGHT – authorship information
