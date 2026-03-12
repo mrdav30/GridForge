@@ -209,11 +209,12 @@ public abstract class Blocker : IBlocker
         if (handlers == null)
             return;
 
-        foreach (Delegate handler in handlers.GetInvocationList())
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                ((Action<GridChange, Vector3d, Vector3d>)handler)(change, CacheMin, CacheMax);
+                ((Action<GridChange, Vector3d, Vector3d>)handlerDelegates[i])(change, CacheMin, CacheMax);
             }
             catch (Exception ex)
             {

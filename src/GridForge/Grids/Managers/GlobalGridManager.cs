@@ -148,11 +148,12 @@ public static class GlobalGridManager
         Action resetHandlers = OnReset;
         if (resetHandlers != null)
         {
-            foreach (Action handler in resetHandlers.GetInvocationList())
+            var handlerDelegates = resetHandlers.GetInvocationList();
+            for (int i = 0; i < handlerDelegates.Length; i++)
             {
                 try
                 {
-                    handler(); // Fire off before we remove the reference
+                    ((Action)handlerDelegates[i])(); // Fire off before we remove the reference
                 }
                 catch (Exception ex)
                 {

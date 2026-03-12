@@ -254,12 +254,12 @@ public class Voxel : IEquatable<Voxel>
         if (handlers == null)
             return;
 
-        var invocationList = handlers.GetInvocationList().Cast<Action<GridChange, Voxel>>();
-        foreach (Action<GridChange, Voxel> handler in invocationList)
+        var handlerDelegates = handlers.GetInvocationList();
+        for(int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                handler(change, this);
+                ((Action<GridChange, Voxel>)handlerDelegates[i])(change, this);
             }
             catch (Exception ex)
             {
@@ -275,11 +275,12 @@ public class Voxel : IEquatable<Voxel>
         if (handlers == null)
             return;
 
-        foreach (Delegate handler in handlers.GetInvocationList())
+        var handlerDelegates = handlers.GetInvocationList();
+        for(int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                ((Action<GridChange, Voxel>)handler)(change, this);
+                ((Action<GridChange, Voxel>)handlerDelegates[i])(change, this);
             }
             catch (Exception ex)
             {

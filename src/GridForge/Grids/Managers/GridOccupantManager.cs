@@ -229,11 +229,12 @@ public static class GridOccupantManager
         Action<GridChange, GlobalVoxelIndex> handlers = OnOccupantChange;
         if (handlers != null)
         {
-            foreach (Action<GridChange, GlobalVoxelIndex> handler in handlers.GetInvocationList())
+            var handlerDelegates = handlers.GetInvocationList();
+            for (int i = 0; i < handlerDelegates.Length; i++)
             {
                 try
                 {
-                    handler(change, targetVoxel.GlobalIndex);
+                    ((Action<GridChange, GlobalVoxelIndex>)handlerDelegates[i])(change, targetVoxel.GlobalIndex);
                 }
                 catch (Exception ex)
                 {
