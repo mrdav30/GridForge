@@ -131,6 +131,24 @@ foreach (IVoxelOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadiu
 }
 ```
 
+### **🔹 Configuring Diagnostics**
+
+`GridForgeLogger` uses `SwiftCollections.Diagnostics` levels directly. By default, GridForge emits `Warning` and `Error` messages.
+
+```csharp
+using SwiftCollections.Diagnostics;
+
+GridForgeLogger.MinimumLevel = DiagnosticLevel.Error; // Only errors
+
+GridForgeLogger.LogHandler = (level, message, source) =>
+{
+    Console.WriteLine($"{level} [{source}] {message}");
+};
+
+// Disable GridForge logging entirely
+GridForgeLogger.MinimumLevel = DiagnosticLevel.None;
+```
+
 ---
 
 ## 🧪 Testing and Validation

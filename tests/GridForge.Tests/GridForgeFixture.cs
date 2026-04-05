@@ -1,4 +1,5 @@
 ﻿using System;
+using SwiftCollections.Diagnostics;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -10,7 +11,7 @@ public class GridForgeFixture : IDisposable
 {
     public GridForgeFixture()
     {
-        GridForgeLogger.Verbosity = GridForgeLogger.LogLevel.Error;
+        GridForgeLogger.MinimumLevel = DiagnosticLevel.Error;
         GlobalGridManager.Setup();
     }
 

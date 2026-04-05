@@ -1,10 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using SwiftCollections.Diagnostics;
 
 namespace GridForge;
-
-// TODO: move this into a global package for use across all projects
 
 /// <summary>
 /// Provides a configurable logging system for GridForge with support for log levels, formatting, and file output.
@@ -12,27 +11,17 @@ namespace GridForge;
 public static class GridForgeLogger
 {
     /// <summary>
-    /// Represents the severity level of a log message.
-    /// </summary>
-    public enum LogLevel
-    {
-#pragma warning disable 1591
-        Info,
-        Warning,
-        Error
-#pragma warning restore 1591
-    }
-
-    /// <summary>
     /// Delegate for handling log messages. Defaults to <see cref="DefaultLogHandler"/>.
     /// </summary>
-    private static Action<LogLevel, string, string> _logHandler = DefaultLogHandler;
+    private static Action<DiagnosticLevel, string, string> _logHandler = DefaultLogHandler;
+
+    private static readonly DiagnosticChannel _channel = CreateChannel();
 
     /// <summary>
     /// Gets or sets the delegate used to write formatted log messages.
     /// Assigning <see langword="null"/> restores <see cref="DefaultLogHandler"/>.
     /// </summary>
-    public static Action<LogLevel, string, string> LogHandler
+    public static Action<DiagnosticLevel, string, string> LogHandler
     {
         get => _logHandler;
         set => _logHandler = value ?? DefaultLogHandler;
@@ -41,13 +30,13 @@ public static class GridForgeLogger
     /// <summary>
     /// Delegate for custom log formatting. Defaults to <see cref="DefaultLogFormatter"/>.
     /// </summary>
-    private static Func<LogLevel, string, string, string> _customFormatter = DefaultLogFormatter;
+    private static Func<DiagnosticLevel, string, string, string> _customFormatter = DefaultLogFormatter;
 
     /// <summary>
     /// Gets or sets the formatter used to transform log arguments into a final log entry.
     /// Assigning <see langword="null"/> restores <see cref="DefaultLogFormatter"/>.
     /// </summary>
-    public static Func<LogLevel, string, string, string> CustomFormatter
+    public static Func<DiagnosticLevel, string, string, string> CustomFormatter
     {
         get => _customFormatter;
         set => _customFormatter = value ?? DefaultLogFormatter;
@@ -61,7 +50,11 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets or sets the minimum log level required for messages to be logged.
     /// </summary>
-    public static LogLevel Verbosity { get; set; } = LogLevel.Info;
+    public static DiagnosticLevel MinimumLevel
+    {
+        get => _channel.MinimumLevel;
+        set => _channel.MinimumLevel = value;
+    }
 
     /// <summary>
     /// Synchronization lock for thread-safe logging.
@@ -74,11 +67,8 @@ public static class GridForgeLogger
     /// <param name="level">The severity level of the log message.</param>
     /// <param name="message">The log message.</param>
     /// <param name="source">The source of the log message (e.g., calling method).</param>
-    private static void DefaultLogHandler(LogLevel level, string message, string source)
+    private static void DefaultLogHandler(DiagnosticLevel level, string message, string source)
     {
-        if (level < Verbosity)
-            return;
-
         lock (_lock)
         {
             string logEntry = CustomFormatter(level, message, source);
@@ -105,14 +95,15 @@ public static class GridForgeLogger
     /// <param name="message">The log message.</param>
     /// <param name="source">The source of the log message (e.g., calling method).</param>
     /// <returns>A formatted log entry as a string.</returns>
-    private static string DefaultLogFormatter(LogLevel level, string message, string source)
+    private static string DefaultLogFormatter(DiagnosticLevel level, string message, string source)
     {
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var levelTag = level switch
         {
-            LogLevel.Info => "[INFO]",
-            LogLevel.Warning => "[WARN]",
-            LogLevel.Error => "[ERROR]",
+            DiagnosticLevel.None => "[NONE]",
+            DiagnosticLevel.Info => "[INFO]",
+            DiagnosticLevel.Warning => "[WARN]",
+            DiagnosticLevel.Error => "[ERROR]",
             _ => "[LOG]"
         };
 
@@ -130,9 +121,9 @@ public static class GridForgeLogger
         [CallerMemberName] string method = "",
         [CallerFilePath] string filePath = "")
     {
-        string className = Path.GetFileNameWithoutExtension(filePath); // Extract class name
+        string className = Path.GetFileNameWithoutExtension(filePath);
         string source = $"{className}.{method}";
-        LogHandler(LogLevel.Info, message, source);
+        Write(DiagnosticLevel.Info, message, source);
     }
 
     /// <summary>
@@ -146,9 +137,9 @@ public static class GridForgeLogger
         [CallerMemberName] string method = "",
         [CallerFilePath] string filePath = "")
     {
-        string className = Path.GetFileNameWithoutExtension(filePath); // Extract class name
+        string className = Path.GetFileNameWithoutExtension(filePath);
         string source = $"{className}.{method}";
-        LogHandler(LogLevel.Warning, message, source);
+        Write(DiagnosticLevel.Warning, message, source);
     }
 
     /// <summary>
@@ -164,11 +155,31 @@ public static class GridForgeLogger
         [CallerMemberName] string method = "",
         [CallerFilePath] string filePath = "")
     {
-        string className = Path.GetFileNameWithoutExtension(filePath); // Extract class name
+        string className = Path.GetFileNameWithoutExtension(filePath);
         string source = $"{className}.{method}";
         var errorMessage = ex == null
             ? message
             : $"{message}\nException: {ex.GetType()}: {ex.Message}\nStackTrace:\n{ex.StackTrace}";
-        LogHandler(LogLevel.Error, errorMessage, method);
+        Write(DiagnosticLevel.Error, errorMessage, source);
+    }
+
+    private static void Write(DiagnosticLevel level, string message, string source)
+    {
+        _channel.Write(level, message, source);
+    }
+
+    private static DiagnosticChannel CreateChannel()
+    {
+        DiagnosticChannel channel = new DiagnosticChannel("GridForge")
+        {
+            MinimumLevel = DiagnosticLevel.Warning,
+            Sink = HandleDiagnosticEvent
+        };
+        return channel;
+    }
+
+    private static void HandleDiagnosticEvent(in DiagnosticEvent diagnostic)
+    {
+        _logHandler(diagnostic.Level, diagnostic.Message, diagnostic.Source);
     }
 }

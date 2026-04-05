@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
 using GridForge.Spatial;
+using SwiftCollections.Diagnostics;
 using SwiftCollections.Pool;
 using System;
 using System.Reflection;
@@ -51,7 +52,7 @@ internal static class BenchmarkEnvironment
         if (_loggingSuppressed)
             return;
 
-        GridForgeLogger.LogHandler = static (_, _, _) => { };
+        GridForgeLogger.MinimumLevel = DiagnosticLevel.None;
         _loggingSuppressed = true;
     }
 

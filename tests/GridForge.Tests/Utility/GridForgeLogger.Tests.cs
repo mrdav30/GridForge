@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using SwiftCollections.Diagnostics;
 using Xunit;
 
 namespace GridForge.Utility.Tests;
@@ -10,8 +11,8 @@ public class GridForgeLoggerTests
     [Fact]
     public void LogHandlerProperties_ShouldRestoreDefaultsWhenAssignedNull()
     {
-        Action<GridForgeLogger.LogLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
-        Func<GridForgeLogger.LogLevel, string, string, string> originalFormatter = GridForgeLogger.CustomFormatter;
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        Func<DiagnosticLevel, string, string, string> originalFormatter = GridForgeLogger.CustomFormatter;
 
         try
         {
@@ -23,7 +24,7 @@ public class GridForgeLoggerTests
 
             Assert.NotNull(GridForgeLogger.LogHandler);
             Assert.NotNull(GridForgeLogger.CustomFormatter);
-            string formatted = GridForgeLogger.CustomFormatter((GridForgeLogger.LogLevel)99, "message", "Source");
+            string formatted = GridForgeLogger.CustomFormatter((DiagnosticLevel)99, "message", "Source");
 
             Assert.Contains("[LOG]", formatted);
             Assert.Contains("[Source]", formatted);
@@ -39,17 +40,17 @@ public class GridForgeLoggerTests
     [Fact]
     public void Info_ShouldNotThrowWhenLogFileWriteFails()
     {
-        Action<GridForgeLogger.LogLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
-        Func<GridForgeLogger.LogLevel, string, string, string> originalFormatter = GridForgeLogger.CustomFormatter;
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        Func<DiagnosticLevel, string, string, string> originalFormatter = GridForgeLogger.CustomFormatter;
         string originalFilePath = GridForgeLogger.LogFilePath;
-        GridForgeLogger.LogLevel originalVerbosity = GridForgeLogger.Verbosity;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
 
         try
         {
             GridForgeLogger.LogHandler = null;
             GridForgeLogger.CustomFormatter = null;
             GridForgeLogger.LogFilePath = Path.GetTempPath();
-            GridForgeLogger.Verbosity = GridForgeLogger.LogLevel.Info;
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 
             Exception exception = Record.Exception(() => GridForgeLogger.Info("write failure fallback"));
 
@@ -60,7 +61,103 @@ public class GridForgeLoggerTests
             GridForgeLogger.LogHandler = originalHandler;
             GridForgeLogger.CustomFormatter = originalFormatter;
             GridForgeLogger.LogFilePath = originalFilePath;
-            GridForgeLogger.Verbosity = originalVerbosity;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+        }
+    }
+
+    [Fact]
+    public void Error_ShouldPassComputedSourceToHandler()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        string capturedSource = null;
+        DiagnosticLevel? capturedLevel = null;
+        string capturedMessage = null;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
+            GridForgeLogger.LogHandler = (level, message, source) =>
+            {
+                capturedLevel = level;
+                capturedMessage = message;
+                capturedSource = source;
+            };
+
+            GridForgeLogger.Error("boom", method: "FakeMethod", filePath: "/tmp/FakeClass.cs");
+
+            Assert.Equal(DiagnosticLevel.Error, capturedLevel);
+            Assert.Equal("boom", capturedMessage);
+            Assert.Equal("FakeClass.FakeMethod", capturedSource);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+        }
+    }
+
+    [Fact]
+    public void CustomHandler_ShouldHonorMinimumLevelFiltering()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+        int callCount = 0;
+        DiagnosticLevel? capturedLevel = null;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Error;
+            GridForgeLogger.LogHandler = (level, message, source) =>
+            {
+                _ = message;
+                _ = source;
+                callCount++;
+                capturedLevel = level;
+            };
+
+            GridForgeLogger.Info("info");
+            GridForgeLogger.Warn("warn");
+            GridForgeLogger.Error("error");
+
+            Assert.Equal(1, callCount);
+            Assert.Equal(DiagnosticLevel.Error, capturedLevel);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+        }
+    }
+
+    [Fact]
+    public void MinimumLevelNone_ShouldDisableLogging()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+        int callCount = 0;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.None;
+            GridForgeLogger.LogHandler = (level, message, source) =>
+            {
+                _ = level;
+                _ = message;
+                _ = source;
+                callCount++;
+            };
+
+            GridForgeLogger.Info("info");
+            GridForgeLogger.Warn("warn");
+            GridForgeLogger.Error("error");
+
+            Assert.Equal(0, callCount);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
         }
     }
 }
