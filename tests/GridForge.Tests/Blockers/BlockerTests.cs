@@ -366,7 +366,7 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
-    public void Blocker_OnBlockageChanged_ShouldContinueNotifyingSubscribersWhenOneThrows()
+    public void Blocker_Notifications_ShouldContinueNotifyingSubscribersWhenOneThrows()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
@@ -374,20 +374,32 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new BoundsBlocker(
             new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
-        List<GridChange> notifications = new List<GridChange>();
+        List<BoundsKey> notifications = new List<BoundsKey>();
 
-        void ThrowingHandler(GridChange change, Vector3d min, Vector3d max)
+        void ThrowingApplyHandler(BlockageEventInfo eventInfo)
         {
             throw new InvalidOperationException("subscriber failure");
         }
 
-        void RecordingHandler(GridChange change, Vector3d min, Vector3d max)
+        void ThrowingRemoveHandler(BlockageEventInfo eventInfo)
         {
-            notifications.Add(change);
+            throw new InvalidOperationException("subscriber failure");
         }
 
-        Blocker.OnBlockageChanged += ThrowingHandler;
-        Blocker.OnBlockageChanged += RecordingHandler;
+        void RecordingApplyHandler(BlockageEventInfo eventInfo)
+        {
+            notifications.Add(eventInfo.BlockageToken);
+        }
+
+        void RecordingRemoveHandler(BlockageEventInfo eventInfo)
+        {
+            notifications.Add(eventInfo.BlockageToken);
+        }
+
+        Blocker.OnBlockageApplied += ThrowingApplyHandler;
+        Blocker.OnBlockageApplied += RecordingApplyHandler;
+        Blocker.OnBlockageRemoved += ThrowingRemoveHandler;
+        Blocker.OnBlockageRemoved += RecordingRemoveHandler;
 
         try
         {
@@ -396,11 +408,14 @@ public class BlockerTests : IDisposable
         }
         finally
         {
-            Blocker.OnBlockageChanged -= ThrowingHandler;
-            Blocker.OnBlockageChanged -= RecordingHandler;
+            Blocker.OnBlockageApplied -= ThrowingApplyHandler;
+            Blocker.OnBlockageApplied -= RecordingApplyHandler;
+            Blocker.OnBlockageRemoved -= ThrowingRemoveHandler;
+            Blocker.OnBlockageRemoved -= RecordingRemoveHandler;
         }
 
-        Assert.Equal(new[] { GridChange.Add, GridChange.Remove }, notifications);
+        Assert.Equal(2, notifications.Count);
+        Assert.Equal(notifications[0], notifications[1]);
     }
 
     [Fact]

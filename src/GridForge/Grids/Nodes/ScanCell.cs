@@ -106,7 +106,7 @@ public class ScanCell
     /// <param name="index">The global index of the voxel where the occupant resides.</param>
     /// <param name="occupant">The occupant instance to add.</param>
     /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
-    internal void AddOccupant(GlobalVoxelIndex index, IVoxelOccupant occupant)
+    internal int AddOccupant(GlobalVoxelIndex index, IVoxelOccupant occupant)
     {
         _voxelOccupants ??= Pools.VoxelOccupantDictionaryPool.Rent();
         if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> bucket))
@@ -118,6 +118,7 @@ public class ScanCell
         int ticket = bucket.Add(occupant);
         occupant.SetOccupancy(index, ticket);
         CellOccupantCount++;
+        return ticket;
     }
 
     /// <summary>

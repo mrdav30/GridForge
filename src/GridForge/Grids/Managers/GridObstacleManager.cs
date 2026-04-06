@@ -20,15 +20,39 @@ public static class GridObstacleManager
     public const byte MaxObstacleCount = byte.MaxValue;
 
     /// <summary>
-    /// Event triggered when an obstacle is added or removed.
+    /// Event triggered when an obstacle is added.
     /// </summary>
-    private static event Action<GridChange, GlobalVoxelIndex> _onObstacleChange;
+    private static Action<ObstacleEventInfo> _onObstacleAdded;
 
-    /// <inheritdoc cref="_onObstacleChange"/>
-    public static event Action<GridChange, GlobalVoxelIndex> OnObstacleChange
+    /// <inheritdoc cref="_onObstacleAdded"/>
+    public static event Action<ObstacleEventInfo> OnObstacleAdded
     {
-        add => _onObstacleChange += value;
-        remove => _onObstacleChange -= value;
+        add => _onObstacleAdded += value;
+        remove => _onObstacleAdded -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when an obstacle is removed.
+    /// </summary>
+    private static Action<ObstacleEventInfo> _onObstacleRemoved;
+
+    /// <inheritdoc cref="_onObstacleRemoved"/>
+    public static event Action<ObstacleEventInfo> OnObstacleRemoved
+    {
+        add => _onObstacleRemoved += value;
+        remove => _onObstacleRemoved -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when all obstacles on a voxel are cleared at once.
+    /// </summary>
+    private static Action<ObstacleClearEventInfo> _onObstaclesCleared;
+
+    /// <inheritdoc cref="_onObstaclesCleared"/>
+    public static event Action<ObstacleClearEventInfo> OnObstaclesCleared
+    {
+        add => _onObstaclesCleared += value;
+        remove => _onObstaclesCleared -= value;
     }
 
     #endregion
@@ -75,6 +99,8 @@ public static class GridObstacleManager
             return false;
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        byte obstacleCount;
+        uint gridVersion;
 
         lock (gridLock)
         {
@@ -84,10 +110,11 @@ public static class GridObstacleManager
             targetVoxel.ObstacleCount++;
 
             grid.ObstacleCount++;
-            grid.IncrementVersion();
+            gridVersion = grid.IncrementVersion();
+            obstacleCount = targetVoxel.ObstacleCount;
         }
 
-        NotifyObstacleChange(GridChange.Add, targetVoxel, grid.Version);
+        NotifyObstacleAdded(grid, targetVoxel, obstacleSpawnToken, obstacleCount, gridVersion);
 
         return true;
     }
@@ -122,6 +149,8 @@ public static class GridObstacleManager
         }
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        byte obstacleCount;
+        uint gridVersion;
 
         lock (gridLock)
         {
@@ -136,10 +165,11 @@ public static class GridObstacleManager
             }
 
             grid.ObstacleCount--;
-            grid.IncrementVersion();
+            gridVersion = grid.IncrementVersion();
+            obstacleCount = targetVoxel.ObstacleCount;
         }
 
-        NotifyObstacleChange(GridChange.Remove, targetVoxel, grid.Version);
+        NotifyObstacleRemoved(grid, targetVoxel, obstacleSpawnToken, obstacleCount, gridVersion);
 
         return true;
     }
@@ -155,9 +185,12 @@ public static class GridObstacleManager
             return;
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        byte clearedObstacleCount;
+        uint gridVersion;
 
         lock (gridLock)
         {
+            clearedObstacleCount = targetVoxel.ObstacleCount;
             if (targetVoxel.ObstacleTracker != null)
             {
                 SwiftHashSetPool<BoundsKey>.Shared.Release(targetVoxel.ObstacleTracker);
@@ -166,10 +199,10 @@ public static class GridObstacleManager
 
             grid.ObstacleCount -= targetVoxel.ObstacleCount;
             targetVoxel.ObstacleCount = 0;
-            grid.IncrementVersion();
+            gridVersion = grid.IncrementVersion();
         }
 
-        NotifyObstacleChange(GridChange.Remove, targetVoxel, grid.Version);
+        NotifyObstaclesCleared(grid, targetVoxel, clearedObstacleCount, gridVersion);
     }
 
     #endregion
@@ -177,11 +210,17 @@ public static class GridObstacleManager
     #region Private Methods
 
     /// <summary>
-    /// Notifies listeners of an obstacle state change.
+    /// Notifies listeners that an obstacle was added.
     /// </summary>
-    private static void NotifyObstacleChange(GridChange change, Voxel targetVoxel, uint gridVersion)
+    private static void NotifyObstacleAdded(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        BoundsKey obstacleSpawnToken,
+        byte obstacleCount,
+        uint gridVersion)
     {
-        Action<GridChange, GlobalVoxelIndex> handlers = _onObstacleChange;
+        ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        Action<ObstacleEventInfo> handlers = _onObstacleAdded;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -189,22 +228,86 @@ public static class GridObstacleManager
             {
                 try
                 {
-                    ((Action<GridChange, GlobalVoxelIndex>)handlerDelegates[i])(change, targetVoxel.GlobalIndex);
+                    ((Action<ObstacleEventInfo>)handlerDelegates[i])(eventInfo);
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error(
-                        $"[Voxel {targetVoxel.GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle add error: {ex.Message}");
                 }
             }
         }
 
-        targetVoxel.NotifyObstacleChange(change);
+        targetVoxel.NotifyObstacleAdded(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
+        GlobalGridManager.NotifyActiveGridChange(grid);
+    }
 
-        if (GlobalGridManager.TryGetGrid(targetVoxel.GlobalIndex, out VoxelGrid grid))
-            GlobalGridManager.NotifyActiveGridChange(grid);
+    /// <summary>
+    /// Notifies listeners that an obstacle was removed.
+    /// </summary>
+    private static void NotifyObstacleRemoved(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        BoundsKey obstacleSpawnToken,
+        byte obstacleCount,
+        uint gridVersion)
+    {
+        ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        Action<ObstacleEventInfo> handlers = _onObstacleRemoved;
+        if (handlers != null)
+        {
+            var handlerDelegates = handlers.GetInvocationList();
+            for (int i = 0; i < handlerDelegates.Length; i++)
+            {
+                try
+                {
+                    ((Action<ObstacleEventInfo>)handlerDelegates[i])(eventInfo);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle remove error: {ex.Message}");
+                }
+            }
+        }
+
+        targetVoxel.NotifyObstacleRemoved(eventInfo);
+
+        targetVoxel.CachedGridVersion = gridVersion;
+        GlobalGridManager.NotifyActiveGridChange(grid);
+    }
+
+    /// <summary>
+    /// Notifies listeners that all obstacles on a voxel were cleared.
+    /// </summary>
+    private static void NotifyObstaclesCleared(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        byte clearedObstacleCount,
+        uint gridVersion)
+    {
+        ObstacleClearEventInfo eventInfo = new(targetVoxel.GlobalIndex, clearedObstacleCount, gridVersion);
+        Action<ObstacleClearEventInfo> handlers = _onObstaclesCleared;
+        if (handlers != null)
+        {
+            var handlerDelegates = handlers.GetInvocationList();
+            for (int i = 0; i < handlerDelegates.Length; i++)
+            {
+                try
+                {
+                    ((Action<ObstacleClearEventInfo>)handlerDelegates[i])(eventInfo);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle clear error: {ex.Message}");
+                }
+            }
+        }
+
+        targetVoxel.NotifyObstaclesCleared(eventInfo);
+
+        targetVoxel.CachedGridVersion = gridVersion;
+        GlobalGridManager.NotifyActiveGridChange(grid);
     }
 
     #endregion

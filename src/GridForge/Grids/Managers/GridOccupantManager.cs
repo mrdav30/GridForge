@@ -19,15 +19,27 @@ public static class GridOccupantManager
     public const byte MaxOccupantCount = byte.MaxValue;
 
     /// <summary>
-    /// Event triggered when an occupant is added or removed.
+    /// Event triggered when an occupant is added.
     /// </summary>
-    private static event Action<GridChange, GlobalVoxelIndex> _onOccupantChange;
+    private static Action<OccupantEventInfo> _onOccupantAdded;
 
-    /// <inheritdoc cref="_onOccupantChange"/>
-    public static event Action<GridChange, GlobalVoxelIndex> OnOccupantChange
+    /// <inheritdoc cref="_onOccupantAdded"/>
+    public static event Action<OccupantEventInfo> OnOccupantAdded
     {
-        add => _onOccupantChange += value;
-        remove => _onOccupantChange -= value;
+        add => _onOccupantAdded += value;
+        remove => _onOccupantAdded -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when an occupant is removed.
+    /// </summary>
+    private static Action<OccupantEventInfo> _onOccupantRemoved;
+
+    /// <inheritdoc cref="_onOccupantRemoved"/>
+    public static event Action<OccupantEventInfo> OnOccupantRemoved
+    {
+        add => _onOccupantRemoved += value;
+        remove => _onOccupantRemoved -= value;
     }
 
     #endregion
@@ -110,18 +122,21 @@ public static class GridOccupantManager
             return false;
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        int ticket;
+        byte occupantCount;
 
         lock (gridLock)
         {
-            scanCell.AddOccupant(targetVoxel.GlobalIndex, occupant);
+            ticket = scanCell.AddOccupant(targetVoxel.GlobalIndex, occupant);
             grid.ActiveScanCells ??= SwiftHashSetPool<int>.Shared.Rent();
             if (!grid.ActiveScanCells.Contains(targetVoxel.ScanCellKey))
                 grid.ActiveScanCells.Add(targetVoxel.ScanCellKey);
 
             targetVoxel.OccupantCount++;
+            occupantCount = targetVoxel.OccupantCount;
         }
 
-        NotifyOccupantChange(GridChange.Add, targetVoxel);
+        NotifyOccupantAdded(targetVoxel, occupant, ticket, occupantCount);
 
         return true;
     }
@@ -195,6 +210,7 @@ public static class GridOccupantManager
             return false;
 
         bool success = false;
+        byte occupantCount = targetVoxel.OccupantCount;
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
 
@@ -215,11 +231,12 @@ public static class GridOccupantManager
                 }
 
                 targetVoxel.OccupantCount--;
+                occupantCount = targetVoxel.OccupantCount;
             }
         }
 
         if (success)
-            NotifyOccupantChange(GridChange.Remove, targetVoxel);
+            NotifyOccupantRemoved(targetVoxel, occupant, ticket, occupantCount);
 
         return success;
     }
@@ -229,11 +246,16 @@ public static class GridOccupantManager
     #region Private Methods
 
     /// <summary>
-    /// Notifies listeners of an occupant state change.
+    /// Notifies listeners that an occupant was added.
     /// </summary>
-    private static void NotifyOccupantChange(GridChange change, Voxel targetVoxel)
+    private static void NotifyOccupantAdded(
+        Voxel targetVoxel,
+        IVoxelOccupant occupant,
+        int ticket,
+        byte occupantCount)
     {
-        Action<GridChange, GlobalVoxelIndex> handlers = _onOccupantChange;
+        OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
+        Action<OccupantEventInfo> handlers = _onOccupantAdded;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -241,17 +263,46 @@ public static class GridOccupantManager
             {
                 try
                 {
-                    ((Action<GridChange, GlobalVoxelIndex>)handlerDelegates[i])(change, targetVoxel.GlobalIndex);
+                    ((Action<OccupantEventInfo>)handlerDelegates[i])(eventInfo);
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error(
-                        $"[Voxel {targetVoxel.GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Occupant add error: {ex.Message}");
                 }
             }
         }
 
-        targetVoxel.NotifyOccupantChange(change);
+        targetVoxel.NotifyOccupantAdded(eventInfo);
+    }
+
+    /// <summary>
+    /// Notifies listeners that an occupant was removed.
+    /// </summary>
+    private static void NotifyOccupantRemoved(
+        Voxel targetVoxel,
+        IVoxelOccupant occupant,
+        int ticket,
+        byte occupantCount)
+    {
+        OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
+        Action<OccupantEventInfo> handlers = _onOccupantRemoved;
+        if (handlers != null)
+        {
+            var handlerDelegates = handlers.GetInvocationList();
+            for (int i = 0; i < handlerDelegates.Length; i++)
+            {
+                try
+                {
+                    ((Action<OccupantEventInfo>)handlerDelegates[i])(eventInfo);
+                }
+                catch (Exception ex)
+                {
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Occupant remove error: {ex.Message}");
+                }
+            }
+        }
+
+        targetVoxel.NotifyOccupantRemoved(eventInfo);
     }
 
     #endregion

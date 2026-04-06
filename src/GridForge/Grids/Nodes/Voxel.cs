@@ -123,29 +123,68 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
-    private Action<GridChange, Voxel> _onObstacleChange;
-    private Action<GridChange, Voxel> _onOccupantChange;
-
     #endregion
 
     #region Events
 
     /// <summary>
-    /// Event triggered when an obstacle is added or removed.
+    /// Event triggered when an obstacle is added.
     /// </summary>
-    public event Action<GridChange, Voxel> OnObstacleChange
+    private Action<ObstacleEventInfo> _onObstacleAdded;
+
+    /// <inheritdoc cref="_onObstacleAdded"/>
+    public event Action<ObstacleEventInfo> OnObstacleAdded
     {
-        add => _onObstacleChange += value;
-        remove => _onObstacleChange -= value;
+        add => _onObstacleAdded += value;
+        remove => _onObstacleAdded -= value;
     }
 
     /// <summary>
-    /// Event triggered when an occupant is added or removed.
+    /// Event triggered when an obstacle is removed.
     /// </summary>
-    public event Action<GridChange, Voxel> OnOccupantChange
+    private Action<ObstacleEventInfo> _onObstacleRemoved;
+
+    /// <inheritdoc cref="_onObstacleRemoved"/>
+    public event Action<ObstacleEventInfo> OnObstacleRemoved
     {
-        add => _onOccupantChange += value;
-        remove => _onOccupantChange -= value;
+        add => _onObstacleRemoved += value;
+        remove => _onObstacleRemoved -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when all obstacles on the voxel are cleared at once.
+    /// </summary>
+    private Action<ObstacleClearEventInfo> _onObstaclesCleared;
+
+    /// <inheritdoc cref="_onObstaclesCleared"/>
+    public event Action<ObstacleClearEventInfo> OnObstaclesCleared
+    {
+        add => _onObstaclesCleared += value;
+        remove => _onObstaclesCleared -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when an occupant is added.
+    /// </summary>
+    private Action<OccupantEventInfo> _onOccupantAdded;
+
+    /// <inheritdoc cref="_onOccupantAdded"/>
+    public event Action<OccupantEventInfo> OnOccupantAdded
+    {
+        add => _onOccupantAdded += value;
+        remove => _onOccupantAdded -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when an occupant is removed.
+    /// </summary>
+    private Action<OccupantEventInfo> _onOccupantRemoved;
+
+    /// <inheritdoc cref="_onOccupantRemoved"/>
+    public event Action<OccupantEventInfo> OnOccupantRemoved
+    {
+        add => _onOccupantRemoved += value;
+        remove => _onOccupantRemoved -= value;
     }
 
     #endregion
@@ -238,8 +277,11 @@ public class Voxel : IEquatable<Voxel>
         ScanCellKey = 0;
 
         OccupantCount = 0;
-        _onObstacleChange = null;
-        _onOccupantChange = null;
+        _onObstacleAdded = null;
+        _onObstacleRemoved = null;
+        _onObstaclesCleared = null;
+        _onOccupantAdded = null;
+        _onOccupantRemoved = null;
 
         IsAllocated = false;
     }
@@ -248,44 +290,102 @@ public class Voxel : IEquatable<Voxel>
 
     #region Notifications
 
-    internal void NotifyObstacleChange(GridChange change)
+    internal void NotifyObstacleAdded(ObstacleEventInfo eventInfo)
     {
-        Action<GridChange, Voxel> handlers = _onObstacleChange;
+        Action<ObstacleEventInfo> handlers = _onObstacleAdded;
         if (handlers == null)
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
-        for(int i = 0; i < handlerDelegates.Length; i++)
+        for (int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                ((Action<GridChange, Voxel>)handlerDelegates[i])(change, this);
+                ((Action<ObstacleEventInfo>)handlerDelegates[i])(eventInfo);
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error(
-                    $"[Voxel {GlobalIndex}] Obstacle change error: {ex.Message} | Change: {change}");
+                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle add error: {ex.Message}");
             }
         }
     }
 
-    internal void NotifyOccupantChange(GridChange change)
+    internal void NotifyObstacleRemoved(ObstacleEventInfo eventInfo)
     {
-        Action<GridChange, Voxel> handlers = _onOccupantChange;
+        Action<ObstacleEventInfo> handlers = _onObstacleRemoved;
         if (handlers == null)
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
-        for(int i = 0; i < handlerDelegates.Length; i++)
+        for (int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                ((Action<GridChange, Voxel>)handlerDelegates[i])(change, this);
+                ((Action<ObstacleEventInfo>)handlerDelegates[i])(eventInfo);
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error(
-                    $"[Voxel {GlobalIndex}] Occupant change error: {ex.Message} | Change: {change}");
+                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle remove error: {ex.Message}");
+            }
+        }
+    }
+
+    internal void NotifyObstaclesCleared(ObstacleClearEventInfo eventInfo)
+    {
+        Action<ObstacleClearEventInfo> handlers = _onObstaclesCleared;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<ObstacleClearEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle clear error: {ex.Message}");
+            }
+        }
+    }
+
+    internal void NotifyOccupantAdded(OccupantEventInfo eventInfo)
+    {
+        Action<OccupantEventInfo> handlers = _onOccupantAdded;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<OccupantEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Occupant add error: {ex.Message}");
+            }
+        }
+    }
+
+    internal void NotifyOccupantRemoved(OccupantEventInfo eventInfo)
+    {
+        Action<OccupantEventInfo> handlers = _onOccupantRemoved;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<OccupantEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Occupant remove error: {ex.Message}");
             }
         }
     }

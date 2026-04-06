@@ -149,56 +149,171 @@ public class ManagerCoverageTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         Vector3d position = new Vector3d(1, 0, 1);
         BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey secondObstacleToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
         TestOccupant occupant = new TestOccupant(position);
-        int obstacleManagerNotifications = 0;
-        int obstacleVoxelNotifications = 0;
-        int occupantManagerNotifications = 0;
-        int occupantVoxelNotifications = 0;
-        Action<GridChange, GlobalVoxelIndex> throwingObstacleHandler = (_, _) => throw new InvalidOperationException("obstacle event");
-        Action<GridChange, GlobalVoxelIndex> recordingObstacleHandler = (_, _) => obstacleManagerNotifications++;
-        Action<GridChange, GlobalVoxelIndex> throwingOccupantHandler = (_, _) => throw new InvalidOperationException("occupant event");
-        Action<GridChange, GlobalVoxelIndex> recordingOccupantHandler = (_, _) => occupantManagerNotifications++;
-        Action<GridChange, Voxel> throwingVoxelObstacleHandler = (_, _) => throw new InvalidOperationException("voxel obstacle event");
-        Action<GridChange, Voxel> recordingVoxelObstacleHandler = (_, _) => obstacleVoxelNotifications++;
-        Action<GridChange, Voxel> throwingVoxelOccupantHandler = (_, _) => throw new InvalidOperationException("voxel occupant event");
-        Action<GridChange, Voxel> recordingVoxelOccupantHandler = (_, _) => occupantVoxelNotifications++;
+        int obstacleManagerAddedNotifications = 0;
+        int obstacleManagerRemovedNotifications = 0;
+        int obstacleManagerClearedNotifications = 0;
+        int obstacleVoxelAddedNotifications = 0;
+        int obstacleVoxelRemovedNotifications = 0;
+        int obstacleVoxelClearedNotifications = 0;
+        int occupantManagerAddedNotifications = 0;
+        int occupantManagerRemovedNotifications = 0;
+        int occupantVoxelAddedNotifications = 0;
+        int occupantVoxelRemovedNotifications = 0;
+        Action<ObstacleEventInfo> throwingObstacleAddedHandler = (_) => throw new InvalidOperationException("obstacle add event");
+        Action<ObstacleEventInfo> recordingObstacleAddedHandler = (_) => obstacleManagerAddedNotifications++;
+        Action<ObstacleEventInfo> throwingObstacleRemovedHandler = (_) => throw new InvalidOperationException("obstacle remove event");
+        Action<ObstacleEventInfo> recordingObstacleRemovedHandler = (_) => obstacleManagerRemovedNotifications++;
+        Action<ObstacleClearEventInfo> throwingObstacleClearHandler = (_) => throw new InvalidOperationException("obstacle clear event");
+        Action<ObstacleClearEventInfo> recordingObstacleClearHandler = (_) => obstacleManagerClearedNotifications++;
+        Action<OccupantEventInfo> throwingOccupantAddedHandler = (_) => throw new InvalidOperationException("occupant add event");
+        Action<OccupantEventInfo> recordingOccupantAddedHandler = (_) => occupantManagerAddedNotifications++;
+        Action<OccupantEventInfo> throwingOccupantRemovedHandler = (_) => throw new InvalidOperationException("occupant remove event");
+        Action<OccupantEventInfo> recordingOccupantRemovedHandler = (_) => occupantManagerRemovedNotifications++;
+        Action<ObstacleEventInfo> throwingVoxelObstacleAddedHandler = (_) => throw new InvalidOperationException("voxel obstacle add event");
+        Action<ObstacleEventInfo> recordingVoxelObstacleAddedHandler = (_) => obstacleVoxelAddedNotifications++;
+        Action<ObstacleEventInfo> throwingVoxelObstacleRemovedHandler = (_) => throw new InvalidOperationException("voxel obstacle remove event");
+        Action<ObstacleEventInfo> recordingVoxelObstacleRemovedHandler = (_) => obstacleVoxelRemovedNotifications++;
+        Action<ObstacleClearEventInfo> throwingVoxelObstacleClearHandler = (_) => throw new InvalidOperationException("voxel obstacle clear event");
+        Action<ObstacleClearEventInfo> recordingVoxelObstacleClearHandler = (_) => obstacleVoxelClearedNotifications++;
+        Action<OccupantEventInfo> throwingVoxelOccupantAddedHandler = (_) => throw new InvalidOperationException("voxel occupant add event");
+        Action<OccupantEventInfo> recordingVoxelOccupantAddedHandler = (_) => occupantVoxelAddedNotifications++;
+        Action<OccupantEventInfo> throwingVoxelOccupantRemovedHandler = (_) => throw new InvalidOperationException("voxel occupant remove event");
+        Action<OccupantEventInfo> recordingVoxelOccupantRemovedHandler = (_) => occupantVoxelRemovedNotifications++;
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
         try
         {
-            GridObstacleManager.OnObstacleChange += throwingObstacleHandler;
-            GridObstacleManager.OnObstacleChange += recordingObstacleHandler;
-            voxel.OnObstacleChange += throwingVoxelObstacleHandler;
-            voxel.OnObstacleChange += recordingVoxelObstacleHandler;
+            GridObstacleManager.OnObstacleAdded += throwingObstacleAddedHandler;
+            GridObstacleManager.OnObstacleAdded += recordingObstacleAddedHandler;
+            GridObstacleManager.OnObstacleRemoved += throwingObstacleRemovedHandler;
+            GridObstacleManager.OnObstacleRemoved += recordingObstacleRemovedHandler;
+            GridObstacleManager.OnObstaclesCleared += throwingObstacleClearHandler;
+            GridObstacleManager.OnObstaclesCleared += recordingObstacleClearHandler;
+            voxel.OnObstacleAdded += throwingVoxelObstacleAddedHandler;
+            voxel.OnObstacleAdded += recordingVoxelObstacleAddedHandler;
+            voxel.OnObstacleRemoved += throwingVoxelObstacleRemovedHandler;
+            voxel.OnObstacleRemoved += recordingVoxelObstacleRemovedHandler;
+            voxel.OnObstaclesCleared += throwingVoxelObstacleClearHandler;
+            voxel.OnObstaclesCleared += recordingVoxelObstacleClearHandler;
 
             Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
-            Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
+            grid.ClearObstacles(voxel);
+            Assert.True(grid.TryAddObstacle(voxel, secondObstacleToken));
+            Assert.True(grid.TryRemoveObstacle(voxel, secondObstacleToken));
 
-            GridOccupantManager.OnOccupantChange += throwingOccupantHandler;
-            GridOccupantManager.OnOccupantChange += recordingOccupantHandler;
-            voxel.OnOccupantChange += throwingVoxelOccupantHandler;
-            voxel.OnOccupantChange += recordingVoxelOccupantHandler;
+            GridOccupantManager.OnOccupantAdded += throwingOccupantAddedHandler;
+            GridOccupantManager.OnOccupantAdded += recordingOccupantAddedHandler;
+            GridOccupantManager.OnOccupantRemoved += throwingOccupantRemovedHandler;
+            GridOccupantManager.OnOccupantRemoved += recordingOccupantRemovedHandler;
+            voxel.OnOccupantAdded += throwingVoxelOccupantAddedHandler;
+            voxel.OnOccupantAdded += recordingVoxelOccupantAddedHandler;
+            voxel.OnOccupantRemoved += throwingVoxelOccupantRemovedHandler;
+            voxel.OnOccupantRemoved += recordingVoxelOccupantRemovedHandler;
 
             Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
             Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
         }
         finally
         {
-            GridObstacleManager.OnObstacleChange -= throwingObstacleHandler;
-            GridObstacleManager.OnObstacleChange -= recordingObstacleHandler;
-            GridOccupantManager.OnOccupantChange -= throwingOccupantHandler;
-            GridOccupantManager.OnOccupantChange -= recordingOccupantHandler;
-            voxel.OnObstacleChange -= throwingVoxelObstacleHandler;
-            voxel.OnObstacleChange -= recordingVoxelObstacleHandler;
-            voxel.OnOccupantChange -= throwingVoxelOccupantHandler;
-            voxel.OnOccupantChange -= recordingVoxelOccupantHandler;
+            GridObstacleManager.OnObstacleAdded -= throwingObstacleAddedHandler;
+            GridObstacleManager.OnObstacleAdded -= recordingObstacleAddedHandler;
+            GridObstacleManager.OnObstacleRemoved -= throwingObstacleRemovedHandler;
+            GridObstacleManager.OnObstacleRemoved -= recordingObstacleRemovedHandler;
+            GridObstacleManager.OnObstaclesCleared -= throwingObstacleClearHandler;
+            GridObstacleManager.OnObstaclesCleared -= recordingObstacleClearHandler;
+            GridOccupantManager.OnOccupantAdded -= throwingOccupantAddedHandler;
+            GridOccupantManager.OnOccupantAdded -= recordingOccupantAddedHandler;
+            GridOccupantManager.OnOccupantRemoved -= throwingOccupantRemovedHandler;
+            GridOccupantManager.OnOccupantRemoved -= recordingOccupantRemovedHandler;
+            voxel.OnObstacleAdded -= throwingVoxelObstacleAddedHandler;
+            voxel.OnObstacleAdded -= recordingVoxelObstacleAddedHandler;
+            voxel.OnObstacleRemoved -= throwingVoxelObstacleRemovedHandler;
+            voxel.OnObstacleRemoved -= recordingVoxelObstacleRemovedHandler;
+            voxel.OnObstaclesCleared -= throwingVoxelObstacleClearHandler;
+            voxel.OnObstaclesCleared -= recordingVoxelObstacleClearHandler;
+            voxel.OnOccupantAdded -= throwingVoxelOccupantAddedHandler;
+            voxel.OnOccupantAdded -= recordingVoxelOccupantAddedHandler;
+            voxel.OnOccupantRemoved -= throwingVoxelOccupantRemovedHandler;
+            voxel.OnOccupantRemoved -= recordingVoxelOccupantRemovedHandler;
         }
 
-        Assert.Equal(2, obstacleManagerNotifications);
-        Assert.Equal(2, obstacleVoxelNotifications);
-        Assert.Equal(2, occupantManagerNotifications);
-        Assert.Equal(2, occupantVoxelNotifications);
+        Assert.Equal(2, obstacleManagerAddedNotifications);
+        Assert.Equal(1, obstacleManagerRemovedNotifications);
+        Assert.Equal(1, obstacleManagerClearedNotifications);
+        Assert.Equal(2, obstacleVoxelAddedNotifications);
+        Assert.Equal(1, obstacleVoxelRemovedNotifications);
+        Assert.Equal(1, obstacleVoxelClearedNotifications);
+        Assert.Equal(1, occupantManagerAddedNotifications);
+        Assert.Equal(1, occupantManagerRemovedNotifications);
+        Assert.Equal(1, occupantVoxelAddedNotifications);
+        Assert.Equal(1, occupantVoxelRemovedNotifications);
+    }
+
+    [Fact]
+    public void SplitManagerNotifications_ShouldExposeStrongPayloads()
+    {
+        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(1, 0, 1);
+        BoundsKey firstToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey secondToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        TestOccupant occupant = new TestOccupant(position, 9);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+
+        ObstacleEventInfo addedObstacle = default;
+        ObstacleClearEventInfo clearedObstacle = default;
+        OccupantEventInfo addedOccupant = default;
+        OccupantEventInfo removedOccupant = default;
+
+        void HandleObstacleAdded(ObstacleEventInfo eventInfo) => addedObstacle = eventInfo;
+        void HandleObstaclesCleared(ObstacleClearEventInfo eventInfo) => clearedObstacle = eventInfo;
+        void HandleOccupantAdded(OccupantEventInfo eventInfo) => addedOccupant = eventInfo;
+        void HandleOccupantRemoved(OccupantEventInfo eventInfo) => removedOccupant = eventInfo;
+
+        GridObstacleManager.OnObstacleAdded += HandleObstacleAdded;
+        GridObstacleManager.OnObstaclesCleared += HandleObstaclesCleared;
+        GridOccupantManager.OnOccupantAdded += HandleOccupantAdded;
+        GridOccupantManager.OnOccupantRemoved += HandleOccupantRemoved;
+
+        try
+        {
+            Assert.True(grid.TryAddObstacle(voxel, firstToken));
+            Assert.True(grid.TryAddObstacle(voxel, secondToken));
+            grid.ClearObstacles(voxel);
+
+            Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+            Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+        }
+        finally
+        {
+            GridObstacleManager.OnObstacleAdded -= HandleObstacleAdded;
+            GridObstacleManager.OnObstaclesCleared -= HandleObstaclesCleared;
+            GridOccupantManager.OnOccupantAdded -= HandleOccupantAdded;
+            GridOccupantManager.OnOccupantRemoved -= HandleOccupantRemoved;
+        }
+
+        Assert.Equal(voxel.GlobalIndex, addedObstacle.VoxelIndex);
+        Assert.Equal(secondToken, addedObstacle.ObstacleToken);
+        Assert.Equal(2, addedObstacle.ObstacleCount);
+        Assert.True(addedObstacle.GridVersion >= 1);
+
+        Assert.Equal(voxel.GlobalIndex, clearedObstacle.VoxelIndex);
+        Assert.Equal(2, clearedObstacle.ClearedObstacleCount);
+        Assert.True(clearedObstacle.GridVersion >= addedObstacle.GridVersion);
+
+        Assert.Equal(voxel.GlobalIndex, addedOccupant.VoxelIndex);
+        Assert.Same(occupant, addedOccupant.Occupant);
+        Assert.Equal(1, addedOccupant.OccupantCount);
+        Assert.True(addedOccupant.Ticket >= 0);
+
+        Assert.Equal(voxel.GlobalIndex, removedOccupant.VoxelIndex);
+        Assert.Same(occupant, removedOccupant.Occupant);
+        Assert.Equal(addedOccupant.Ticket, removedOccupant.Ticket);
+        Assert.Equal(0, removedOccupant.OccupantCount);
     }
 
     [Fact]

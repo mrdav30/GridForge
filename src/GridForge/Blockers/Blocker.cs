@@ -57,9 +57,28 @@ public abstract class Blocker : IBlocker
     private readonly SwiftHashSet<ushort> _watchedGridIndices = new SwiftHashSet<ushort>();
 
     /// <summary>
-    /// Event triggered when a blockage is added or removed.
+    /// Event triggered when a blocker is applied.
     /// </summary>
-    public static event Action<GridChange, Vector3d, Vector3d> OnBlockageChanged;
+    private static Action<BlockageEventInfo> _onBlockageApplied;
+
+    /// <inheritdoc cref="_onBlockageApplied"/>
+    public static event Action<BlockageEventInfo> OnBlockageApplied
+    {
+        add => _onBlockageApplied += value;
+        remove => _onBlockageApplied -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when a blocker is removed.
+    /// </summary>
+    private static Action<BlockageEventInfo> _onBlockageRemoved;
+
+    /// <inheritdoc cref="_onBlockageRemoved"/>
+    public static event Action<BlockageEventInfo> OnBlockageRemoved
+    {
+        add => _onBlockageRemoved += value;
+        remove => _onBlockageRemoved -= value;
+    }
 
     static Blocker()
     {
@@ -149,7 +168,7 @@ public abstract class Blocker : IBlocker
 
         if (IsBlocking)
         {
-            NotifyBlockageChanged(GridChange.Add);
+            NotifyBlockageApplied();
             return;
         }
 
@@ -198,29 +217,65 @@ public abstract class Blocker : IBlocker
         if (!keepWatching || !IsActive)
             UnregisterGridWatcher();
 
-        NotifyBlockageChanged(GridChange.Remove);
+        NotifyBlockageRemoved();
     }
 
     /// <summary>
-    /// Notifies subscribers of blockage changes with error handling to prevent exceptions from disrupting the system.
+    /// Creates a snapshot describing the current blocker coverage.
     /// </summary>
-    protected virtual void NotifyBlockageChanged(GridChange change)
+    protected BlockageEventInfo CreateBlockageEventInfo()
     {
-        Action<GridChange, Vector3d, Vector3d> handlers = OnBlockageChanged;
+        return new BlockageEventInfo(BlockageToken, CacheMin, CacheMax);
+    }
+
+    /// <summary>
+    /// Notifies subscribers that blockage has been applied.
+    /// </summary>
+    protected virtual void NotifyBlockageApplied()
+    {
+        Action<BlockageEventInfo> handlers = _onBlockageApplied;
         if (handlers == null)
             return;
+
+        BlockageEventInfo eventInfo = CreateBlockageEventInfo();
 
         var handlerDelegates = handlers.GetInvocationList();
         for (int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                ((Action<GridChange, Vector3d, Vector3d>)handlerDelegates[i])(change, CacheMin, CacheMax);
+                ((Action<BlockageEventInfo>)handlerDelegates[i])(eventInfo);
             }
             catch (Exception ex)
             {
                 GridForgeLogger.Error(
-                    $"Blockage notification: {ex.Message} | Change: {change} | Bounds: {CacheMin} -> {CacheMax}");
+                    $"Blockage apply notification: {ex.Message} | Bounds: {eventInfo.BoundsMin} -> {eventInfo.BoundsMax}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Notifies subscribers that blockage has been removed.
+    /// </summary>
+    protected virtual void NotifyBlockageRemoved()
+    {
+        Action<BlockageEventInfo> handlers = _onBlockageRemoved;
+        if (handlers == null)
+            return;
+
+        BlockageEventInfo eventInfo = CreateBlockageEventInfo();
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<BlockageEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error(
+                    $"Blockage remove notification: {ex.Message} | Bounds: {eventInfo.BoundsMin} -> {eventInfo.BoundsMax}");
             }
         }
     }
