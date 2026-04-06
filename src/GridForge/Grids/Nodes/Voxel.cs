@@ -29,7 +29,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// The global index of the grid this voxel belongs to.
     /// </summary>
-    public int GridIndex => GlobalIndex.GridIndex;
+    public ushort GridIndex => GlobalIndex.GridIndex;
 
     /// <summary>
     /// The local coordinates of this voxel within its grid.

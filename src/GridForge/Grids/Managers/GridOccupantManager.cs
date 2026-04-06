@@ -21,7 +21,14 @@ public static class GridOccupantManager
     /// <summary>
     /// Event triggered when an occupant is added or removed.
     /// </summary>
-    public static event Action<GridChange, GlobalVoxelIndex> OnOccupantChange;
+    private static event Action<GridChange, GlobalVoxelIndex> _onOccupantChange;
+
+    /// <inheritdoc cref="_onOccupantChange"/>
+    public static event Action<GridChange, GlobalVoxelIndex> OnOccupantChange
+    {
+        add => _onOccupantChange += value;
+        remove => _onOccupantChange -= value;
+    }
 
     #endregion
 
@@ -226,7 +233,7 @@ public static class GridOccupantManager
     /// </summary>
     private static void NotifyOccupantChange(GridChange change, Voxel targetVoxel)
     {
-        Action<GridChange, GlobalVoxelIndex> handlers = OnOccupantChange;
+        Action<GridChange, GlobalVoxelIndex> handlers = _onOccupantChange;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();

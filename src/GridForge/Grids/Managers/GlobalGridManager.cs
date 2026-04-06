@@ -88,16 +88,56 @@ public static class GlobalGridManager
     #region Events
 
     /// <summary>
-    /// Event triggers when grid is added or removed.
-    /// Allows external systems to react to the active grid mutation.
+    /// Event triggered when a new grid is added.
+    /// Subscribers can use this to initialize references or update systems dependent on grid presence.
     /// </summary>
-    public static event Action<GridChange, uint> OnActiveGridChange;
+    private static Action<GridEventInfo> _onActiveGridAdded;
+
+    /// <inheritdoc cref="_onActiveGridAdded"/>
+    public static event Action<GridEventInfo> OnActiveGridAdded
+    {
+        add => _onActiveGridAdded += value;
+        remove => _onActiveGridAdded -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when a grid is removed.
+    /// Subscribers should use this to clean up references or handle the loss of a grid in their systems.
+    /// </summary>
+    private static Action<GridEventInfo> _onActiveGridRemoved;
+
+    /// <inheritdoc cref="_onActiveGridRemoved"/>
+    public static event Action<GridEventInfo> OnActiveGridRemoved
+    {
+        add => _onActiveGridRemoved += value;
+        remove => _onActiveGridRemoved -= value;
+    }
+
+    /// <summary>
+    /// Event triggered when a grid undergoes a significant change (e.g., structure modification).
+    /// Subscribers can use this to react to changes in grid state, such as updating pathfinding data or refreshing visuals.
+    /// </summary>
+    private static Action<GridEventInfo> _onActiveGridChange;
+
+    /// <inheritdoc cref="_onActiveGridChange"/>
+    public static event Action<GridEventInfo> OnActiveGridChange
+    {
+        add => _onActiveGridChange += value;
+        remove => _onActiveGridChange -= value;
+    }
 
     /// <summary>
     /// Event triggered when the GlobalGridManager is reset.
     /// Allows external systems to react to a full grid wipe.
     /// </summary>
-    public static event Action OnReset;
+    private static Action _onReset;
+
+    /// <inheritdoc cref="_onReset"/>
+    public static event Action OnReset
+    {
+        add => _onReset += value;
+        remove => _onReset -= value;
+    }
 
     #endregion
 
@@ -145,7 +185,7 @@ public static class GlobalGridManager
             return;
         }
 
-        Action resetHandlers = OnReset;
+        Action resetHandlers = _onReset;
         if (resetHandlers != null)
         {
             var handlerDelegates = resetHandlers.GetInvocationList();
@@ -223,6 +263,7 @@ public static class GlobalGridManager
         }
 
         VoxelGrid newGrid = Pools.GridPool.Rent();
+        GridEventInfo addedGridInfo = default;
         _gridLock.EnterWriteLock();
         try
         {
@@ -255,13 +296,14 @@ public static class GlobalGridManager
             }
 
             Version++;
+            addedGridInfo = CreateGridEventInfo(newGrid);
         }
         finally
         {
             _gridLock.ExitWriteLock();
         }
 
-        NotifyActiveGridChange(GridChange.Add, allocatedIndex);
+        NotifyActiveGridAdded(addedGridInfo);
 
         return true;
     }
@@ -275,6 +317,7 @@ public static class GlobalGridManager
             return false;
 
         VoxelGrid gridToRemove;
+        GridEventInfo removedGridInfo = default;
         _gridLock.EnterWriteLock();
         try
         {
@@ -315,6 +358,7 @@ public static class GlobalGridManager
             ActiveGrids.RemoveAt(removeIndex);
 
             Version++;
+            removedGridInfo = CreateGridEventInfo(gridToRemove);
         }
         finally
         {
@@ -324,7 +368,7 @@ public static class GlobalGridManager
         // Clearing out neighbor relationships for this voxel handled on `Grid.Reset`
         Pools.GridPool.Release(gridToRemove);
 
-        NotifyActiveGridChange(GridChange.Remove, removeIndex);
+        NotifyActiveGridRemoved(removedGridInfo);
 
         if (ActiveGrids.Count == 0)
             ActiveGrids.TrimExcessCapacity();
@@ -332,21 +376,75 @@ public static class GlobalGridManager
         return true;
     }
 
-    private static void NotifyActiveGridChange(GridChange change, uint index)
+    private static GridEventInfo CreateGridEventInfo(VoxelGrid grid)
     {
-        Action<GridChange, uint> handlers = OnActiveGridChange;
+        return new GridEventInfo(grid.GlobalIndex, grid.SpawnToken, grid.Configuration, grid.Version);
+    }
+
+    private static void NotifyActiveGridAdded(GridEventInfo eventInfo)
+    {
+        Action<GridEventInfo> handlers = _onActiveGridAdded;
         if (handlers == null)
             return;
 
-        foreach (Action<GridChange, uint> handler in handlers.GetInvocationList())
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
         {
             try
             {
-                handler(change, index);
+                ((Action<GridEventInfo>)handlerDelegates[i])(eventInfo);
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Grid {index}] notification error: {ex.Message} | Change: {change}");
+                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] added notification error: {ex.Message}");
+            }
+        }
+    }
+
+    private static void NotifyActiveGridRemoved(GridEventInfo eventInfo)
+    {
+        Action<GridEventInfo> handlers = _onActiveGridRemoved;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<GridEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] removed notification error: {ex.Message}");
+            }
+        }
+    }
+
+    internal static void NotifyActiveGridChange(VoxelGrid grid)
+    {
+        if (grid == null || !grid.IsActive)
+            return;
+
+        NotifyActiveGridChange(CreateGridEventInfo(grid));
+    }
+
+    private static void NotifyActiveGridChange(GridEventInfo eventInfo)
+    {
+        Action<GridEventInfo> handlers = _onActiveGridChange;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<GridEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] change notification error: {ex.Message}");
             }
         }
     }

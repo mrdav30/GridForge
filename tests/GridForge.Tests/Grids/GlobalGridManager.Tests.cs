@@ -303,17 +303,24 @@ public class GlobalGridManagerTests : IDisposable
     [Fact]
     public void GridNotifications_ShouldSwallowSubscriberExceptions()
     {
-        Action<GridChange, uint> gridChangeHandler = (_, _) => throw new InvalidOperationException("grid change");
-        Action resetHandler = () => throw new InvalidOperationException("reset");
+        Action<GridEventInfo> gridAddedHandler = (_) => throw new InvalidOperationException("grid added");
+        Action<GridEventInfo> gridRemovedHandler = (_) => throw new InvalidOperationException("grid removed");
+        Action<GridEventInfo> gridChangeHandler = (_) => throw new InvalidOperationException("grid change");
+        static void resetHandler() => throw new InvalidOperationException("reset");
 
         try
         {
+            GlobalGridManager.OnActiveGridAdded += gridAddedHandler;
+            GlobalGridManager.OnActiveGridRemoved += gridRemovedHandler;
             GlobalGridManager.OnActiveGridChange += gridChangeHandler;
             GlobalGridManager.OnReset += resetHandler;
 
             Assert.True(GlobalGridManager.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
                 out ushort gridIndex));
+            VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+            Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+            Assert.True(grid.TryAddObstacle(voxel, new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0))));
             Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
 
             GlobalGridManager.Setup();
@@ -322,8 +329,46 @@ public class GlobalGridManagerTests : IDisposable
         }
         finally
         {
+            GlobalGridManager.OnActiveGridAdded -= gridAddedHandler;
+            GlobalGridManager.OnActiveGridRemoved -= gridRemovedHandler;
             GlobalGridManager.OnActiveGridChange -= gridChangeHandler;
             GlobalGridManager.OnReset -= resetHandler;
         }
+    }
+
+    [Fact]
+    public void RemoveGrid_ShouldPublishRemovedGridSnapshotAfterRelease()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(-2, 0, -2), new Vector3d(2, 0, 2));
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+
+        GridEventInfo removedEvent = default;
+        bool notified = false;
+
+        void RemovedHandler(GridEventInfo eventInfo)
+        {
+            notified = true;
+            removedEvent = eventInfo;
+
+            Assert.False(GlobalGridManager.TryGetGrid(eventInfo.GridIndex, out VoxelGrid removedGrid));
+            Assert.Null(removedGrid);
+        }
+
+        GlobalGridManager.OnActiveGridRemoved += RemovedHandler;
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+        }
+        finally
+        {
+            GlobalGridManager.OnActiveGridRemoved -= RemovedHandler;
+        }
+
+        Assert.True(notified);
+        Assert.Equal(gridIndex, removedEvent.GridIndex);
+        Assert.Equal(config.BoundsMin, removedEvent.BoundsMin);
+        Assert.Equal(config.BoundsMax, removedEvent.BoundsMax);
+        Assert.Equal(config.ScanCellSize, removedEvent.Configuration.ScanCellSize);
     }
 }

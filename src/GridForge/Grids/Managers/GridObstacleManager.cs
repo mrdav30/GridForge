@@ -22,7 +22,14 @@ public static class GridObstacleManager
     /// <summary>
     /// Event triggered when an obstacle is added or removed.
     /// </summary>
-    public static event Action<GridChange, GlobalVoxelIndex> OnObstacleChange;
+    private static event Action<GridChange, GlobalVoxelIndex> _onObstacleChange;
+
+    /// <inheritdoc cref="_onObstacleChange"/>
+    public static event Action<GridChange, GlobalVoxelIndex> OnObstacleChange
+    {
+        add => _onObstacleChange += value;
+        remove => _onObstacleChange -= value;
+    }
 
     #endregion
 
@@ -174,7 +181,7 @@ public static class GridObstacleManager
     /// </summary>
     private static void NotifyObstacleChange(GridChange change, Voxel targetVoxel, uint gridVersion)
     {
-        Action<GridChange, GlobalVoxelIndex> handlers = OnObstacleChange;
+        Action<GridChange, GlobalVoxelIndex> handlers = _onObstacleChange;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -195,6 +202,9 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstacleChange(change);
 
         targetVoxel.CachedGridVersion = gridVersion;
+
+        if (GlobalGridManager.TryGetGrid(targetVoxel.GlobalIndex, out VoxelGrid grid))
+            GlobalGridManager.NotifyActiveGridChange(grid);
     }
 
     #endregion

@@ -54,7 +54,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Grid indices currently covered by this blocker.
     /// </summary>
-    private readonly SwiftHashSet<uint> _watchedGridIndices = new SwiftHashSet<uint>();
+    private readonly SwiftHashSet<ushort> _watchedGridIndices = new SwiftHashSet<ushort>();
 
     /// <summary>
     /// Event triggered when a blockage is added or removed.
@@ -63,7 +63,8 @@ public abstract class Blocker : IBlocker
 
     static Blocker()
     {
-        GlobalGridManager.OnActiveGridChange += HandleGlobalGridChange;
+        GlobalGridManager.OnActiveGridAdded += HandleActiveGridAdded;
+        GlobalGridManager.OnActiveGridRemoved += HandleActiveGridRemoved;
         GlobalGridManager.OnReset += HandleGlobalReset;
     }
 
@@ -290,26 +291,25 @@ public abstract class Blocker : IBlocker
             _registeredBlockers.Remove(this);
     }
 
-    private bool ShouldReactToGridChange(GridChange change, uint gridIndex)
+    private bool ShouldReactToGridAdded(GridEventInfo eventInfo)
     {
         if (!IsActive)
             return false;
 
-        if (change == GridChange.Remove)
-            return _watchedGridIndices.Contains(gridIndex);
-
-        if (!GlobalGridManager.TryGetGrid((int)gridIndex, out VoxelGrid grid))
-            return false;
-
-        return CacheMax.x >= grid.BoundsMin.x
-            && CacheMin.x <= grid.BoundsMax.x
-            && CacheMax.y >= grid.BoundsMin.y
-            && CacheMin.y <= grid.BoundsMax.y
-            && CacheMax.z >= grid.BoundsMin.z
-            && CacheMin.z <= grid.BoundsMax.z;
+        return CacheMax.x >= eventInfo.BoundsMin.x
+            && CacheMin.x <= eventInfo.BoundsMax.x
+            && CacheMax.y >= eventInfo.BoundsMin.y
+            && CacheMin.y <= eventInfo.BoundsMax.y
+            && CacheMax.z >= eventInfo.BoundsMin.z
+            && CacheMin.z <= eventInfo.BoundsMax.z;
     }
 
-    private static void HandleGlobalGridChange(GridChange change, uint gridIndex)
+    private bool ShouldReactToGridRemoved(GridEventInfo eventInfo)
+    {
+        return IsActive && _watchedGridIndices.Contains(eventInfo.GridIndex);
+    }
+
+    private static void HandleActiveGridAdded(GridEventInfo eventInfo)
     {
         Blocker[] blockers;
         lock (_gridWatcherLock)
@@ -317,7 +317,22 @@ public abstract class Blocker : IBlocker
 
         foreach (Blocker blocker in blockers)
         {
-            if (!blocker.ShouldReactToGridChange(change, gridIndex))
+            if (!blocker.ShouldReactToGridAdded(eventInfo))
+                continue;
+
+            blocker.ReapplyBlockage();
+        }
+    }
+
+    private static void HandleActiveGridRemoved(GridEventInfo eventInfo)
+    {
+        Blocker[] blockers;
+        lock (_gridWatcherLock)
+            blockers = _registeredBlockers.ToArray();
+
+        foreach (Blocker blocker in blockers)
+        {
+            if (!blocker.ShouldReactToGridRemoved(eventInfo))
                 continue;
 
             blocker.ReapplyBlockage();
