@@ -1,5 +1,4 @@
 ﻿using FixedMathSharp;
-using GridForge.Configuration;
 
 namespace GridForge.Blockers;
 

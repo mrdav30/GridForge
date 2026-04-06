@@ -1,5 +1,4 @@
-﻿using GridForge.Configuration;
-using GridForge.Spatial;
+﻿using GridForge.Spatial;
 
 namespace GridForge.Grids;
 

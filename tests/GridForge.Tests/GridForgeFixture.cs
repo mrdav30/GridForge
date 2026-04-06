@@ -1,5 +1,5 @@
-﻿using System;
-using SwiftCollections.Diagnostics;
+﻿using SwiftCollections.Diagnostics;
+using System;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

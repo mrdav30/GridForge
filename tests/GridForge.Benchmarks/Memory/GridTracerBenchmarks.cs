@@ -1,6 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
 using FixedMathSharp;
-using GridForge;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Utility;

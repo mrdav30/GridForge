@@ -3,13 +3,7 @@ using GridForge.Grids;
 using MemoryPack;
 using SwiftCollections;
 using System;
-
-#if NET8_0_OR_GREATER
 using System.Text.Json.Serialization;
-#endif
-#if !NET8_0_OR_GREATER
-using System.Text.Json.Serialization.Shim;
-#endif
 
 namespace GridForge.Configuration;
 

@@ -2,7 +2,7 @@
   <PropertyGroup>
     <LangVersion>11.0</LangVersion>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0</TargetFrameworks>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <Optimize>true</Optimize>

@@ -1,7 +1,7 @@
-﻿using System;
+﻿using SwiftCollections.Diagnostics;
+using System;
 using System.IO;
 using System.Runtime.CompilerServices;
-using SwiftCollections.Diagnostics;
 
 namespace GridForge;
 

@@ -1,6 +1,6 @@
-﻿using System;
+﻿using SwiftCollections.Diagnostics;
+using System;
 using System.IO;
-using SwiftCollections.Diagnostics;
 using Xunit;
 
 namespace GridForge.Utility.Tests;
