@@ -42,6 +42,9 @@
 		<Optimize>true</Optimize>
 		<DefineConstants>TRACE</DefineConstants>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+	</PropertyGroup>
 	<!-- NuGet Packaging Metadata -->
 	<PropertyGroup>
 		<PackageId>GridForge</PackageId>
