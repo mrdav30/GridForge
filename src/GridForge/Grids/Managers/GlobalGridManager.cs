@@ -45,7 +45,7 @@ public static class GlobalGridManager
     /// <summary>
     /// Resolution for snapping or searching within the grid (half of VoxelSize).
     /// </summary>
-    public static readonly Fixed64 VoxelResolution = VoxelSize * Fixed64.Half;
+    public static Fixed64 VoxelResolution => VoxelSize * Fixed64.Half;
 
     #endregion
 
