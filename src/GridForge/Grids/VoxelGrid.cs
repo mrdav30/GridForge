@@ -293,14 +293,6 @@ public class VoxelGrid
                             BoundsMin.z + z * GlobalGridManager.VoxelSize
                         );
 
-                    // Skip if the voxel is already allocated (should not happen under normal conditions)
-                    if (!IsValidVoxelIndex(x, y, z))
-                    {
-                        GridForgeLogger.Warn(
-                            $"Voxel at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");
-                        continue;
-                    }
-
                     // Rent a voxel from the object pool and initialize it
                     Voxel voxel = Pools.VoxelPool.Rent();
 
