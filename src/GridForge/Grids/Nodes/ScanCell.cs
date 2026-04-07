@@ -159,6 +159,9 @@ public class ScanCell
     /// <returns>An enumerable of occupants within this scan cell.</returns>
     public IEnumerable<IVoxelOccupant> GetOccupants()
     {
+        if (_voxelOccupants == null)
+            yield break;
+
         foreach (SwiftBucket<IVoxelOccupant> bucket in _voxelOccupants.Values)
         {
             foreach (IVoxelOccupant voxelOccupant in bucket)
@@ -173,6 +176,9 @@ public class ScanCell
         Func<IVoxelOccupant, bool> occupantCondition = null,
         Func<byte, bool> groupConditional = null)
     {
+        if (_voxelOccupants == null)
+            yield break;
+
         // Loop through each voxel's bucket and filter by the cluster condition
         foreach (var bucket in _voxelOccupants.Values)
         {
@@ -196,7 +202,7 @@ public class ScanCell
     /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
     public IEnumerable<IVoxelOccupant> GetOccupantsFor(GlobalVoxelIndex index)
     {
-        if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
+        if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
             yield break;
 
         foreach (IVoxelOccupant voxelOccupant in voxelOccupants)
@@ -216,7 +222,8 @@ public class ScanCell
         out IVoxelOccupant voxelOccupant)
     {
         voxelOccupant = null;
-        if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants)
+        if (_voxelOccupants == null
+            || !_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants)
             || !voxelOccupants.IsAllocated(occupantTicket))
         {
             return false;

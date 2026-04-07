@@ -339,6 +339,24 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void PublicRetrievalHelpers_ShouldReturnEmptyOrFalseForNeverOccupiedScanCells()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetScanCell(new Vector3d(1, 0, 1), out ScanCell scanCell));
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel voxel));
+
+        Assert.Empty(scanCell.GetOccupants());
+        Assert.Empty(scanCell.GetConditionalOccupants());
+        Assert.Empty(scanCell.GetOccupantsFor(voxel.GlobalIndex));
+        Assert.False(scanCell.TryGetOccupantAt(voxel.GlobalIndex, 0, out IVoxelOccupant missingOccupant));
+        Assert.Null(missingOccupant);
+    }
+
+    [Fact]
     public void ScanCell_InternalOperations_ShouldReturnEmptyOrFalseForMissingBucketsAndTickets()
     {
         GlobalGridManager.TryAddGrid(
