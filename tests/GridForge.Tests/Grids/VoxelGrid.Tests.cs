@@ -355,6 +355,33 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void ClearPools_ShouldDropReleasedScanCellMaps()
+    {
+        GridConfiguration config = new GridConfiguration(
+            new Vector3d(0, 0, 0),
+            new Vector3d(3, 0, 3),
+            scanCellSize: 2);
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort firstIndex));
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        object firstScanCellMap = firstGrid.ScanCells;
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(firstIndex));
+
+        Type poolsType = typeof(GlobalGridManager).Assembly.GetType("GridForge.Grids.Pools");
+        Assert.NotNull(poolsType);
+
+        MethodInfo clearPools = poolsType.GetMethod("ClearPools", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(clearPools);
+        clearPools.Invoke(null, null);
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort secondIndex));
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+
+        Assert.NotSame(firstScanCellMap, secondGrid.ScanCells);
+    }
+
+    [Fact]
     public void GetNeighborDirection_ShouldFollowCardinalAxisOffsets()
     {
         Assert.True(GlobalGridManager.TryAddGrid(

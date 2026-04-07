@@ -59,6 +59,7 @@ internal static class Pools
     {
         GridPool.Clear();
         VoxelPool.Clear();
+        ScanCellMapPool.Clear();
         ScanCellPool.Clear();
         VoxelNeighborPool.Clear();
         VoxelOccupantDictionaryPool.Clear();
