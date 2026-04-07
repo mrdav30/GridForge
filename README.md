@@ -1,6 +1,6 @@
 # GridForge
 
-![SwiftCollections Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
+![GridForge Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
 
 [![.NET CI](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml)
 
@@ -22,174 +22,51 @@ Lightweight, framework-agnostic, and optimized for lockstep engines.
 
 ---
 
-## ❓ Why GridForge?
+## 📦 Install
 
-GridForge is built for developers who need **deterministic**, **high-performance**, and **framework-agnostic** spatial grids. Whether you're building a **lockstep multiplayer game**, a **server-driven simulation**, or a **high-fidelity physics system**, GridForge provides the tools to manage voxelized spatial data with predictable and efficient results — all without relying on any specific engine.
+```bash
+dotnet add package GridForge
+```
 
-## 📦 Installation
-
-### Non-Unity Projects
-
-1. **Install via NuGet**:
-
-   ```bash
-   dotnet add package GridForge
-   ```
-
-2. **Or Download/Clone**:
-
-   ```bash
-   git clone https://github.com/mrdav30/GridForge.git
-   ```
-
-3. **Include in Project**:
-   - Add `GridForge` to your solution or reference its compiled DLL.
+GridForge targets `netstandard2.1` and `net8.0` and builds on `FixedMathSharp`, `SwiftCollections`, and `MemoryPack`.
 
 ### Unity
 
-GridForge is maintained as a separate Unity package. For Unity-specific implementations, refer to:
-
-🔗 [GridForge-Unity Repository](https://github.com/mrdav30/GridForge-Unity).
+Unity-specific integration lives in the separate [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity) repository.
 
 ---
 
-## 🧩 Dependencies
+## 📖 Start With The Wiki
 
-GridForge depends on the following libraries:
-
-- [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp)
-- [SwiftCollections](https://github.com/mrdav30/SwiftCollections)
-
-These dependencies are automatically included when installing.
-
----
-
-## 📖 Library Overview
-
-### **🗂 Core Components**
-
-| Component | Description |
-| ----------- | ------------ |
-| `GlobalGridManager` | Manages **VoxelGrids**, global spatial queries, and grid registration. |
-| `VoxelGrid` | Represents a **single grid** containing **voxels & scan cells**. |
-| `Voxel` | Represents a voxel **cell** with occupant, obstacle, and partition data.. |
-| `ScanCell` | Handles **spatial indexing** for fast neighbor and radius queries.. |
-| `GridTracer` | Trace lines, areas, and **paths** across voxels and scan cells. |
-| `GridObstacleManager` | Manage **dynamic grid obstacles** at runtime.. |
-| `GridOccupantManager` | Manage and query **occupants** in voxels. |
-| `GridScanManager` | Optimized **scan queries** (radius, box, path, etc). |
-| `Blockers` | Define static or dynamic voxel blockers. |
-| `Partitions` | Adds **meta-data** and **custom logic** to voxels. |
+- [Wiki Home](https://github.com/mrdav30/GridForge/wiki/Home)
+- [Getting Started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)
+- [Core Concepts](https://github.com/mrdav30/GridForge/wiki/Core-Concepts)
+- [Common Workflows](https://github.com/mrdav30/GridForge/wiki/Common-Workflows)
+- [Architecture Overview](https://github.com/mrdav30/GridForge/wiki/Architecture-Overview)
+- [Recipes](https://github.com/mrdav30/GridForge/wiki/Recipes)
+- [FAQ and Troubleshooting](https://github.com/mrdav30/GridForge/wiki/FAQ-and-Troubleshooting)
 
 ---
 
-## 📖 Usage Examples
-
-### **🔹 Creating a Grid**
-
-```csharp
-GridConfiguration config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-```
-
-### **🔹 Querying a Grid for Voxels**
-
-```csharp
-Vector3d queryPosition = new Vector3d(5, 0, 5);
-if (GlobalGridManager.TryGetGridAndVoxel(queryPosition, out VoxelGrid grid, out Voxel voxel))
- Console.WriteLine($"Voxel at {queryPosition} is {(voxel.IsOccupied ? "occupied" : "empty")}");
-}
-```
-
-### **🔹 Adding a Blocker**
-
-```csharp
-BoundingArea blockArea = new BoundingArea(new Vector3d(3, 0, 3), new Vector3d(5, 0, 5));
-Blocker blocker = new Blocker(blockArea);
-blocker.ApplyBlockage();
-```
-
-### **🔹 Attaching a Partition to a Voxel**
-
-```csharp
-if (GlobalGridManager.TryGetGrid(queryPosition, out VoxelGrid grid, out Voxel voxel))
-{
-    PathPartition partition = new PathPartition();
-    partition.Setup(voxel.GlobalVoxelIndex);
-    voxel.AddPartition(partition);
-}
-```
-
-### **🔹 Scanning for Nearby Occupants**
-
-```csharp
-Vector3d scanCenter = new Vector3d(0, 0, 0);
-Fixed64 scanRadius = (Fixed64)5;
-foreach (IVoxelOccupant occupant in ScanManager.ScanRadius(scanCenter, scanRadius))
-{
-    Console.WriteLine($"Found occupant at {occupant.WorldPosition}");
-}
-```
-
-### **🔹 Configuring Diagnostics**
-
-`GridForgeLogger` uses `SwiftCollections.Diagnostics` levels directly. By default, GridForge emits `Warning` and `Error` messages.
-
-```csharp
-using SwiftCollections.Diagnostics;
-
-GridForgeLogger.MinimumLevel = DiagnosticLevel.Error; // Only errors
-
-GridForgeLogger.LogHandler = (level, message, source) =>
-{
-    Console.WriteLine($"{level} [{source}] {message}");
-};
-
-// Disable GridForge logging entirely
-GridForgeLogger.MinimumLevel = DiagnosticLevel.None;
-```
-
----
-
-## 🧪 Testing and Validation
-
-GridForge includes **comprehensive unit tests** and a BenchmarkDotNet performance suite.
-
-Run tests with:
+## 🧪 Local Validation
 
 ```bash
-dotnet test
+dotnet restore GridForge.sln
+dotnet build GridForge.sln --configuration Debug
+dotnet test GridForge.sln --configuration Debug --no-build
 ```
 
-Run benchmarks with:
+For benchmark discovery:
 
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
 ```
-
-Benchmark reports are written to `BenchmarkDotNet.Artifacts/results/`.
-
----
-
-## 🔄 Compatibility
-
-- **.NET Standard** 2.1+
-- **.NET** 8+
-- **Unity** 2020+ (via - [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity))
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [CONTRIBUTING](https://github.com/mrdav30/GridForge/blob/main/CONTRIBUTING.md) guide for details on how to propose changes, report issues, and interact with the community.
-
----
-
-## 👥 Contributors
-
-- **David Oravsky** - Lead Developer
-- **Contributions Welcome!** Open a PR or issue.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and workflow details.
 
 ---
 
@@ -207,10 +84,4 @@ We welcome feedback, contributors, and community discussion across all projects.
 
 ## 📄 License
 
-This project is licensed under the MIT License.
-
-See the following files for details:
-
-- LICENSE – standard MIT license
-- NOTICE – additional terms regarding project branding and redistribution
-- COPYRIGHT – authorship information
+GridForge is licensed under the MIT License. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [COPYRIGHT](COPYRIGHT) for details.
