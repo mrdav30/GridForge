@@ -171,7 +171,13 @@ public static class GlobalGridManager
         else
             VoxelSize = voxelSize.Value;
 
-        SpatialGridCellSize = spatialGridCellSize;
+        if (spatialGridCellSize <= 0)
+        {
+            GridForgeLogger.Warn($"Spatial grid cell size must be greater than zero. Falling back to default size {DefaultSpatialGridCellSize}.");
+            SpatialGridCellSize = DefaultSpatialGridCellSize;
+        }
+        else
+            SpatialGridCellSize = spatialGridCellSize;
 
         ActiveGrids ??= new SwiftBucket<VoxelGrid>();
         BoundsTracker ??= new SwiftDictionary<BoundsKey, ushort>();

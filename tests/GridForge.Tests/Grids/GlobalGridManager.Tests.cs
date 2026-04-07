@@ -283,6 +283,29 @@ public class GlobalGridManagerTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-10)]
+    public void Setup_ShouldFallbackToDefaultSpatialGridCellSizeWhenConfiguredValueIsNotPositive(int invalidSpatialGridCellSize)
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: invalidSpatialGridCellSize);
+
+        try
+        {
+            Assert.Equal(GlobalGridManager.DefaultSpatialGridCellSize, GlobalGridManager.SpatialGridCellSize);
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(-2, 0, -2), new Vector3d(2, 0, 2)),
+                out _));
+            Assert.True(GlobalGridManager.TryGetGrid(new Vector3d(0, 0, 0), out _));
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
     [Fact]
     public void IncrementGridVersion_ShouldUpdateGridAndGlobalVersion()
     {
