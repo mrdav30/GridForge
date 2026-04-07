@@ -266,6 +266,24 @@ public class GlobalGridManagerTests : IDisposable
     }
 
     [Fact]
+    public void Setup_ShouldPreserveCustomVoxelSizeAboveOneAndUpdateResolution()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup((Fixed64)4);
+
+        try
+        {
+            Assert.Equal((Fixed64)4, GlobalGridManager.VoxelSize);
+            Assert.Equal((Fixed64)2, GlobalGridManager.VoxelResolution);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
     public void IncrementGridVersion_ShouldUpdateGridAndGlobalVersion()
     {
         Assert.True(GlobalGridManager.TryAddGrid(

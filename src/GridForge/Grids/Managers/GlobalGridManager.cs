@@ -163,7 +163,14 @@ public static class GlobalGridManager
             return;
         }
 
-        VoxelSize = FixedMath.Clamp01(voxelSize.Value);
+        if (voxelSize.Value <= Fixed64.Zero)
+        {
+            GridForgeLogger.Warn($"Voxel size must be greater than zero. Falling back to default size {DefaultVoxelSize}.");
+            VoxelSize = DefaultVoxelSize;
+        }
+        else
+            VoxelSize = voxelSize.Value;
+
         SpatialGridCellSize = spatialGridCellSize;
 
         ActiveGrids ??= new SwiftBucket<VoxelGrid>();
