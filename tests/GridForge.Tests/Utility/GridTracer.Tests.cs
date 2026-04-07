@@ -150,4 +150,30 @@ public class GridTracerTests : IDisposable
             }
         }
     }
+
+    [Fact]
+    public void GetCoveredScanCells_ShouldUsePaddedSnappedBoundsForSpatialHashLookup()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 10);
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(19, 0, 9), scanCellSize: 2),
+                out _));
+
+            ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
+                new Vector3d(9.6, 0, 0),
+                new Vector3d(9.6, 0, 0),
+                padding: Fixed64.One).ToArray();
+
+            Assert.NotEmpty(coveredScanCells);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
 }

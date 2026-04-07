@@ -764,10 +764,12 @@ public static class GlobalGridManager
     public static (Vector3d min, Vector3d max) SnapBoundsToVoxelSize(
         Vector3d min,
         Vector3d max,
-        double padding = 0)
+        Fixed64? padding = null)
     {
         // Ensure padding is non-negative
-        Fixed64 fixedPadding = FixedMath.Max((Fixed64)padding, Fixed64.Zero);
+        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero 
+            ? padding.Value 
+            : Fixed64.Zero;
 
         min -= fixedPadding;
         max += fixedPadding;

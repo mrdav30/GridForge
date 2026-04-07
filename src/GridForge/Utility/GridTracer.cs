@@ -28,7 +28,7 @@ public static class GridTracer
     public static IEnumerable<GridVoxelSet> TraceLine(
         Vector3d start,
         Vector3d end,
-        double padding = 0d,
+        Fixed64? padding = null,
         bool includeEnd = true)
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
@@ -119,7 +119,7 @@ public static class GridTracer
     public static IEnumerable<GridVoxelSet> TraceLine(
         Vector2d start,
         Vector2d end,
-        double padding = 0d,
+        Fixed64? padding = null,
         bool includeEnd = true)
     {
         // Convert 2D positions to 3D (assuming Y = 0 for a flat projection)
@@ -138,7 +138,7 @@ public static class GridTracer
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         Vector3d boundsMin,
         Vector3d boundsMax,
-        double padding = 0d)
+        Fixed64? padding = null)
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
@@ -203,7 +203,7 @@ public static class GridTracer
     public static IEnumerable<ScanCell> GetCoveredScanCells(
         Vector3d boundsMin,
         Vector3d boundsMax,
-        double padding = 0d)
+        Fixed64? padding = null)
     {
         SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
         SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
@@ -212,7 +212,7 @@ public static class GridTracer
         (Vector3d snappedMin, Vector3d snappedMax) =
             GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
 
-        foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(boundsMin, boundsMax))
+        foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedMin, snappedMax))
         {
             if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                 continue;
