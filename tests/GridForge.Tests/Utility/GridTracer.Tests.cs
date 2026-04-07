@@ -125,6 +125,56 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void TraceLine_ShouldBeStableForEquivalentFractionalEndpoints()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10)),
+            out _));
+
+        Vector3d[] firstTrace = GridTracer.TraceLine(
+                new Vector3d(1.01, 0, 1.01),
+                new Vector3d(5.01, 0, 5.01),
+                includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.WorldPosition)
+            .ToArray();
+
+        Vector3d[] secondTrace = GridTracer.TraceLine(
+                new Vector3d(1.99, 0, 1.99),
+                new Vector3d(5.49, 0, 5.49),
+                includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.WorldPosition)
+            .ToArray();
+
+        Assert.Equal(firstTrace, secondTrace);
+    }
+
+    [Fact]
+    public void TraceLine_ShouldRespectDescendingDirectionAfterSnapping()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Vector3d start = new Vector3d(5.8, 0, 5.8);
+        Vector3d end = new Vector3d(-5.2, 0, -5.2);
+
+        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.WorldPosition)
+            .ToArray();
+
+        Assert.NotEmpty(tracedPositions);
+        Assert.Contains(new Vector3d(0, 0, 0), tracedPositions);
+        Assert.True(grid.TryGetVoxel(start, out Voxel startVoxel));
+        Assert.True(grid.TryGetVoxel(end, out Voxel endVoxel));
+        Assert.Equal(startVoxel.WorldPosition, tracedPositions.First());
+        Assert.Equal(endVoxel.WorldPosition, tracedPositions.Last());
+    }
+
+    [Fact]
     public void Blocker_ShouldOnlyAffectSnappedBounds()
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);

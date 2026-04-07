@@ -34,10 +34,20 @@ public static class GridTracer
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new SwiftDictionary<VoxelGrid, SwiftList<Voxel>>();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
 
-        (Vector3d snappedStart, Vector3d snappedEnd) =
+        (Vector3d snappedMin, Vector3d snappedMax) =
             GlobalGridManager.SnapBoundsToVoxelSize(start, end, padding);
 
-        Vector3d diff = snappedEnd - snappedStart;
+        // Preserve the caller's trace direction while still using snapped bounds for coverage lookup.
+        Vector3d traceStart = new Vector3d(
+            start.x <= end.x ? snappedMin.x : snappedMax.x,
+            start.y <= end.y ? snappedMin.y : snappedMax.y,
+            start.z <= end.z ? snappedMin.z : snappedMax.z);
+        Vector3d traceEnd = new Vector3d(
+            start.x <= end.x ? snappedMax.x : snappedMin.x,
+            start.y <= end.y ? snappedMax.y : snappedMin.y,
+            start.z <= end.z ? snappedMax.z : snappedMin.z);
+
+        Vector3d diff = traceEnd - traceStart;
         Vector3d delta = Vector3d.Abs(diff);
 
         // Determine the total number of points to trace along the longest axis
@@ -49,7 +59,7 @@ public static class GridTracer
         Fixed64 stepZ = diff.z / (steps + Fixed64.One);
 
         // Get affected spatial cells along the traced line
-        foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedStart, snappedEnd))
+        foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(snappedMin, snappedMax))
         {
             if (!GlobalGridManager.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                 continue;
@@ -71,7 +81,10 @@ public static class GridTracer
                 for (Fixed64 i = Fixed64.Zero; i <= steps; i += Fixed64.One)
                 {
                     Vector3d tracePos = GlobalGridManager.FloorToVoxelSize(
-                        new Vector3d(start.x + stepX * i, start.y + stepY * i, start.z + stepZ * i));
+                        new Vector3d(
+                            traceStart.x + stepX * i,
+                            traceStart.y + stepY * i,
+                            traceStart.z + stepZ * i));
 
                     if (!currentGrid.TryGetVoxel(tracePos, out Voxel voxel) || !voxelRedundancyCheck.Add(voxel))
                         continue;
