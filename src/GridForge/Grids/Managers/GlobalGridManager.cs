@@ -558,9 +558,17 @@ public static class GlobalGridManager
     /// </summary>
     public static bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid result)
     {
+        result = null;
+
         // Ensure the grid is valid and the voxel belongs to the expected grid version
-        return TryGetGrid(globalVoxelIndex.GridIndex, out result)
-            && globalVoxelIndex.GridSpawnToken == result.SpawnToken;
+        if (!TryGetGrid(globalVoxelIndex.GridIndex, out VoxelGrid resolvedGrid)
+            || globalVoxelIndex.GridSpawnToken != resolvedGrid.SpawnToken)
+        {
+            return false;
+        }
+
+        result = resolvedGrid;
+        return true;
     }
 
     /// <summary>

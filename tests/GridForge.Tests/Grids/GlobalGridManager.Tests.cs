@@ -392,9 +392,9 @@ public class GlobalGridManagerTests : IDisposable
             voxel.GlobalIndex.GridSpawnToken + 1);
 
         Assert.False(GlobalGridManager.TryGetGrid(wrongSpawnIndex, out VoxelGrid mismatchedGrid));
-        Assert.Same(secondGrid, mismatchedGrid);
+        Assert.Null(mismatchedGrid);
         Assert.False(GlobalGridManager.TryGetGridAndVoxel(wrongSpawnIndex, out VoxelGrid mismatchedResolvedGrid, out Voxel mismatchedResolvedVoxel));
-        Assert.Same(secondGrid, mismatchedResolvedGrid);
+        Assert.Null(mismatchedResolvedGrid);
         Assert.Null(mismatchedResolvedVoxel);
         Assert.False(GlobalGridManager.TryGetVoxel(wrongSpawnIndex, out Voxel mismatchedDirectVoxel));
         Assert.Null(mismatchedDirectVoxel);
