@@ -195,6 +195,8 @@ public abstract class Blocker : IBlocker
             return;
         }
 
+        BlockageEventInfo removalEventInfo = CreateBlockageEventInfo();
+
         if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
             foreach (GlobalVoxelIndex voxelIndex in _cachedCoveredVoxels)
@@ -217,7 +219,7 @@ public abstract class Blocker : IBlocker
         if (!keepWatching || !IsActive)
             UnregisterGridWatcher();
 
-        NotifyBlockageRemoved();
+        NotifyBlockageRemoved(removalEventInfo);
     }
 
     /// <summary>
@@ -257,13 +259,11 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Notifies subscribers that blockage has been removed.
     /// </summary>
-    protected virtual void NotifyBlockageRemoved()
+    protected virtual void NotifyBlockageRemoved(BlockageEventInfo eventInfo)
     {
         Action<BlockageEventInfo> handlers = _onBlockageRemoved;
         if (handlers == null)
             return;
-
-        BlockageEventInfo eventInfo = CreateBlockageEventInfo();
 
         var handlerDelegates = handlers.GetInvocationList();
         for (int i = 0; i < handlerDelegates.Length; i++)
