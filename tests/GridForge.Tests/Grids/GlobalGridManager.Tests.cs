@@ -1,8 +1,10 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Spatial;
+using SwiftCollections;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -34,6 +36,33 @@ public class GlobalGridManagerTests : IDisposable
     }
 
     [Fact]
+    public void Setup_ShouldIgnoreDuplicateSetupCallsAndFallbackInvalidVoxelSize()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup((Fixed64)(-2), spatialGridCellSize: 25);
+
+        try
+        {
+            SwiftBucket<VoxelGrid> activeGrids = GlobalGridManager.ActiveGrids;
+
+            Assert.Equal(GlobalGridManager.DefaultVoxelSize, GlobalGridManager.VoxelSize);
+            Assert.Equal(25, GlobalGridManager.SpatialGridCellSize);
+
+            GlobalGridManager.Setup((Fixed64)3, spatialGridCellSize: 99);
+
+            Assert.Same(activeGrids, GlobalGridManager.ActiveGrids);
+            Assert.Equal(GlobalGridManager.DefaultVoxelSize, GlobalGridManager.VoxelSize);
+            Assert.Equal(25, GlobalGridManager.SpatialGridCellSize);
+            Assert.True(GlobalGridManager.IsActive);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
     public void Reset_ShouldClearAllGrids()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
@@ -43,6 +72,18 @@ public class GlobalGridManagerTests : IDisposable
 
         Assert.Empty(GlobalGridManager.ActiveGrids);
         Assert.Empty(GlobalGridManager.SpatialGridHash);
+    }
+
+    [Fact]
+    public void Reset_ShouldReturnEarlyWhenInactive()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Reset();
+
+        Assert.False(GlobalGridManager.IsActive);
+        Assert.False(GlobalGridManager.TryGetGrid(0, out _));
+
+        GlobalGridManager.Setup();
     }
 
     [Fact]
@@ -326,6 +367,137 @@ public class GlobalGridManagerTests : IDisposable
     }
 
     [Fact]
+    public void TryGetGridOverloads_ShouldHandleOutOfRangeUnallocatedAndSpawnMismatchCases()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort firstIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(11, 0, 11)),
+            out ushort secondIndex));
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(firstIndex));
+        Assert.False(GlobalGridManager.TryRemoveGrid(firstIndex));
+        Assert.False(GlobalGridManager.TryGetGrid(firstIndex, out VoxelGrid unallocatedGrid));
+        Assert.Null(unallocatedGrid);
+        Assert.False(GlobalGridManager.TryGetGrid(GlobalGridManager.ActiveGrids.Count + 10, out VoxelGrid outOfRangeGrid));
+        Assert.Null(outOfRangeGrid);
+
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(10, 0, 10), out Voxel voxel));
+
+        GlobalVoxelIndex wrongSpawnIndex = new GlobalVoxelIndex(
+            secondIndex,
+            voxel.Index,
+            voxel.GlobalIndex.GridSpawnToken + 1);
+
+        Assert.False(GlobalGridManager.TryGetGrid(wrongSpawnIndex, out VoxelGrid mismatchedGrid));
+        Assert.Same(secondGrid, mismatchedGrid);
+        Assert.False(GlobalGridManager.TryGetGridAndVoxel(wrongSpawnIndex, out VoxelGrid mismatchedResolvedGrid, out Voxel mismatchedResolvedVoxel));
+        Assert.Same(secondGrid, mismatchedResolvedGrid);
+        Assert.Null(mismatchedResolvedVoxel);
+        Assert.False(GlobalGridManager.TryGetVoxel(wrongSpawnIndex, out Voxel mismatchedDirectVoxel));
+        Assert.Null(mismatchedDirectVoxel);
+    }
+
+    [Fact]
+    public void TryGetGrid_ShouldIgnoreStaleSpatialHashEntriesAndReportMissesForOutOfBoundsCandidates()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        Assert.False(GlobalGridManager.TryGetGrid(new Vector3d(40, 0, 40), out VoxelGrid outsideBoundsGrid));
+        Assert.Null(outsideBoundsGrid);
+
+        int cellKey = GlobalGridManager.GetSpatialGridKey(new Vector3d(0, 0, 0));
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+
+        if (!GlobalGridManager.SpatialGridHash.ContainsKey(cellKey))
+            GlobalGridManager.SpatialGridHash.Add(cellKey, new SwiftHashSet<ushort>());
+
+        GlobalGridManager.SpatialGridHash[cellKey].Add(gridIndex);
+
+        Assert.False(GlobalGridManager.TryGetGrid(new Vector3d(0, 0, 0), out VoxelGrid staleGrid));
+        Assert.Null(staleGrid);
+    }
+
+    [Fact]
+    public void TryAddGrid_ShouldIgnoreStaleSpatialHashEntriesWhenLinkingNeighbors()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 100);
+
+        try
+        {
+            GridConfiguration staleConfig = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20));
+            GridConfiguration anchorConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10));
+            GridConfiguration newConfig = new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(20, 0, 10));
+            int cellKey = GlobalGridManager.GetSpatialGridKey(new Vector3d(0, 0, 0));
+
+            Assert.True(GlobalGridManager.TryAddGrid(staleConfig, out ushort staleIndex));
+            Assert.True(GlobalGridManager.TryRemoveGrid(staleIndex));
+            if (!GlobalGridManager.SpatialGridHash.ContainsKey(cellKey))
+                GlobalGridManager.SpatialGridHash.Add(cellKey, new SwiftHashSet<ushort>());
+            GlobalGridManager.SpatialGridHash[cellKey].Add(staleIndex);
+
+            Assert.True(GlobalGridManager.TryAddGrid(anchorConfig, out ushort anchorIndex));
+            Assert.True(GlobalGridManager.TryAddGrid(newConfig, out ushort newIndex));
+
+            VoxelGrid anchorGrid = GlobalGridManager.ActiveGrids[anchorIndex];
+            VoxelGrid newGrid = GlobalGridManager.ActiveGrids[newIndex];
+
+            Assert.True(anchorGrid.IsConjoined);
+            Assert.True(newGrid.IsConjoined);
+            Assert.Contains(newIndex, anchorGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+            Assert.Contains(anchorIndex, newGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
+    public void TryRemoveGrid_ShouldHandleMissingHashCellsAndSkipStaleOrNonOverlappingNeighbors()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 100);
+
+        try
+        {
+            GridConfiguration removableConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10));
+            GridConfiguration adjacentConfig = new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(20, 0, 10));
+            GridConfiguration farConfig = new GridConfiguration(new Vector3d(40, 0, 40), new Vector3d(50, 0, 50));
+            GridConfiguration staleConfig = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20));
+
+            Assert.True(GlobalGridManager.TryAddGrid(removableConfig, out ushort removableIndex));
+            Assert.True(GlobalGridManager.TryAddGrid(adjacentConfig, out ushort adjacentIndex));
+            Assert.True(GlobalGridManager.TryAddGrid(farConfig, out _));
+            Assert.True(GlobalGridManager.TryAddGrid(staleConfig, out ushort staleIndex));
+
+            VoxelGrid removableGrid = GlobalGridManager.ActiveGrids[removableIndex];
+            int removableCellKey = GlobalGridManager.GetSpatialGridKey(removableGrid.BoundsMin);
+
+            Assert.True(GlobalGridManager.TryRemoveGrid(staleIndex));
+            GlobalGridManager.SpatialGridHash[removableCellKey].Add(staleIndex);
+            GlobalGridManager.SpatialGridHash.Remove(GlobalGridManager.GetSpatialGridKey(new Vector3d(90, 0, 90)));
+            GlobalGridManager.SpatialGridHash.Remove(removableCellKey);
+            GlobalGridManager.SpatialGridHash.Add(removableCellKey, new SwiftHashSet<ushort> { adjacentIndex, staleIndex });
+
+            Assert.True(GlobalGridManager.TryRemoveGrid(removableIndex));
+            Assert.True(GlobalGridManager.TryGetGrid(adjacentIndex, out VoxelGrid adjacentGrid));
+            Assert.DoesNotContain(removableIndex, adjacentGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
     public void TryGetGridAndVoxel_ShouldSupportGlobalVoxelIndexOverloads()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
@@ -339,6 +511,108 @@ public class GlobalGridManagerTests : IDisposable
         Assert.Same(grid, resolvedGrid);
         Assert.Same(voxel, resolvedVoxel);
         Assert.Same(voxel, directVoxel);
+    }
+
+    [Fact]
+    public void FindOverlappingGrids_ShouldIgnoreNonOverlappingCandidatesWithinSameSpatialCellAndWhenInactive()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 100);
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10)),
+                out ushort firstIndex));
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(40, 0, 40), new Vector3d(50, 0, 50)),
+                out _));
+
+            VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+
+            Assert.Empty(GlobalGridManager.FindOverlappingGrids(firstGrid));
+
+            GlobalGridManager.Reset(deactivate: true);
+
+            Assert.Empty(GlobalGridManager.FindOverlappingGrids(firstGrid));
+        }
+        finally
+        {
+            if (GlobalGridManager.IsActive)
+                GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
+    public void UtilityHelpers_ShouldHandleNegativeAndInvertedBounds()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup((Fixed64)2, spatialGridCellSize: 10);
+
+        try
+        {
+            int negativeKey = GlobalGridManager.GetSpatialGridKey(new Vector3d(-12, 0, -12));
+            int sameNegativeCellKey = GlobalGridManager.GetSpatialGridKey(new Vector3d(-19, 0, -19));
+            int positiveKey = GlobalGridManager.GetSpatialGridKey(new Vector3d(12, 0, 12));
+            int[] invertedBoundsCells = GlobalGridManager.GetSpatialGridCells(
+                new Vector3d(12, 0, 12),
+                new Vector3d(-12, 0, -12))
+                .Distinct()
+                .ToArray();
+            (Vector3d snappedMin, Vector3d snappedMax) = GlobalGridManager.SnapBoundsToVoxelSize(
+                new Vector3d(3, 5, 7),
+                new Vector3d(-3, -5, -7),
+                padding: (Fixed64)1);
+
+            Assert.Equal(SpatialDirection.None, GlobalGridManager.GetNeighborDirectionFromOffset((0, 0, 0)));
+            Assert.Equal(negativeKey, sameNegativeCellKey);
+            Assert.NotEqual(negativeKey, positiveKey);
+            Assert.Equal(9, invertedBoundsCells.Length);
+            Assert.Equal(new Vector3d(-4, 6, -8), GlobalGridManager.CeilToVoxelSize(new Vector3d(-3, 5, -7)));
+            Assert.Equal(new Vector3d(-2, 4, -6), GlobalGridManager.FloorToVoxelSize(new Vector3d(-3, 5, -7)));
+            Assert.Equal(new Vector3d(-2, -4, -6), snappedMin);
+            Assert.Equal(new Vector3d(2, 4, 6), snappedMax);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
+    public void ChangeNotificationsAndInactiveGuards_ShouldHandleInternalEdgeCases()
+    {
+        Action<GridEventInfo> throwingGridChangeHandler = (_) => throw new InvalidOperationException("grid change");
+
+        try
+        {
+            GlobalGridManager.OnActiveGridChange += throwingGridChangeHandler;
+
+            InvokeNotifyActiveGridChange(null);
+
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+                out ushort gridIndex));
+            VoxelGrid activeGrid = GlobalGridManager.ActiveGrids[gridIndex];
+
+            InvokeNotifyActiveGridChange(activeGrid);
+
+            Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+            InvokeNotifyActiveGridChange(activeGrid);
+
+            GlobalGridManager.Reset(deactivate: true);
+
+            GlobalGridManager.IncrementGridVersion(0);
+            Assert.False(GlobalGridManager.TryGetGrid(new Vector3d(0, 0, 0), out _));
+
+            GlobalGridManager.Setup();
+        }
+        finally
+        {
+            GlobalGridManager.OnActiveGridChange -= throwingGridChangeHandler;
+        }
     }
 
     [Fact]
@@ -411,5 +685,18 @@ public class GlobalGridManagerTests : IDisposable
         Assert.Equal(config.BoundsMin, removedEvent.BoundsMin);
         Assert.Equal(config.BoundsMax, removedEvent.BoundsMax);
         Assert.Equal(config.ScanCellSize, removedEvent.Configuration.ScanCellSize);
+    }
+
+    private static void InvokeNotifyActiveGridChange(VoxelGrid grid)
+    {
+        var notifyMethod = typeof(GlobalGridManager).GetMethod(
+            "NotifyActiveGridChange",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic,
+            null,
+            new[] { typeof(VoxelGrid) },
+            null);
+
+        Assert.NotNull(notifyMethod);
+        notifyMethod.Invoke(null, new object[] { grid });
     }
 }

@@ -47,6 +47,26 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void Initialize_ShouldReturnEarlyWhenGridIsAlreadyActive()
+    {
+        GridConfiguration initialConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        GridConfiguration secondConfig = new GridConfiguration(new Vector3d(50, 0, 50), new Vector3d(51, 0, 51));
+
+        Assert.True(GlobalGridManager.TryAddGrid(initialConfig, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        int originalSpawnToken = grid.SpawnToken;
+        ushort originalIndex = grid.GlobalIndex;
+
+        InvokeGridInitialize(grid, 999, secondConfig);
+
+        Assert.True(grid.IsActive);
+        Assert.Equal(originalIndex, grid.GlobalIndex);
+        Assert.Equal(originalSpawnToken, grid.SpawnToken);
+        Assert.Equal(initialConfig.BoundsMin, grid.BoundsMin);
+        Assert.Equal(initialConfig.BoundsMax, grid.BoundsMax);
+    }
+
+    [Fact]
     public void GetVoxel_ShouldReturnCorrectVoxel()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
@@ -130,6 +150,18 @@ public class VoxelGridTests : IDisposable
             Assert.False(grid1.IsConjoined);
 
         Assert.False(grid2.IsActive);
+    }
+
+    [Fact]
+    public void Reset_ShouldReturnEarlyWhenGridIsInactive()
+    {
+        VoxelGrid detachedGrid = new VoxelGrid();
+
+        InvokeGridReset(detachedGrid);
+
+        Assert.False(detachedGrid.IsActive);
+        Assert.Equal(0, detachedGrid.NeighborCount);
+        Assert.False(detachedGrid.IsConjoined);
     }
 
     [Fact]
@@ -219,6 +251,81 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void GridNeighborManagement_ShouldRejectInvalidAndDuplicateRelationshipsAndReleaseLastNeighborSet()
+    {
+        VoxelGrid centerGrid = CreateStandaloneGrid(
+            10,
+            new Vector3d(0, 0, 0),
+            new Vector3d(0, 0, 0));
+        VoxelGrid eastGrid = CreateStandaloneGrid(
+            11,
+            new Vector3d(1, 0, 0),
+            new Vector3d(1, 0, 0));
+        VoxelGrid secondEastGrid = CreateStandaloneGrid(
+            13,
+            new Vector3d(2, 0, 0),
+            new Vector3d(2, 0, 0));
+        VoxelGrid sameCenterGrid = CreateStandaloneGrid(
+            12,
+            new Vector3d(0, 0, 0),
+            new Vector3d(0, 0, 0));
+
+        try
+        {
+            Assert.False(InvokeTryAddGridNeighbor(centerGrid, sameCenterGrid));
+            Assert.True(InvokeTryAddGridNeighbor(centerGrid, eastGrid));
+            Assert.False(InvokeTryAddGridNeighbor(centerGrid, eastGrid));
+            Assert.True(centerGrid.IsConjoined);
+            Assert.Equal(1, centerGrid.NeighborCount);
+            Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, sameCenterGrid));
+            Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, secondEastGrid));
+            Assert.True(InvokeTryRemoveGridNeighbor(centerGrid, eastGrid));
+            Assert.False(centerGrid.IsConjoined);
+            Assert.Null(centerGrid.Neighbors);
+            Assert.Equal(0, centerGrid.NeighborCount);
+            Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, eastGrid));
+        }
+        finally
+        {
+            InvokeGridReset(centerGrid);
+            InvokeGridReset(eastGrid);
+            InvokeGridReset(secondEastGrid);
+            InvokeGridReset(sameCenterGrid);
+        }
+    }
+
+    [Fact]
+    public void IncrementVersion_ShouldWrapFromUIntMaxValue()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        SetGridVersion(grid, uint.MaxValue);
+
+        Assert.Equal(1u, InvokeIncrementVersion(grid));
+        Assert.Equal(1u, grid.Version);
+    }
+
+    [Fact]
+    public void IsGridOverlapValid_ShouldRespectExplicitTolerance()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort firstIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(2, 0, 0), new Vector3d(2, 0, 0)),
+            out ushort secondIndex));
+
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+
+        Assert.False(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: Fixed64.Zero));
+        Assert.True(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: (Fixed64)2));
+    }
+
+    [Fact]
     public void GetActiveScanCells_ShouldReturnEmptyWhenGridHasNoOccupants()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
@@ -280,6 +387,20 @@ public class VoxelGridTests : IDisposable
 
         foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
             Assert.False(grid.IsFacingBoundaryDirection(centerIndex, direction));
+    }
+
+    [Fact]
+    public void BoundaryQueries_ShouldRejectInvalidDirections()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.False(grid.IsFacingBoundaryDirection(new VoxelIndex(0, 0, 0), (SpatialDirection)(-2)));
+
+        grid.NotifyBoundaryChange((SpatialDirection)(-2));
+        grid.NotifyBoundaryChange((SpatialDirection)999);
     }
 
     [Fact]
@@ -352,6 +473,20 @@ public class VoxelGridTests : IDisposable
         Assert.False(reusedScanCell.IsOccupied);
         Assert.Equal(0, reusedScanCell.CellOccupantCount);
         Assert.Empty(reusedGrid.GetOccupants(new Vector3d(0, 0, 0)));
+    }
+
+    [Fact]
+    public void ReleasedGridQueries_ShouldFailGracefullyWhenGridIsInactive()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+        Assert.False(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out _));
+        Assert.False(grid.TryGetVoxel(0, 0, 0, out _));
+        Assert.False(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out _));
     }
 
     [Fact]
@@ -464,5 +599,72 @@ public class VoxelGridTests : IDisposable
         }
 
         return cases;
+    }
+
+    private static VoxelGrid CreateStandaloneGrid(ushort globalIndex, Vector3d min, Vector3d max)
+    {
+        VoxelGrid grid = new VoxelGrid();
+        InvokeGridInitialize(grid, globalIndex, new GridConfiguration(min, max));
+        return grid;
+    }
+
+    private static void InvokeGridInitialize(VoxelGrid grid, ushort globalIndex, GridConfiguration configuration)
+    {
+        MethodInfo initializeMethod = typeof(VoxelGrid).GetMethod(
+            "Initialize",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(initializeMethod);
+        initializeMethod.Invoke(grid, new object[] { globalIndex, configuration });
+    }
+
+    private static void InvokeGridReset(VoxelGrid grid)
+    {
+        MethodInfo resetMethod = typeof(VoxelGrid).GetMethod(
+            "Reset",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(resetMethod);
+        resetMethod.Invoke(grid, null);
+    }
+
+    private static bool InvokeTryAddGridNeighbor(VoxelGrid grid, VoxelGrid neighborGrid)
+    {
+        MethodInfo addNeighborMethod = typeof(VoxelGrid).GetMethod(
+            "TryAddGridNeighbor",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(addNeighborMethod);
+        return (bool)addNeighborMethod.Invoke(grid, new object[] { neighborGrid });
+    }
+
+    private static bool InvokeTryRemoveGridNeighbor(VoxelGrid grid, VoxelGrid neighborGrid)
+    {
+        MethodInfo removeNeighborMethod = typeof(VoxelGrid).GetMethod(
+            "TryRemoveGridNeighbor",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(removeNeighborMethod);
+        return (bool)removeNeighborMethod.Invoke(grid, new object[] { neighborGrid });
+    }
+
+    private static uint InvokeIncrementVersion(VoxelGrid grid)
+    {
+        MethodInfo incrementMethod = typeof(VoxelGrid).GetMethod(
+            "IncrementVersion",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(incrementMethod);
+        return (uint)incrementMethod.Invoke(grid, null);
+    }
+
+    private static void SetGridVersion(VoxelGrid grid, uint version)
+    {
+        FieldInfo versionField = typeof(VoxelGrid).GetField(
+            "<Version>k__BackingField",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(versionField);
+        versionField.SetValue(grid, version);
     }
 }

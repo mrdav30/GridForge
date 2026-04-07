@@ -3,6 +3,7 @@ using GridForge.Configuration;
 using GridForge.Spatial;
 using System;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -161,6 +162,15 @@ public class VoxelTests : IDisposable
         Assert.False(voxel.TryAddPartition(partition));
         Assert.False(voxel.HasPartition<ThrowOnAddPartition>());
         Assert.Null(voxel.GetPartitionOrDefault<ThrowOnAddPartition>());
+    }
+
+    [Fact]
+    public void TryAddPartition_ShouldRejectNullPartition()
+    {
+        Voxel voxel = new Voxel();
+
+        Assert.False(voxel.TryAddPartition(null));
+        Assert.False(voxel.IsPartioned);
     }
 
     [Fact]
@@ -411,6 +421,29 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void GetNeighbors_ShouldSkipNullEntriesWhenEnumeratingFromCachedCornerState()
+    {
+        var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        SpatialDirection[] firstPass = voxel.GetNeighbors(useCache: true)
+            .Select(result => result.Item1)
+            .ToArray();
+        SpatialDirection[] secondPass = voxel.GetNeighbors(useCache: true)
+            .Select(result => result.Item1)
+            .ToArray();
+
+        Assert.Equal(7, firstPass.Length);
+        Assert.Equal(firstPass, secondPass);
+        Assert.DoesNotContain(SpatialDirection.West, secondPass);
+        Assert.DoesNotContain(SpatialDirection.South, secondPass);
+        Assert.DoesNotContain(SpatialDirection.Below, secondPass);
+    }
+
+    [Fact]
     public void TryGetNeighborFromOffset_ShouldResolveAcrossConjoinedGridBoundary()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
@@ -437,6 +470,8 @@ public class VoxelTests : IDisposable
 
         Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.None, out _));
         Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.West, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection((SpatialDirection)(-2), out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection((SpatialDirection)999, out _));
         Assert.False(detachedVoxel.TryGetNeighborFromOffset((1, 0, 0), out _));
     }
 
@@ -495,6 +530,60 @@ public class VoxelTests : IDisposable
         Assert.Equal(0, reusedVoxel.ObstacleCount);
         Assert.False(reusedVoxel.TryGetNeighborFromDirection(SpatialDirection.East, out _, useCache: true));
         Assert.True(reusedGrid.TryAddObstacle(reusedVoxel, obstacleToken));
+    }
+
+    [Fact]
+    public void Reset_ShouldReleaseObstaclesWithoutOwnerGridLookupAndSwallowPartitionRemoveFailures()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+        Assert.True(voxel.TryAddPartition(new ThrowOnRemovePartition()));
+        Assert.True(voxel.IsPartioned);
+        Assert.Equal(voxel.GlobalIndex.GridIndex, voxel.GridIndex);
+
+        _ = voxel.GetNeighbors(useCache: true).ToArray();
+        voxel.GlobalIndex = new GlobalVoxelIndex(ushort.MaxValue, voxel.Index, voxel.GlobalIndex.GridSpawnToken);
+
+        InvokeVoxelReset(voxel);
+
+        Assert.False(voxel.IsAllocated);
+        Assert.False(voxel.IsPartioned);
+        Assert.False(voxel.HasPartition<ThrowOnRemovePartition>());
+        Assert.Null(voxel.ObstacleTracker);
+        Assert.Equal(0, voxel.ObstacleCount);
+        Assert.Equal(0, voxel.OccupantCount);
+        Assert.Equal(0, voxel.ScanCellKey);
+    }
+
+    [Fact]
+    public void Voxel_ToStringAndObjectEquality_ShouldReflectGlobalIdentity()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        Assert.Equal(voxel.GlobalIndex.ToString(), voxel.ToString());
+        Assert.True(voxel.Equals((object)voxel));
+        Assert.False(voxel.Equals((object)new object()));
+    }
+
+    private static void InvokeVoxelReset(Voxel voxel)
+    {
+        MethodInfo resetMethod = typeof(Voxel).GetMethod(
+            "Reset",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(resetMethod);
+        resetMethod.Invoke(voxel, new object[] { null });
     }
 
 }
