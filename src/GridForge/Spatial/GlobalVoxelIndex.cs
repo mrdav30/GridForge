@@ -83,6 +83,7 @@ public struct GlobalVoxelIndex : IEquatable<GlobalVoxelIndex>
     public readonly bool Equals(GlobalVoxelIndex other)
     {
         return GridIndex == other.GridIndex
+            && GridSpawnToken == other.GridSpawnToken
             && VoxelIndex.Equals(other.VoxelIndex);
     }
 

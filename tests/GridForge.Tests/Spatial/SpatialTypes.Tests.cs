@@ -26,9 +26,10 @@ public class SpatialTypesTests
         GlobalVoxelIndex second = new GlobalVoxelIndex(2, new VoxelIndex(1, 2, 3), 100);
         object boxed = second;
 
-        Assert.True(first == second);
-        Assert.False(first != second);
-        Assert.True(first.Equals(boxed));
+        Assert.False(first == second);
+        Assert.True(first != second);
+        Assert.False(first.Equals(boxed));
+        Assert.NotEqual(first.GetHashCode(), second.GetHashCode());
         Assert.Contains("Index: 2", first.ToString());
     }
 
