@@ -1,6 +1,5 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
-using SwiftCollections;
 using System;
 
 namespace GridForge.Spatial;
@@ -8,6 +7,7 @@ namespace GridForge.Spatial;
 /// <summary>
 /// Represents an entity that can occupy a <see cref="Voxel"/>.
 /// Occupants can be dynamic entities such as units or items (obstacles).
+/// GridForge owns occupancy bookkeeping for registered occupants.
 /// </summary>
 public interface IVoxelOccupant
 {
@@ -27,23 +27,4 @@ public interface IVoxelOccupant
     /// This allows efficient retrieval of related occupants in spatial queries.
     /// </summary>
     byte OccupantGroupId { get; }
-
-    /// <summary>
-    /// Maps the global grid coordinates of the occupied <see cref="Voxel"/> 
-    /// to the unique ticket identifier assigned when this occupant is added to a scan cell.
-    /// </summary>
-    SwiftDictionary<GlobalVoxelIndex, int> OccupyingIndexMap { get; }
-
-    /// <summary>
-    /// Called when adding the occupant from a voxel.
-    /// </summary>
-    /// <param name="occupyingIndex">The global voxel index the occupant was added to.</param>
-    /// <param name="ticket">The occupants assigned ticket in a grid's scancell.</param>
-    void SetOccupancy(GlobalVoxelIndex occupyingIndex, int ticket);
-
-    /// <summary>
-    /// Called when removing the occupant from a voxel.
-    /// </summary>
-    /// <param name="occupyingIndex">The global voxel index the occupant was removed from.</param>
-    void RemoveOccupancy(GlobalVoxelIndex occupyingIndex);
 }

@@ -59,19 +59,20 @@ public readonly partial struct GridConfiguration
     /// Initializes a new instance of <see cref="GridConfiguration"/> with specified bounds and scan cell size.
     /// Ensures that <see cref="BoundsMin"/> is always less than or equal to <see cref="BoundsMax"/>.
     /// </summary>
-    /// <param name="min">The minimum boundary of the grid.</param>
-    /// <param name="max">The maximum boundary of the grid.</param>
+    /// <param name="boundsMin">The minimum boundary of the grid.</param>
+    /// <param name="boundsMax">The maximum boundary of the grid.</param>
     /// <param name="scanCellSize">The size of scan cells within the grid. Default is 8.</param>
+    [JsonConstructor]
     public GridConfiguration(
-        Vector3d min,
-        Vector3d max,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
         int scanCellSize = DefaultScanCellSize)
     {
-        if (min > max)
+        if (boundsMin > boundsMax)
             GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
 
         // Ensures GridMin <= GridMax for each coordinate axis
-        (BoundsMin, BoundsMax) = GlobalGridManager.SnapBoundsToVoxelSize(min, max);
+        (BoundsMin, BoundsMax) = GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax);
 
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
     }

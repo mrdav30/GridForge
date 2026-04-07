@@ -53,7 +53,7 @@ public class ManagerCoverageTests : IDisposable
 
         Assert.True(GridOccupantManager.TryRegister(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
-        Assert.True(occupant.OccupyingIndexMap.TryGetValue(voxel.GlobalIndex, out int ticket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant, voxel.GlobalIndex, out int ticket));
         Assert.True(GridScanManager.TryGetVoxelOccupant(voxel.GlobalIndex, ticket, out IVoxelOccupant registeredOccupant));
         Assert.Same(occupant, registeredOccupant);
         Assert.Single(GridScanManager.GetOccupants(voxel.GlobalIndex));
@@ -327,10 +327,28 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(grid.TryAddVoxelOccupant((IVoxelOccupant)null));
         Assert.False(grid.TryAddVoxelOccupant(voxel, (IVoxelOccupant)null));
         Assert.True(grid.TryAddVoxelOccupant(occupant));
-        Assert.False(GridOccupantManager.TryAddVoxelOccupant(occupant.OccupyingIndexMap.Keys.Single(), occupant));
+        Assert.False(GridOccupantManager.TryAddVoxelOccupant(GridOccupantManager.GetOccupiedIndices(occupant).Single(), occupant));
         Assert.False(grid.TryRemoveVoxelOccupant((IVoxelOccupant)null));
         Assert.False(grid.TryRemoveVoxelOccupant(voxel, (IVoxelOccupant)null));
         Assert.True(GridOccupantManager.TryDeregister(occupant));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldDeregisterTrackedOccupants_WhenPositionChanges()
+    {
+        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        TestOccupant occupant = new TestOccupant(new Vector3d(2, 0, 2), 6);
+
+        Assert.True(GridOccupantManager.TryRegister(occupant));
+        Assert.True(grid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel voxel));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant, voxel.GlobalIndex, out int ticket));
+
+        occupant.Position = new Vector3d(99, 0, 99);
+
+        Assert.True(GridOccupantManager.TryDeregister(occupant));
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(occupant));
+        Assert.False(grid.TryGetVoxelOccupant(voxel, ticket, out _));
     }
 
     [Fact]
@@ -378,7 +396,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryGetVoxel(emptyPosition, out Voxel emptyVoxel));
         Assert.True(grid.TryAddVoxelOccupant(localOccupant));
         Assert.True(grid.TryGetVoxel(localOccupant.Position, out Voxel occupiedVoxel));
-        Assert.True(localOccupant.OccupyingIndexMap.TryGetValue(occupiedVoxel.GlobalIndex, out int localTicket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(localOccupant, occupiedVoxel.GlobalIndex, out int localTicket));
 
         Assert.False(GridOccupantManager.TryRegister(outsideOccupant));
         Assert.False(GridOccupantManager.TryDeregister(outsideOccupant));
@@ -426,8 +444,6 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(grid.TryAddVoxelOccupant(voxel, blockedOccupant));
 
         Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
-
-        staleOccupant.SetOccupancy(voxel.GlobalIndex, 123);
         Assert.False(grid.TryRemoveVoxelOccupant(voxel, staleOccupant));
     }
 }

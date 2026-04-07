@@ -79,8 +79,7 @@ public class ScanCell
             foreach (var kvp in _voxelOccupants)
             {
                 SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-                foreach (IVoxelOccupant occupant in bucket)
-                    occupant.RemoveOccupancy(kvp.Key);
+                GridOccupantManager.ForgetTrackedOccupancies(bucket, kvp.Key);
                 Pools.VoxelOccupantBucketPool.Release(bucket);
             }
 
@@ -116,7 +115,6 @@ public class ScanCell
         }
 
         int ticket = bucket.Add(occupant);
-        occupant.SetOccupancy(index, ticket);
         CellOccupantCount++;
         return ticket;
     }
@@ -133,9 +131,6 @@ public class ScanCell
         IVoxelOccupant occupant,
         int ticket)
     {
-        // Reset occupant data regardless of success
-        occupant.RemoveOccupancy(index);
-
         if (!IsOccupied || !_voxelOccupants.TryGetValue(index, out var bucket))
             return false;
 
@@ -162,7 +157,7 @@ public class ScanCell
     /// Retrieves all occupants associated with this ScanCell.
     /// </summary>
     /// <returns>An enumerable of occupants within this scan cell.</returns>
-    internal IEnumerable<IVoxelOccupant> GetOccupants()
+    public IEnumerable<IVoxelOccupant> GetOccupants()
     {
         foreach (SwiftBucket<IVoxelOccupant> bucket in _voxelOccupants.Values)
         {
@@ -174,7 +169,7 @@ public class ScanCell
     /// <summary>
     /// Retrieves occupants whose group Ids match a given condition.
     /// </summary>
-    internal IEnumerable<IVoxelOccupant> GetConditionalOccupants(
+    public IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         Func<IVoxelOccupant, bool> occupantCondition = null,
         Func<byte, bool> groupConditional = null)
     {
@@ -199,7 +194,7 @@ public class ScanCell
     /// </summary>
     /// <param name="index">The global index of the voxel.</param>
     /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
-    internal IEnumerable<IVoxelOccupant> GetOccupantsFor(GlobalVoxelIndex index)
+    public IEnumerable<IVoxelOccupant> GetOccupantsFor(GlobalVoxelIndex index)
     {
         if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
             yield break;
@@ -215,7 +210,7 @@ public class ScanCell
     /// <param name="occupantTicket">The unique ticket identifying the occupant.</param>
     /// <param name="voxelOccupant">The retrieved occupant if found.</param>
     /// <returns>True if the occupant was found, otherwise false.</returns>
-    internal bool TryGetOccupantAt(
+    public bool TryGetOccupantAt(
         GlobalVoxelIndex index,
         int occupantTicket,
         out IVoxelOccupant voxelOccupant)

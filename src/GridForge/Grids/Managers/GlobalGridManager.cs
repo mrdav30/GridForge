@@ -225,6 +225,7 @@ public static class GlobalGridManager
 
         BoundsTracker?.Clear();
         SpatialGridHash?.Clear();
+        GridOccupantManager.ClearTrackedOccupancies();
 
         if (deactivate)
             IsActive = false;

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;
@@ -70,6 +71,26 @@ public class SpatialTypesTests : IDisposable
         Assert.Equal(GridConfiguration.DefaultScanCellSize, configuration.ScanCellSize);
         Assert.Equal(new Vector3d(3, 3, 3), configuration.GridCenter);
         Assert.Equal(configuration.ToBoundsKey(), new BoundsKey(configuration.BoundsMin, configuration.BoundsMax));
+    }
+
+    [Fact]
+    public void GridConfiguration_ShouldUseJsonConstructorNormalization_WhenDeserializing()
+    {
+        string boundsMinJson = JsonSerializer.Serialize(new Vector3d(5, 5, 5));
+        string boundsMaxJson = JsonSerializer.Serialize(new Vector3d(1, 1, 1));
+        string json = $$"""
+            {
+              "BoundsMin": {{boundsMinJson}},
+              "BoundsMax": {{boundsMaxJson}},
+              "ScanCellSize": 0
+            }
+            """;
+
+        GridConfiguration configuration = JsonSerializer.Deserialize<GridConfiguration>(json);
+
+        Assert.Equal(new Vector3d(1, 1, 1), configuration.BoundsMin);
+        Assert.Equal(new Vector3d(5, 5, 5), configuration.BoundsMax);
+        Assert.Equal(GridConfiguration.DefaultScanCellSize, configuration.ScanCellSize);
     }
 
     [Fact]

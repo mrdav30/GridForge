@@ -457,7 +457,7 @@ public class VoxelGridTests : IDisposable
 
         Assert.True(GlobalGridManager.TryRemoveGrid(eastIndex));
         Assert.True(GlobalGridManager.TryRemoveGrid(centerIndex));
-        Assert.Empty(occupant.OccupyingIndexMap);
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(occupant));
 
         Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort reusedIndex));
 

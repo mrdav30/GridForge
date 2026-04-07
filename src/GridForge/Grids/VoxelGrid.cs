@@ -294,7 +294,7 @@ public class VoxelGrid
                         );
 
                     // Skip if the voxel is already allocated (should not happen under normal conditions)
-                    if (IsVoxelAllocated(x, y, z))
+                    if (!IsValidVoxelIndex(x, y, z))
                     {
                         GridForgeLogger.Warn(
                             $"Voxel at [ coordinate: {(x, y, z)} , position: {position} ] is already allocated.");

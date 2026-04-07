@@ -356,8 +356,6 @@ public class ScanCellTests : IDisposable
         TestOccupant missingBucketOccupant = new TestOccupant(emptyVoxel.WorldPosition);
         TestOccupant invalidTicketOccupant = new TestOccupant(occupiedVoxel.WorldPosition);
 
-        invalidTicketOccupant.SetOccupancy(occupiedVoxel.GlobalIndex, 99);
-
         Assert.Empty(missingBucket);
         Assert.False(InvokeTryRemoveOccupant(scanCell, emptyVoxel.GlobalIndex, missingBucketOccupant, 0));
         Assert.False(InvokeTryRemoveOccupant(scanCell, occupiedVoxel.GlobalIndex, invalidTicketOccupant, 99));
@@ -376,7 +374,7 @@ public class ScanCellTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
         Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
-        Assert.True(occupant.OccupyingIndexMap.TryGetValue(voxel.GlobalIndex, out int ticket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant, voxel.GlobalIndex, out int ticket));
 
         Assert.True(InvokeTryGetOccupantAt(scanCell, voxel.GlobalIndex, ticket, out IVoxelOccupant resolvedOccupant));
         Assert.Same(occupant, resolvedOccupant);
@@ -458,7 +456,7 @@ public class ScanCellTests : IDisposable
 
     private static IEnumerable<IVoxelOccupant> InvokeGetOccupantsFor(ScanCell scanCell, GlobalVoxelIndex index)
     {
-        MethodInfo method = typeof(ScanCell).GetMethod("GetOccupantsFor", BindingFlags.Instance | BindingFlags.NonPublic)
+        MethodInfo method = typeof(ScanCell).GetMethod("GetOccupantsFor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find ScanCell.GetOccupantsFor.");
 
         return (IEnumerable<IVoxelOccupant>)method.Invoke(scanCell, new object[] { index });
@@ -466,7 +464,7 @@ public class ScanCellTests : IDisposable
 
     private static bool InvokeTryGetOccupantAt(ScanCell scanCell, GlobalVoxelIndex index, int ticket, out IVoxelOccupant occupant)
     {
-        MethodInfo method = typeof(ScanCell).GetMethod("TryGetOccupantAt", BindingFlags.Instance | BindingFlags.NonPublic)
+        MethodInfo method = typeof(ScanCell).GetMethod("TryGetOccupantAt", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find ScanCell.TryGetOccupantAt.");
         object[] args = new object[] { index, ticket, null };
         bool result = (bool)method.Invoke(scanCell, args);
