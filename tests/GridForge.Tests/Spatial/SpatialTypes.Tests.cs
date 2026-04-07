@@ -1,10 +1,34 @@
-﻿using System;
+﻿using FixedMathSharp;
+using GridForge.Configuration;
+using GridForge.Grids;
+using GridForge.Grids.Tests;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;
 
-public class SpatialTypesTests
+[Collection("GridForgeCollection")]
+public class SpatialTypesTests : IDisposable
 {
+    public SpatialTypesTests()
+    {
+        if (GlobalGridManager.IsActive)
+            GlobalGridManager.Reset();
+
+        GlobalGridManager.Setup();
+    }
+
+    public void Dispose()
+    {
+        if (GlobalGridManager.IsActive)
+            GlobalGridManager.Reset();
+
+        GC.SuppressFinalize(this);
+    }
+
     [Fact]
     public void VoxelIndex_ShouldSupportTwoArgumentConstructionAndEqualityOperators()
     {
@@ -31,6 +55,21 @@ public class SpatialTypesTests
         Assert.False(first.Equals(boxed));
         Assert.NotEqual(first.GetHashCode(), second.GetHashCode());
         Assert.Contains("Index: 2", first.ToString());
+    }
+
+    [Fact]
+    public void GridConfiguration_ShouldSnapBoundsAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
+    {
+        GridConfiguration configuration = new GridConfiguration(
+            new Vector3d(5, 5, 5),
+            new Vector3d(1, 1, 1),
+            scanCellSize: 0);
+
+        Assert.Equal(new Vector3d(1, 1, 1), configuration.BoundsMin);
+        Assert.Equal(new Vector3d(5, 5, 5), configuration.BoundsMax);
+        Assert.Equal(GridConfiguration.DefaultScanCellSize, configuration.ScanCellSize);
+        Assert.Equal(new Vector3d(3, 3, 3), configuration.GridCenter);
+        Assert.Equal(configuration.ToBoundsKey(), new BoundsKey(configuration.BoundsMin, configuration.BoundsMax));
     }
 
     [Fact]
@@ -68,7 +107,101 @@ public class SpatialTypesTests
         Assert.Equal(0, provider.Count);
     }
 
+    [Fact]
+    public void PartitionProvider_ShouldExposePartitionsAndRejectMissingLookups()
+    {
+        PartitionProvider<object> provider = new PartitionProvider<object>();
+        ProviderEntryA first = new ProviderEntryA();
+        ProviderEntryB second = new ProviderEntryB();
+        PartitionProvider<object> mismatchedProvider = new PartitionProvider<object>();
+        IEnumerable<object> emptyPartitions = GetPartitions(provider);
+
+        Assert.True(provider.TryAdd(typeof(ProviderEntryA), first));
+        Assert.True(provider.TryAdd(typeof(ProviderEntryB), second));
+        IEnumerable<object> partitions = GetPartitions(provider);
+
+        Assert.Empty(emptyPartitions);
+        Assert.Equal(2, partitions.Count());
+        Assert.Contains(first, partitions);
+        Assert.Contains(second, partitions);
+
+        Assert.False(provider.TryGet((Type)null, out object missingByNullType));
+        Assert.Null(missingByNullType);
+        Assert.False(provider.TryGet(typeof(ProviderEntryC), out object missingByType));
+        Assert.Null(missingByType);
+        Assert.False(provider.TryRemove(typeof(ProviderEntryC), out object removedMissing));
+        Assert.Null(removedMissing);
+        Assert.False(provider.TryGet(out ProviderEntryC missingTyped));
+        Assert.Null(missingTyped);
+
+        Assert.True(mismatchedProvider.TryAdd(typeof(ProviderEntryC), new ProviderEntryA()));
+        Assert.False(mismatchedProvider.TryGet(out ProviderEntryC mismatchedTyped));
+        Assert.Null(mismatchedTyped);
+        mismatchedProvider.Clear();
+        mismatchedProvider.Clear();
+        Assert.True(mismatchedProvider.IsEmpty);
+
+        Assert.True(provider.TryRemove(typeof(ProviderEntryA), out _));
+        Assert.True(provider.TryRemove(typeof(ProviderEntryB), out _));
+        Assert.True(provider.IsEmpty);
+        Assert.False(provider.TryRemove(typeof(ProviderEntryB), out object removedAgain));
+        Assert.Null(removedAgain);
+    }
+
+    [Fact]
+    public void EventInfoStructs_ShouldExposeStoredIndicesAndBounds()
+    {
+        GridConfiguration configuration = new GridConfiguration(
+            new Vector3d(-2, 0, -1),
+            new Vector3d(2, 0, 1),
+            scanCellSize: 4);
+        GlobalVoxelIndex voxelIndex = new GlobalVoxelIndex(7, new VoxelIndex(1, 2, 3), 42);
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(-1, 0, -1), new Vector3d(1, 0, 1));
+        TestOccupant occupant = new TestOccupant(new Vector3d(0, 0, 0), 5);
+
+        GridEventInfo gridEventInfo = new GridEventInfo(7, 99, configuration, 3);
+        ObstacleEventInfo obstacleEventInfo = new ObstacleEventInfo(voxelIndex, obstacleToken, 2, 4);
+        ObstacleClearEventInfo obstacleClearEventInfo = new ObstacleClearEventInfo(voxelIndex, 2, 5);
+        OccupantEventInfo occupantEventInfo = new OccupantEventInfo(voxelIndex, occupant, 12, 1);
+
+        Assert.Equal((ushort)7, gridEventInfo.GridIndex);
+        Assert.Equal(99, gridEventInfo.GridSpawnToken);
+        Assert.Equal(configuration.BoundsMin, gridEventInfo.BoundsMin);
+        Assert.Equal(configuration.BoundsMax, gridEventInfo.BoundsMax);
+        Assert.Equal(configuration.ToBoundsKey(), gridEventInfo.ToBoundsKey());
+        Assert.Equal(3u, gridEventInfo.GridVersion);
+
+        Assert.Equal((ushort)7, obstacleEventInfo.GridIndex);
+        Assert.Equal(voxelIndex, obstacleEventInfo.VoxelIndex);
+        Assert.Equal(obstacleToken, obstacleEventInfo.ObstacleToken);
+        Assert.Equal((byte)2, obstacleEventInfo.ObstacleCount);
+        Assert.Equal(4u, obstacleEventInfo.GridVersion);
+
+        Assert.Equal((ushort)7, obstacleClearEventInfo.GridIndex);
+        Assert.Equal(voxelIndex, obstacleClearEventInfo.VoxelIndex);
+        Assert.Equal((byte)2, obstacleClearEventInfo.ClearedObstacleCount);
+        Assert.Equal(5u, obstacleClearEventInfo.GridVersion);
+
+        Assert.Equal((ushort)7, occupantEventInfo.GridIndex);
+        Assert.Equal(voxelIndex, occupantEventInfo.VoxelIndex);
+        Assert.Same(occupant, occupantEventInfo.Occupant);
+        Assert.Equal(12, occupantEventInfo.Ticket);
+        Assert.Equal((byte)1, occupantEventInfo.OccupantCount);
+    }
+
     private sealed class ProviderEntryA { }
 
     private sealed class ProviderEntryB { }
+
+    private sealed class ProviderEntryC { }
+
+    private static IEnumerable<object> GetPartitions(PartitionProvider<object> provider)
+    {
+        PropertyInfo partitionsProperty = typeof(PartitionProvider<object>).GetProperty(
+            "Partitions",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not locate PartitionProvider.Partitions.");
+
+        return (IEnumerable<object>)partitionsProperty.GetValue(provider);
+    }
 }

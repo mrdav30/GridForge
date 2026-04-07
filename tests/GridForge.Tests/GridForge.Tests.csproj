@@ -10,6 +10,7 @@
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	<Configurations>Debug;Release</Configurations>
 	<OutputType>Exe</OutputType>
+	<RunSettingsFilePath>..\..\coverlet.runsettings</RunSettingsFilePath>
   </PropertyGroup>
   <ItemGroup>
   	<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">

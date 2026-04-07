@@ -323,10 +323,111 @@ public class ManagerCoverageTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1));
 
+        Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
         Assert.False(grid.TryAddVoxelOccupant((IVoxelOccupant)null));
+        Assert.False(grid.TryAddVoxelOccupant(voxel, (IVoxelOccupant)null));
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.False(GridOccupantManager.TryAddVoxelOccupant(occupant.OccupyingIndexMap.Keys.Single(), occupant));
         Assert.False(grid.TryRemoveVoxelOccupant((IVoxelOccupant)null));
+        Assert.False(grid.TryRemoveVoxelOccupant(voxel, (IVoxelOccupant)null));
         Assert.True(GridOccupantManager.TryDeregister(occupant));
+    }
+
+    [Fact]
+    public void GridObstacleManager_ShouldReturnFalseForInvalidOrNonBlockableRequests()
+    {
+        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(1, 0, 1);
+        BoundsKey validToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey missingToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        GlobalVoxelIndex missingIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
+        TestOccupant occupant = new TestOccupant(position);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel occupiedVoxel));
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel emptyVoxel));
+
+        Assert.False(GridObstacleManager.TryAddObstacle(missingIndex, validToken));
+        Assert.False(grid.TryAddObstacle(new Vector3d(99, 0, 99), validToken));
+        Assert.False(grid.TryRemoveObstacle(new Vector3d(99, 0, 99), validToken));
+
+        Assert.True(grid.TryAddVoxelOccupant(occupiedVoxel, occupant));
+        Assert.False(grid.TryAddObstacle(occupiedVoxel, validToken));
+        Assert.True(grid.TryRemoveVoxelOccupant(occupiedVoxel, occupant));
+
+        Assert.True(grid.TryAddObstacle(occupiedVoxel, validToken));
+        Assert.False(grid.TryRemoveObstacle(occupiedVoxel, missingToken));
+
+        int obstacleCountBeforeNoOpClear = grid.ObstacleCount;
+        grid.ClearObstacles(emptyVoxel);
+
+        Assert.Equal(obstacleCountBeforeNoOpClear, grid.ObstacleCount);
+        Assert.True(grid.TryRemoveObstacle(occupiedVoxel, validToken));
+    }
+
+    [Fact]
+    public void GridOccupantManagerAndScanManager_ShouldHandleUnavailableOrEmptyInputs()
+    {
+        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d emptyPosition = new Vector3d(0, 0, 0);
+        TestOccupant outsideOccupant = new TestOccupant(new Vector3d(99, 0, 99), 2);
+        TestOccupant localOccupant = new TestOccupant(new Vector3d(1, 0, 1), 3);
+        GlobalVoxelIndex missingGlobalIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
+
+        Assert.True(grid.TryGetVoxel(emptyPosition, out Voxel emptyVoxel));
+        Assert.True(grid.TryAddVoxelOccupant(localOccupant));
+        Assert.True(grid.TryGetVoxel(localOccupant.Position, out Voxel occupiedVoxel));
+        Assert.True(localOccupant.OccupyingIndexMap.TryGetValue(occupiedVoxel.GlobalIndex, out int localTicket));
+
+        Assert.False(GridOccupantManager.TryRegister(outsideOccupant));
+        Assert.False(GridOccupantManager.TryDeregister(outsideOccupant));
+        Assert.False(grid.TryAddVoxelOccupant(new VoxelIndex(-1, 0, 0), new TestOccupant(emptyPosition)));
+        Assert.False(GridOccupantManager.TryAddVoxelOccupant(missingGlobalIndex, new TestOccupant(emptyPosition)));
+        Assert.False(GridOccupantManager.TryRemoveVoxelOccupant(missingGlobalIndex, new TestOccupant(emptyPosition)));
+        Assert.False(grid.TryRemoveVoxelOccupant(new VoxelIndex(-1, 0, 0), new TestOccupant(emptyPosition)));
+
+        Assert.Empty(GridScanManager.ScanRadius<TestOccupant>(new Vector3d(99, 0, 99), (Fixed64)1).ToArray());
+        Assert.Empty(GridScanManager.GetVoxelOccupantsByType<TestOccupant>(missingGlobalIndex));
+        Assert.Empty(grid.GetVoxelOccupantsByType<TestOccupant>(new Vector3d(99, 0, 99)));
+        Assert.Empty(grid.GetVoxelOccupantsByType<TestOccupant>(new VoxelIndex(-1, 0, 0)));
+        Assert.Empty(grid.GetVoxelOccupantsByType<TestOccupant>((Voxel)null));
+
+        Assert.False(grid.TryGetVoxelOccupant(emptyVoxel, 0, out IVoxelOccupant missingOccupant));
+        Assert.Null(missingOccupant);
+        Assert.False(grid.TryGetVoxelOccupant(new Vector3d(99, 0, 99), 0, out IVoxelOccupant missingPositionOccupant));
+        Assert.Null(missingPositionOccupant);
+        Assert.True(grid.TryGetVoxelOccupant(localOccupant.Position, localTicket, out IVoxelOccupant byPositionOccupant));
+        Assert.Same(localOccupant, byPositionOccupant);
+        Assert.True(grid.TryGetVoxelOccupant(occupiedVoxel.Index, localTicket, out IVoxelOccupant byIndexOccupant));
+        Assert.Same(localOccupant, byIndexOccupant);
+        Assert.Empty(GridScanManager.GetOccupants(missingGlobalIndex));
+        Assert.Empty(grid.GetOccupants(new Vector3d(99, 0, 99)));
+        Assert.Empty(grid.GetOccupants(new VoxelIndex(-1, 0, 0)));
+
+        Assert.Empty(GridScanManager.GetConditionalOccupants(missingGlobalIndex));
+        Assert.Empty(grid.GetConditionalOccupants(new Vector3d(99, 0, 99)));
+        Assert.Empty(grid.GetConditionalOccupants(new VoxelIndex(-1, 0, 0)));
+        Assert.Empty(grid.GetConditionalOccupants((Voxel)null));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldRejectUnavailableVoxelState()
+    {
+        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(1, 0, 1);
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        TestOccupant blockedOccupant = new TestOccupant(position, 4);
+        TestOccupant staleOccupant = new TestOccupant(position, 5);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+        Assert.False(grid.TryAddVoxelOccupant(voxel, blockedOccupant));
+
+        Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
+
+        staleOccupant.SetOccupancy(voxel.GlobalIndex, 123);
+        Assert.False(grid.TryRemoveVoxelOccupant(voxel, staleOccupant));
     }
 }

@@ -321,6 +321,50 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void ScanCell_InternalOperations_ShouldHandleInactiveAndMissingStateGracefully()
+    {
+        ScanCell inactiveCell = new ScanCell();
+        TestOccupant occupant = new TestOccupant(Vector3d.Zero);
+
+        InvokeReset(inactiveCell);
+
+        Assert.False(inactiveCell.IsAllocated);
+        Assert.False(inactiveCell.IsOccupied);
+        Assert.Equal(0, inactiveCell.CellOccupantCount);
+        Assert.False(InvokeTryRemoveOccupant(
+            inactiveCell,
+            new GlobalVoxelIndex(0, new VoxelIndex(0, 0, 0), 0),
+            occupant,
+            0));
+    }
+
+    [Fact]
+    public void ScanCell_InternalOperations_ShouldReturnEmptyOrFalseForMissingBucketsAndTickets()
+    {
+        GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1), 3);
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel occupiedVoxel));
+        Assert.True(grid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel emptyVoxel));
+        Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
+
+        List<IVoxelOccupant> missingBucket = InvokeGetOccupantsFor(scanCell, emptyVoxel.GlobalIndex).ToList();
+        TestOccupant missingBucketOccupant = new TestOccupant(emptyVoxel.WorldPosition);
+        TestOccupant invalidTicketOccupant = new TestOccupant(occupiedVoxel.WorldPosition);
+
+        invalidTicketOccupant.SetOccupancy(occupiedVoxel.GlobalIndex, 99);
+
+        Assert.Empty(missingBucket);
+        Assert.False(InvokeTryRemoveOccupant(scanCell, emptyVoxel.GlobalIndex, missingBucketOccupant, 0));
+        Assert.False(InvokeTryRemoveOccupant(scanCell, occupiedVoxel.GlobalIndex, invalidTicketOccupant, 99));
+        Assert.Single(InvokeGetOccupantsFor(scanCell, occupiedVoxel.GlobalIndex));
+    }
+
+    [Fact]
     public void TryGetOccupantAt_ShouldReturnFalseForRemovedOrInvalidTickets()
     {
         GlobalGridManager.TryAddGrid(
@@ -404,6 +448,14 @@ public class ScanCellTests : IDisposable
         Assert.Null(grid.ActiveScanCells);
     }
 
+    private static void InvokeReset(ScanCell scanCell)
+    {
+        MethodInfo method = typeof(ScanCell).GetMethod("Reset", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find ScanCell.Reset.");
+
+        method.Invoke(scanCell, Array.Empty<object>());
+    }
+
     private static IEnumerable<IVoxelOccupant> InvokeGetOccupantsFor(ScanCell scanCell, GlobalVoxelIndex index)
     {
         MethodInfo method = typeof(ScanCell).GetMethod("GetOccupantsFor", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -420,6 +472,14 @@ public class ScanCellTests : IDisposable
         bool result = (bool)method.Invoke(scanCell, args);
         occupant = (IVoxelOccupant)args[2];
         return result;
+    }
+
+    private static bool InvokeTryRemoveOccupant(ScanCell scanCell, GlobalVoxelIndex index, IVoxelOccupant occupant, int ticket)
+    {
+        MethodInfo method = typeof(ScanCell).GetMethod("TryRemoveOccupant", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find ScanCell.TryRemoveOccupant.");
+        object[] args = new object[] { index, occupant, ticket };
+        return (bool)method.Invoke(scanCell, args);
     }
 
 }
