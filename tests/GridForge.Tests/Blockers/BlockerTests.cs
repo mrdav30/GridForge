@@ -1,10 +1,12 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Grids.Tests;
 using GridForge.Utility;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -469,5 +471,143 @@ public class BlockerTests : IDisposable
         Assert.True(blocker.IsBlocking);
         Assert.True(firstVoxel.IsBlocked);
         Assert.True(secondVoxel.IsBlocked);
+    }
+
+    [Fact]
+    public void Blocker_ShouldIgnoreEmptyCoverageAndStopWatchingAfterExplicitRemoval()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out _));
+
+        BoundsBlocker blocker = new BoundsBlocker(
+            new BoundingArea(new Vector3d(40, 0, 40), new Vector3d(41, 0, 41)));
+
+        blocker.ApplyBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.Equal(default, blocker.BlockageToken);
+
+        blocker.RemoveBlockage();
+
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(40, 0, 40), new Vector3d(41, 0, 41)),
+            out ushort gridIndex));
+        VoxelGrid newGrid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(newGrid.TryGetVoxel(new Vector3d(40, 0, 40), out Voxel voxel));
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(voxel.IsBlocked);
+    }
+
+    [Fact]
+    public void Blocker_ShouldReportNotBlockingWhenCoveredVoxelRejectsObstacle()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Vector3d position = new Vector3d(0, 0, 0);
+        TestOccupant occupant = new TestOccupant(position);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+
+        BoundsBlocker blocker = new BoundsBlocker(new BoundingArea(position, position));
+        blocker.ApplyBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(voxel.IsBlocked);
+        Assert.True(voxel.IsOccupied);
+    }
+
+    [Fact]
+    public void Blocker_ShouldIgnoreUnrelatedGridAddAndRemovalEvents()
+    {
+        GridConfiguration watchedGrid = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration unrelatedGrid = new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(10, 0, 10));
+        BoundsBlocker blocker = new BoundsBlocker(new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)));
+
+        Assert.True(GlobalGridManager.TryAddGrid(watchedGrid, out ushort watchedIndex));
+        VoxelGrid watched = GlobalGridManager.ActiveGrids[watchedIndex];
+        Assert.True(watched.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel watchedVoxel));
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(watchedVoxel.IsBlocked);
+
+        Assert.True(GlobalGridManager.TryAddGrid(unrelatedGrid, out ushort unrelatedIndex));
+        Assert.True(GlobalGridManager.TryRemoveGrid(unrelatedIndex));
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(watchedVoxel.IsBlocked);
+    }
+
+    [Fact]
+    public void Blocker_PrivateGuardPaths_ShouldHandleInactiveBlockersAndNoOpCacheChanges()
+    {
+        BoundsBlocker blocker = new BoundsBlocker(
+            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
+            isActive: false,
+            cacheCoveredVoxels: false);
+        GridEventInfo overlappingEvent = new GridEventInfo(
+            1,
+            10,
+            new GridConfiguration(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
+            1);
+
+        blocker.SetCacheCoveredVoxels(false);
+
+        bool shouldReact = (bool)InvokeBlockerMethod(blocker, "ShouldReactToGridAdded", overlappingEvent);
+        bool shouldReactToRemovedGrid = (bool)InvokeBlockerMethod(blocker, "ShouldReactToGridRemoved", overlappingEvent);
+        InvokeBlockerMethod(blocker, "ReapplyBlockage");
+        InvokeBlockerMethod(blocker, "RegisterGridWatcher");
+        GlobalGridManager.Reset();
+
+        Assert.False(shouldReact);
+        Assert.False(shouldReactToRemovedGrid);
+        Assert.False(blocker.IsActive);
+        Assert.False(blocker.IsBlocking);
+        Assert.Equal(default, blocker.BlockageToken);
+    }
+
+    [Fact]
+    public void Blocker_ShouldFallbackToRetracingWhenCachedCoveredVoxelIdsAreCleared()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        BoundsBlocker blocker = new BoundsBlocker(
+            new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(voxel.IsBlocked);
+
+        object cachedCoveredVoxels = typeof(Blocker)
+            .GetField("_cachedCoveredVoxels", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.GetValue(blocker)
+            ?? throw new InvalidOperationException("Could not find Blocker._cachedCoveredVoxels.");
+        cachedCoveredVoxels.GetType().GetMethod("Clear")
+            ?.Invoke(cachedCoveredVoxels, Array.Empty<object>());
+
+        blocker.RemoveBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(voxel.IsBlocked);
+    }
+
+    private static object InvokeBlockerMethod(Blocker blocker, string methodName, params object[] arguments)
+    {
+        MethodInfo method = typeof(Blocker).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException($"Could not find Blocker.{methodName}.");
+
+        return method.Invoke(blocker, arguments);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Blockers;
 using GridForge.Configuration;
+using GridForge.Spatial;
 using GridForge.Utility;
 using System;
 using System.Collections.Generic;
@@ -225,5 +226,166 @@ public class GridTracerTests : IDisposable
             GlobalGridManager.Reset(deactivate: true);
             GlobalGridManager.Setup();
         }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldSkipEmptyCellsStaleEntriesAndDuplicateGridMembership()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 10);
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
+                out ushort gridIndex));
+            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
+
+            int tracedSetCount = 0;
+            ushort tracedGridIndex = ushort.MaxValue;
+            List<GlobalVoxelIndex> tracedVoxelIndices = new List<GlobalVoxelIndex>();
+
+            foreach (GridVoxelSet tracedSet in GridTracer.TraceLine(
+                new Vector3d(0, 0, 0),
+                new Vector3d(35, 0, 0),
+                includeEnd: false))
+            {
+                tracedSetCount++;
+                tracedGridIndex = tracedSet.Grid.GlobalIndex;
+                tracedVoxelIndices.AddRange(tracedSet.Voxels.Select(voxel => voxel.GlobalIndex));
+            }
+
+            Assert.Equal(1, tracedSetCount);
+            Assert.Equal(gridIndex, tracedGridIndex);
+            Assert.Equal(
+                tracedVoxelIndices.Distinct().Count(),
+                tracedVoxelIndices.Count);
+            Assert.Equal(21, tracedVoxelIndices.Count);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldPreservePerAxisDirectionWhenAxesDiffer()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(6, 2, 6)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Vector3d start = new Vector3d(5.8, 0, 5.8);
+        Vector3d end = new Vector3d(1.2, 2, 1.2);
+
+        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.WorldPosition)
+            .ToArray();
+
+        Assert.NotEmpty(tracedPositions);
+        Assert.True(grid.TryGetVoxel(start, out Voxel startVoxel));
+        Assert.True(grid.TryGetVoxel(end, out Voxel endVoxel));
+        Assert.Equal(startVoxel.WorldPosition, tracedPositions.First());
+        Assert.Equal(endVoxel.WorldPosition, tracedPositions.Last());
+        Assert.Contains(new Vector3d(3, 1, 3), tracedPositions);
+    }
+
+    [Fact]
+    public void TraceLine_ShouldPreserveDescendingYDirectionAfterSnapping()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(6, 2, 6)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+
+        Vector3d start = new Vector3d(1.2, 2, 1.2);
+        Vector3d end = new Vector3d(5.8, 0, 5.8);
+
+        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.WorldPosition)
+            .ToArray();
+
+        Assert.NotEmpty(tracedPositions);
+        Assert.True(grid.TryGetVoxel(start, out Voxel startVoxel));
+        Assert.True(grid.TryGetVoxel(end, out Voxel endVoxel));
+        Assert.Equal(startVoxel.WorldPosition, tracedPositions.First());
+        Assert.Equal(endVoxel.WorldPosition, tracedPositions.Last());
+        Assert.Contains(new Vector3d(3, 1, 3), tracedPositions);
+    }
+
+    [Fact]
+    public void GetCoveredVoxels_ShouldIgnoreStaleGridReferences()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 10);
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
+                out ushort gridIndex));
+            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
+
+            int coveredSetCount = 0;
+            ushort coveredGridIndex = ushort.MaxValue;
+            List<GlobalVoxelIndex> coveredVoxelIndices = new List<GlobalVoxelIndex>();
+
+            foreach (GridVoxelSet coveredSet in GridTracer.GetCoveredVoxels(
+                new Vector3d(0, 0, 0),
+                new Vector3d(20, 0, 0)))
+            {
+                coveredSetCount++;
+                coveredGridIndex = coveredSet.Grid.GlobalIndex;
+                coveredVoxelIndices.AddRange(coveredSet.Voxels.Select(voxel => voxel.GlobalIndex));
+            }
+
+            Assert.Equal(1, coveredSetCount);
+            Assert.Equal(gridIndex, coveredGridIndex);
+            Assert.Equal(21, coveredVoxelIndices.Count);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    [Fact]
+    public void GetCoveredScanCells_ShouldIgnoreStaleAndDuplicateGridMembership()
+    {
+        GlobalGridManager.Reset(deactivate: true);
+        GlobalGridManager.Setup(spatialGridCellSize: 10);
+
+        try
+        {
+            Assert.True(GlobalGridManager.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0), scanCellSize: 4),
+                out _));
+            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
+
+            ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
+                new Vector3d(0, 0, 0),
+                new Vector3d(20, 0, 0)).ToArray();
+
+            Assert.NotEmpty(coveredScanCells);
+            Assert.Equal(
+                coveredScanCells.Select(cell => cell.CellKey).Distinct().Count(),
+                coveredScanCells.Length);
+        }
+        finally
+        {
+            GlobalGridManager.Reset(deactivate: true);
+            GlobalGridManager.Setup();
+        }
+    }
+
+    private static void AddStaleSpatialGridReference(Vector3d position, ushort staleIndex)
+    {
+        int cellIndex = GlobalGridManager.GetSpatialGridKey(position);
+        GlobalGridManager.SpatialGridHash[cellIndex].Add(staleIndex);
     }
 }
