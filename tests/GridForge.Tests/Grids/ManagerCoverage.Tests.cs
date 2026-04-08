@@ -3,6 +3,7 @@ using GridForge.Configuration;
 using GridForge.Spatial;
 using System;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -445,5 +446,251 @@ public class ManagerCoverageTests : IDisposable
 
         Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
         Assert.False(grid.TryRemoveVoxelOccupant(voxel, staleOccupant));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldHandleRegistryCollisionNullQueriesAndDeterministicOrdering()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
+            out ushort firstIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(12, 0, 12)),
+            out ushort secondIndex));
+
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        Guid sharedId = Guid.NewGuid();
+        SharedIdOccupant primaryOccupant = new SharedIdOccupant(sharedId, new Vector3d(0, 0, 0));
+        SharedIdOccupant collidingOccupant = new SharedIdOccupant(sharedId, new Vector3d(0, 0, 0));
+        TestOccupant missingOccupant = new TestOccupant(new Vector3d(99, 0, 99));
+
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(null, default, out int nullTicket));
+        Assert.Equal(-1, nullTicket);
+
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(0, 0, 1), out Voxel firstVoxel));
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel secondVoxel));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(10, 0, 10), out Voxel thirdVoxel));
+        Assert.True(firstGrid.TryAddVoxelOccupant(secondVoxel, primaryOccupant));
+        Assert.True(secondGrid.TryAddVoxelOccupant(thirdVoxel, primaryOccupant));
+        Assert.True(firstGrid.TryAddVoxelOccupant(firstVoxel, primaryOccupant));
+
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            missingOccupant,
+            firstVoxel.GlobalIndex,
+            out int missingTicket));
+        Assert.Equal(-1, missingTicket);
+        Assert.False(InvokeTryGetTrackedRecordUnsafe(null));
+
+        Assert.False(firstGrid.TryAddVoxelOccupant(firstVoxel, collidingOccupant));
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            collidingOccupant,
+            firstVoxel.GlobalIndex,
+            out int collisionTicket));
+        Assert.Equal(-1, collisionTicket);
+
+        GlobalVoxelIndex[] trackedIndices = GridOccupantManager.GetOccupiedIndices(primaryOccupant).ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                firstVoxel.GlobalIndex,
+                secondVoxel.GlobalIndex,
+                thirdVoxel.GlobalIndex,
+            },
+            trackedIndices);
+
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(primaryOccupant, firstVoxel.GlobalIndex, out _));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldFilterSnapshotsAndForgetStaleTrackedEntries()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort firstIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(11, 0, 11)),
+            out ushort secondIndex));
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(20, 0, 20), new Vector3d(21, 0, 21)),
+            out ushort unrelatedIndex));
+
+        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        VoxelGrid unrelatedGrid = GlobalGridManager.ActiveGrids[unrelatedIndex];
+        TestOccupant occupant = new TestOccupant(new Vector3d(0, 0, 0), 9);
+
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel firstVoxel));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(10, 0, 10), out Voxel secondVoxel));
+        Assert.True(firstGrid.TryAddVoxelOccupant(firstVoxel, occupant));
+        Assert.True(secondGrid.TryAddVoxelOccupant(secondVoxel, occupant));
+
+        Assert.False(unrelatedGrid.TryRemoveVoxelOccupant(occupant));
+        Assert.True(firstGrid.TryRemoveVoxelOccupant(occupant));
+
+        GlobalVoxelIndex[] remainingIndices = GridOccupantManager.GetOccupiedIndices(occupant).ToArray();
+        Assert.Single(remainingIndices);
+        Assert.Equal(secondVoxel.GlobalIndex, remainingIndices[0]);
+
+        Assert.True(InvokeTryTrackOccupancy(
+            occupant,
+            new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0),
+            77));
+
+        Assert.True(GridOccupantManager.TryDeregister(occupant));
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(occupant));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldHandleTrackedEntriesThatNoLongerMatchVoxelState()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        TestOccupant unavailableVoxelOccupant = new TestOccupant(new Vector3d(0, 0, 0), 1);
+        TestOccupant staleGridOccupant = new TestOccupant(new Vector3d(0, 0, 0), 2);
+        TestOccupant staleSpawnOccupant = new TestOccupant(new Vector3d(0, 0, 0), 3);
+
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        Assert.True(InvokeTryTrackOccupancy(unavailableVoxelOccupant, voxel.GlobalIndex, 123));
+        Assert.False(grid.TryRemoveVoxelOccupant(voxel, unavailableVoxelOccupant));
+        Assert.True(InvokeForgetTrackedOccupancy(unavailableVoxelOccupant, voxel.GlobalIndex));
+        Assert.False(InvokeForgetTrackedOccupancy(unavailableVoxelOccupant, voxel.GlobalIndex));
+        Assert.False(InvokeForgetTrackedOccupancy(null, voxel.GlobalIndex));
+
+        GlobalVoxelIndex staleLocalIndex = new GlobalVoxelIndex(
+            grid.GlobalIndex,
+            new VoxelIndex(99, 0, 99),
+            grid.SpawnToken);
+        Assert.True(InvokeTryTrackOccupancy(staleGridOccupant, staleLocalIndex, 321));
+        Assert.True(InvokeTryTrackOccupancy(
+            staleSpawnOccupant,
+            new GlobalVoxelIndex(grid.GlobalIndex, voxel.Index, grid.SpawnToken + 1),
+            222));
+
+        Assert.True(grid.TryRemoveVoxelOccupant(staleGridOccupant));
+        Assert.True(grid.TryRemoveVoxelOccupant(staleSpawnOccupant));
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(staleGridOccupant));
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(staleSpawnOccupant));
+    }
+
+    [Fact]
+    public void GridOccupantManager_TrackedOccupancyComparer_ShouldSortAcrossEveryKey()
+    {
+        GlobalVoxelIndex origin = new GlobalVoxelIndex(1, new VoxelIndex(0, 0, 0), 10);
+
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(2, new VoxelIndex(0, 0, 0), 10),
+            1) < 0);
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(1, new VoxelIndex(1, 0, 0), 10),
+            1) < 0);
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(1, new VoxelIndex(0, 1, 0), 10),
+            1) < 0);
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(1, new VoxelIndex(0, 0, 1), 10),
+            1) < 0);
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(1, new VoxelIndex(0, 0, 0), 11),
+            1) < 0);
+        Assert.True(CompareTrackedOccupancies(
+            origin,
+            1,
+            new GlobalVoxelIndex(1, new VoxelIndex(0, 0, 0), 10),
+            2) < 0);
+        Assert.Equal(0, CompareTrackedOccupancies(origin, 3, origin, 3));
+    }
+
+    private static bool InvokeTryTrackOccupancy(IVoxelOccupant occupant, GlobalVoxelIndex index, int ticket)
+    {
+        MethodInfo method = typeof(GridOccupantManager).GetMethod(
+            "TryTrackOccupancy",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryTrackOccupancy.");
+
+        return (bool)method.Invoke(null, new object[] { occupant, index, ticket });
+    }
+
+    private static bool InvokeForgetTrackedOccupancy(IVoxelOccupant occupant, GlobalVoxelIndex index)
+    {
+        MethodInfo method = typeof(GridOccupantManager).GetMethod(
+            "ForgetTrackedOccupancy",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridOccupantManager.ForgetTrackedOccupancy.");
+
+        return (bool)method.Invoke(null, new object[] { occupant, index });
+    }
+
+    private static bool InvokeTryGetTrackedRecordUnsafe(IVoxelOccupant occupant)
+    {
+        MethodInfo method = typeof(GridOccupantManager).GetMethod(
+            "TryGetTrackedRecordUnsafe",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryGetTrackedRecordUnsafe.");
+        object[] arguments = { occupant, null };
+
+        bool result = (bool)method.Invoke(null, arguments);
+        return result;
+    }
+
+    private static int CompareTrackedOccupancies(
+        GlobalVoxelIndex leftIndex,
+        int leftTicket,
+        GlobalVoxelIndex rightIndex,
+        int rightTicket)
+    {
+        Type trackedOccupancyType = typeof(GridOccupantManager).GetNestedType(
+            "TrackedOccupancy",
+            BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridOccupantManager.TrackedOccupancy.");
+        MethodInfo compareMethod = typeof(GridOccupantManager).GetMethod(
+            "CompareTrackedOccupancies",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridOccupantManager.CompareTrackedOccupancies.");
+
+        object left = Activator.CreateInstance(
+            trackedOccupancyType,
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+            binder: null,
+            args: new object[] { leftIndex, leftTicket },
+            culture: null);
+        object right = Activator.CreateInstance(
+            trackedOccupancyType,
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public,
+            binder: null,
+            args: new object[] { rightIndex, rightTicket },
+            culture: null);
+
+        return (int)compareMethod.Invoke(null, new[] { left, right });
+    }
+
+    private sealed class SharedIdOccupant : IVoxelOccupant
+    {
+        public Guid GlobalId { get; }
+
+        public byte OccupantGroupId { get; }
+
+        public Vector3d Position { get; set; }
+
+        public SharedIdOccupant(Guid globalId, Vector3d position, byte occupantGroupId = byte.MaxValue)
+        {
+            GlobalId = globalId;
+            Position = position;
+            OccupantGroupId = occupantGroupId;
+        }
     }
 }

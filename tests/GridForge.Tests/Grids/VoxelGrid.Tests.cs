@@ -404,6 +404,29 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void NotifyBoundaryChange_ShouldSkipNullBoundarySlots()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Voxel originalVoxel = grid.Voxels[0, 0, 0];
+
+        try
+        {
+            grid.Voxels[0, 0, 0] = null;
+
+            grid.NotifyBoundaryChange(SpatialDirection.West);
+
+            Assert.Null(grid.Voxels[0, 0, 0]);
+        }
+        finally
+        {
+            grid.Voxels[0, 0, 0] = originalVoxel;
+        }
+    }
+
+    [Fact]
     public void Grid_ShouldHandleComplexConnectionsDuringDynamicLoadAndUnload()
     {
         Assert.True(GlobalGridManager.TryAddGrid(
@@ -487,6 +510,27 @@ public class VoxelGridTests : IDisposable
         Assert.False(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out _));
         Assert.False(grid.TryGetVoxel(0, 0, 0, out _));
         Assert.False(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out _));
+    }
+
+    [Fact]
+    public void TryGetVoxelIndex_ShouldReturnFalseWhenVoxelSizeNoLongerMatchesGridDimensions()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        object originalVoxelSize = GetManagerBackingField("VoxelSize");
+
+        try
+        {
+            SetManagerBackingField("VoxelSize", (Fixed64)0.5);
+
+            Assert.False(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out _));
+        }
+        finally
+        {
+            SetManagerBackingField("VoxelSize", originalVoxelSize);
+        }
     }
 
     [Fact]
@@ -666,5 +710,25 @@ public class VoxelGridTests : IDisposable
 
         Assert.NotNull(versionField);
         versionField.SetValue(grid, version);
+    }
+
+    private static object GetManagerBackingField(string propertyName)
+    {
+        FieldInfo backingField = typeof(GlobalGridManager).GetField(
+            $"<{propertyName}>k__BackingField",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(backingField);
+        return backingField.GetValue(null);
+    }
+
+    private static void SetManagerBackingField(string propertyName, object value)
+    {
+        FieldInfo backingField = typeof(GlobalGridManager).GetField(
+            $"<{propertyName}>k__BackingField",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(backingField);
+        backingField.SetValue(null, value);
     }
 }

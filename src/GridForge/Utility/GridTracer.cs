@@ -95,16 +95,12 @@ public static class GridTracer
         }
 
         // Include end voxel if needed
-        if (includeEnd && GlobalGridManager.TryGetGridAndVoxel(end, out VoxelGrid endGrid, out Voxel endVoxel))
+        if (includeEnd
+            && GlobalGridManager.TryGetGridAndVoxel(end, out VoxelGrid endGrid, out Voxel endVoxel)
+            && gridVoxelMapping.TryGetValue(endGrid, out SwiftList<Voxel> endVoxelList)
+            && voxelRedundancyCheck.Add(endVoxel))
         {
-            if (!gridVoxelMapping.TryGetValue(endGrid, out SwiftList<Voxel> voxelList))
-            {
-                voxelList = SwiftListPool<Voxel>.Shared.Rent();
-                gridVoxelMapping.Add(endGrid, voxelList);
-            }
-
-            if (voxelRedundancyCheck.Add(endVoxel))
-                voxelList.Add(endVoxel);
+            endVoxelList.Add(endVoxel);
         }
 
         // Yield grouped results

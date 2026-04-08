@@ -35,6 +35,9 @@ public class SpatialTypesTests : IDisposable
     {
         VoxelIndex twoArgumentIndex = new VoxelIndex(3, 4);
         VoxelIndex sameIndex = new VoxelIndex(3, 4, 0);
+        VoxelIndex differentX = new VoxelIndex(4, 4, 0);
+        VoxelIndex differentY = new VoxelIndex(3, 5, 0);
+        VoxelIndex differentZ = new VoxelIndex(3, 4, 1);
         object boxedIndex = sameIndex;
 
         Assert.True(twoArgumentIndex.IsAllocated);
@@ -42,6 +45,10 @@ public class SpatialTypesTests : IDisposable
         Assert.True(twoArgumentIndex == sameIndex);
         Assert.False(twoArgumentIndex != sameIndex);
         Assert.True(twoArgumentIndex.Equals(boxedIndex));
+        Assert.False(twoArgumentIndex.Equals(differentX));
+        Assert.False(twoArgumentIndex.Equals(differentY));
+        Assert.False(twoArgumentIndex.Equals(differentZ));
+        Assert.False(twoArgumentIndex.Equals("not a voxel index"));
     }
 
     [Fact]
@@ -54,6 +61,7 @@ public class SpatialTypesTests : IDisposable
         Assert.False(first == second);
         Assert.True(first != second);
         Assert.False(first.Equals(boxed));
+        Assert.False(first.Equals("not a global voxel index"));
         Assert.NotEqual(first.GetHashCode(), second.GetHashCode());
         Assert.Contains("Index: 2", first.ToString());
     }

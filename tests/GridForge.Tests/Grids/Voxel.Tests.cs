@@ -55,6 +55,37 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void Voxel_StateProperties_ShouldReflectAllocationOccupancyAndObstacleState()
+    {
+        Voxel detachedVoxel = new Voxel();
+
+        Assert.False(detachedVoxel.IsBlocked);
+        Assert.False(detachedVoxel.IsBlockable);
+        Assert.False(detachedVoxel.IsOccupied);
+
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        Assert.False(voxel.IsBlocked);
+        Assert.True(voxel.IsBlockable);
+        Assert.False(voxel.IsOccupied);
+
+        TestOccupant occupant = new TestOccupant(voxel.WorldPosition);
+        BoundsKey obstacleToken = new BoundsKey(voxel.WorldPosition, voxel.WorldPosition);
+
+        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+        Assert.True(voxel.IsOccupied);
+        Assert.False(voxel.IsBlockable);
+
+        Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+        Assert.True(voxel.IsBlocked);
+        Assert.True(voxel.IsBlockable);
+    }
+
+    [Fact]
     public void Voxel_ShouldHandleOccupantsCorrectly()
     {
         var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(10, 0, 10));
@@ -114,6 +145,7 @@ public class VoxelTests : IDisposable
         voxel.TryGetPartition(out TestPartition voxelPartition);
 
         Assert.Equal(partition, voxelPartition);
+        Assert.Same(partition, voxel.GetPartitionOrDefault<TestPartition>());
 
         voxel.TryRemovePartition<TestPartition>();
         Assert.False(voxel.TryGetPartition<TestPartition>(out _));
@@ -188,6 +220,52 @@ public class VoxelTests : IDisposable
         Assert.True(voxel.TryRemovePartition<ThrowOnRemovePartition>());
         Assert.False(voxel.HasPartition<ThrowOnRemovePartition>());
         Assert.Null(voxel.GetPartitionOrDefault<ThrowOnRemovePartition>());
+    }
+
+    [Fact]
+    public void Reset_ShouldUseProvidedOwnerGridWhenClearingTrackedObstacles()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+
+        MethodInfo resetMethod = typeof(Voxel).GetMethod(
+            "Reset",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(resetMethod);
+        resetMethod.Invoke(voxel, new object[] { grid });
+
+        Assert.False(voxel.IsAllocated);
+        Assert.False(voxel.IsBlocked);
+        Assert.Equal(0, grid.ObstacleCount);
+    }
+
+    [Fact]
+    public void Reset_ShouldResolveOwnerGridFromGlobalManagerWhenNotProvided()
+    {
+        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+
+        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+
+        MethodInfo resetMethod = typeof(Voxel).GetMethod(
+            "Reset",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(resetMethod);
+        resetMethod.Invoke(voxel, new object[] { null });
+
+        Assert.False(voxel.IsAllocated);
+        Assert.False(voxel.IsBlocked);
+        Assert.Equal(0, grid.ObstacleCount);
     }
 
     [Fact]

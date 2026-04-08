@@ -603,6 +603,34 @@ public class BlockerTests : IDisposable
         Assert.False(voxel.IsBlocked);
     }
 
+    [Fact]
+    public void Blocker_ShouldFallbackToRetracingWhenCachedCoveredVoxelSetIsMissing()
+    {
+        Assert.True(GlobalGridManager.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        BoundsBlocker blocker = new BoundsBlocker(
+            new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+        Assert.True(voxel.IsBlocked);
+
+        FieldInfo cachedCoveredVoxelsField = typeof(Blocker).GetField(
+            "_cachedCoveredVoxels",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find Blocker._cachedCoveredVoxels.");
+        cachedCoveredVoxelsField.SetValue(blocker, null);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(voxel.IsBlocked);
+    }
+
     private static object InvokeBlockerMethod(Blocker blocker, string methodName, params object[] arguments)
     {
         MethodInfo method = typeof(Blocker).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
