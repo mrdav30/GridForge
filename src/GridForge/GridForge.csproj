@@ -68,15 +68,15 @@
 	</PropertyGroup>
 	<!-- Dependencies and Package References -->
 	<ItemGroup>	
-		<PackageReference Include="FixedMathSharp" Version="2.1.1">
+		<PackageReference Include="FixedMathSharp" Version="3.0.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>compile</IncludeAssets>
 		</PackageReference>	
 		<PackageReference Include="MemoryPack" Version="1.21.4" />	
-		<PackageReference Include="SwiftCollections" Version="3.0.0" />
+		<PackageReference Include="SwiftCollections" Version="4.0.0" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<PackageReference Include="System.Text.Json" Version="10.0.5" />
+		<PackageReference Include="System.Text.Json" Version="10.0.6" />
 	</ItemGroup>
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->
 	<ItemGroup>

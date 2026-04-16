@@ -10,7 +10,7 @@
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	<Configurations>Debug;Release</Configurations>
 	<OutputType>Exe</OutputType>
-	<RunSettingsFilePath>..\..\coverlet.runsettings</RunSettingsFilePath>
+	<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
   </PropertyGroup>
   <ItemGroup>
   	<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
@@ -22,9 +22,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-	<PackageReference Include="FixedMathSharp" Version="2.1.1" />
-	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-	<PackageReference Include="SwiftCollections" Version="3.0.0" />
+	<PackageReference Include="FixedMathSharp" Version="3.0.0" />
+	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+	<PackageReference Include="SwiftCollections" Version="4.0.0" />
 	<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
