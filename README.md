@@ -56,9 +56,9 @@ Unity-specific integration lives in the separate [GridForge-Unity](https://githu
 ## 🧪 Local Validation
 
 ```bash
-dotnet restore GridForge.sln
-dotnet build GridForge.sln --configuration Debug
-dotnet test GridForge.sln --configuration Debug --no-build
+dotnet restore GridForge.slnx
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
 For benchmark discovery:

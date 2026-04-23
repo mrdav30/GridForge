@@ -1,0 +1,22 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="ReleaseLean" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="AGENTS.md" />
+    <File Path="CONTRIBUTING.md" />
+    <File Path="COPYRIGHT" />
+    <File Path="coverlet.runsettings" />
+    <File Path="LICENSE" />
+    <File Path="NOTICE" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="src/GridForge/GridForge.csproj" />
+  <Project Path="tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj" />
+  <Project Path="tests/GridForge.Tests/GridForge.Tests.csproj" />
+</Solution>

@@ -34,7 +34,7 @@ The repository currently contains one library project and two validation project
 ## Repository Layout
 
 - `README.md` - external-facing project overview and usage examples
-- `GridForge.sln` - solution entry point
+- `GridForge.slnx` - solution entry point
 - `src/GridForge/GridForge.csproj` - library project configuration and package metadata
 - `src/GridForge/Configuration` - grid configuration types and bounds identity
 - `src/GridForge/Grids` - core grid, voxel, scan-cell, manager, and pooling logic
@@ -135,15 +135,15 @@ Match the surrounding code instead of imposing a new style on untouched files.
 Run tests whenever behavior changes in the library:
 
 ```bash
-dotnet test GridForge.sln --configuration Debug
+dotnet test GridForge.slnx --configuration Debug
 ```
 
 Useful local commands:
 
 ```bash
-dotnet restore GridForge.sln
-dotnet build GridForge.sln --configuration Debug
-dotnet test GridForge.sln --configuration Debug --no-build
+dotnet restore GridForge.slnx
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
 Run benchmarks when changing pooling, tracing, registration, or other performance-sensitive paths:

@@ -8,7 +8,7 @@
     <IsTestProject>true</IsTestProject>
 	<ProjectGuid>{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}</ProjectGuid>
 	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-	<Configurations>Debug;Release</Configurations>
+	<Configurations>Debug;Release;ReleaseLean</Configurations>
 	<OutputType>Exe</OutputType>
 	<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
   </PropertyGroup>
@@ -18,13 +18,13 @@
 	  <IncludeAssets>compile; build</IncludeAssets>
 	  <PrivateAssets>all</PrivateAssets>
 	</ProjectReference>
-    <PackageReference Include="coverlet.collector" Version="8.0.1">
+    <PackageReference Include="coverlet.collector" Version="10.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-	<PackageReference Include="FixedMathSharp" Version="3.0.0" />
+	<PackageReference Include="FixedMathSharp" Version="3.0.1" />
 	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
-	<PackageReference Include="SwiftCollections" Version="4.0.0" />
+	<PackageReference Include="SwiftCollections" Version="4.0.1" />
 	<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

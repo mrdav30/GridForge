@@ -1,11 +1,14 @@
-﻿root = true
+root = true
+
 [*]
 end_of_line = lf
 
-[*.cs]
+# IDE0130: Namespace does not match folder structure
+dotnet_diagnostic.IDE0130.severity = silent
 
-# IDE0090: Use 'new(...)'
-csharp_style_implicit_object_creation_when_type_is_apparent = false
+# IDE0251: Make member 'readonly'
+dotnet_diagnostic.IDE0251.severity = silent
 
-# IDE0044: Add readonly modifier
-dotnet_style_readonly_field = false
+# Enable XML documentation warnings only for source code
+[src/**/*.cs]
+dotnet_diagnostic.CS1591.severity = warning

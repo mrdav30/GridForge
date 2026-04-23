@@ -1,53 +1,52 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	<!-- Global Properties: General Configuration Settings -->
+
+	<!-- General Properties -->
 	<PropertyGroup>
 		<LangVersion>11.0</LangVersion>
 		<TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
-		<!-- Versioning and Build Configuration -->
-		<!-- Set SemVer to GitVersion_FullSemVer if available, otherwise fallback to 0.0.0 -->
+		<Configurations>Debug;Release;ReleaseLean</Configurations>
+		<DisableMemoryPack Condition="'$(DisableMemoryPack)' == ''">false</DisableMemoryPack>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<Deterministic>true</Deterministic>
+	</PropertyGroup>
+	
+	<!-- Git Versioning -->
+	<PropertyGroup>
 		<SemVer Condition="'$(GitVersion_FullSemVer)' != ''">$(GitVersion_FullSemVer)</SemVer>
 		<SemVer Condition="'$(SemVer)' == ''">0.0.0</SemVer>
-		<!-- Informational version fallback -->
 		<InfoVer Condition="'$(GitVersion_InformationalVersion)' != ''">$(GitVersion_InformationalVersion)</InfoVer>
 		<InfoVer Condition="'$(InfoVer)' == ''">$(SemVer)</InfoVer>
-		<!-- Set Assembly and File Versions -->
 		<AssemblySemVer Condition="'$(GitVersion_AssemblySemVer)' != ''">$(GitVersion_AssemblySemVer)</AssemblySemVer>
-		<AssemblySemVer Condition="'$(AssemblySemVer)' == ''">$(SemVer).0</AssemblySemVer>  
+		<AssemblySemVer Condition="'$(AssemblySemVer)' == ''">$(SemVer).0</AssemblySemVer>
 		<AssemblySemFileVer Condition="'$(GitVersion_AssemblySemFileVer)' != ''">$(GitVersion_AssemblySemFileVer)</AssemblySemFileVer>
 		<AssemblySemFileVer Condition="'$(AssemblySemFileVer)' == ''">$(AssemblySemVer)</AssemblySemFileVer>
-		<!-- Set final versions for the project -->
 		<InformationalVersion>$(InfoVer)</InformationalVersion>
 		<Version>$(SemVer)</Version>
 		<AssemblyVersion>$(AssemblySemVer)</AssemblyVersion>
 		<FileVersion>$(AssemblySemFileVer)</FileVersion>
+	</PropertyGroup>
+
+	<!-- Code Analysis and Documentation -->
+	<PropertyGroup>
 		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>disable</Nullable>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<IncludeSymbols>true</IncludeSymbols>
 		<DebugType>portable</DebugType>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<DocumentationFile>bin\$(Configuration)\$(TargetFramework)\GridForge.xml</DocumentationFile>
-		<!-- Configuration to ensure deterministic builds -->
-		<Deterministic>true</Deterministic>
-		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
-	<!-- Debug and Release-specific Properties -->
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-		<DebugSymbols>true</DebugSymbols>
-		<Optimize>false</Optimize>
-		<DefineConstants>DEBUG;TRACE</DefineConstants>
+
+	<!-- Output Settings -->
+	<PropertyGroup>
+		<AssemblyName>GridForge</AssemblyName>
+		<RootNamespace>GridForge</RootNamespace>
+		<ProjectGuid>{30876934-77AD-43EA-83C0-B55B7F15BB4A}</ProjectGuid>
+		<OutputPath>bin\$(Configuration)\</OutputPath>
 	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<Optimize>true</Optimize>
-		<DefineConstants>TRACE</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<NoWarn>$(NoWarn);CS1591</NoWarn>
-	</PropertyGroup>
+
 	<!-- NuGet Packaging Metadata -->
 	<PropertyGroup>
-		<PackageId>GridForge</PackageId>
 		<Authors>mrdav30</Authors>
 		<Description>A high-performance, deterministic voxel grid system for spatial partitioning, simulation, and game development.</Description>
 		<PackageTags>grid, spatial, lockstep, deterministic, pathfinding, game-development, AI, voxel-engine</PackageTags>
@@ -59,25 +58,54 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
-	<!-- Output Settings -->
-	<PropertyGroup>
-		<AssemblyName>GridForge</AssemblyName>
-		<RootNamespace>GridForge</RootNamespace>
-		<ProjectGuid>{30876934-77AD-43EA-83C0-B55B7F15BB4A}</ProjectGuid>
-		<OutputPath>bin\$(Configuration)\</OutputPath>
+	
+		<!-- Configurations Properties -->
+
+	<PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
+		<DisableMemoryPack>true</DisableMemoryPack>
 	</PropertyGroup>
+	
+	<PropertyGroup Condition="'$(DisableMemoryPack)' == 'true'">
+		<DefineConstants>$(DefineConstants);GRIDFORGE_DISABLE_MEMORYPACK</DefineConstants>
+		<PackageId>GridForge.Lean</PackageId>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(DisableMemoryPack)' != 'true'">
+		<PackageId>GridForge</PackageId>
+	</PropertyGroup>
+	
+	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<IncludeTransitiveProjectReferences>false</IncludeTransitiveProjectReferences>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DebugSymbols>true</DebugSymbols>
+		<Optimize>false</Optimize>
+		<DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' Or '$(Configuration)' == 'ReleaseLean'">
+		<Optimize>true</Optimize>
+		<DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+	</PropertyGroup>
+
 	<!-- Dependencies and Package References -->
-	<ItemGroup>	
-		<PackageReference Include="FixedMathSharp" Version="3.0.0">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>compile</IncludeAssets>
-		</PackageReference>	
-		<PackageReference Include="MemoryPack" Version="1.21.4" />	
-		<PackageReference Include="SwiftCollections" Version="4.0.0" />
+	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
+		<PackageReference Include="MemoryPack" Version="1.21.4" />
+		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
+		<PackageReference Include="SwiftCollections" Version="4.0.1" />
 	</ItemGroup>
+	
+	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
+		<PackageReference Include="FixedMathSharp.NoMemoryPack" Version="3.0.1" />
+		<PackageReference Include="SwiftCollections.Lean" Version="4.0.1" />
+	</ItemGroup>
+	
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<PackageReference Include="System.Text.Json" Version="10.0.6" />
+		<PackageReference Include="System.Text.Json" Version="10.0.5" />
 	</ItemGroup>
+
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->
 	<ItemGroup>
 		<None Include="..\..\COPYRIGHT" Pack="true" PackagePath="\" Visible="false" />
@@ -87,4 +115,5 @@
 		<None Include="..\..\icon.png" Pack="true" PackagePath="\" Visible="false" />
 		<None Remove=".gitignore" />
 	</ItemGroup>
+	
 </Project>
