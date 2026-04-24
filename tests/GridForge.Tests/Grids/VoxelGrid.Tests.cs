@@ -49,8 +49,8 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void Initialize_ShouldReturnEarlyWhenGridIsAlreadyActive()
     {
-        GridConfiguration initialConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
-        GridConfiguration secondConfig = new GridConfiguration(new Vector3d(50, 0, 50), new Vector3d(51, 0, 51));
+        GridConfiguration initialConfig = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        GridConfiguration secondConfig = new(new Vector3d(50, 0, 50), new Vector3d(51, 0, 51));
 
         Assert.True(GlobalGridManager.TryAddGrid(initialConfig, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -155,7 +155,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void Reset_ShouldReturnEarlyWhenGridIsInactive()
     {
-        VoxelGrid detachedGrid = new VoxelGrid();
+        VoxelGrid detachedGrid = new();
 
         InvokeGridReset(detachedGrid);
 
@@ -206,8 +206,8 @@ public class VoxelGridTests : IDisposable
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort index));
 
         VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
-        Vector3d beforeBoundary = new Vector3d(3.9, 0, 3.9);
-        Vector3d atBoundary = new Vector3d(4, 0, 4);
+        Vector3d beforeBoundary = new(3.9, 0, 3.9);
+        Vector3d atBoundary = new(4, 0, 4);
 
         int firstCellKey = grid.GetScanCellKey(beforeBoundary);
         int secondCellKey = grid.GetScanCellKey(atBoundary);
@@ -343,8 +343,8 @@ public class VoxelGridTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 2),
             out ushort index));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
-        TestOccupant firstOccupant = new TestOccupant(new Vector3d(0, 0, 0));
-        TestOccupant secondOccupant = new TestOccupant(new Vector3d(4, 0, 4));
+        TestOccupant firstOccupant = new(new Vector3d(0, 0, 0));
+        TestOccupant secondOccupant = new(new Vector3d(4, 0, 4));
 
         Assert.True(grid.TryAddVoxelOccupant(firstOccupant));
         Assert.True(grid.TryAddVoxelOccupant(secondOccupant));
@@ -383,7 +383,7 @@ public class VoxelGridTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        VoxelIndex centerIndex = new VoxelIndex(1, 1, 1);
+        VoxelIndex centerIndex = new(1, 1, 1);
 
         foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
             Assert.False(grid.IsFacingBoundaryDirection(centerIndex, direction));
@@ -410,20 +410,11 @@ public class VoxelGridTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Voxel originalVoxel = grid.Voxels[0, 0, 0];
+        grid.Voxels[0, 0, 0] = null;
 
-        try
-        {
-            grid.Voxels[0, 0, 0] = null;
+        grid.NotifyBoundaryChange(SpatialDirection.West);
 
-            grid.NotifyBoundaryChange(SpatialDirection.West);
-
-            Assert.Null(grid.Voxels[0, 0, 0]);
-        }
-        finally
-        {
-            grid.Voxels[0, 0, 0] = originalVoxel;
-        }
+        Assert.Null(grid.Voxels[0, 0, 0]);
     }
 
     [Fact]
@@ -456,16 +447,16 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void ReleasedGridAndScanCell_ShouldNotLeakStateWhenReused()
     {
-        GridConfiguration centerConfig = new GridConfiguration(
+        GridConfiguration centerConfig = new(
             new Vector3d(0, 0, 0),
             new Vector3d(1, 0, 1),
             scanCellSize: 8);
-        GridConfiguration eastConfig = new GridConfiguration(
+        GridConfiguration eastConfig = new(
             new Vector3d(1, 0, 0),
             new Vector3d(2, 0, 1),
             scanCellSize: 8);
-        TestOccupant occupant = new TestOccupant(new Vector3d(0, 0, 0), 4);
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
+        TestOccupant occupant = new(new Vector3d(0, 0, 0), 4);
+        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
 
         Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
         Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
@@ -501,7 +492,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void ReleasedGridQueries_ShouldFailGracefullyWhenGridIsInactive()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -515,7 +506,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void TryGetVoxelIndex_ShouldReturnFalseWhenVoxelSizeNoLongerMatchesGridDimensions()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -536,7 +527,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void ClearPools_ShouldDropReleasedScanCellMaps()
     {
-        GridConfiguration config = new GridConfiguration(
+        GridConfiguration config = new(
             new Vector3d(0, 0, 0),
             new Vector3d(3, 0, 3),
             scanCellSize: 2);
@@ -584,7 +575,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void ClearPools_ShouldAllowFreshGridAllocationAfterPoolReset()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
@@ -607,17 +598,17 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void GridConfigurationAndBoundsKey_ShouldProvideStableIdentityForMatchingBounds()
     {
-        GridConfiguration first = new GridConfiguration(
+        GridConfiguration first = new(
             new Vector3d(0, 0, 0),
             new Vector3d(5, 0, 5),
             scanCellSize: 2);
-        GridConfiguration second = new GridConfiguration(
+        GridConfiguration second = new(
             new Vector3d(0, 0, 0),
             new Vector3d(5, 0, 5),
             scanCellSize: 16);
         BoundsKey firstKey = first.ToBoundsKey();
         BoundsKey secondKey = second.ToBoundsKey();
-        BoundsKey differentKey = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(5, 0, 5));
+        BoundsKey differentKey = new(new Vector3d(1, 0, 1), new Vector3d(5, 0, 5));
 
         Assert.Equal(first.GetHashCode(), second.GetHashCode());
         Assert.Equal(first.BoundsMin, firstKey.BoundsMin);
@@ -629,12 +620,12 @@ public class VoxelGridTests : IDisposable
 
     private static TheoryData<SpatialDirection, VoxelIndex> CreateBoundaryDirectionCases()
     {
-        TheoryData<SpatialDirection, VoxelIndex> cases = new TheoryData<SpatialDirection, VoxelIndex>();
+        TheoryData<SpatialDirection, VoxelIndex> cases = new();
 
         for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
         {
             (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
-            VoxelIndex boundaryIndex = new VoxelIndex(
+            VoxelIndex boundaryIndex = new(
                 offset.x < 0 ? 0 : offset.x > 0 ? 2 : 1,
                 offset.y < 0 ? 0 : offset.y > 0 ? 2 : 1,
                 offset.z < 0 ? 0 : offset.z > 0 ? 2 : 1);
@@ -647,7 +638,7 @@ public class VoxelGridTests : IDisposable
 
     private static VoxelGrid CreateStandaloneGrid(ushort globalIndex, Vector3d min, Vector3d max)
     {
-        VoxelGrid grid = new VoxelGrid();
+        VoxelGrid grid = new();
         InvokeGridInitialize(grid, globalIndex, new GridConfiguration(min, max));
         return grid;
     }

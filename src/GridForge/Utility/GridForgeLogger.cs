@@ -45,7 +45,7 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets or sets the file path for logging. If null, file logging is disabled.
     /// </summary>
-    public static string LogFilePath { get; set; } = null;
+    public static string? LogFilePath { get; set; } = null;
 
     /// <summary>
     /// Gets or sets the minimum log level required for messages to be logged.
@@ -59,7 +59,7 @@ public static class GridForgeLogger
     /// <summary>
     /// Synchronization lock for thread-safe logging.
     /// </summary>
-    private static readonly object _lock = new object();
+    private static readonly object _lock = new();
 
     /// <summary>
     /// The default handler for logging messages, writing them to the console and optionally to a file.
@@ -151,7 +151,7 @@ public static class GridForgeLogger
     /// <param name="filePath">The calling file name, automatically captured to get the class name.</param>
     public static void Error(
         string message,
-        Exception ex = null,
+        Exception? ex = null,
         [CallerMemberName] string method = "",
         [CallerFilePath] string filePath = "")
     {
@@ -170,7 +170,7 @@ public static class GridForgeLogger
 
     private static DiagnosticChannel CreateChannel()
     {
-        DiagnosticChannel channel = new DiagnosticChannel("GridForge")
+        DiagnosticChannel channel = new("GridForge")
         {
             MinimumLevel = DiagnosticLevel.Warning,
             Sink = HandleDiagnosticEvent

@@ -32,7 +32,7 @@ public class ScanCell
     /// <summary>
     /// Maps a <see cref="Voxel.GlobalIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
     /// </summary>
-    private SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>> _voxelOccupants;
+    private SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>>? _voxelOccupants;
 
     /// <summary>
     /// The total number of occupants in this scan cell.
@@ -123,15 +123,13 @@ public class ScanCell
     /// Removes an occupant from this scan cell.
     /// </summary>
     /// <param name="index">The global index of the voxel the occupant was assigned to.</param>
-    /// <param name="occupant">The occupant instance to remove.</param>
     /// <param name="ticket">The ticket assigned to the occupant instance from this scancell.</param>
     /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
     internal bool TryRemoveOccupant(
         GlobalVoxelIndex index,
-        IVoxelOccupant occupant,
         int ticket)
     {
-        if (!IsOccupied || !_voxelOccupants.TryGetValue(index, out var bucket))
+        if (!IsOccupied || _voxelOccupants?.TryGetValue(index, out var bucket) != true)
             return false;
 
         if (!bucket.TryRemoveAt(ticket))
@@ -173,8 +171,8 @@ public class ScanCell
     /// Retrieves occupants whose group Ids match a given condition.
     /// </summary>
     public IEnumerable<IVoxelOccupant> GetConditionalOccupants(
-        Func<IVoxelOccupant, bool> occupantCondition = null,
-        Func<byte, bool> groupConditional = null)
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupConditional = null)
     {
         if (_voxelOccupants == null)
             yield break;
@@ -219,7 +217,7 @@ public class ScanCell
     public bool TryGetOccupantAt(
         GlobalVoxelIndex index,
         int occupantTicket,
-        out IVoxelOccupant voxelOccupant)
+        out IVoxelOccupant? voxelOccupant)
     {
         voxelOccupant = null;
         if (_voxelOccupants == null

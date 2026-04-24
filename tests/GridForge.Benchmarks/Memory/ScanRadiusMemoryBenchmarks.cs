@@ -59,7 +59,7 @@ public class ScanRadiusMemoryBenchmarks
             {
                 int minX = gridX * (gridSize + 1);
                 int minZ = gridZ * (gridSize + 1);
-                GridConfiguration configuration = new GridConfiguration(
+                GridConfiguration configuration = new(
                     new Vector3d(minX, 0, minZ),
                     new Vector3d(minX + gridSize, 0, minZ + gridSize),
                     scanCellSize: 8);
@@ -84,7 +84,7 @@ public class ScanRadiusMemoryBenchmarks
         {
             for (int x = 0; x <= 127 && placed < occupantCount; x++)
             {
-                BenchmarkOccupant occupant = new BenchmarkOccupant(
+                BenchmarkOccupant occupant = new(
                     new Vector3d(x, 0, z),
                     (byte)(groupId++ & 7));
 

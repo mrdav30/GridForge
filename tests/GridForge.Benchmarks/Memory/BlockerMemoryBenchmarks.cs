@@ -66,7 +66,7 @@ public class BlockerMemoryBenchmarks
     {
         BenchmarkEnvironment.PrepareWorld();
 
-        GridConfiguration configuration = new GridConfiguration(
+        GridConfiguration configuration = new(
             new Vector3d(0, 0, 0),
             new Vector3d(191, 0, 191),
             scanCellSize: 8);
@@ -92,8 +92,8 @@ public class BlockerMemoryBenchmarks
             int x = 4 + column * stride + (row & 1);
             int z = 4 + row * stride + (column & 1);
 
-            Vector3d min = new Vector3d(x, 0, z);
-            Vector3d max = new Vector3d(x + BlockSpan, 0, z + BlockSpan);
+            Vector3d min = new(x, 0, z);
+            Vector3d max = new(x + BlockSpan, 0, z + BlockSpan);
             areas[i] = new BoundingArea(min, max);
         }
 

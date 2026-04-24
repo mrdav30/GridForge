@@ -23,7 +23,7 @@ public static class GridOccupantManager
     /// <summary>
     /// Event triggered when an occupant is added.
     /// </summary>
-    private static Action<OccupantEventInfo> _onOccupantAdded;
+    private static Action<OccupantEventInfo>? _onOccupantAdded;
 
     /// <inheritdoc cref="_onOccupantAdded"/>
     public static event Action<OccupantEventInfo> OnOccupantAdded
@@ -35,7 +35,7 @@ public static class GridOccupantManager
     /// <summary>
     /// Event triggered when an occupant is removed.
     /// </summary>
-    private static Action<OccupantEventInfo> _onOccupantRemoved;
+    private static Action<OccupantEventInfo>? _onOccupantRemoved;
 
     /// <inheritdoc cref="_onOccupantRemoved"/>
     public static event Action<OccupantEventInfo> OnOccupantRemoved
@@ -51,17 +51,17 @@ public static class GridOccupantManager
     /// <summary>
     /// Per-grid locks to ensure thread safety when modifying occupant data.
     /// </summary>
-    private static readonly ConcurrentDictionary<ushort, object> _gridLocks = new ConcurrentDictionary<ushort, object>();
+    private static readonly ConcurrentDictionary<ushort, object> _gridLocks = new();
 
     /// <summary>
     /// Synchronizes access to the global occupant registry.
     /// </summary>
-    private static readonly object _occupancyRegistryLock = new object();
+    private static readonly object _occupancyRegistryLock = new();
 
     /// <summary>
     /// Tracks all active occupant registrations owned by GridForge.
     /// </summary>
-    private static readonly SwiftDictionary<Guid, OccupancyRecord> _occupancyRegistry = new SwiftDictionary<Guid, OccupancyRecord>();
+    private static readonly SwiftDictionary<Guid, OccupancyRecord> _occupancyRegistry = new();
 
     /// <summary>
     /// Tracks all voxel registrations for a single occupant.
@@ -101,10 +101,10 @@ public static class GridOccupantManager
     /// </summary>
     public static bool TryRegister(IVoxelOccupant occupant)
     {
-        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid grid, out Voxel voxel))
+        if (!GlobalGridManager.TryGetGridAndVoxel(occupant.Position, out VoxelGrid? grid, out Voxel? voxel))
             return false;
 
-        return grid.TryAddVoxelOccupant(voxel, occupant);
+        return grid!.TryAddVoxelOccupant(voxel!, occupant);
     }
 
     /// <summary>
@@ -142,8 +142,8 @@ public static class GridOccupantManager
             return false;
 
         lock (_occupancyRegistryLock)
-            return TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord record)
-                && record.Tickets.TryGetValue(index, out ticket);
+            return TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord? record)
+                && record!.Tickets.TryGetValue(index, out ticket);
     }
 
     /// <summary>
@@ -154,8 +154,8 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            && GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
-            && TryAddVoxelOccupant(grid, voxel, occupant);
+            && GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryAddVoxelOccupant(voxel!, occupant);
     }
 
     /// <summary>
@@ -164,8 +164,8 @@ public static class GridOccupantManager
     public static bool TryAddVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
     {
         return occupant != null
-            && grid.TryGetVoxel(occupant.Position, out Voxel voxel)
-            && TryAddVoxelOccupant(grid, voxel, occupant);
+            && grid.TryGetVoxel(occupant.Position, out Voxel? voxel)
+            && grid!.TryAddVoxelOccupant(voxel!, occupant);
     }
 
     /// <summary>
@@ -177,8 +177,8 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            && grid.TryGetVoxel(voxelIndex, out Voxel target)
-            && TryAddVoxelOccupant(grid, target, occupant);
+            && grid.TryGetVoxel(voxelIndex, out Voxel? target)
+            && grid!.TryAddVoxelOccupant(target!, occupant);
     }
 
     /// <summary>
@@ -192,7 +192,7 @@ public static class GridOccupantManager
         if (occupant == null)
             return false;
 
-        if (!targetVoxel.HasVacancy || !grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell))
+        if (!targetVoxel.HasVacancy || !grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell))
             return false;
 
         object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
@@ -201,10 +201,10 @@ public static class GridOccupantManager
 
         lock (gridLock)
         {
-            ticket = scanCell.AddOccupant(targetVoxel.GlobalIndex, occupant);
+            ticket = scanCell!.AddOccupant(targetVoxel.GlobalIndex, occupant);
             if (!TryTrackOccupancy(occupant, targetVoxel.GlobalIndex, ticket))
             {
-                scanCell.TryRemoveOccupant(targetVoxel.GlobalIndex, occupant, ticket);
+                scanCell!.TryRemoveOccupant(targetVoxel.GlobalIndex, ticket);
                 return false;
             }
 
@@ -235,13 +235,13 @@ public static class GridOccupantManager
         for (int i = 0; i < occupancies.Length; i++)
         {
             GlobalVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
-            if (!GlobalGridManager.TryGetGridAndVoxel(voxelIndex, out VoxelGrid grid, out Voxel voxel))
+            if (!GlobalGridManager.TryGetGridAndVoxel(voxelIndex, out VoxelGrid? grid, out Voxel? voxel))
             {
                 removedAny |= ForgetTrackedOccupancy(occupant, voxelIndex);
                 continue;
             }
 
-            removedAny |= grid.TryRemoveVoxelOccupant(voxel, occupant);
+            removedAny |= grid!.TryRemoveVoxelOccupant(voxel!, occupant);
         }
 
         return removedAny;
@@ -255,8 +255,8 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            && GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
-            && TryRemoveVoxelOccupant(grid, voxel, occupant);
+            && GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryRemoveVoxelOccupant(voxel!, occupant);
     }
 
     /// <summary>
@@ -275,13 +275,13 @@ public static class GridOccupantManager
         for (int i = 0; i < occupancies.Length; i++)
         {
             GlobalVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
-            if (voxelIndex.GridSpawnToken != grid.SpawnToken || !grid.TryGetVoxel(voxelIndex.VoxelIndex, out Voxel voxel))
+            if (voxelIndex.GridSpawnToken != grid.SpawnToken || !grid.TryGetVoxel(voxelIndex.VoxelIndex, out Voxel? voxel))
             {
                 removedAny |= ForgetTrackedOccupancy(occupant, voxelIndex);
                 continue;
             }
 
-            removedAny |= TryRemoveVoxelOccupant(grid, voxel, occupant);
+            removedAny |= TryRemoveVoxelOccupant(grid, voxel!, occupant);
         }
 
         return removedAny;
@@ -296,8 +296,8 @@ public static class GridOccupantManager
         IVoxelOccupant occupant)
     {
         return occupant != null
-            && grid.TryGetVoxel(voxelIndex, out Voxel targetVoxel)
-            && TryRemoveVoxelOccupant(grid, targetVoxel, occupant);
+            && grid.TryGetVoxel(voxelIndex, out Voxel? targetVoxel)
+            && grid!.TryRemoveVoxelOccupant(targetVoxel!, occupant);
     }
 
     /// <summary>
@@ -317,7 +317,7 @@ public static class GridOccupantManager
             return false;
         }
 
-        if (!targetVoxel.IsOccupied || !grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell scanCell))
+        if (!targetVoxel.IsOccupied || grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell) != true)
             return false;
 
         bool success = false;
@@ -327,12 +327,12 @@ public static class GridOccupantManager
 
         lock (gridLock)
         {
-            success = scanCell.TryRemoveOccupant(targetVoxel.GlobalIndex, occupant, ticket);
+            success = scanCell!.TryRemoveOccupant(targetVoxel.GlobalIndex, ticket);
             if (success)
             {
                 ForgetTrackedOccupancy(occupant, targetVoxel.GlobalIndex);
 
-                if (!scanCell.IsOccupied)
+                if (!scanCell.IsOccupied && grid.ActiveScanCells != null)
                 {
                     grid.ActiveScanCells.Remove(targetVoxel.ScanCellKey);
                     if (!grid.IsOccupied)
@@ -415,7 +415,7 @@ public static class GridOccupantManager
 
         lock (_occupancyRegistryLock)
         {
-            if (!TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord record) || !record.Tickets.ContainsKey(index))
+            if (!TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord? record) || record!.Tickets.ContainsKey(index) != true)
                 return false;
 
             record.Tickets.Remove(index);
@@ -428,7 +428,7 @@ public static class GridOccupantManager
 
     private static bool TryGetTrackedRecordUnsafe(
         IVoxelOccupant occupant,
-        out OccupancyRecord record)
+        out OccupancyRecord? record)
     {
         record = null;
         if (occupant == null || !_occupancyRegistry.TryGetValue(occupant.GlobalId, out record))
@@ -446,7 +446,7 @@ public static class GridOccupantManager
 
         lock (_occupancyRegistryLock)
         {
-            if (!TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord record) || record.Tickets.Count == 0)
+            if (!TryGetTrackedRecordUnsafe(occupant, out OccupancyRecord? record) || record!.Tickets.Count == 0)
                 return Array.Empty<TrackedOccupancy>();
 
             TrackedOccupancy[] occupancies = new TrackedOccupancy[record.Tickets.Count];
@@ -506,7 +506,7 @@ public static class GridOccupantManager
         byte occupantCount)
     {
         OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
-        Action<OccupantEventInfo> handlers = _onOccupantAdded;
+        Action<OccupantEventInfo>? handlers = _onOccupantAdded;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -536,7 +536,7 @@ public static class GridOccupantManager
         byte occupantCount)
     {
         OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
-        Action<OccupantEventInfo> handlers = _onOccupantRemoved;
+        Action<OccupantEventInfo>? handlers = _onOccupantRemoved;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();

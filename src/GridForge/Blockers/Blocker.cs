@@ -13,8 +13,8 @@ namespace GridForge.Blockers;
 /// </summary>
 public abstract class Blocker : IBlocker
 {
-    private static readonly object _gridWatcherLock = new object();
-    private static readonly SwiftHashSet<Blocker> _registeredBlockers = new SwiftHashSet<Blocker>();
+    private static readonly object _gridWatcherLock = new();
+    private static readonly SwiftHashSet<Blocker> _registeredBlockers = new();
 
     /// <summary>
     /// Unique token representing this blockage instance.
@@ -49,17 +49,17 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Stable voxel identifiers cached for safe blocker removal when <see cref="CacheCoveredVoxels"/> is true.
     /// </summary>
-    protected SwiftList<GlobalVoxelIndex> _cachedCoveredVoxels;
+    protected SwiftList<GlobalVoxelIndex>? _cachedCoveredVoxels;
 
     /// <summary>
     /// Grid indices currently covered by this blocker.
     /// </summary>
-    private readonly SwiftHashSet<ushort> _watchedGridIndices = new SwiftHashSet<ushort>();
+    private readonly SwiftHashSet<ushort> _watchedGridIndices = new();
 
     /// <summary>
     /// Event triggered when a blocker is applied.
     /// </summary>
-    private static Action<BlockageEventInfo> _onBlockageApplied;
+    private static Action<BlockageEventInfo>? _onBlockageApplied;
 
     /// <inheritdoc cref="_onBlockageApplied"/>
     public static event Action<BlockageEventInfo> OnBlockageApplied
@@ -71,7 +71,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Event triggered when a blocker is removed.
     /// </summary>
-    private static Action<BlockageEventInfo> _onBlockageRemoved;
+    private static Action<BlockageEventInfo>? _onBlockageRemoved;
 
     /// <inheritdoc cref="_onBlockageRemoved"/>
     public static event Action<BlockageEventInfo> OnBlockageRemoved
@@ -160,7 +160,7 @@ public abstract class Blocker : IBlocker
                 }
 
                 if (CacheCoveredVoxels)
-                    _cachedCoveredVoxels.Add(voxel.GlobalIndex);
+                    _cachedCoveredVoxels!.Add(voxel.GlobalIndex);
             }
         }
 
@@ -235,7 +235,7 @@ public abstract class Blocker : IBlocker
     /// </summary>
     protected virtual void NotifyBlockageApplied()
     {
-        Action<BlockageEventInfo> handlers = _onBlockageApplied;
+        Action<BlockageEventInfo>? handlers = _onBlockageApplied;
         if (handlers == null)
             return;
 
@@ -261,7 +261,7 @@ public abstract class Blocker : IBlocker
     /// </summary>
     protected virtual void NotifyBlockageRemoved(BlockageEventInfo eventInfo)
     {
-        Action<BlockageEventInfo> handlers = _onBlockageRemoved;
+        Action<BlockageEventInfo>? handlers = _onBlockageRemoved;
         if (handlers == null)
             return;
 

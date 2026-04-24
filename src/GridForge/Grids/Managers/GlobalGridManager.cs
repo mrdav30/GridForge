@@ -81,7 +81,7 @@ public static class GlobalGridManager
     /// Lock for managing concurrent access to grid operations.
     /// Ensures thread safety for read/write operations.
     /// </summary>
-    private static readonly ReaderWriterLockSlim _gridLock = new ReaderWriterLockSlim();
+    private static readonly ReaderWriterLockSlim _gridLock = new();
 
     #endregion
 
@@ -91,7 +91,7 @@ public static class GlobalGridManager
     /// Event triggered when a new grid is added.
     /// Subscribers can use this to initialize references or update systems dependent on grid presence.
     /// </summary>
-    private static Action<GridEventInfo> _onActiveGridAdded;
+    private static Action<GridEventInfo>? _onActiveGridAdded;
 
     /// <inheritdoc cref="_onActiveGridAdded"/>
     public static event Action<GridEventInfo> OnActiveGridAdded
@@ -104,7 +104,7 @@ public static class GlobalGridManager
     /// Event triggered when a grid is removed.
     /// Subscribers should use this to clean up references or handle the loss of a grid in their systems.
     /// </summary>
-    private static Action<GridEventInfo> _onActiveGridRemoved;
+    private static Action<GridEventInfo>? _onActiveGridRemoved;
 
     /// <inheritdoc cref="_onActiveGridRemoved"/>
     public static event Action<GridEventInfo> OnActiveGridRemoved
@@ -117,7 +117,7 @@ public static class GlobalGridManager
     /// Event triggered when a grid undergoes a significant change (e.g., structure modification).
     /// Subscribers can use this to react to changes in grid state, such as updating pathfinding data or refreshing visuals.
     /// </summary>
-    private static Action<GridEventInfo> _onActiveGridChange;
+    private static Action<GridEventInfo>? _onActiveGridChange;
 
     /// <inheritdoc cref="_onActiveGridChange"/>
     public static event Action<GridEventInfo> OnActiveGridChange
@@ -130,7 +130,7 @@ public static class GlobalGridManager
     /// Event triggered when the GlobalGridManager is reset.
     /// Allows external systems to react to a full grid wipe.
     /// </summary>
-    private static Action _onReset;
+    private static Action? _onReset;
 
     /// <inheritdoc cref="_onReset"/>
     public static event Action OnReset
@@ -140,6 +140,16 @@ public static class GlobalGridManager
     }
 
     #endregion
+
+    static GlobalGridManager()
+    {
+        ActiveGrids = new SwiftBucket<VoxelGrid>();
+        BoundsTracker = new SwiftDictionary<BoundsKey, ushort>();
+        SpatialGridHash = new SwiftDictionary<int, SwiftHashSet<ushort>>();
+
+        IsActive = false;
+        Version = 0;
+    }
 
     #region Setup & Reset
 
@@ -198,7 +208,7 @@ public static class GlobalGridManager
             return;
         }
 
-        Action resetHandlers = _onReset;
+        Action? resetHandlers = _onReset;
         if (resetHandlers != null)
         {
             var handlerDelegates = resetHandlers.GetInvocationList();
@@ -228,7 +238,13 @@ public static class GlobalGridManager
         GridOccupantManager.ClearTrackedOccupancies();
 
         if (deactivate)
+        {
             IsActive = false;
+            _onActiveGridAdded = null;
+            _onActiveGridRemoved = null;
+            _onActiveGridChange = null;
+            _onReset = null;
+        }
     }
 
     #endregion
@@ -248,7 +264,7 @@ public static class GlobalGridManager
             return false;
         }
 
-        if ((uint)ActiveGrids.Count > MaxGrids)
+        if ((uint)(ActiveGrids?.Count ?? 0) > MaxGrids)
         {
             GridForgeLogger.Warn($"No more grids can be added at this time.");
             return false;
@@ -281,7 +297,7 @@ public static class GlobalGridManager
         _gridLock.EnterWriteLock();
         try
         {
-            allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
+            allocatedIndex = (ushort)(ActiveGrids?.Add(newGrid) ?? -1);
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
             newGrid.Initialize(allocatedIndex, configuration);
@@ -293,10 +309,10 @@ public static class GlobalGridManager
                 // Assign neighbors from grids sharing this spatial hash cell
                 foreach (ushort neighborIndex in SpatialGridHash[cellIndex])
                 {
-                    if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
+                    if (ActiveGrids?.IsAllocated(neighborIndex) != true || neighborIndex == allocatedIndex)
                         continue;
 
-                    VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
+                    VoxelGrid neighborGrid = ActiveGrids![neighborIndex];
 
                     // Ensure the grids actually overlap before linking them as neighbors
                     if (!VoxelGrid.IsGridOverlapValid(newGrid, neighborGrid))
@@ -397,7 +413,7 @@ public static class GlobalGridManager
 
     private static void NotifyActiveGridAdded(GridEventInfo eventInfo)
     {
-        Action<GridEventInfo> handlers = _onActiveGridAdded;
+        Action<GridEventInfo>? handlers = _onActiveGridAdded;
         if (handlers == null)
             return;
 
@@ -417,7 +433,7 @@ public static class GlobalGridManager
 
     private static void NotifyActiveGridRemoved(GridEventInfo eventInfo)
     {
-        Action<GridEventInfo> handlers = _onActiveGridRemoved;
+        Action<GridEventInfo>? handlers = _onActiveGridRemoved;
         if (handlers == null)
             return;
 
@@ -445,7 +461,7 @@ public static class GlobalGridManager
 
     private static void NotifyActiveGridChange(GridEventInfo eventInfo)
     {
-        Action<GridEventInfo> handlers = _onActiveGridChange;
+        Action<GridEventInfo>? handlers = _onActiveGridChange;
         if (handlers == null)
             return;
 
@@ -495,7 +511,7 @@ public static class GlobalGridManager
     /// <summary>
     /// Retrieves a grid by its global index.
     /// </summary>
-    public static bool TryGetGrid(int index, out VoxelGrid outGrid)
+    public static bool TryGetGrid(int index, out VoxelGrid? outGrid)
     {
         outGrid = null;
         if (!IsActive)
@@ -523,7 +539,7 @@ public static class GlobalGridManager
     /// <summary>
     /// Retrieves the grid containing a given world position.
     /// </summary>
-    public static bool TryGetGrid(Vector3d position, out VoxelGrid outGrid)
+    public static bool TryGetGrid(Vector3d position, out VoxelGrid? outGrid)
     {
         outGrid = null;
         if (!IsActive)
@@ -539,10 +555,10 @@ public static class GlobalGridManager
 
         foreach (ushort candidateIndex in gridList)
         {
-            if (!TryGetGrid(candidateIndex, out VoxelGrid candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
+            if (!TryGetGrid(candidateIndex, out VoxelGrid? candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
                 continue;
 
-            if (candidateGrid.IsInBounds(position))
+            if (candidateGrid?.IsInBounds(position) == true)
             {
                 outGrid = candidateGrid;
                 return true;
@@ -556,13 +572,13 @@ public static class GlobalGridManager
     /// <summary>
     /// Retrieves a grid by its unique global index.
     /// </summary>
-    public static bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid result)
+    public static bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid? result)
     {
         result = null;
 
         // Ensure the grid is valid and the voxel belongs to the expected grid version
-        if (!TryGetGrid(globalVoxelIndex.GridIndex, out VoxelGrid resolvedGrid)
-            || globalVoxelIndex.GridSpawnToken != resolvedGrid.SpawnToken)
+        if (!TryGetGrid(globalVoxelIndex.GridIndex, out VoxelGrid? resolvedGrid)
+            || globalVoxelIndex.GridSpawnToken != resolvedGrid?.SpawnToken)
         {
             return false;
         }
@@ -576,12 +592,12 @@ public static class GlobalGridManager
     /// </summary>
     public static bool TryGetGridAndVoxel(
         Vector3d position,
-        out VoxelGrid outGrid,
-        out Voxel outVoxel)
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel)
     {
         outVoxel = null;
         return TryGetGrid(position, out outGrid)
-            && outGrid.TryGetVoxel(position, out outVoxel);
+            && outGrid?.TryGetVoxel(position, out outVoxel) == true;
     }
 
     /// <summary>
@@ -589,12 +605,12 @@ public static class GlobalGridManager
     /// </summary>
     public static bool TryGetGridAndVoxel(
         GlobalVoxelIndex globalVoxelIndex,
-        out VoxelGrid outGrid,
-        out Voxel result)
+        out VoxelGrid? outGrid,
+        out Voxel? result)
     {
         result = null;
         return TryGetGrid(globalVoxelIndex, out outGrid)
-            && outGrid.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result);
+            && outGrid?.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result) == true;
     }
 
     /// <summary>
@@ -602,11 +618,11 @@ public static class GlobalGridManager
     /// </summary>
     public static bool TryGetVoxel(
         Vector3d position,
-        out Voxel result)
+        out Voxel? result)
     {
         result = null;
-        return TryGetGrid(position, out VoxelGrid grid)
-            && grid.TryGetVoxel(position, out result);
+        return TryGetGrid(position, out VoxelGrid? grid)
+            && grid?.TryGetVoxel(position, out result) == true;
     }
 
     /// <summary>
@@ -614,11 +630,11 @@ public static class GlobalGridManager
     /// </summary>
     public static bool TryGetVoxel(
         GlobalVoxelIndex globalVoxelIndex,
-        out Voxel result)
+        out Voxel? result)
     {
         result = null;
-        return TryGetGrid(globalVoxelIndex, out VoxelGrid grid)
-            && grid.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result);
+        return TryGetGrid(globalVoxelIndex, out VoxelGrid? grid)
+            && grid?.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result) == true;
     }
 
     #endregion
@@ -782,8 +798,8 @@ public static class GlobalGridManager
         Fixed64? padding = null)
     {
         // Ensure padding is non-negative
-        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero 
-            ? padding.Value 
+        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero
+            ? padding.Value
             : Fixed64.Zero;
 
         min -= fixedPadding;

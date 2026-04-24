@@ -59,8 +59,8 @@ public class VoxelGridMemoryBenchmarks
         int spacing = GridExtent + 4;
         for (int i = 0; i < GridCount; i++)
         {
-            Vector3d min = new Vector3d(i * spacing, 0, 0);
-            Vector3d max = new Vector3d(i * spacing + GridExtent, GridExtent, GridExtent);
+            Vector3d min = new(i * spacing, 0, 0);
+            Vector3d max = new(i * spacing + GridExtent, GridExtent, GridExtent);
             _configurations[i] = new GridConfiguration(min, max, scanCellSize: 8);
         }
     }

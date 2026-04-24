@@ -30,9 +30,9 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(1, 0, 1);
-        BoundsKey firstToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        Vector3d position = new(1, 0, 1);
+        BoundsKey firstToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey secondToken = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
         Assert.True(grid.TryAddObstacle(position, firstToken));
@@ -50,7 +50,7 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(2, 0, 2), 7);
+        TestOccupant occupant = new(new Vector3d(2, 0, 2), 7);
 
         Assert.True(GridOccupantManager.TryRegister(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
@@ -64,7 +64,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryGetScanCell(voxel.Index, out ScanCell scanCell));
         Assert.True(scanCell.IsOccupied);
 
-        TestOccupant secondOccupant = new TestOccupant(occupant.Position, 8);
+        TestOccupant secondOccupant = new(occupant.Position, 8);
 
         Assert.True(grid.TryAddVoxelOccupant(voxel.Index, secondOccupant));
         Assert.True(GridOccupantManager.TryRemoveVoxelOccupant(voxel.GlobalIndex, occupant));
@@ -77,9 +77,9 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(2, 0, 2);
-        TestOccupant targetOccupant = new TestOccupant(position, 1);
-        TestOccupant otherOccupant = new TestOccupant(position, 2);
+        Vector3d position = new(2, 0, 2);
+        TestOccupant targetOccupant = new(position, 1);
+        TestOccupant otherOccupant = new(position, 2);
 
         Assert.True(grid.TryAddVoxelOccupant(targetOccupant));
         Assert.True(grid.TryAddVoxelOccupant(otherOccupant));
@@ -111,9 +111,9 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(2, 0, 2);
-        TestOccupant firstOccupant = new TestOccupant(position, 1);
-        TestOccupant secondOccupant = new TestOccupant(position, 2);
+        Vector3d position = new(2, 0, 2);
+        TestOccupant firstOccupant = new(position, 1);
+        TestOccupant secondOccupant = new(position, 2);
 
         Assert.True(grid.TryAddVoxelOccupant(firstOccupant));
         Assert.True(grid.TryAddVoxelOccupant(secondOccupant));
@@ -134,7 +134,7 @@ public class ManagerCoverageTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        GlobalVoxelIndex missingGridIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
+        GlobalVoxelIndex missingGridIndex = new(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
 
         Assert.False(GridScanManager.TryGetVoxelOccupant(missingGridIndex, 0, out IVoxelOccupant missingGlobalOccupant));
         Assert.Null(missingGlobalOccupant);
@@ -148,10 +148,10 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(1, 0, 1);
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondObstacleToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
-        TestOccupant occupant = new TestOccupant(position);
+        Vector3d position = new(1, 0, 1);
+        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey secondObstacleToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        TestOccupant occupant = new(position);
         int obstacleManagerAddedNotifications = 0;
         int obstacleManagerRemovedNotifications = 0;
         int obstacleManagerClearedNotifications = 0;
@@ -258,10 +258,10 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(1, 0, 1);
-        BoundsKey firstToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
-        TestOccupant occupant = new TestOccupant(position, 9);
+        Vector3d position = new(1, 0, 1);
+        BoundsKey firstToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey secondToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        TestOccupant occupant = new(position, 9);
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
 
@@ -322,7 +322,7 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1));
+        TestOccupant occupant = new(new Vector3d(1, 0, 1));
 
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
         Assert.False(grid.TryAddVoxelOccupant((IVoxelOccupant)null));
@@ -339,7 +339,7 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(2, 0, 2), 6);
+        TestOccupant occupant = new(new Vector3d(2, 0, 2), 6);
 
         Assert.True(GridOccupantManager.TryRegister(occupant));
         Assert.True(grid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel voxel));
@@ -357,11 +357,11 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(1, 0, 1);
-        BoundsKey validToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey missingToken = new BoundsKey(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
-        GlobalVoxelIndex missingIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
-        TestOccupant occupant = new TestOccupant(position);
+        Vector3d position = new(1, 0, 1);
+        BoundsKey validToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        BoundsKey missingToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        GlobalVoxelIndex missingIndex = new(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
+        TestOccupant occupant = new(position);
 
         Assert.True(grid.TryGetVoxel(position, out Voxel occupiedVoxel));
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel emptyVoxel));
@@ -389,10 +389,10 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d emptyPosition = new Vector3d(0, 0, 0);
-        TestOccupant outsideOccupant = new TestOccupant(new Vector3d(99, 0, 99), 2);
-        TestOccupant localOccupant = new TestOccupant(new Vector3d(1, 0, 1), 3);
-        GlobalVoxelIndex missingGlobalIndex = new GlobalVoxelIndex(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
+        Vector3d emptyPosition = new(0, 0, 0);
+        TestOccupant outsideOccupant = new(new Vector3d(99, 0, 99), 2);
+        TestOccupant localOccupant = new(new Vector3d(1, 0, 1), 3);
+        GlobalVoxelIndex missingGlobalIndex = new(ushort.MaxValue, new VoxelIndex(0, 0, 0), 0);
 
         Assert.True(grid.TryGetVoxel(emptyPosition, out Voxel emptyVoxel));
         Assert.True(grid.TryAddVoxelOccupant(localOccupant));
@@ -435,10 +435,10 @@ public class ManagerCoverageTests : IDisposable
     {
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(1, 0, 1);
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        TestOccupant blockedOccupant = new TestOccupant(position, 4);
-        TestOccupant staleOccupant = new TestOccupant(position, 5);
+        Vector3d position = new(1, 0, 1);
+        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        TestOccupant blockedOccupant = new(position, 4);
+        TestOccupant staleOccupant = new(position, 5);
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
@@ -461,9 +461,9 @@ public class ManagerCoverageTests : IDisposable
         VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
         VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
         Guid sharedId = Guid.NewGuid();
-        SharedIdOccupant primaryOccupant = new SharedIdOccupant(sharedId, new Vector3d(0, 0, 0));
-        SharedIdOccupant collidingOccupant = new SharedIdOccupant(sharedId, new Vector3d(0, 0, 0));
-        TestOccupant missingOccupant = new TestOccupant(new Vector3d(99, 0, 99));
+        SharedIdOccupant primaryOccupant = new(sharedId, new Vector3d(0, 0, 0));
+        SharedIdOccupant collidingOccupant = new(sharedId, new Vector3d(0, 0, 0));
+        TestOccupant missingOccupant = new(new Vector3d(99, 0, 99));
 
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(null, default, out int nullTicket));
         Assert.Equal(-1, nullTicket);
@@ -519,7 +519,7 @@ public class ManagerCoverageTests : IDisposable
         VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
         VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
         VoxelGrid unrelatedGrid = GlobalGridManager.ActiveGrids[unrelatedIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(0, 0, 0), 9);
+        TestOccupant occupant = new(new Vector3d(0, 0, 0), 9);
 
         Assert.True(firstGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel firstVoxel));
         Assert.True(secondGrid.TryGetVoxel(new Vector3d(10, 0, 10), out Voxel secondVoxel));
@@ -549,9 +549,9 @@ public class ManagerCoverageTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant unavailableVoxelOccupant = new TestOccupant(new Vector3d(0, 0, 0), 1);
-        TestOccupant staleGridOccupant = new TestOccupant(new Vector3d(0, 0, 0), 2);
-        TestOccupant staleSpawnOccupant = new TestOccupant(new Vector3d(0, 0, 0), 3);
+        TestOccupant unavailableVoxelOccupant = new(new Vector3d(0, 0, 0), 1);
+        TestOccupant staleGridOccupant = new(new Vector3d(0, 0, 0), 2);
+        TestOccupant staleSpawnOccupant = new(new Vector3d(0, 0, 0), 3);
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
@@ -561,7 +561,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(InvokeForgetTrackedOccupancy(unavailableVoxelOccupant, voxel.GlobalIndex));
         Assert.False(InvokeForgetTrackedOccupancy(null, voxel.GlobalIndex));
 
-        GlobalVoxelIndex staleLocalIndex = new GlobalVoxelIndex(
+        GlobalVoxelIndex staleLocalIndex = new(
             grid.GlobalIndex,
             new VoxelIndex(99, 0, 99),
             grid.SpawnToken);
@@ -580,7 +580,7 @@ public class ManagerCoverageTests : IDisposable
     [Fact]
     public void GridOccupantManager_TrackedOccupancyComparer_ShouldSortAcrossEveryKey()
     {
-        GlobalVoxelIndex origin = new GlobalVoxelIndex(1, new VoxelIndex(0, 0, 0), 10);
+        GlobalVoxelIndex origin = new(1, new VoxelIndex(0, 0, 0), 10);
 
         Assert.True(CompareTrackedOccupancies(
             origin,

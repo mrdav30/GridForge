@@ -99,10 +99,7 @@ public struct VoxelIndex : IEquatable<VoxelIndex>
     }
 
     /// <inheritdoc/>
-    public override readonly bool Equals(object obj)
-    {
-        return obj is VoxelIndex other && Equals(other);
-    }
+    public override readonly bool Equals(object? obj) => obj is VoxelIndex other && Equals(other);
 
     #endregion
 }

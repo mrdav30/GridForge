@@ -14,7 +14,7 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     /// <summary>
     /// Backing dictionary that stores partition instances keyed by their exact concrete type.
     /// </summary>
-    private SwiftDictionary<Type, TPartitionBase> _partitions;
+    private SwiftDictionary<Type, TPartitionBase>? _partitions;
 
     /// <summary>
     /// Returns an enumerable of all partitions currently stored in the provider.
@@ -52,9 +52,9 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     /// Returns true if the partition was removed; otherwise, false.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryRemove(Type partitionType, out TPartitionBase partition)
+    public bool TryRemove(Type partitionType, out TPartitionBase? partition)
     {
-        partition = default;
+        partition = null;
 
         if (partitionType == null || _partitions == null)
             return false;
@@ -74,9 +74,9 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     /// Attempts to retrieve a partition associated with the specified concrete type.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGet(Type partitionType, out TPartitionBase partition)
+    public bool TryGet(Type partitionType, out TPartitionBase? partition)
     {
-        partition = default;
+        partition = null;
 
         if (partitionType == null || _partitions == null)
             return false;
@@ -89,11 +89,11 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     /// Returns true and sets the out parameter if the partition exists and is of the requested type; otherwise, returns false.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGet<T>(out T partition) where T : TPartitionBase
+    public bool TryGet<T>(out T? partition) where T : TPartitionBase
     {
         partition = default;
 
-        if (!TryGet(typeof(T), out TPartitionBase tempPartition) || tempPartition is not T typedPartition)
+        if (!TryGet(typeof(T), out TPartitionBase? tempPartition) || tempPartition is not T typedPartition)
             return false;
 
         partition = typedPartition;

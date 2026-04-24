@@ -88,10 +88,7 @@ public struct GlobalVoxelIndex : IEquatable<GlobalVoxelIndex>
     }
 
     /// <inheritdoc/>
-    public override readonly bool Equals(object obj)
-    {
-        return obj is GlobalVoxelIndex other && Equals(other);
-    }
+    public override readonly bool Equals(object? obj) => obj is GlobalVoxelIndex other && Equals(other);
 
     #endregion
 }

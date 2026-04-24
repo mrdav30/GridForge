@@ -53,7 +53,7 @@ public class OccupantWaveBenchmarks
     {
         BenchmarkEnvironment.PrepareWorld(clearAllPools);
 
-        GridConfiguration configuration = new GridConfiguration(
+        GridConfiguration configuration = new(
             new Vector3d(0, 0, 0),
             new Vector3d(127, 0, 127),
             scanCellSize: 8);

@@ -72,7 +72,7 @@ public class VoxelGrid
     /// <summary>
     /// The primary 3D collection of voxels managed by this grid.
     /// </summary>
-    public SwiftArray3D<Voxel> Voxels { get; private set; }
+    public SwiftArray3D<Voxel>? Voxels { get; private set; }
 
     /// <summary>
     /// Stores <see cref="SpatialDirection"/> as indices of neighboring grids based on their relative positions.
@@ -80,7 +80,7 @@ public class VoxelGrid
     /// <remarks>
     /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
     /// </remarks>
-    public SwiftSparseMap<SwiftHashSet<int>> Neighbors { get; private set; }
+    public SwiftSparseMap<SwiftHashSet<int>>? Neighbors { get; private set; }
 
     /// <summary>
     /// Count of currently linked neighboring grids.
@@ -100,12 +100,12 @@ public class VoxelGrid
     /// <summary>
     /// Collection of scan cells indexed by their grid-local scan cell key.
     /// </summary>
-    public SwiftSparseMap<ScanCell> ScanCells { get; private set; }
+    public SwiftSparseMap<ScanCell>? ScanCells { get; private set; }
 
     /// <summary>
     /// Stores currently active (occupied) scan cells within the grid.
     /// </summary>
-    public SwiftHashSet<int> ActiveScanCells { get; internal set; }
+    public SwiftHashSet<int>? ActiveScanCells { get; internal set; }
 
     /// <summary>
     /// Indicates whether the grid is currently active.
@@ -181,6 +181,8 @@ public class VoxelGrid
         {
             foreach (Voxel voxel in Voxels)
             {
+                if (voxel == null)
+                    continue;
                 voxel.Reset(this);
                 Pools.VoxelPool.Release(voxel);
             }
@@ -193,7 +195,12 @@ public class VoxelGrid
         if (ScanCells != null)
         {
             foreach (ScanCell cell in ScanCells.Values)
+            {
+                if (cell == null)
+                    continue;
                 Pools.ScanCellPool.Release(cell);
+            }
+
             Pools.ScanCellMapPool.Release(ScanCells);
             ScanCells = null;
         }
@@ -207,7 +214,11 @@ public class VoxelGrid
         if (Neighbors != null)
         {
             foreach (SwiftHashSet<int> neighbors in Neighbors.Values)
+            {
+                if (neighbors == null)
+                    continue;
                 SwiftHashSetPool<int>.Shared.Release(neighbors);
+            }
             Neighbors = null;
             NeighborCount = 0;
         }
@@ -287,7 +298,7 @@ public class VoxelGrid
             {
                 for (int z = 0; z < Length; z++)
                 {
-                    Vector3d position = new Vector3d(
+                    Vector3d position = new(
                             BoundsMin.x + x * GlobalGridManager.VoxelSize,
                             BoundsMin.y + y * GlobalGridManager.VoxelSize,
                             BoundsMin.z + z * GlobalGridManager.VoxelSize
@@ -296,7 +307,7 @@ public class VoxelGrid
                     // Rent a voxel from the object pool and initialize it
                     Voxel voxel = Pools.VoxelPool.Rent();
 
-                    VoxelIndex index = new VoxelIndex(x, y, z);
+                    VoxelIndex index = new(x, y, z);
                     bool isBoundaryVoxel = IsOnBoundary(index);
                     int scanCellKey = GetScanCellKey(index);
 
@@ -382,7 +393,7 @@ public class VoxelGrid
 
         SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
         var neighborIndex = (int)neighborDirection;
-        if (neighborIndex == -1 || !Neighbors.TryGetValue(neighborIndex, out SwiftHashSet<int> neighborSet))
+        if (neighborIndex == -1 || !Neighbors!.TryGetValue(neighborIndex, out SwiftHashSet<int> neighborSet))
             return false;
 
         if (!neighborSet.Remove(neighborGrid.GlobalIndex))
@@ -412,6 +423,8 @@ public class VoxelGrid
     /// <param name="direction">The direction of the affected boundary.</param>
     public void NotifyBoundaryChange(SpatialDirection direction)
     {
+        SwiftThrowHelper.ThrowIfNull(Voxels, nameof(Voxels));
+
         int directionIndex = (int)direction;
         if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
             return;
@@ -486,7 +499,7 @@ public class VoxelGrid
         if (!IsConjoined)
             yield break;
 
-        var values = Neighbors.DenseValues;
+        var values = Neighbors!.DenseValues;
         int count = Neighbors.Count;
 
         for (int i = 0; i < count; i++)
@@ -494,8 +507,8 @@ public class VoxelGrid
             SwiftHashSet<int> neighborSet = values[i];
             foreach (int neighborIndex in neighborSet)
             {
-                if (GlobalGridManager.TryGetGrid(neighborIndex, out VoxelGrid neighborGrid))
-                    yield return neighborGrid;
+                if (GlobalGridManager.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
+                    yield return neighborGrid!;
             }
         }
     }
@@ -505,9 +518,15 @@ public class VoxelGrid
     /// </summary>
     public bool IsValidVoxelIndex(int x, int y, int z)
     {
-        bool result = x >= 0 && x < Voxels.Width
-                && y >= 0 && y < Voxels.Height
-                && z >= 0 && z < Voxels.Depth;
+        if (!IsActive)
+        {
+            GridForgeLogger.Warn($"This Grid is not currently active.");
+            return false;
+        }
+
+        bool result = x >= 0 && x < Voxels!.Width
+                && y >= 0 && y < Voxels!.Height
+                && z >= 0 && z < Voxels!.Depth;
 
         if (!result)
             GridForgeLogger.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
@@ -570,22 +589,14 @@ public class VoxelGrid
     /// Checks if a voxel at the given coordinates is allocated within the grid.
     /// </summary>
     public bool IsVoxelAllocated(int x, int y, int z) =>
-        IsValidVoxelIndex(x, y, z)
-        && Voxels[x, y, z] != null
-        && Voxels[x, y, z].IsAllocated;
+        IsValidVoxelIndex(x, y, z) && Voxels![x, y, z]?.IsAllocated == true;
 
     /// <summary>
     /// Retrieves the <see cref="Voxel"/> at the specified coordinates, if allocated.
     /// </summary>
-    public bool TryGetVoxel(int x, int y, int z, out Voxel result)
+    public bool TryGetVoxel(int x, int y, int z, out Voxel? result)
     {
         result = null;
-
-        if (!IsActive)
-        {
-            GridForgeLogger.Warn($"This Grid is not currently active.");
-            return false;
-        }
 
         if (!IsVoxelAllocated(x, y, z))
         {
@@ -593,14 +604,14 @@ public class VoxelGrid
             return false;
         }
 
-        result = Voxels[x, y, z];
+        result = Voxels![x, y, z];
         return true;
     }
 
     /// <summary>
     /// Retrieves a grid voxel from a given coordinate.
     /// </summary>
-    public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel result)
+    public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result)
     {
         return TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
     }
@@ -609,7 +620,7 @@ public class VoxelGrid
     /// Retrieve <see cref="Voxel"/> from world <see cref="Vector3d"/> points
     /// </summary>
     /// <returns><see cref="Voxel"/> at the given position or null if the position is not valid.</returns>
-    public bool TryGetVoxel(Vector3d position, out Voxel result)
+    public bool TryGetVoxel(Vector3d position, out Voxel? result)
     {
         result = null;
         return TryGetVoxelIndex(position, out VoxelIndex coordinate)
@@ -667,15 +678,16 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves a scan cell from the grid using its key.
     /// </summary>
-    public bool TryGetScanCell(int key, out ScanCell outScanCell)
+    public bool TryGetScanCell(int key, out ScanCell? outScanCell)
     {
-        return ScanCells.TryGetValue(key, out outScanCell);
+        outScanCell = null;
+        return ScanCells?.TryGetValue(key, out outScanCell) == true;
     }
 
     /// <summary>
     /// Retrieves the scan cell corresponding to a given world position.
     /// </summary>
-    public bool TryGetScanCell(Vector3d position, out ScanCell outScanCell)
+    public bool TryGetScanCell(Vector3d position, out ScanCell? outScanCell)
     {
         int key = GetScanCellKey(position);
         return TryGetScanCell(key, out outScanCell);
@@ -684,11 +696,11 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the scan cell associated with the given voxel index.
     /// </summary>
-    public bool TryGetScanCell(VoxelIndex voxelIndex, out ScanCell outScanCell)
+    public bool TryGetScanCell(VoxelIndex voxelIndex, out ScanCell? outScanCell)
     {
         outScanCell = null;
-        return TryGetVoxel(voxelIndex, out Voxel voxel)
-            && TryGetScanCell(voxel.ScanCellKey, out outScanCell);
+        return TryGetVoxel(voxelIndex, out Voxel? voxel)
+            && TryGetScanCell(voxel!.ScanCellKey, out outScanCell);
     }
 
     /// <summary>
@@ -696,12 +708,12 @@ public class VoxelGrid
     /// </summary>
     public IEnumerable<ScanCell> GetActiveScanCells()
     {
-        if (!IsOccupied)
+        if (!IsActive || !IsOccupied)
             yield break;
 
-        foreach (int activeCellKey in ActiveScanCells)
+        foreach (int activeCellKey in ActiveScanCells!)
         {
-            if (ScanCells.TryGetValue(activeCellKey, out ScanCell scanCell))
+            if (ScanCells!.TryGetValue(activeCellKey, out ScanCell scanCell))
                 yield return scanCell;
         }
     }

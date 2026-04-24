@@ -32,7 +32,7 @@ public class VoxelTests : IDisposable
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d testPosition = new Vector3d(10, 0, 10);
+        Vector3d testPosition = new(10, 0, 10);
 
         bool found = grid.TryGetVoxel(testPosition, out Voxel voxel);
 
@@ -46,8 +46,8 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Voxel_Equals_ShouldUseReferenceIdentity()
     {
-        Voxel first = new Voxel();
-        Voxel second = new Voxel();
+        Voxel first = new();
+        Voxel second = new();
 
         Assert.True(first.Equals(first));
         Assert.False(first.Equals(second));
@@ -57,13 +57,13 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Voxel_StateProperties_ShouldReflectAllocationOccupancyAndObstacleState()
     {
-        Voxel detachedVoxel = new Voxel();
+        Voxel detachedVoxel = new();
 
         Assert.False(detachedVoxel.IsBlocked);
         Assert.False(detachedVoxel.IsBlockable);
         Assert.False(detachedVoxel.IsOccupied);
 
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
@@ -72,8 +72,8 @@ public class VoxelTests : IDisposable
         Assert.True(voxel.IsBlockable);
         Assert.False(voxel.IsOccupied);
 
-        TestOccupant occupant = new TestOccupant(voxel.WorldPosition);
-        BoundsKey obstacleToken = new BoundsKey(voxel.WorldPosition, voxel.WorldPosition);
+        TestOccupant occupant = new(voxel.WorldPosition);
+        BoundsKey obstacleToken = new(voxel.WorldPosition, voxel.WorldPosition);
 
         Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
         Assert.True(voxel.IsOccupied);
@@ -92,8 +92,8 @@ public class VoxelTests : IDisposable
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(6, 0, 6);
-        TestOccupant occupant = new TestOccupant(position);
+        Vector3d position = new(6, 0, 6);
+        TestOccupant occupant = new(position);
         grid.TryAddVoxelOccupant(occupant);
 
         int previousTicket = -1;
@@ -119,7 +119,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(36, 1, 36), out Voxel voxel);
 
-        BoundsKey spawnKey = new BoundsKey(new(36, 1, 36), new(37, 1, 37));
+        BoundsKey spawnKey = new(new(36, 1, 36), new(37, 1, 37));
 
         grid.TryAddObstacle(voxel, spawnKey);
         Assert.True(voxel.IsBlocked);
@@ -159,8 +159,8 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
-        TestPartition originalPartition = new TestPartition();
-        TestPartition duplicatePartition = new TestPartition();
+        TestPartition originalPartition = new();
+        TestPartition duplicatePartition = new();
 
         Assert.True(voxel.TryAddPartition(originalPartition));
         Assert.False(voxel.TryAddPartition(duplicatePartition));
@@ -190,7 +190,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
-        ThrowOnAddPartition partition = new ThrowOnAddPartition();
+        ThrowOnAddPartition partition = new();
 
         Assert.False(voxel.TryAddPartition(partition));
         Assert.False(voxel.HasPartition<ThrowOnAddPartition>());
@@ -200,7 +200,7 @@ public class VoxelTests : IDisposable
     [Fact]
     public void TryAddPartition_ShouldRejectNullPartition()
     {
-        Voxel voxel = new Voxel();
+        Voxel voxel = new();
 
         Assert.False(voxel.TryAddPartition(null));
         Assert.False(voxel.IsPartioned);
@@ -214,7 +214,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
-        ThrowOnRemovePartition partition = new ThrowOnRemovePartition();
+        ThrowOnRemovePartition partition = new();
 
         Assert.True(voxel.TryAddPartition(partition));
         Assert.True(voxel.TryRemovePartition<ThrowOnRemovePartition>());
@@ -225,8 +225,8 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Reset_ShouldUseProvidedOwnerGridWhenClearingTrackedObstacles()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -248,8 +248,8 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Reset_ShouldResolveOwnerGridFromGlobalManagerWhenNotProvided()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -325,7 +325,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(37, 1, 37), out Voxel voxel);
 
-        BoundsKey spawnKey = new BoundsKey(new(37, 1, 37), new(38, 1, 38));
+        BoundsKey spawnKey = new(new(37, 1, 37), new(38, 1, 38));
 
         grid.TryAddObstacle(voxel, spawnKey);
         grid.TryAddObstacle(voxel, spawnKey); // Attempt to add twice
@@ -344,9 +344,9 @@ public class VoxelTests : IDisposable
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(10, 0, 10);
-        TestOccupant occupant1 = new TestOccupant(position);
-        TestOccupant occupant2 = new TestOccupant(position);
+        Vector3d position = new(10, 0, 10);
+        TestOccupant occupant1 = new(position);
+        TestOccupant occupant2 = new(position);
 
         grid.TryAddVoxelOccupant(occupant1);
         grid.TryAddVoxelOccupant(occupant2);
@@ -376,8 +376,8 @@ public class VoxelTests : IDisposable
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(0, 0, 0);
-        TestOccupant occupant = new TestOccupant(position);
+        Vector3d position = new(0, 0, 0);
+        TestOccupant occupant = new(position);
 
         grid.TryGetVoxel(position, out Voxel voxel);
 
@@ -395,9 +395,9 @@ public class VoxelTests : IDisposable
         GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(-27, 0, -27);
-        TestOccupant occupant1 = new TestOccupant(position);
-        TestOccupant occupant2 = new TestOccupant(position);
+        Vector3d position = new(-27, 0, -27);
+        TestOccupant occupant1 = new(position);
+        TestOccupant occupant2 = new(position);
 
         grid.TryAddVoxelOccupant(occupant1);
         grid.TryAddVoxelOccupant(occupant2);
@@ -545,7 +545,7 @@ public class VoxelTests : IDisposable
     [Fact]
     public void TryGetNeighborFromDirection_ShouldHandleInvalidDirectionsGracefully()
     {
-        Voxel detachedVoxel = new Voxel();
+        Voxel detachedVoxel = new();
 
         Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.None, out _));
         Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.West, out _));
@@ -581,9 +581,9 @@ public class VoxelTests : IDisposable
     [Fact]
     public void ReleasedVoxel_ShouldNotLeakObstaclePartitionOrNeighborCacheStateWhenReused()
     {
-        GridConfiguration centerConfig = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        GridConfiguration eastConfig = new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration centerConfig = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration eastConfig = new(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
+        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
         Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
         Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
@@ -614,8 +614,8 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Reset_ShouldReleaseObstaclesWithoutOwnerGridLookupAndSwallowPartitionRemoveFailures()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
-        BoundsKey obstacleToken = new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
@@ -643,7 +643,7 @@ public class VoxelTests : IDisposable
     [Fact]
     public void Voxel_ToStringAndObjectEquality_ShouldReflectGlobalIdentity()
     {
-        GridConfiguration config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
         Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];

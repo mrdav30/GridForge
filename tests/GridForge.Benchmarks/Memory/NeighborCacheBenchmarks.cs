@@ -97,7 +97,7 @@ public class NeighborCacheBenchmarks
 
     private static NeighborLookup[] BuildLookups(VoxelGrid centerGrid)
     {
-        List<NeighborLookup> lookups = new List<NeighborLookup>();
+        List<NeighborLookup> lookups = new();
 
         for (int z = 0; z <= 31; z++)
         {
@@ -121,7 +121,7 @@ public class NeighborCacheBenchmarks
 
     private static Voxel GetVoxel(VoxelGrid centerGrid, int x, int z)
     {
-        Vector3d position = new Vector3d(x, 0, z);
+        Vector3d position = new(x, 0, z);
         if (!centerGrid.TryGetVoxel(position, out Voxel voxel))
             throw new InvalidOperationException($"Unable to resolve center grid voxel at {position}.");
 

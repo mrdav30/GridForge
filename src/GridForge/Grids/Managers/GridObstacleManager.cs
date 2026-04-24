@@ -22,7 +22,7 @@ public static class GridObstacleManager
     /// <summary>
     /// Event triggered when an obstacle is added.
     /// </summary>
-    private static Action<ObstacleEventInfo> _onObstacleAdded;
+    private static Action<ObstacleEventInfo>? _onObstacleAdded;
 
     /// <inheritdoc cref="_onObstacleAdded"/>
     public static event Action<ObstacleEventInfo> OnObstacleAdded
@@ -34,7 +34,7 @@ public static class GridObstacleManager
     /// <summary>
     /// Event triggered when an obstacle is removed.
     /// </summary>
-    private static Action<ObstacleEventInfo> _onObstacleRemoved;
+    private static Action<ObstacleEventInfo>? _onObstacleRemoved;
 
     /// <inheritdoc cref="_onObstacleRemoved"/>
     public static event Action<ObstacleEventInfo> OnObstacleRemoved
@@ -46,7 +46,7 @@ public static class GridObstacleManager
     /// <summary>
     /// Event triggered when all obstacles on a voxel are cleared at once.
     /// </summary>
-    private static Action<ObstacleClearEventInfo> _onObstaclesCleared;
+    private static Action<ObstacleClearEventInfo>? _onObstaclesCleared;
 
     /// <inheritdoc cref="_onObstaclesCleared"/>
     public static event Action<ObstacleClearEventInfo> OnObstaclesCleared
@@ -62,7 +62,7 @@ public static class GridObstacleManager
     /// <summary>
     /// Per-grid locks for ensuring thread-safe obstacle operations.
     /// </summary>
-    private static readonly ConcurrentDictionary<ushort, object> _gridLocks = new ConcurrentDictionary<ushort, object>();
+    private static readonly ConcurrentDictionary<ushort, object> _gridLocks = new();
 
     #endregion
 
@@ -73,8 +73,8 @@ public static class GridObstacleManager
     /// </summary>
     public static bool TryAddObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
-            && TryAddObstacle(grid, voxel, obstacleSpawnToken);
+        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryAddObstacle(voxel!, obstacleSpawnToken) == true;
     }
 
     /// <summary>
@@ -82,8 +82,8 @@ public static class GridObstacleManager
     /// </summary>
     public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
     {
-        return grid.TryGetVoxel(position, out Voxel voxel)
-            && TryAddObstacle(grid, voxel, obstacleSpawnToken);
+        return grid.TryGetVoxel(position, out Voxel? voxel)
+            && grid.TryAddObstacle(voxel!, obstacleSpawnToken);
     }
 
     /// <summary>
@@ -124,8 +124,8 @@ public static class GridObstacleManager
     /// </summary>
     public static bool TryRemoveObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid grid, out Voxel voxel)
-            && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
+        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
     }
 
     /// <summary>
@@ -133,8 +133,8 @@ public static class GridObstacleManager
     /// </summary>
     public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
     {
-        return grid.TryGetVoxel(position, out Voxel voxel)
-            && TryRemoveObstacle(grid, voxel, obstacleSpawnToken);
+        return grid.TryGetVoxel(position, out Voxel? voxel)
+            && grid.TryRemoveObstacle(voxel!, obstacleSpawnToken);
     }
 
     /// <summary>
@@ -154,7 +154,7 @@ public static class GridObstacleManager
 
         lock (gridLock)
         {
-            if (!targetVoxel.ObstacleTracker.Remove(obstacleSpawnToken))
+            if (targetVoxel.ObstacleTracker?.Remove(obstacleSpawnToken) != true)
                 return false;
 
             if (--targetVoxel.ObstacleCount <= 0)
@@ -220,7 +220,7 @@ public static class GridObstacleManager
         uint gridVersion)
     {
         ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
-        Action<ObstacleEventInfo> handlers = _onObstacleAdded;
+        Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -254,7 +254,7 @@ public static class GridObstacleManager
         uint gridVersion)
     {
         ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
-        Action<ObstacleEventInfo> handlers = _onObstacleRemoved;
+        Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();
@@ -287,7 +287,7 @@ public static class GridObstacleManager
         uint gridVersion)
     {
         ObstacleClearEventInfo eventInfo = new(targetVoxel.GlobalIndex, clearedObstacleCount, gridVersion);
-        Action<ObstacleClearEventInfo> handlers = _onObstaclesCleared;
+        Action<ObstacleClearEventInfo>? handlers = _onObstaclesCleared;
         if (handlers != null)
         {
             var handlerDelegates = handlers.GetInvocationList();

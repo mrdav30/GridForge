@@ -33,10 +33,10 @@ public class GridTracerTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, -1, -50), new Vector3d(50, 1, 50)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(5, 0.5, 5);
-        Vector3d end = new Vector3d(45.28, 1, 18.31);
+        Vector3d start = new(5, 0.5, 5);
+        Vector3d end = new(45.28, 1, 18.31);
 
-        List<Voxel> tracedVoxels = new List<Voxel>();
+        List<Voxel> tracedVoxels = new();
 
         foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
         {
@@ -60,10 +60,10 @@ public class GridTracerTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(-5, 0, -5);
-        Vector3d end = new Vector3d(5, 0, 5);
+        Vector3d start = new(-5, 0, -5);
+        Vector3d end = new(5, 0, 5);
 
-        List<Voxel> tracedVoxels = new List<Voxel>();
+        List<Voxel> tracedVoxels = new();
 
         foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: false))
         {
@@ -87,10 +87,10 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector2d start = new Vector2d(-5, -5);
-        Vector2d end = new Vector2d(5, 5);
+        Vector2d start = new(-5, -5);
+        Vector2d end = new(5, 5);
 
-        List<Voxel> tracedVoxels = new List<Voxel>();
+        List<Voxel> tracedVoxels = new();
 
         foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
         {
@@ -114,8 +114,8 @@ public class GridTracerTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(-5, 0, -5);
-        Vector3d end = new Vector3d(5, 0, 5);
+        Vector3d start = new(-5, 0, -5);
+        Vector3d end = new(5, 0, 5);
 
         var tracedVoxels = GridTracer.TraceLine(start, end, includeEnd: true)
             .SelectMany(set => set.Voxels).ToList();
@@ -159,8 +159,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(5.8, 0, 5.8);
-        Vector3d end = new Vector3d(-5.2, 0, -5.2);
+        Vector3d start = new(5.8, 0, 5.8);
+        Vector3d end = new(-5.2, 0, -5.2);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
@@ -181,7 +181,7 @@ public class GridTracerTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        BoundingArea boundingArea = new BoundingArea(new Vector3d(-5.3, 0, -5.3), new Vector3d(5.8, 0, 5.8));
+        BoundingArea boundingArea = new(new Vector3d(-5.3, 0, -5.3), new Vector3d(5.8, 0, 5.8));
         var blocker = new BoundsBlocker(boundingArea);
         blocker.ApplyBlockage();
 
@@ -243,7 +243,7 @@ public class GridTracerTests : IDisposable
 
             int tracedSetCount = 0;
             ushort tracedGridIndex = ushort.MaxValue;
-            List<GlobalVoxelIndex> tracedVoxelIndices = new List<GlobalVoxelIndex>();
+            List<GlobalVoxelIndex> tracedVoxelIndices = new();
 
             foreach (GridVoxelSet tracedSet in GridTracer.TraceLine(
                 new Vector3d(0, 0, 0),
@@ -277,8 +277,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(5.8, 0, 5.8);
-        Vector3d end = new Vector3d(1.2, 2, 1.2);
+        Vector3d start = new(5.8, 0, 5.8);
+        Vector3d end = new(1.2, 2, 1.2);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
@@ -301,8 +301,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d start = new Vector3d(1.2, 2, 1.2);
-        Vector3d end = new Vector3d(5.8, 0, 5.8);
+        Vector3d start = new(1.2, 2, 1.2);
+        Vector3d end = new(5.8, 0, 5.8);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
@@ -332,7 +332,7 @@ public class GridTracerTests : IDisposable
 
             int coveredSetCount = 0;
             ushort coveredGridIndex = ushort.MaxValue;
-            List<GlobalVoxelIndex> coveredVoxelIndices = new List<GlobalVoxelIndex>();
+            List<GlobalVoxelIndex> coveredVoxelIndices = new();
 
             foreach (GridVoxelSet coveredSet in GridTracer.GetCoveredVoxels(
                 new Vector3d(0, 0, 0),

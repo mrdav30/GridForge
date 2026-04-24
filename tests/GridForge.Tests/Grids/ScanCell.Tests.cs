@@ -36,7 +36,7 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(45, 0, 45);
+        Vector3d position = new(45, 0, 45);
 
         var occupant1 = new TestOccupant(position);
         var occupant2 = new TestOccupant(position);
@@ -46,7 +46,7 @@ public class ScanCellTests : IDisposable
 
         grid.TryGetVoxel(position, out Voxel target);
 
-        List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(target.Index));
+        List<IVoxelOccupant> occupants = new(grid.GetOccupants(target.Index));
         Assert.True(occupants.Count > 0);
     }
 
@@ -58,7 +58,7 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(41, 0, 41);
+        Vector3d position = new(41, 0, 41);
 
         var occupant1 = new TestOccupant(position, 1);
         var occupant2 = new TestOccupant(position);
@@ -68,7 +68,7 @@ public class ScanCellTests : IDisposable
 
         grid.TryGetVoxel(position, out Voxel target);
 
-        List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
+        List<IVoxelOccupant> filtered = new(
             grid.GetConditionalOccupants(target.Index, groupCondition: key => key == 1));
 
         Assert.Single(filtered);
@@ -81,7 +81,7 @@ public class ScanCellTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        List<IVoxelOccupant> occupants = new List<IVoxelOccupant>(grid.GetOccupants(new Vector3d(-25, 0, -25)));
+        List<IVoxelOccupant> occupants = new(grid.GetOccupants(new Vector3d(-25, 0, -25)));
 
         Assert.Empty(occupants);
     }
@@ -95,7 +95,7 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(10, 0, 10);
+        Vector3d position = new(10, 0, 10);
 
         var occupant = new TestOccupant(position);
 
@@ -110,7 +110,7 @@ public class ScanCellTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(2, 0, 2);
+        Vector3d position = new(2, 0, 2);
 
         var occupant1 = new TestOccupant(position, 5);
         var occupant2 = new TestOccupant(position, 6);
@@ -118,7 +118,7 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(occupant1);
         grid.TryAddVoxelOccupant(occupant2);
 
-        List<IVoxelOccupant> filtered = new List<IVoxelOccupant>(
+        List<IVoxelOccupant> filtered = new(
             grid.GetConditionalOccupants(position, groupCondition: key => key == 99)); // No matches
 
         Assert.Empty(filtered);
@@ -132,7 +132,7 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(49, 0, 49);
+        Vector3d position = new(49, 0, 49);
 
         var occupant1 = new TestOccupant(position, 1); // Cluster Key 1
         var occupant2 = new TestOccupant(position, 1); // Cluster Key 1
@@ -164,7 +164,7 @@ public class ScanCellTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(9, 9, 9), new Vector3d(10, 10, 10)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d position = new Vector3d(9.5, 9.5, 9.5);
+        Vector3d position = new(9.5, 9.5, 9.5);
 
         var occupant1 = new TestOccupant(position, 1);
         var occupant2 = new TestOccupant(position, 2);
@@ -195,7 +195,7 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d scanCenter = new Vector3d(0, 0, 0);
+        Vector3d scanCenter = new(0, 0, 0);
         Fixed64 scanRadius = (Fixed64)6; // Searching within a radius of 5 units
 
         var occupant1 = new TestOccupant(new Vector3d(2, 0, 2), 1);  // Within radius
@@ -223,7 +223,7 @@ public class ScanCellTests : IDisposable
         GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-20, 0, -20), new Vector3d(20, 0, 20)), out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d scanCenter = new Vector3d(0, 0, 0);
+        Vector3d scanCenter = new(0, 0, 0);
         Fixed64 scanRadius = (Fixed64)5;
 
         var occupant1 = new TestOccupant(new Vector3d(1, 0, 1), 1); // Group 1
@@ -268,7 +268,7 @@ public class ScanCellTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(15, 0, 15), scanCellSize: 8),
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(2, 0, 2);
+        Vector3d position = new(2, 0, 2);
 
         List<TestOccupant> occupants = Enumerable.Range(0, 64)
             .Select(_ => new TestOccupant(position))
@@ -294,12 +294,12 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        Vector3d firstPosition = new Vector3d(1, 0, 1);
-        Vector3d secondPosition = new Vector3d(2, 0, 2);
+        Vector3d firstPosition = new(1, 0, 1);
+        Vector3d secondPosition = new(2, 0, 2);
 
-        TestOccupant firstBucketOccupant = new TestOccupant(firstPosition, 1);
-        TestOccupant secondBucketOccupant = new TestOccupant(firstPosition, 2);
-        TestOccupant thirdBucketOccupant = new TestOccupant(secondPosition, 3);
+        TestOccupant firstBucketOccupant = new(firstPosition, 1);
+        TestOccupant secondBucketOccupant = new(firstPosition, 2);
+        TestOccupant thirdBucketOccupant = new(secondPosition, 3);
 
         Assert.True(grid.TryAddVoxelOccupant(firstBucketOccupant));
         Assert.True(grid.TryAddVoxelOccupant(secondBucketOccupant));
@@ -323,8 +323,8 @@ public class ScanCellTests : IDisposable
     [Fact]
     public void ScanCell_InternalOperations_ShouldHandleInactiveAndMissingStateGracefully()
     {
-        ScanCell inactiveCell = new ScanCell();
-        TestOccupant occupant = new TestOccupant(Vector3d.Zero);
+        ScanCell inactiveCell = new();
+        TestOccupant occupant = new(Vector3d.Zero);
 
         InvokeReset(inactiveCell);
 
@@ -334,7 +334,6 @@ public class ScanCellTests : IDisposable
         Assert.False(InvokeTryRemoveOccupant(
             inactiveCell,
             new GlobalVoxelIndex(0, new VoxelIndex(0, 0, 0), 0),
-            occupant,
             0));
     }
 
@@ -363,7 +362,7 @@ public class ScanCellTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1), 3);
+        TestOccupant occupant = new(new Vector3d(1, 0, 1), 3);
 
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel occupiedVoxel));
@@ -371,12 +370,10 @@ public class ScanCellTests : IDisposable
         Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
 
         List<IVoxelOccupant> missingBucket = InvokeGetOccupantsFor(scanCell, emptyVoxel.GlobalIndex).ToList();
-        TestOccupant missingBucketOccupant = new TestOccupant(emptyVoxel.WorldPosition);
-        TestOccupant invalidTicketOccupant = new TestOccupant(occupiedVoxel.WorldPosition);
 
         Assert.Empty(missingBucket);
-        Assert.False(InvokeTryRemoveOccupant(scanCell, emptyVoxel.GlobalIndex, missingBucketOccupant, 0));
-        Assert.False(InvokeTryRemoveOccupant(scanCell, occupiedVoxel.GlobalIndex, invalidTicketOccupant, 99));
+        Assert.False(InvokeTryRemoveOccupant(scanCell, emptyVoxel.GlobalIndex, 0));
+        Assert.False(InvokeTryRemoveOccupant(scanCell, occupiedVoxel.GlobalIndex, 99));
         Assert.Single(InvokeGetOccupantsFor(scanCell, occupiedVoxel.GlobalIndex));
     }
 
@@ -387,7 +384,7 @@ public class ScanCellTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 8),
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        TestOccupant occupant = new TestOccupant(new Vector3d(1, 0, 1), 7);
+        TestOccupant occupant = new(new Vector3d(1, 0, 1), 7);
 
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
@@ -413,9 +410,9 @@ public class ScanCellTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
-        TestOccupant leftCellOccupant = new TestOccupant(new Vector3d(7, 0, 7), 1);
-        TestOccupant rightCellOccupant = new TestOccupant(new Vector3d(8, 0, 8), 1);
-        TestOccupant distantOccupant = new TestOccupant(new Vector3d(14, 0, 14), 1);
+        TestOccupant leftCellOccupant = new(new Vector3d(7, 0, 7), 1);
+        TestOccupant rightCellOccupant = new(new Vector3d(8, 0, 8), 1);
+        TestOccupant distantOccupant = new(new Vector3d(14, 0, 14), 1);
 
         grid.TryAddVoxelOccupant(leftCellOccupant);
         grid.TryAddVoxelOccupant(rightCellOccupant);
@@ -439,7 +436,7 @@ public class ScanCellTests : IDisposable
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(15, 0, 15), scanCellSize: 8),
             out ushort gridIndex);
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        Vector3d position = new Vector3d(2, 0, 2);
+        Vector3d position = new(2, 0, 2);
 
         TestOccupant[] occupants = Enumerable.Range(0, 128)
             .Select(_ => new TestOccupant(position))
@@ -490,11 +487,11 @@ public class ScanCellTests : IDisposable
         return result;
     }
 
-    private static bool InvokeTryRemoveOccupant(ScanCell scanCell, GlobalVoxelIndex index, IVoxelOccupant occupant, int ticket)
+    private static bool InvokeTryRemoveOccupant(ScanCell scanCell, GlobalVoxelIndex index, int ticket)
     {
         MethodInfo method = typeof(ScanCell).GetMethod("TryRemoveOccupant", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find ScanCell.TryRemoveOccupant.");
-        object[] args = new object[] { index, occupant, ticket };
+        object[] args = new object[] { index, ticket };
         return (bool)method.Invoke(scanCell, args);
     }
 

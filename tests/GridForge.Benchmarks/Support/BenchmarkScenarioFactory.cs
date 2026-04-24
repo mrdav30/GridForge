@@ -52,8 +52,8 @@ internal static class BenchmarkScenarioFactory
             int x = offset + column * stride + (row & 1);
             int z = offset + row * stride + (column & 1);
 
-            Vector3d min = new Vector3d(x, 0, z);
-            Vector3d max = new Vector3d(x + span, 0, z + span);
+            Vector3d min = new(x, 0, z);
+            Vector3d max = new(x + span, 0, z + span);
 
             areas[i] = new BoundingArea(min, max);
         }

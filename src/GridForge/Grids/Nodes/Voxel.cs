@@ -56,12 +56,12 @@ public class Voxel : IEquatable<Voxel>
     /// <remarks>
     /// Unlike Grid adjacency (which is 1:many), voxels can only have 1 neighbor in any one direction (1:1).
     /// </remarks>
-    private Voxel[] _cachedNeighbors;
+    private Voxel[]? _cachedNeighbors;
 
     /// <summary>
     /// Stores a unique <see cref="BoundsKey" /> for each obstacle added to this voxel to prevent adding duplicates
     /// </summary>
-    public SwiftHashSet<BoundsKey> ObstacleTracker { get; internal set; }
+    public SwiftHashSet<BoundsKey>? ObstacleTracker { get; internal set; }
 
     /// <summary>
     /// The current number of obstacles on this voxel.
@@ -129,7 +129,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when an obstacle is added.
     /// </summary>
-    private Action<ObstacleEventInfo> _onObstacleAdded;
+    private Action<ObstacleEventInfo>? _onObstacleAdded;
 
     /// <inheritdoc cref="_onObstacleAdded"/>
     public event Action<ObstacleEventInfo> OnObstacleAdded
@@ -141,7 +141,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when an obstacle is removed.
     /// </summary>
-    private Action<ObstacleEventInfo> _onObstacleRemoved;
+    private Action<ObstacleEventInfo>? _onObstacleRemoved;
 
     /// <inheritdoc cref="_onObstacleRemoved"/>
     public event Action<ObstacleEventInfo> OnObstacleRemoved
@@ -153,7 +153,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when all obstacles on the voxel are cleared at once.
     /// </summary>
-    private Action<ObstacleClearEventInfo> _onObstaclesCleared;
+    private Action<ObstacleClearEventInfo>? _onObstaclesCleared;
 
     /// <inheritdoc cref="_onObstaclesCleared"/>
     public event Action<ObstacleClearEventInfo> OnObstaclesCleared
@@ -165,7 +165,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when an occupant is added.
     /// </summary>
-    private Action<OccupantEventInfo> _onOccupantAdded;
+    private Action<OccupantEventInfo>? _onOccupantAdded;
 
     /// <inheritdoc cref="_onOccupantAdded"/>
     public event Action<OccupantEventInfo> OnOccupantAdded
@@ -177,7 +177,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Event triggered when an occupant is removed.
     /// </summary>
-    private Action<OccupantEventInfo> _onOccupantRemoved;
+    private Action<OccupantEventInfo>? _onOccupantRemoved;
 
     /// <inheritdoc cref="_onOccupantRemoved"/>
     public event Action<OccupantEventInfo> OnOccupantRemoved
@@ -214,7 +214,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Resets the voxel, clearing all allocated data and returning it to pools.
     /// </summary>
-    internal void Reset(VoxelGrid ownerGrid = null)
+    internal void Reset(VoxelGrid? ownerGrid = null)
     {
         if (!IsAllocated)
             return;
@@ -248,7 +248,7 @@ public class Voxel : IEquatable<Voxel>
 
         if (ObstacleTracker != null && ObstacleTracker.Count > 0)
         {
-            ownerGrid ??= GlobalGridManager.TryGetGrid(GlobalIndex.GridIndex, out VoxelGrid grid)
+            ownerGrid ??= GlobalGridManager.TryGetGrid(GlobalIndex.GridIndex, out VoxelGrid? grid)
                 ? grid
                 : null;
 
@@ -291,7 +291,7 @@ public class Voxel : IEquatable<Voxel>
 
     internal void NotifyObstacleAdded(ObstacleEventInfo eventInfo)
     {
-        Action<ObstacleEventInfo> handlers = _onObstacleAdded;
+        Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
         if (handlers == null)
             return;
 
@@ -311,7 +311,7 @@ public class Voxel : IEquatable<Voxel>
 
     internal void NotifyObstacleRemoved(ObstacleEventInfo eventInfo)
     {
-        Action<ObstacleEventInfo> handlers = _onObstacleRemoved;
+        Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
         if (handlers == null)
             return;
 
@@ -331,7 +331,7 @@ public class Voxel : IEquatable<Voxel>
 
     internal void NotifyObstaclesCleared(ObstacleClearEventInfo eventInfo)
     {
-        Action<ObstacleClearEventInfo> handlers = _onObstaclesCleared;
+        Action<ObstacleClearEventInfo>? handlers = _onObstaclesCleared;
         if (handlers == null)
             return;
 
@@ -351,7 +351,7 @@ public class Voxel : IEquatable<Voxel>
 
     internal void NotifyOccupantAdded(OccupantEventInfo eventInfo)
     {
-        Action<OccupantEventInfo> handlers = _onOccupantAdded;
+        Action<OccupantEventInfo>? handlers = _onOccupantAdded;
         if (handlers == null)
             return;
 
@@ -371,7 +371,7 @@ public class Voxel : IEquatable<Voxel>
 
     internal void NotifyOccupantRemoved(OccupantEventInfo eventInfo)
     {
-        Action<OccupantEventInfo> handlers = _onOccupantRemoved;
+        Action<OccupantEventInfo>? handlers = _onOccupantRemoved;
         if (handlers == null)
             return;
 
@@ -434,7 +434,7 @@ public class Voxel : IEquatable<Voxel>
         Type partitionType = typeof(T);
         string partitionName = partitionType.Name;
 
-        IVoxelPartition partition = null;
+        IVoxelPartition? partition = null;
         lock (_partitionLock)
             _partitionProvider.TryRemove(partitionType, out partition);
 
@@ -470,7 +470,7 @@ public class Voxel : IEquatable<Voxel>
     /// Retrieves a partition from the voxel by type.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetPartition<T>(out T partition) where T : IVoxelPartition
+    public bool TryGetPartition<T>(out T? partition) where T : IVoxelPartition
     {
         lock (_partitionLock)
             return _partitionProvider.TryGet(out partition);
@@ -480,10 +480,12 @@ public class Voxel : IEquatable<Voxel>
     /// Retrieves a partition from the voxel by type and returns null if it doesn't exist.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public T GetPartitionOrDefault<T>() where T : class, IVoxelPartition
+    public T? GetPartitionOrDefault<T>() where T : class, IVoxelPartition
     {
         lock (_partitionLock)
-            return _partitionProvider.TryGet(out T partition) ? partition : null;
+            return _partitionProvider?.TryGet(out T? partition) ?? false
+                ? partition
+                : null;
     }
 
     #endregion
@@ -502,7 +504,7 @@ public class Voxel : IEquatable<Voxel>
     {
         if (useCache && _isNeighborCacheValid)
         {
-            for (int i = 0; i < _cachedNeighbors.Length; i++)
+            for (int i = 0; i < _cachedNeighbors!.Length; i++)
             {
                 if (_cachedNeighbors[i] == null)
                     continue;
@@ -514,7 +516,7 @@ public class Voxel : IEquatable<Voxel>
 
         RefreshNeighborCache();
 
-        for (int i = 0; i < _cachedNeighbors.Length; i++)
+        for (int i = 0; i < _cachedNeighbors!.Length; i++)
         {
             if (_cachedNeighbors[i] == null)
                 continue;
@@ -525,9 +527,9 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves a neighbor voxel in a specific direction.
     /// </summary>
-    public bool TryGetNeighborFromDirection(SpatialDirection direction, out Voxel neighbor, bool useCache = true)
+    public bool TryGetNeighborFromDirection(SpatialDirection direction, out Voxel? neighbor, bool useCache = true)
     {
-        neighbor = default;
+        neighbor = null;
 
         // Validate the index
         int directionIndex = (int)direction;
@@ -542,7 +544,7 @@ public class Voxel : IEquatable<Voxel>
             if (!_isNeighborCacheValid)
                 RefreshNeighborCache();
 
-            neighbor = _cachedNeighbors[directionIndex];
+            neighbor = _cachedNeighbors![directionIndex];
             return neighbor != null;
         }
 
@@ -553,22 +555,22 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves a neighbor voxel based on a coordinate offset.
     /// </summary>
-    public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Voxel neighbor)
+    public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Voxel? neighbor)
     {
-        neighbor = default;
-        if (!GlobalGridManager.TryGetGrid(GlobalIndex, out VoxelGrid grid))
+        neighbor = null;
+        if (!GlobalGridManager.TryGetGrid(GlobalIndex, out VoxelGrid? grid))
             return false;
 
-        VoxelIndex neighborCoords = new VoxelIndex(
+        VoxelIndex neighborCoords = new(
             Index.x + offset.x,
             Index.y + offset.y,
             Index.z + offset.z
         );
 
-        if (grid.TryGetVoxel(neighborCoords, out neighbor))
+        if (grid!.TryGetVoxel(neighborCoords, out neighbor))
             return true;
 
-        Vector3d neighborPosition = new Vector3d(
+        Vector3d neighborPosition = new(
             WorldPosition.x + offset.x * GlobalGridManager.VoxelSize,
             WorldPosition.y + offset.y * GlobalGridManager.VoxelSize,
             WorldPosition.z + offset.z * GlobalGridManager.VoxelSize);
@@ -587,8 +589,8 @@ public class Voxel : IEquatable<Voxel>
         for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
         {
             (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
-            if (TryGetNeighborFromOffset(offset, out Voxel neighbor))
-                _cachedNeighbors[i] = neighbor;
+            if (TryGetNeighborFromOffset(offset, out Voxel? neighbor))
+                _cachedNeighbors[i] = neighbor!;
         }
 
         _isNeighborCacheValid = true;
@@ -605,13 +607,10 @@ public class Voxel : IEquatable<Voxel>
     public override string ToString() => GlobalIndex.ToString();
 
     /// <inheritdoc/>
-    public bool Equals(Voxel other) => ReferenceEquals(this, other);
+    public bool Equals(Voxel? other) => ReferenceEquals(this, other);
 
     /// <inheritdoc/>
-    public override bool Equals(object obj)
-    {
-        return ReferenceEquals(this, obj);
-    }
+    public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 
     #endregion
 }
