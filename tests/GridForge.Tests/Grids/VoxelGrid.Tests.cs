@@ -504,7 +504,7 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void TryGetVoxelIndex_ShouldReturnFalseWhenVoxelSizeNoLongerMatchesGridDimensions()
+    public void TryGetVoxelIndex_ShouldUseOwningWorldVoxelSizeEvenWhenFacadeMirrorChanges()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
@@ -516,7 +516,8 @@ public class VoxelGridTests : IDisposable
         {
             SetManagerBackingField("VoxelSize", (Fixed64)0.5);
 
-            Assert.False(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out _));
+            Assert.True(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex resolvedIndex));
+            Assert.Equal(new VoxelIndex(1, 0, 1), resolvedIndex);
         }
         finally
         {
@@ -647,7 +648,10 @@ public class VoxelGridTests : IDisposable
     {
         MethodInfo initializeMethod = typeof(VoxelGrid).GetMethod(
             "Initialize",
-            BindingFlags.Instance | BindingFlags.NonPublic);
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            null,
+            new[] { typeof(ushort), typeof(GridConfiguration) },
+            null);
 
         Assert.NotNull(initializeMethod);
         initializeMethod.Invoke(grid, new object[] { globalIndex, configuration });

@@ -4,12 +4,9 @@ using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Dimensions;
 using SwiftCollections.Pool;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-
-#if DEBUG
-using System;
-#endif
 
 namespace GridForge.Grids;
 
@@ -30,6 +27,11 @@ public class VoxelGrid
     /// Global index of the grid within the world.
     /// </summary>
     public ushort GlobalIndex { get; private set; }
+
+    /// <summary>
+    /// The world that owns this grid instance.
+    /// </summary>
+    public GridWorld? World { get; private set; }
 
     /// <inheritdoc cref="GridConfiguration"/>
     public GridConfiguration Configuration { get; private set; }
@@ -132,6 +134,9 @@ public class VoxelGrid
     private int _scanLength;
     private int _scanLayerSize;
 
+    private Fixed64 ActiveVoxelSize => World != null ? World.VoxelSize : GlobalGridManager.VoxelSize;
+    private Fixed64 ActiveVoxelResolution => World != null ? World.VoxelResolution : GlobalGridManager.VoxelResolution;
+
     #endregion
 
     #region Initialization & Reset
@@ -143,6 +148,20 @@ public class VoxelGrid
     /// <param name="configuration">The configuration settings for the grid.</param>
     internal void Initialize(ushort globalIndex, GridConfiguration configuration)
     {
+        if (GlobalGridManager.DefaultWorld == null)
+            throw new InvalidOperationException("No default GridWorld is active to initialize this grid.");
+
+        Initialize(GlobalGridManager.DefaultWorld, globalIndex, configuration);
+    }
+
+    /// <summary>
+    /// Initializes the grid with an explicit owning world.
+    /// </summary>
+    /// <param name="world">The world that will own this grid.</param>
+    /// <param name="globalIndex">The unique index of this grid in the world.</param>
+    /// <param name="configuration">The normalized configuration settings for the grid.</param>
+    internal void Initialize(GridWorld world, ushort globalIndex, GridConfiguration configuration)
+    {
         if (IsActive)
         {
             GridForgeLogger.Warn($"Grid at {nameof(globalIndex)} is already active.");
@@ -151,6 +170,7 @@ public class VoxelGrid
 
         Version = 1;
 
+        World = world;
         GlobalIndex = globalIndex;
 
         Configuration = configuration;
@@ -158,9 +178,9 @@ public class VoxelGrid
         SpawnToken = GetHashCode();
 
         // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid
-        Width = ((BoundsMax.x - BoundsMin.x) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
-        Height = ((BoundsMax.y - BoundsMin.y) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
-        Length = ((BoundsMax.z - BoundsMin.z) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+        Width = ((BoundsMax.x - BoundsMin.x) / ActiveVoxelSize).FloorToInt() + 1;
+        Height = ((BoundsMax.y - BoundsMin.y) / ActiveVoxelSize).FloorToInt() + 1;
+        Length = ((BoundsMax.z - BoundsMin.z) / ActiveVoxelSize).FloorToInt() + 1;
         Size = Width * Height * Length;
 
         GenerateScanCells();
@@ -224,6 +244,7 @@ public class VoxelGrid
         }
 
         Configuration = default;
+        World = null;
 
         SpawnToken = 0;
         Version = 0;
@@ -299,9 +320,9 @@ public class VoxelGrid
                 for (int z = 0; z < Length; z++)
                 {
                     Vector3d position = new(
-                            BoundsMin.x + x * GlobalGridManager.VoxelSize,
-                            BoundsMin.y + y * GlobalGridManager.VoxelSize,
-                            BoundsMin.z + z * GlobalGridManager.VoxelSize
+                            BoundsMin.x + x * ActiveVoxelSize,
+                            BoundsMin.y + y * ActiveVoxelSize,
+                            BoundsMin.z + z * ActiveVoxelSize
                         );
 
                     // Rent a voxel from the object pool and initialize it
@@ -347,7 +368,7 @@ public class VoxelGrid
                 centerDifference.y.Sign(),
                 centerDifference.z.Sign()
             );
-        return GlobalGridManager.GetNeighborDirectionFromOffset(gridOffset);
+        return GridDirectionUtility.GetNeighborDirectionFromOffset(gridOffset);
     }
 
     /// <summary>
@@ -480,7 +501,7 @@ public class VoxelGrid
     /// <returns>True if the grids overlap within the tolerance, otherwise false.</returns>
     public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64 tolerance = default)
     {
-        tolerance = tolerance == default ? GlobalGridManager.VoxelResolution : tolerance;
+        tolerance = tolerance == default ? a.ActiveVoxelResolution : tolerance;
 
         return a.BoundsMax.x >= b.BoundsMin.x - tolerance
             && a.BoundsMin.x <= b.BoundsMax.x + tolerance
@@ -507,8 +528,11 @@ public class VoxelGrid
             SwiftHashSet<int> neighborSet = values[i];
             foreach (int neighborIndex in neighborSet)
             {
-                if (GlobalGridManager.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
+                if ((World != null && World.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
+                    || GlobalGridManager.TryGetGrid(neighborIndex, out neighborGrid))
+                {
                     yield return neighborGrid!;
+                }
             }
         }
     }
@@ -573,9 +597,9 @@ public class VoxelGrid
         // Convert world position to grid indices by subtracting the minimum bound
         // and dividing by the voxel size to get a zero-based index
         (int x, int y, int z) = (
-            ((position.x - BoundsMin.x) / GlobalGridManager.VoxelSize).FloorToInt(),
-            ((position.y - BoundsMin.y) / GlobalGridManager.VoxelSize).FloorToInt(),
-            ((position.z - BoundsMin.z) / GlobalGridManager.VoxelSize).FloorToInt()
+            ((position.x - BoundsMin.x) / ActiveVoxelSize).FloorToInt(),
+            ((position.y - BoundsMin.y) / ActiveVoxelSize).FloorToInt(),
+            ((position.z - BoundsMin.z) / ActiveVoxelSize).FloorToInt()
         );
 
         if (!IsValidVoxelIndex(x, y, z))
@@ -723,7 +747,7 @@ public class VoxelGrid
     /// </summary>
     public Vector3d CeilToGrid(Vector3d position)
     {
-        Fixed64 voxelSize = GlobalGridManager.VoxelSize;
+        Fixed64 voxelSize = ActiveVoxelSize;
         return new Vector3d(
             FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).CeilToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
             FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).CeilToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
@@ -736,7 +760,7 @@ public class VoxelGrid
     /// </summary>
     public Vector3d FloorToGrid(Vector3d position)
     {
-        Fixed64 voxelSize = GlobalGridManager.VoxelSize;
+        Fixed64 voxelSize = ActiveVoxelSize;
         return new Vector3d(
             FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).FloorToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
             FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).FloorToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
@@ -750,9 +774,9 @@ public class VoxelGrid
     public (int x, int y, int z) SnapToScanCell(Vector3d position)
     {
         return (
-                (int)((position.x - BoundsMin.x) / GlobalGridManager.VoxelSize) / ScanCellSize,
-                (int)((position.y - BoundsMin.y) / GlobalGridManager.VoxelSize) / ScanCellSize,
-                (int)((position.z - BoundsMin.z) / GlobalGridManager.VoxelSize) / ScanCellSize
+                (int)((position.x - BoundsMin.x) / ActiveVoxelSize) / ScanCellSize,
+                (int)((position.y - BoundsMin.y) / ActiveVoxelSize) / ScanCellSize,
+                (int)((position.z - BoundsMin.z) / ActiveVoxelSize) / ScanCellSize
             );
     }
 

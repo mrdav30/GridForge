@@ -67,7 +67,7 @@ public class SpatialTypesTests : IDisposable
     }
 
     [Fact]
-    public void GridConfiguration_ShouldSnapBoundsAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
+    public void GridConfiguration_ShouldNormalizeOrderingAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
     {
         GridConfiguration configuration = new(
             new Vector3d(5, 5, 5),
@@ -82,7 +82,7 @@ public class SpatialTypesTests : IDisposable
     }
 
     [Fact]
-    public void GridConfiguration_ShouldUseJsonConstructorNormalization_WhenDeserializing()
+    public void GridConfiguration_ShouldUseJsonConstructorOrderingNormalization_WhenDeserializing()
     {
         string boundsMinJson = JsonSerializer.Serialize(new Vector3d(5, 5, 5));
         string boundsMaxJson = JsonSerializer.Serialize(new Vector3d(1, 1, 1));

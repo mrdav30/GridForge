@@ -570,12 +570,15 @@ public class Voxel : IEquatable<Voxel>
         if (grid!.TryGetVoxel(neighborCoords, out neighbor))
             return true;
 
+        Fixed64 voxelSize = grid.World != null ? grid.World.VoxelSize : GlobalGridManager.VoxelSize;
         Vector3d neighborPosition = new(
-            WorldPosition.x + offset.x * GlobalGridManager.VoxelSize,
-            WorldPosition.y + offset.y * GlobalGridManager.VoxelSize,
-            WorldPosition.z + offset.z * GlobalGridManager.VoxelSize);
+            WorldPosition.x + offset.x * voxelSize,
+            WorldPosition.y + offset.y * voxelSize,
+            WorldPosition.z + offset.z * voxelSize);
 
-        return GlobalGridManager.TryGetVoxel(neighborPosition, out neighbor);
+        return grid.World != null
+            ? grid.World.TryGetVoxel(neighborPosition, out neighbor)
+            : GlobalGridManager.TryGetVoxel(neighborPosition, out neighbor);
     }
 
     /// <summary>

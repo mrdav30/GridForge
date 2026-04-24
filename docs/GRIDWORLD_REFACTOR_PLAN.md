@@ -7,7 +7,7 @@ This document tracks the breaking refactor from one process-wide static world to
 - Started: 2026-04-24
 - Release posture: Breaking release
 - Backwards compatibility: Explicitly out of scope
-- Current state: Phase 0 locked, Phase 1 not started
+- Current state: Phase 1 complete, Phase 2 not started
 
 ## Scope
 
@@ -76,7 +76,7 @@ This is also the right time to take the break because:
 ## Progress Tracker
 
 - [x] Phase 0: Lock the new world model and migration boundaries.
-- [ ] Phase 1: Introduce `GridWorld` core runtime ownership.
+- [x] Phase 1: Introduce `GridWorld` core runtime ownership.
 - [ ] Phase 2: Move grid identity and lookup to world scope.
 - [ ] Phase 3: Move mutation and query services to world scope.
 - [ ] Phase 4: Rebuild validation, docs, and benchmarks around explicit worlds.
@@ -165,18 +165,18 @@ Likely files:
 
 Checklist:
 
-- [ ] Add a new world runtime type that owns voxel size, spatial hash size, active grids, bounds tracking, spatial hash, version, lock, and world-level events.
-- [ ] Move setup and reset behavior from the process-wide model onto the world runtime.
-- [ ] Remove ambient snapping from `GridConfiguration` so it becomes pure input data.
-- [ ] Move snapping and normalization to world registration or world utility code.
-- [ ] Update grid registration so a grid is initialized against an owning world instead of ambient globals.
-- [ ] Decide how pooled grids learn their owning world during initialize and how that ownership is cleared on reset.
+- [x] Add a new world runtime type that owns voxel size, spatial hash size, active grids, bounds tracking, spatial hash, version, lock, and world-level events.
+- [x] Move setup and reset behavior from the process-wide model onto the world runtime.
+- [x] Remove ambient snapping from `GridConfiguration` so it becomes pure input data.
+- [x] Move snapping and normalization to world registration or world utility code.
+- [x] Update grid registration so a grid is initialized against an owning world instead of ambient globals.
+- [x] Decide how pooled grids learn their owning world during initialize and how that ownership is cleared on reset.
 
 Exit criteria:
 
-- [ ] A single world can be created, configured, reset, and disposed without using global mutable state.
-- [ ] Grid registration works through the new world runtime.
-- [ ] Bounds snapping no longer depends on global ambient setup.
+- [x] A single world can be created, configured, reset, and disposed without using global mutable state.
+- [x] Grid registration works through the new world runtime.
+- [x] Bounds snapping no longer depends on global ambient setup.
 
 ## Phase 2: Move Identity And Lookup To World Scope
 
