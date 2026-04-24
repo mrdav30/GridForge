@@ -7,7 +7,7 @@ This document tracks the breaking refactor from one process-wide static world to
 - Started: 2026-04-24
 - Release posture: Breaking release
 - Backwards compatibility: Explicitly out of scope
-- Current state: Planning
+- Current state: Phase 0 locked, Phase 1 not started
 
 ## Scope
 
@@ -75,7 +75,7 @@ This is also the right time to take the break because:
 
 ## Progress Tracker
 
-- [ ] Phase 0: Lock the new world model and migration boundaries.
+- [x] Phase 0: Lock the new world model and migration boundaries.
 - [ ] Phase 1: Introduce `GridWorld` core runtime ownership.
 - [ ] Phase 2: Move grid identity and lookup to world scope.
 - [ ] Phase 3: Move mutation and query services to world scope.
@@ -86,17 +86,71 @@ This is also the right time to take the break because:
 
 Intent: agree on the new ownership and identity model before touching the hot paths.
 
-- [ ] Decide the final naming for the world owner type and related identity types.
+- [x] Decide the final naming for the world owner type and related identity types.
 - [x] Decide whether `GlobalGridManager` is deleted outright or retained temporarily only during the branch as an internal migration aid.
-- [ ] Decide the minimum world-scoped identity payload for grids and voxels.
-- [ ] Decide which helpers remain static because they are pure and which move onto `GridWorld`.
-- [ ] Write a short decision record in this file once the names and boundaries are locked.
+- [x] Decide the minimum world-scoped identity payload for grids and voxels.
+- [x] Decide which helpers remain static because they are pure and which move onto `GridWorld`.
+- [x] Write a short decision record in this file once the names and boundaries are locked.
 
 Exit criteria:
 
-- [ ] There is one agreed runtime owner for mutable world state.
-- [ ] There is one agreed identity story for world, grid, and voxel references.
-- [ ] There is no unresolved ambiguity about whether lookups require a world context.
+- [x] There is one agreed runtime owner for mutable world state.
+- [x] There is one agreed identity story for world, grid, and voxel references.
+- [x] There is no unresolved ambiguity about whether lookups require a world context.
+
+### Phase 0 Decision Record
+
+These decisions are now considered locked for implementation unless a later discovery forces a change.
+
+#### Runtime owner
+
+- `GridWorld` is the primary runtime owner of mutable world state.
+- Core GridForge will not ship a built-in named world registry or universe manager.
+- World lifetime is application-owned. Higher layers such as galaxy, save, streaming, or orchestration systems are expected to sit above `GridWorld`, not inside it.
+- `GlobalGridManager` remains in the branch only as a temporary migration facade. It must stop owning runtime state and be deleted in Phase 5.
+
+#### Naming model
+
+- Use `GridWorld` as the runtime world type.
+- Rename `VoxelGrid.GlobalIndex` to `VoxelGrid.GridIndex` because the slot is world-local, not process-global.
+- Replace `GlobalVoxelIndex` with `WorldVoxelIndex`.
+- Keep `GridEventInfo` as the grid event snapshot type, but make it world-context aware through world ownership and updated payload as needed during implementation.
+
+#### Identity model
+
+- `GridWorld` will carry a runtime `WorldSpawnToken` used to reject stale world-scoped identities after teardown or reuse.
+- `VoxelGrid` retains a grid instance token concept via `GridSpawnToken` or equivalent existing spawn token.
+- `WorldVoxelIndex` will carry the minimum runtime identity needed for safe lookup:
+  - `WorldSpawnToken`
+  - `GridIndex`
+  - `GridSpawnToken`
+  - `VoxelIndex`
+- Core GridForge will not add a `WorldIndex` slot or named world id at this layer because that would reintroduce a top-level registry concern into the core library.
+
+#### Lookup boundary
+
+- All world-space lookups become world-scoped.
+- Any API that resolves from world space must either be an instance method on `GridWorld` or require an explicit `GridWorld` parameter.
+- This rule applies to grid lookup, voxel lookup, tracing, blockers, occupancy, and scan-oriented queries.
+- Passing a voxel identity to the wrong world must fail safely through the world spawn token check.
+
+#### Event and watcher boundary
+
+- Grid lifecycle events become instance events on `GridWorld`.
+- Blockers become bound to one `GridWorld`; they will not watch multiple worlds through shared static subscriptions.
+- World-scoped services may still expose their own events, but those events must hang off world-owned services or world-bound objects rather than process-global statics.
+
+#### Helper placement
+
+- Configuration-dependent helpers move onto `GridWorld`:
+  - voxel snapping
+  - voxel floor and ceil helpers
+  - spatial hash key generation
+  - spatial hash cell enumeration
+  - registration and top-level lookup helpers
+- Pure helpers that do not depend on mutable world state may remain static.
+- `GetNeighborDirectionFromOffset(...)` should move out of `GlobalGridManager` because it is topology logic, not world ownership logic.
+- `GridConfiguration` becomes pure input data and no longer snaps itself during construction.
 
 ## Phase 1: Introduce `GridWorld` Core Ownership
 
@@ -246,11 +300,11 @@ Add targeted test or benchmark commands here if the refactor introduces new hot 
 - Test fragility while the old and new models coexist during the migration branch.
 - Allocation regressions if world-scoped ownership causes duplicate temporary structures.
 
-## Open Questions
+## Deferred Questions
 
-- Should pure snapping helpers live on `GridWorld`, a separate static utility, or the configuration layer?
-- Does the final API need a lightweight top-level registry for named worlds, or should world lifetime stay fully application-owned?
-- Do we want one world-specific blocker base type, or should blockers receive world context only at construction or apply time?
+- Should world-scoped services live directly on `GridWorld` as methods and properties, or as dedicated child service types hanging off the world?
+- Should world event signatures keep the current lightweight `Action<T>` style, or switch to a sender-aware pattern during the break?
+- Do we want a small `GridWorldOptions` or `GridWorldConfiguration` type for construction, or should world creation stay argument-based initially?
 
 ## Decision Log
 
@@ -259,6 +313,9 @@ Add targeted test or benchmark commands here if the refactor introduces new hot 
 | 2026-04-24 | Treat the refactor as a breaking release. | Backwards compatibility is intentionally out of scope. |
 | 2026-04-24 | Keep `GlobalGridManager` during implementation as a temporary migration facade. | Delete it in Phase 5 once the world-scoped APIs fully replace it. |
 | 2026-04-24 | Use the refactor to move GridForge from being the world boundary to being the world primitive. | This is the primary architectural reason for accepting the break. |
+| 2026-04-24 | Make `GridWorld` the owner of mutable world state. | Core GridForge will not own a higher-level universe or named-world registry. |
+| 2026-04-24 | Replace `GlobalVoxelIndex` with `WorldVoxelIndex` and rename `VoxelGrid.GlobalIndex` to `GridIndex`. | Runtime identities are world-scoped and grid slots are world-local. |
+| 2026-04-24 | Require explicit world context for world-space lookups and world-bound systems. | Grid lookup, voxel lookup, tracing, blockers, occupancy, and scans must not route through ambient global state. |
 
 ## Working Notes
 
