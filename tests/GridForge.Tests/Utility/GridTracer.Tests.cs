@@ -13,32 +13,31 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public class GridTracerTests : IDisposable
 {
+    private GridWorld _world;
+
     public GridTracerTests()
     {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-        else
-            GlobalGridManager.Setup();
+        _world = GridWorldTestFactory.CreateWorld();
     }
 
     public void Dispose()
     {
-        GlobalGridManager.Reset();
+        _world.Dispose();
         GC.SuppressFinalize(this);
     }
 
     [Fact]
     public void TraceLine_ShouldReturnCorrectVoxels()
     {
-        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, -1, -50), new Vector3d(50, 1, 50)), out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-50, -1, -50), new Vector3d(50, 1, 50)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(5, 0.5, 5);
         Vector3d end = new(45.28, 1, 18.31);
 
         List<Voxel> tracedVoxels = new();
 
-        foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
+        foreach (var gridVoxelSet in GridTracer.TraceLine(_world, start, end, includeEnd: true))
         {
             if (gridVoxelSet.Grid.GridIndex == gridIndex)
                 tracedVoxels.AddRange(gridVoxelSet.Voxels);
@@ -57,15 +56,15 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine_ShouldNotIncludeEndWhenSpecified()
     {
-        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(-5, 0, -5);
         Vector3d end = new(5, 0, 5);
 
         List<Voxel> tracedVoxels = new();
 
-        foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: false))
+        foreach (var gridVoxelSet in GridTracer.TraceLine(_world, start, end, includeEnd: false))
         {
             if (gridVoxelSet.Grid.GridIndex == gridIndex)
                 tracedVoxels.AddRange(gridVoxelSet.Voxels);
@@ -82,17 +81,17 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine2D_ShouldReturnCorrectVoxels()
     {
-        GlobalGridManager.TryAddGrid(
+        _world.TryAddGrid(
             new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)),
             out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector2d start = new(-5, -5);
         Vector2d end = new(5, 5);
 
         List<Voxel> tracedVoxels = new();
 
-        foreach (var gridVoxelSet in GridTracer.TraceLine(start, end, includeEnd: true))
+        foreach (var gridVoxelSet in GridTracer.TraceLine(_world, start, end, includeEnd: true))
         {
             if (gridVoxelSet.Grid.GridIndex == gridIndex)
                 tracedVoxels.AddRange(gridVoxelSet.Voxels);
@@ -111,13 +110,13 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine_ShouldFullyCoverAllVoxelsBetweenTwoPoints()
     {
-        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(-5, 0, -5);
         Vector3d end = new(5, 0, 5);
 
-        var tracedVoxels = GridTracer.TraceLine(start, end, includeEnd: true)
+        var tracedVoxels = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels).ToList();
 
         Assert.NotEmpty(tracedVoxels);
@@ -128,11 +127,12 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine_ShouldBeStableForEquivalentFractionalEndpoints()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10)),
             out _));
 
         Vector3d[] firstTrace = GridTracer.TraceLine(
+                _world,
                 new Vector3d(1.01, 0, 1.01),
                 new Vector3d(5.01, 0, 5.01),
                 includeEnd: true)
@@ -141,6 +141,7 @@ public class GridTracerTests : IDisposable
             .ToArray();
 
         Vector3d[] secondTrace = GridTracer.TraceLine(
+                _world,
                 new Vector3d(1.99, 0, 1.99),
                 new Vector3d(5.49, 0, 5.49),
                 includeEnd: true)
@@ -154,15 +155,15 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine_ShouldRespectDescendingDirectionAfterSnapping()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(5.8, 0, 5.8);
         Vector3d end = new(-5.2, 0, -5.2);
 
-        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+        Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
             .Select(voxel => voxel.WorldPosition)
             .ToArray();
@@ -178,17 +179,17 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void Blocker_ShouldOnlyAffectSnappedBounds()
     {
-        GlobalGridManager.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         BoundingArea boundingArea = new(new Vector3d(-5.3, 0, -5.3), new Vector3d(5.8, 0, 5.8));
-        var blocker = new BoundsBlocker(boundingArea);
+        var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
-        Vector3d snappedMin = GlobalGridManager.FloorToVoxelSize(boundingArea.Min);
-        Vector3d snappedMax = GlobalGridManager.CeilToVoxelSize(boundingArea.Max);
+        Vector3d snappedMin = _world.FloorToVoxelSize(boundingArea.Min);
+        Vector3d snappedMax = _world.CeilToVoxelSize(boundingArea.Max);
 
-        foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(boundingArea.Min, boundingArea.Max))
+        foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(_world, boundingArea.Min, boundingArea.Max))
         {
             foreach (var voxel in coveredVoxels.Voxels)
             {
@@ -205,16 +206,16 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void GetCoveredScanCells_ShouldUsePaddedSnappedBoundsForSpatialHashLookup()
     {
-        GlobalGridManager.Reset(deactivate: true);
-        GlobalGridManager.Setup(spatialGridCellSize: 10);
+        ResetWorld(spatialGridCellSize: 10);
 
         try
         {
-            Assert.True(GlobalGridManager.TryAddGrid(
+            Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(19, 0, 9), scanCellSize: 2),
                 out _));
 
             ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
+                _world,
                 new Vector3d(9.6, 0, 0),
                 new Vector3d(9.6, 0, 0),
                 padding: Fixed64.One).ToArray();
@@ -223,20 +224,18 @@ public class GridTracerTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.Reset(deactivate: true);
-            GlobalGridManager.Setup();
+            ResetWorld();
         }
     }
 
     [Fact]
     public void TraceLine_ShouldSkipEmptyCellsStaleEntriesAndDuplicateGridMembership()
     {
-        GlobalGridManager.Reset(deactivate: true);
-        GlobalGridManager.Setup(spatialGridCellSize: 10);
+        ResetWorld(spatialGridCellSize: 10);
 
         try
         {
-            Assert.True(GlobalGridManager.TryAddGrid(
+            Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
                 out ushort gridIndex));
             AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
@@ -246,6 +245,7 @@ public class GridTracerTests : IDisposable
             List<WorldVoxelIndex> tracedVoxelIndices = new();
 
             foreach (GridVoxelSet tracedSet in GridTracer.TraceLine(
+                _world,
                 new Vector3d(0, 0, 0),
                 new Vector3d(35, 0, 0),
                 includeEnd: false))
@@ -264,23 +264,22 @@ public class GridTracerTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.Reset(deactivate: true);
-            GlobalGridManager.Setup();
+            ResetWorld();
         }
     }
 
     [Fact]
     public void TraceLine_ShouldPreservePerAxisDirectionWhenAxesDiffer()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(6, 2, 6)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(5.8, 0, 5.8);
         Vector3d end = new(1.2, 2, 1.2);
 
-        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+        Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
             .Select(voxel => voxel.WorldPosition)
             .ToArray();
@@ -296,15 +295,15 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void TraceLine_ShouldPreserveDescendingYDirectionAfterSnapping()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(6, 2, 6)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d start = new(1.2, 2, 1.2);
         Vector3d end = new(5.8, 0, 5.8);
 
-        Vector3d[] tracedPositions = GridTracer.TraceLine(start, end, includeEnd: true)
+        Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
             .Select(voxel => voxel.WorldPosition)
             .ToArray();
@@ -320,12 +319,11 @@ public class GridTracerTests : IDisposable
     [Fact]
     public void GetCoveredVoxels_ShouldIgnoreStaleGridReferences()
     {
-        GlobalGridManager.Reset(deactivate: true);
-        GlobalGridManager.Setup(spatialGridCellSize: 10);
+        ResetWorld(spatialGridCellSize: 10);
 
         try
         {
-            Assert.True(GlobalGridManager.TryAddGrid(
+            Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
                 out ushort gridIndex));
             AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
@@ -335,6 +333,7 @@ public class GridTracerTests : IDisposable
             List<WorldVoxelIndex> coveredVoxelIndices = new();
 
             foreach (GridVoxelSet coveredSet in GridTracer.GetCoveredVoxels(
+                _world,
                 new Vector3d(0, 0, 0),
                 new Vector3d(20, 0, 0)))
             {
@@ -349,25 +348,24 @@ public class GridTracerTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.Reset(deactivate: true);
-            GlobalGridManager.Setup();
+            ResetWorld();
         }
     }
 
     [Fact]
     public void GetCoveredScanCells_ShouldIgnoreStaleAndDuplicateGridMembership()
     {
-        GlobalGridManager.Reset(deactivate: true);
-        GlobalGridManager.Setup(spatialGridCellSize: 10);
+        ResetWorld(spatialGridCellSize: 10);
 
         try
         {
-            Assert.True(GlobalGridManager.TryAddGrid(
+            Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0), scanCellSize: 4),
                 out _));
             AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
 
             ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
+                _world,
                 new Vector3d(0, 0, 0),
                 new Vector3d(20, 0, 0)).ToArray();
 
@@ -378,14 +376,21 @@ public class GridTracerTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.Reset(deactivate: true);
-            GlobalGridManager.Setup();
+            ResetWorld();
         }
     }
 
-    private static void AddStaleSpatialGridReference(Vector3d position, ushort staleIndex)
+    private void AddStaleSpatialGridReference(Vector3d position, ushort staleIndex)
     {
-        int cellIndex = GlobalGridManager.GetSpatialGridKey(position);
-        GlobalGridManager.SpatialGridHash[cellIndex].Add(staleIndex);
+        int cellIndex = _world.GetSpatialGridKey(position);
+        _world.SpatialGridHash[cellIndex].Add(staleIndex);
+    }
+
+    private void ResetWorld(
+        Fixed64? voxelSize = null,
+        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
+    {
+        _world.Dispose();
+        _world = GridWorldTestFactory.CreateWorld(voxelSize, spatialGridCellSize);
     }
 }

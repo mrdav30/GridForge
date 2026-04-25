@@ -12,16 +12,10 @@ public class GridForgeFixture : IDisposable
     public GridForgeFixture()
     {
         GridForgeLogger.MinimumLevel = DiagnosticLevel.Error;
-
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset(deactivate: true);
     }
 
     public void Dispose()
     {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset(deactivate: true);
-
         GC.SuppressFinalize(this);
     }
 }

@@ -20,8 +20,15 @@ internal static class GridWorldTestFactory
         int scanCellSize = GridConfiguration.DefaultScanCellSize)
     {
         GridConfiguration configuration = new(boundsMin, boundsMax, scanCellSize);
+        return AddGrid(world, configuration);
+    }
+
+    public static VoxelGrid AddGrid(
+        GridWorld world,
+        GridConfiguration configuration)
+    {
         if (!world.TryAddGrid(configuration, out ushort gridIndex))
-            throw new InvalidOperationException($"Unable to add grid for bounds {boundsMin} -> {boundsMax}.");
+            throw new InvalidOperationException($"Unable to add grid for bounds {configuration.BoundsMin} -> {configuration.BoundsMax}.");
 
         return world.ActiveGrids[gridIndex];
     }

@@ -13,21 +13,6 @@ namespace GridForge.Utility;
 public static class GridTracer
 {
     /// <summary>
-    /// Traces a 3D line between two points in the default world.
-    /// </summary>
-    public static IEnumerable<GridVoxelSet> TraceLine(
-        Vector3d start,
-        Vector3d end,
-        Fixed64? padding = null,
-        bool includeEnd = true)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? TraceLine(world, start, end, padding, includeEnd)
-            : System.Array.Empty<GridVoxelSet>();
-    }
-
-    /// <summary>
     /// Traces a 3D line between two points in the supplied world.
     /// The traced points are returned as grid voxels.
     /// </summary>
@@ -55,21 +40,6 @@ public static class GridTracer
     }
 
     /// <summary>
-    /// Traces a 2D line between two points in the default world, snapping them to grid coordinates.
-    /// </summary>
-    public static IEnumerable<GridVoxelSet> TraceLine(
-        Vector2d start,
-        Vector2d end,
-        Fixed64? padding = null,
-        bool includeEnd = true)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? TraceLine(world, start, end, padding, includeEnd)
-            : System.Array.Empty<GridVoxelSet>();
-    }
-
-    /// <summary>
     /// Traces a 2D line between two points in the supplied world, snapping them to grid coordinates.
     /// </summary>
     /// <remarks>
@@ -89,20 +59,6 @@ public static class GridTracer
     }
 
     /// <summary>
-    /// Retrieves all grid voxels covered by the given bounding area in the default world.
-    /// </summary>
-    public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
-        Vector3d boundsMin,
-        Vector3d boundsMax,
-        Fixed64? padding = null)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetCoveredVoxels(world, boundsMin, boundsMax, padding)
-            : System.Array.Empty<GridVoxelSet>();
-    }
-
-    /// <summary>
     /// Retrieves all grid voxels covered by the given bounding area in the supplied world.
     /// </summary>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
@@ -115,20 +71,6 @@ public static class GridTracer
             return System.Array.Empty<GridVoxelSet>();
 
         return GetCoveredVoxelsIterator(world, boundsMin, boundsMax, padding);
-    }
-
-    /// <summary>
-    /// Retrieves all scan cells within the given bounding area across relevant grids in the default world.
-    /// </summary>
-    public static IEnumerable<ScanCell> GetCoveredScanCells(
-        Vector3d boundsMin,
-        Vector3d boundsMax,
-        Fixed64? padding = null)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetCoveredScanCells(world, boundsMin, boundsMax, padding)
-            : System.Array.Empty<ScanCell>();
     }
 
     /// <summary>

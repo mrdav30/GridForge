@@ -522,7 +522,10 @@ public sealed class GridWorld : IDisposable
         return new GridConfiguration(boundsMin, boundsMax, configuration.ScanCellSize);
     }
 
-    internal void IncrementGridVersion(int index, bool significant = false)
+    /// <summary>
+    /// Increments the version of the specified grid and optionally the world version.
+    /// </summary>
+    public void IncrementGridVersion(int index, bool significant = false)
     {
         if (!IsActive)
         {
@@ -545,7 +548,10 @@ public sealed class GridWorld : IDisposable
         }
     }
 
-    internal IEnumerable<int> GetSpatialGridCells(Vector3d min, Vector3d max)
+    /// <summary>
+    /// Enumerates the spatial-hash cells that intersect the supplied bounds.
+    /// </summary>
+    public IEnumerable<int> GetSpatialGridCells(Vector3d min, Vector3d max)
     {
         (int xMin, int yMin, int zMin) = SnapToSpatialGrid(min);
         (int xMax, int yMax, int zMax) = SnapToSpatialGrid(max);
@@ -564,7 +570,10 @@ public sealed class GridWorld : IDisposable
         }
     }
 
-    internal IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
+    /// <summary>
+    /// Finds active grids in this world that overlap the supplied target grid.
+    /// </summary>
+    public IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
     {
         SwiftHashSet<VoxelGrid> overlappingGrids = new();
 
@@ -593,7 +602,10 @@ public sealed class GridWorld : IDisposable
         return overlappingGrids;
     }
 
-    internal int GetSpatialGridKey(Vector3d position)
+    /// <summary>
+    /// Computes the spatial-hash key for the supplied world-space position.
+    /// </summary>
+    public int GetSpatialGridKey(Vector3d position)
     {
         (int x, int y, int z) = (
             position.x.FloorToInt() / SpatialGridCellSize,
@@ -604,7 +616,10 @@ public sealed class GridWorld : IDisposable
         return SwiftHashTools.CombineHashCodes(x, y, z);
     }
 
-    internal Vector3d CeilToVoxelSize(Vector3d position)
+    /// <summary>
+    /// Ceil-snaps a world-space position to this world's voxel size.
+    /// </summary>
+    public Vector3d CeilToVoxelSize(Vector3d position)
     {
         return new Vector3d(
             (position.x.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.x.Sign(),
@@ -613,7 +628,10 @@ public sealed class GridWorld : IDisposable
         );
     }
 
-    internal Vector3d FloorToVoxelSize(Vector3d position)
+    /// <summary>
+    /// Floor-snaps a world-space position to this world's voxel size.
+    /// </summary>
+    public Vector3d FloorToVoxelSize(Vector3d position)
     {
         return new Vector3d(
             (position.x.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.x.Sign(),
@@ -622,7 +640,10 @@ public sealed class GridWorld : IDisposable
         );
     }
 
-    internal (Vector3d min, Vector3d max) SnapBoundsToVoxelSize(
+    /// <summary>
+    /// Snaps the supplied bounds to this world's voxel size.
+    /// </summary>
+    public (Vector3d min, Vector3d max) SnapBoundsToVoxelSize(
         Vector3d min,
         Vector3d max,
         Fixed64? padding = null)

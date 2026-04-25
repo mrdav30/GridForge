@@ -85,18 +85,6 @@ public abstract class Blocker : IBlocker
     }
 
     /// <summary>
-    /// Initializes a new blocker instance bound to the default world.
-    /// </summary>
-    protected Blocker(bool active = true, bool cacheCoveredVoxels = false)
-        : this(
-            GlobalGridManager.DefaultWorld
-                ?? throw new InvalidOperationException("No active default GridWorld is available for blocker creation."),
-            active,
-            cacheCoveredVoxels)
-    {
-    }
-
-    /// <summary>
     /// Initializes a new blocker instance bound to the supplied world.
     /// </summary>
     /// <param name="world">The world whose grids this blocker should affect.</param>

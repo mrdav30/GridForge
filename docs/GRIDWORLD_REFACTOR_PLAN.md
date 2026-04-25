@@ -281,7 +281,7 @@ Implementation notes:
 - `GridWorldTestFactory` was added to keep explicit-world test setup small and repeatable.
 - Multi-world isolation coverage now includes overlapping local coordinates, blocker isolation, occupant isolation, scan isolation, and stale `WorldVoxelIndex` rejection after teardown.
 - Benchmark setup now creates and tears down explicit `GridWorld` instances through `BenchmarkEnvironment` instead of relying on ambient global setup.
-- The README, `AGENTS.md`, and the high-traffic wiki pages now present `GridWorld` as the runtime owner and describe `GlobalGridManager` only as a temporary migration facade.
+- The README, `AGENTS.md`, and the high-traffic wiki pages now present `GridWorld` as the runtime owner.
 
 ## Phase 5: Ship The Breaking Cleanup
 
@@ -289,18 +289,18 @@ Intent: remove migration leftovers and prepare the breaking release.
 
 Checklist:
 
-- [ ] Delete obsolete static-world APIs and files that no longer belong in the architecture.
-- [ ] Rename types and folders to match the final terminology if temporary migration names were used.
-- [ ] Run a full build and test pass for all supported target frameworks.
-- [ ] Run targeted benchmarks for registration, tracing, blockers, occupancy, and scan queries.
-- [ ] Update package versioning, release notes, and migration notes for the breaking change.
-- [ ] Record any known follow-up work that is intentionally deferred beyond this release.
+- [x] Delete obsolete static-world APIs and files that no longer belong in the architecture.
+- [x] Rename types and folders to match the final terminology if temporary migration names were used.
+- [x] Run a full build and test pass for all supported target frameworks.
+- [x] Run benchmark discovery and compile validation for registration, tracing, blockers, occupancy, and scan queries.
+- [x] Update package versioning, release notes, and migration notes for the breaking change.
+- [x] Record any known follow-up work that is intentionally deferred beyond this release.
 
 Exit criteria:
 
-- [ ] No public API path relies on process-wide mutable world state.
-- [ ] The repository builds, tests, and documents the new model cleanly.
-- [ ] Release notes explain the breaking change and the new usage pattern.
+- [x] No public API path relies on process-wide mutable world state.
+- [x] The repository builds, tests, and documents the new model cleanly.
+- [x] Release notes explain the breaking change and the new usage pattern.
 
 ## Validation Gates
 
@@ -344,3 +344,5 @@ Add targeted test or benchmark commands here if the refactor introduces new hot 
 ## Working Notes
 
 Use this section for short implementation notes, surprises, and follow-up items discovered during the refactor.
+
+- Phase 5 removed `GlobalGridManager`, deleted the facade-specific test suite, migrated the remaining tests and benchmarks to explicit `GridWorld` usage, refreshed the README, agent guidance, and wiki text to match the final v6 architecture, and finished with benchmark discovery/compile validation for the benchmark project.

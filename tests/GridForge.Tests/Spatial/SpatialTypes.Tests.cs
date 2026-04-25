@@ -12,24 +12,8 @@ using Xunit;
 namespace GridForge.Spatial.Tests;
 
 [Collection("GridForgeCollection")]
-public class SpatialTypesTests : IDisposable
+public class SpatialTypesTests
 {
-    public SpatialTypesTests()
-    {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-
-        GlobalGridManager.Setup();
-    }
-
-    public void Dispose()
-    {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-
-        GC.SuppressFinalize(this);
-    }
-
     [Fact]
     public void VoxelIndex_ShouldSupportTwoArgumentConstructionAndEqualityOperators()
     {

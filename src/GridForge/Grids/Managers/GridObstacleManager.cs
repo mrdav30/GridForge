@@ -72,15 +72,6 @@ public static class GridObstacleManager
     }
 
     /// <summary>
-    /// Attempts to add an obstacle at the given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static bool TryAddObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryAddObstacle(world, index, obstacleSpawnToken);
-    }
-
-    /// <summary>
     /// Attempts to add an obstacle at the given world position.
     /// </summary>
     public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
@@ -132,15 +123,6 @@ public static class GridObstacleManager
         return world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
-    }
-
-    /// <summary>
-    /// Attempts to remove an obstacle at the given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static bool TryRemoveObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryRemoveObstacle(world, index, obstacleSpawnToken);
     }
 
     /// <summary>

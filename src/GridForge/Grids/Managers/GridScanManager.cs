@@ -34,21 +34,6 @@ public static class GridScanManager
     }
 
     /// <summary>
-    /// Scans for occupants within a given radius from a specified position in the default world.
-    /// </summary>
-    public static IEnumerable<IVoxelOccupant> ScanRadius(
-        Vector3d position,
-        Fixed64 radius,
-        Func<IVoxelOccupant, bool>? occupantCondition = null,
-        Func<byte, bool>? groupCondition = null)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? ScanRadius(world, position, radius, occupantCondition, groupCondition)
-            : Enumerable.Empty<IVoxelOccupant>();
-    }
-
-    /// <summary>
     /// Scans for occupants of a specific type within a given radius in the supplied world.
     /// </summary>
     public static IEnumerable<T> ScanRadius<T>(
@@ -59,18 +44,6 @@ public static class GridScanManager
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
         return ScanRadius(world, position, radius, occupantCondition, groupCondition).OfType<T>();
-    }
-
-    /// <summary>
-    /// Scans for occupants of a specific type within a given radius in the default world.
-    /// </summary>
-    public static IEnumerable<T> ScanRadius<T>(
-        Vector3d position,
-        Fixed64 radius,
-        Func<IVoxelOccupant, bool>? occupantCondition = null,
-        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
-    {
-        return ScanRadius(position, radius, occupantCondition, groupCondition).OfType<T>();
     }
 
     #endregion
@@ -84,17 +57,6 @@ public static class GridScanManager
     {
         return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetVoxelOccupantsByType<T>(voxel!)
-            : Enumerable.Empty<T>();
-    }
-
-    /// <summary>
-    /// Retrieves all occupants of a specific type at a given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static IEnumerable<T> GetVoxelOccupantsByType<T>(WorldVoxelIndex index) where T : IVoxelOccupant
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetVoxelOccupantsByType<T>(world, index)
             : Enumerable.Empty<T>();
     }
 
@@ -141,19 +103,6 @@ public static class GridScanManager
         return world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryGetVoxelOccupant(voxel!, ticket, out occupant);
-    }
-
-    /// <summary>
-    /// Retrieves a specific occupant at a given world-scoped voxel identity using an occupant ticket in the default world.
-    /// </summary>
-    public static bool TryGetVoxelOccupant(
-        WorldVoxelIndex index,
-        int ticket,
-        out IVoxelOccupant? occupant)
-    {
-        occupant = null;
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryGetVoxelOccupant(world, index, ticket, out occupant);
     }
 
     /// <summary>
@@ -211,17 +160,6 @@ public static class GridScanManager
     }
 
     /// <summary>
-    /// Retrieves all occupants at a given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static IEnumerable<IVoxelOccupant> GetOccupants(WorldVoxelIndex index)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetOccupants(world, index)
-            : Enumerable.Empty<IVoxelOccupant>();
-    }
-
-    /// <summary>
     /// Retrieves all occupants at a given world position within the grid.
     /// </summary>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Vector3d position)
@@ -264,20 +202,6 @@ public static class GridScanManager
     {
         return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition)
-            : Enumerable.Empty<IVoxelOccupant>();
-    }
-
-    /// <summary>
-    /// Retrieves occupants whose group Ids match a given condition at a world-scoped voxel identity in the default world.
-    /// </summary>
-    public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
-        WorldVoxelIndex index,
-        Func<IVoxelOccupant, bool>? occupantCondition = null,
-        Func<byte, bool>? groupCondition = null)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetConditionalOccupants(world, index, occupantCondition, groupCondition)
             : Enumerable.Empty<IVoxelOccupant>();
     }
 

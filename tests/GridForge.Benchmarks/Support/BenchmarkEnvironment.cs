@@ -63,7 +63,7 @@ internal static class BenchmarkEnvironment
 
     private static Action CreateGridForgePoolClearer()
     {
-        Type poolsType = typeof(GlobalGridManager).Assembly.GetType("GridForge.Grids.Pools");
+        Type poolsType = typeof(GridWorld).Assembly.GetType("GridForge.Grids.Pools");
         if (poolsType == null)
             throw new InvalidOperationException("Unable to locate GridForge pool manager.");
 

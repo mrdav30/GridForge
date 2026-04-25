@@ -58,7 +58,6 @@ Ignore these when reading or editing unless the task is specifically about build
 ### Core Types
 
 - **`GridWorld`:** primary runtime owner for one world's mutable state: setup values, active grids, spatial hash, world-space lookups, and world-level events.
-- **`GlobalGridManager`:** temporary compatibility facade over a default `GridWorld`. Prefer explicit `GridWorld` usage in new code unless the task is specifically about the facade.
 - **`VoxelGrid`:** represents a single configured grid with voxels, scan cells, neighbor relationships, occupancy state, and versioning.
 - **`Voxel`:** holds world position, grid indices, obstacle state, occupancy state, partition attachments, and cached neighbor data.
 - **`ScanCell`:** secondary overlay used to accelerate neighborhood and area queries over voxels.
@@ -80,7 +79,6 @@ Treat the following as core rules of the system:
 
 - Create a `GridWorld` before using world-scoped grid APIs.
 - Dispose a `GridWorld` or call `Reset()` when a test or tool run needs a clean world state.
-- Treat `GlobalGridManager` as a temporary default-world facade, not as the target architecture.
 - Use fixed-point types for grid math. Avoid introducing `float` or `double` into core simulation logic unless there is a clear boundary conversion reason.
 - Assume bounds and positions may be snapped to the configured voxel size. When debugging odd query results, check snapped values first.
 - Respect pooling. If a type or collection comes from a pool, verify whether it is safe to retain beyond the immediate operation.
@@ -111,7 +109,6 @@ Match the surrounding code instead of imposing a new style on untouched files.
 
 - This is the center of the library.
 - `GridWorld` owns grid registration, spatial hashing, setup/reset, and world-space lookup helpers.
-- `GlobalGridManager` is the migration facade for a default world and should be treated carefully.
 - `VoxelGrid` owns dimensions, scan-cell generation, voxel generation, and neighbor relationships.
 - `Voxel` owns obstacle/occupant/partition state and neighbor caching.
 - `Pools` defines reusable object and array pools. Changes here can have broad memory and lifetime effects.
@@ -163,14 +160,13 @@ Repo-specific testing guidance:
 - Use the existing xUnit suite in `tests/GridForge.Tests` as the reference for expected behavior.
 - Use `tests/GridForge.Benchmarks` to validate allocation-sensitive changes and pooling or caching regressions.
 - Prefer explicit `GridWorld` creation in new tests.
-- Keep `GlobalGridManager`-based tests only when validating the compatibility facade itself.
-- Many tests use `[Collection("GridForgeCollection")]` plus explicit setup/teardown to avoid leaked default-world state.
+- Many tests use `[Collection("GridForgeCollection")]` plus explicit setup/teardown to avoid leaked shared state.
 - Prefer deterministic coordinates and explicit assertions over fuzzy tolerances.
 - If you change behavior in tracing, blockers, occupancy, scan cells, or grid registration, update or add tests in the matching folder.
 
 As of April 25, 2026, the library project builds successfully and the test suite passes locally with:
 
-- 212 tests passed
+- 175 tests passed
 
 ## Common Change Patterns
 
@@ -195,7 +191,7 @@ As of April 25, 2026, the library project builds successfully and the test suite
 
 ## Pitfalls To Avoid
 
-- Do not assume the default-world facade is the real architectural boundary. The target model is instance-based through `GridWorld`.
+- Do not assume process-wide mutable world state still exists. The target model is instance-based through `GridWorld`.
 - Do not edit build outputs under `bin`, `obj`, or `TestResults`.
 - Do not introduce engine-specific code or Unity-only assumptions into the core library.
 - Do not bypass snapping or fixed-point conversions in core spatial logic.
@@ -235,12 +231,10 @@ The most useful files to read first are usually:
 - `README.md`
 - `src/GridForge/GridForge.csproj`
 - `src/GridForge/Grids/Managers/GridWorld.cs`
-- `src/GridForge/Grids/Managers/GlobalGridManager.cs`
 - `src/GridForge/Grids/VoxelGrid.cs`
 - `src/GridForge/Grids/Voxel.cs`
 - `src/GridForge/Utility/GridTracer.cs`
 - `tests/GridForge.Tests/Grids/GridWorld.Tests.cs`
-- `tests/GridForge.Tests/Grids/GlobalGridManager.Tests.cs`
 - `tests/GridForge.Tests/Blockers/BlockerTests.cs`
 
 Keep this document current when the solution layout, build flow, or core architecture changes.

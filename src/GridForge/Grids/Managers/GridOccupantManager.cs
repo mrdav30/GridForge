@@ -107,15 +107,6 @@ public static class GridOccupantManager
     }
 
     /// <summary>
-    /// Attempts to register the occupant with the current voxel it is on in the default world.
-    /// </summary>
-    public static bool TryRegister(IVoxelOccupant occupant)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryRegister(world, occupant);
-    }
-
-    /// <summary>
     /// Returns a snapshot of the voxel indices currently tracked for the occupant in the supplied world.
     /// </summary>
     /// <param name="world">The world whose occupancy registry should be queried.</param>
@@ -132,17 +123,6 @@ public static class GridOccupantManager
             indices[i] = occupancies[i].VoxelIndex;
 
         return indices;
-    }
-
-    /// <summary>
-    /// Returns a snapshot of the voxel indices currently tracked for the occupant in the default world.
-    /// </summary>
-    public static IEnumerable<WorldVoxelIndex> GetOccupiedIndices(IVoxelOccupant occupant)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null
-            ? GetOccupiedIndices(world, occupant)
-            : Array.Empty<WorldVoxelIndex>();
     }
 
     /// <summary>
@@ -169,19 +149,6 @@ public static class GridOccupantManager
     }
 
     /// <summary>
-    /// Attempts to retrieve the scan-cell ticket for the occupant at a specific voxel in the default world.
-    /// </summary>
-    public static bool TryGetOccupancyTicket(
-        IVoxelOccupant occupant,
-        WorldVoxelIndex index,
-        out int ticket)
-    {
-        ticket = -1;
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryGetOccupancyTicket(world, occupant, index, out ticket);
-    }
-
-    /// <summary>
     /// Attempts to add an occupant from the given world-scoped voxel identity in the supplied world.
     /// </summary>
     public static bool TryAddVoxelOccupant(
@@ -193,17 +160,6 @@ public static class GridOccupantManager
             && world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryAddVoxelOccupant(voxel!, occupant);
-    }
-
-    /// <summary>
-    /// Attempts to add an occupant from the given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static bool TryAddVoxelOccupant(
-        WorldVoxelIndex index,
-        IVoxelOccupant occupant)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryAddVoxelOccupant(world, index, occupant);
     }
 
     /// <summary>
@@ -295,15 +251,6 @@ public static class GridOccupantManager
     }
 
     /// <summary>
-    /// Attempts to de-register the occupant from every voxel currently tracked in the default world.
-    /// </summary>
-    public static bool TryDeregister(IVoxelOccupant occupant)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryDeregister(world, occupant);
-    }
-
-    /// <summary>
     /// Attempts to remove an occupant from the given world-scoped voxel identity in the supplied world.
     /// </summary>
     public static bool TryRemoveVoxelOccupant(
@@ -315,17 +262,6 @@ public static class GridOccupantManager
             && world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryRemoveVoxelOccupant(voxel!, occupant);
-    }
-
-    /// <summary>
-    /// Attempts to remove an occupant from the given world-scoped voxel identity in the default world.
-    /// </summary>
-    public static bool TryRemoveVoxelOccupant(
-        WorldVoxelIndex index,
-        IVoxelOccupant occupant)
-    {
-        GridWorld? world = GlobalGridManager.DefaultWorld;
-        return world != null && TryRemoveVoxelOccupant(world, index, occupant);
     }
 
     /// <summary>

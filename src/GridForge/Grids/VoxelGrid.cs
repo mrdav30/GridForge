@@ -144,25 +144,12 @@ public class VoxelGrid
     private int _scanLength;
     private int _scanLayerSize;
 
-    private Fixed64 ActiveVoxelSize => World != null ? World.VoxelSize : GlobalGridManager.VoxelSize;
-    private Fixed64 ActiveVoxelResolution => World != null ? World.VoxelResolution : GlobalGridManager.VoxelResolution;
+    private Fixed64 ActiveVoxelSize => World!.VoxelSize;
+    private Fixed64 ActiveVoxelResolution => World!.VoxelResolution;
 
     #endregion
 
     #region Initialization & Reset
-
-    /// <summary>
-    /// Initializes the grid with the given settings.
-    /// </summary>
-    /// <param name="gridIndex">The unique index of this grid in the world.</param>
-    /// <param name="configuration">The configuration settings for the grid.</param>
-    internal void Initialize(ushort gridIndex, GridConfiguration configuration)
-    {
-        if (GlobalGridManager.DefaultWorld == null)
-            throw new InvalidOperationException("No default GridWorld is active to initialize this grid.");
-
-        Initialize(GlobalGridManager.DefaultWorld, gridIndex, configuration);
-    }
 
     /// <summary>
     /// Initializes the grid with an explicit owning world.

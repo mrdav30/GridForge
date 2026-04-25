@@ -11,19 +11,18 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public class VoxelGridTests : IDisposable
 {
+    private GridWorld _world;
+
     public static TheoryData<SpatialDirection, VoxelIndex> BoundaryDirectionCases => CreateBoundaryDirectionCases();
 
     public VoxelGridTests()
     {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-        else
-            GlobalGridManager.Setup();
+        _world = GridWorldTestFactory.CreateWorld();
     }
 
     public void Dispose()
     {
-        GlobalGridManager.Reset();
+        _world.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -33,12 +32,12 @@ public class VoxelGridTests : IDisposable
         var start = new Vector3d(-10, 0, -10);
         var end = new Vector3d(10, 0, 10);
         var config = new GridConfiguration(start, end);
-        GlobalGridManager.TryAddGrid(config, out ushort index);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        _world.TryAddGrid(config, out ushort index);
+        VoxelGrid grid = _world.ActiveGrids[index];
 
-        int width = ((end.x - start.x) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
-        int height = ((end.y - start.y) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
-        int length = ((end.z - start.z) / GlobalGridManager.VoxelSize).FloorToInt() + 1;
+        int width = ((end.x - start.x) / _world.VoxelSize).FloorToInt() + 1;
+        int height = ((end.y - start.y) / _world.VoxelSize).FloorToInt() + 1;
+        int length = ((end.z - start.z) / _world.VoxelSize).FloorToInt() + 1;
 
         Assert.Equal(width, grid.Width);
         Assert.Equal(height, grid.Height);
@@ -52,12 +51,12 @@ public class VoxelGridTests : IDisposable
         GridConfiguration initialConfig = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
         GridConfiguration secondConfig = new(new Vector3d(50, 0, 50), new Vector3d(51, 0, 51));
 
-        Assert.True(GlobalGridManager.TryAddGrid(initialConfig, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(initialConfig, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         int originalSpawnToken = grid.SpawnToken;
         ushort originalIndex = grid.GridIndex;
 
-        InvokeGridInitialize(grid, 999, secondConfig);
+        InvokeGridInitialize(grid, grid.World!, 999, secondConfig);
 
         Assert.True(grid.IsActive);
         Assert.Equal(originalIndex, grid.GridIndex);
@@ -70,8 +69,8 @@ public class VoxelGridTests : IDisposable
     public void GetVoxel_ShouldReturnCorrectVoxel()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort index);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        _world.TryAddGrid(config, out ushort index);
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         bool found = grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
@@ -83,8 +82,8 @@ public class VoxelGridTests : IDisposable
     public void IsVoxelAllocated_ShouldReturnCorrectState()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort index);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        _world.TryAddGrid(config, out ushort index);
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         Assert.True(grid.IsVoxelAllocated(10, 0, 10));
         Assert.True(grid.IsVoxelAllocated(20, 0, 20));
@@ -94,8 +93,8 @@ public class VoxelGridTests : IDisposable
     public void GetScanCell_ShouldReturnValidCell()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort index);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        _world.TryAddGrid(config, out ushort index);
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         bool found = grid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell scanCell);
 
@@ -107,8 +106,8 @@ public class VoxelGridTests : IDisposable
     public void GetActiveScanCells_ShouldReturnExpectedCount()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort index);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        _world.TryAddGrid(config, out ushort index);
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         int count = 0;
         foreach (var cell in grid.GetActiveScanCells())
@@ -123,11 +122,11 @@ public class VoxelGridTests : IDisposable
         var config1 = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
         var config2 = new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(30, 0, 30));
 
-        GlobalGridManager.TryAddGrid(config1, out ushort index1);
-        GlobalGridManager.TryAddGrid(config2, out ushort index2);
+        _world.TryAddGrid(config1, out ushort index1);
+        _world.TryAddGrid(config2, out ushort index2);
 
-        VoxelGrid grid1 = GlobalGridManager.ActiveGrids[index1];
-        VoxelGrid grid2 = GlobalGridManager.ActiveGrids[index2];
+        VoxelGrid grid1 = _world.ActiveGrids[index1];
+        VoxelGrid grid2 = _world.ActiveGrids[index2];
 
         Assert.True(grid1.IsConjoined);
         Assert.True(grid2.IsConjoined);
@@ -139,7 +138,7 @@ public class VoxelGridTests : IDisposable
         // get the direction before removal
         int neighborIndex = (int)VoxelGrid.GetNeighborDirection(grid1, grid2);
 
-        GlobalGridManager.TryRemoveGrid(grid2.GridIndex);
+        _world.TryRemoveGrid(grid2.GridIndex);
 
         if (grid1.Neighbors != null)
         {
@@ -167,16 +166,15 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void TryGetVoxelIndex_ShouldHandleNegativePositionsAndFractionalVoxelSize()
     {
-        GlobalGridManager.Reset(deactivate: true);
-        GlobalGridManager.Setup((Fixed64)0.5);
+        ResetWorld((Fixed64)0.5);
 
         try
         {
             var config = new GridConfiguration(new Vector3d(-1.5, 0, -1.5), new Vector3d(1.5, 0, 1.5));
 
-            Assert.True(GlobalGridManager.TryAddGrid(config, out ushort index));
+            Assert.True(_world.TryAddGrid(config, out ushort index));
 
-            VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+            VoxelGrid grid = _world.ActiveGrids[index];
 
             Assert.True(grid.TryGetVoxelIndex(new Vector3d(-1.25, 0, -0.75), out VoxelIndex negativeIndex));
             Assert.Equal(new VoxelIndex(0, 0, 1), negativeIndex);
@@ -190,8 +188,7 @@ public class VoxelGridTests : IDisposable
         }
         finally
         {
-            GlobalGridManager.Reset(deactivate: true);
-            GlobalGridManager.Setup();
+            ResetWorld();
         }
     }
 
@@ -203,9 +200,9 @@ public class VoxelGridTests : IDisposable
             new Vector3d(15, 0, 15),
             scanCellSize: 4);
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort index));
+        Assert.True(_world.TryAddGrid(config, out ushort index));
 
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        VoxelGrid grid = _world.ActiveGrids[index];
         Vector3d beforeBoundary = new(3.9, 0, 3.9);
         Vector3d atBoundary = new(4, 0, 4);
 
@@ -220,10 +217,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void TryGetVoxelIndex_ShouldIncludeExactBoundsMaxAndRejectOutsidePositions()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)),
             out ushort index));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         Assert.True(grid.TryGetVoxelIndex(new Vector3d(2, 0, 2), out VoxelIndex maxIndex));
         Assert.Equal(new VoxelIndex(2, 0, 2), maxIndex);
@@ -238,10 +235,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void ScanCellQueries_ShouldReturnGracefulDefaultsForInvalidKeysAndIndices()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 2),
             out ushort index));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        VoxelGrid grid = _world.ActiveGrids[index];
 
         Assert.Equal(-1, grid.GetScanCellKey(new Vector3d(8, 0, 8)));
         Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(99, 0, 99)));
@@ -291,16 +288,20 @@ public class VoxelGridTests : IDisposable
             InvokeGridReset(eastGrid);
             InvokeGridReset(secondEastGrid);
             InvokeGridReset(sameCenterGrid);
+            centerGrid.World?.Dispose();
+            eastGrid.World?.Dispose();
+            secondEastGrid.World?.Dispose();
+            sameCenterGrid.World?.Dispose();
         }
     }
 
     [Fact]
     public void IncrementVersion_ShouldWrapFromUIntMaxValue()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         SetGridVersion(grid, uint.MaxValue);
 
@@ -311,15 +312,15 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void IsGridOverlapValid_ShouldRespectExplicitTolerance()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
             out ushort firstIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(2, 0, 0), new Vector3d(2, 0, 0)),
             out ushort secondIndex));
 
-        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
-        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        VoxelGrid firstGrid = _world.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondIndex];
 
         Assert.False(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: Fixed64.Zero));
         Assert.True(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: (Fixed64)2));
@@ -328,10 +329,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void GetActiveScanCells_ShouldReturnEmptyWhenGridHasNoOccupants()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(5, 0, 5)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.Empty(grid.GetActiveScanCells());
     }
@@ -339,10 +340,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void GetActiveScanCells_ShouldReturnOnlyOccupiedCells()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(7, 0, 7), scanCellSize: 2),
             out ushort index));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
+        VoxelGrid grid = _world.ActiveGrids[index];
         TestOccupant firstOccupant = new(new Vector3d(0, 0, 0));
         TestOccupant secondOccupant = new(new Vector3d(4, 0, 4));
 
@@ -368,10 +369,10 @@ public class VoxelGridTests : IDisposable
         SpatialDirection direction,
         VoxelIndex boundaryIndex)
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.IsFacingBoundaryDirection(boundaryIndex, direction));
     }
@@ -379,10 +380,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void IsFacingBoundaryDirection_ShouldReturnFalseForCenterVoxel()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         VoxelIndex centerIndex = new(1, 1, 1);
 
         foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
@@ -392,10 +393,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void BoundaryQueries_ShouldRejectInvalidDirections()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.False(grid.IsFacingBoundaryDirection(new VoxelIndex(0, 0, 0), (SpatialDirection)(-2)));
 
@@ -406,10 +407,10 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void NotifyBoundaryChange_ShouldSkipNullBoundarySlots()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
             out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.Voxels[0, 0, 0] = null;
 
         grid.NotifyBoundaryChange(SpatialDirection.West);
@@ -420,25 +421,25 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void Grid_ShouldHandleComplexConnectionsDuringDynamicLoadAndUnload()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(10, 0, 10)),
             out ushort centerIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(20, 0, 10)),
             out _));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 10), new Vector3d(10, 0, 20)),
             out _));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(20, 0, 20)),
             out ushort northEastIndex));
 
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.Equal(3, centerGrid.NeighborCount);
         Assert.Equal(3, centerGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex).Distinct().Count());
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(northEastIndex));
+        Assert.True(_world.TryRemoveGrid(northEastIndex));
 
         Assert.Equal(2, centerGrid.NeighborCount);
         Assert.Equal(2, centerGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex).Distinct().Count());
@@ -458,10 +459,10 @@ public class VoxelGridTests : IDisposable
         TestOccupant occupant = new(new Vector3d(0, 0, 0), 4);
         BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
 
-        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
+        Assert.True(_world.TryAddGrid(centerConfig, out ushort centerIndex));
+        Assert.True(_world.TryAddGrid(eastConfig, out ushort eastIndex));
 
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.True(centerGrid.TryAddVoxelOccupant(occupant));
         Assert.True(centerGrid.TryAddObstacle(new Vector3d(1, 0, 1), obstacleToken));
@@ -469,13 +470,13 @@ public class VoxelGridTests : IDisposable
         Assert.True(centerGrid.IsOccupied);
         Assert.Equal(1, centerGrid.ObstacleCount);
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(eastIndex));
-        Assert.True(GlobalGridManager.TryRemoveGrid(centerIndex));
-        Assert.Empty(GridOccupantManager.GetOccupiedIndices(occupant));
+        Assert.True(_world.TryRemoveGrid(eastIndex));
+        Assert.True(_world.TryRemoveGrid(centerIndex));
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(_world, occupant));
 
-        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort reusedIndex));
+        Assert.True(_world.TryAddGrid(centerConfig, out ushort reusedIndex));
 
-        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+        VoxelGrid reusedGrid = _world.ActiveGrids[reusedIndex];
 
         Assert.False(reusedGrid.IsConjoined);
         Assert.Equal(0, reusedGrid.NeighborCount);
@@ -494,35 +495,29 @@ public class VoxelGridTests : IDisposable
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+        Assert.True(_world.TryRemoveGrid(gridIndex));
         Assert.False(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out _));
         Assert.False(grid.TryGetVoxel(0, 0, 0, out _));
         Assert.False(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out _));
     }
 
     [Fact]
-    public void TryGetVoxelIndex_ShouldUseOwningWorldVoxelSizeEvenWhenFacadeMirrorChanges()
+    public void TryGetVoxelIndex_ShouldUseOwningWorldVoxelSizeEvenWhenOtherWorldsDiffer()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        using GridWorld fractionalWorld = GridWorldTestFactory.CreateWorld((Fixed64)0.5);
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
-        object originalVoxelSize = GetManagerBackingField("VoxelSize");
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        VoxelGrid fractionalGrid = GridWorldTestFactory.AddGrid(fractionalWorld, config);
 
-        try
-        {
-            SetManagerBackingField("VoxelSize", (Fixed64)0.5);
-
-            Assert.True(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex resolvedIndex));
-            Assert.Equal(new VoxelIndex(1, 0, 1), resolvedIndex);
-        }
-        finally
-        {
-            SetManagerBackingField("VoxelSize", originalVoxelSize);
-        }
+        Assert.True(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex resolvedIndex));
+        Assert.Equal(new VoxelIndex(1, 0, 1), resolvedIndex);
+        Assert.True(fractionalGrid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex fractionalIndex));
+        Assert.Equal(new VoxelIndex(2, 0, 2), fractionalIndex);
     }
 
     [Fact]
@@ -533,21 +528,21 @@ public class VoxelGridTests : IDisposable
             new Vector3d(3, 0, 3),
             scanCellSize: 2);
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort firstIndex));
-        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort firstIndex));
+        VoxelGrid firstGrid = _world.ActiveGrids[firstIndex];
         object firstScanCellMap = firstGrid.ScanCells;
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(firstIndex));
+        Assert.True(_world.TryRemoveGrid(firstIndex));
 
-        Type poolsType = typeof(GlobalGridManager).Assembly.GetType("GridForge.Grids.Pools");
+        Type poolsType = typeof(GridWorld).Assembly.GetType("GridForge.Grids.Pools");
         Assert.NotNull(poolsType);
 
         MethodInfo clearPools = poolsType.GetMethod("ClearPools", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(clearPools);
         clearPools.Invoke(null, null);
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort secondIndex));
-        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort secondIndex));
+        VoxelGrid secondGrid = _world.ActiveGrids[secondIndex];
 
         Assert.NotSame(firstScanCellMap, secondGrid.ScanCells);
     }
@@ -555,19 +550,19 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void GetNeighborDirection_ShouldFollowCardinalAxisOffsets()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
             out ushort centerIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(2, 0, 1)),
             out ushort eastIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 1), new Vector3d(1, 0, 2)),
             out ushort northIndex));
 
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
-        VoxelGrid eastGrid = GlobalGridManager.ActiveGrids[eastIndex];
-        VoxelGrid northGrid = GlobalGridManager.ActiveGrids[northIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
+        VoxelGrid eastGrid = _world.ActiveGrids[eastIndex];
+        VoxelGrid northGrid = _world.ActiveGrids[northIndex];
 
         Assert.Equal(SpatialDirection.East, VoxelGrid.GetNeighborDirection(centerGrid, eastGrid));
         Assert.Equal(SpatialDirection.North, VoxelGrid.GetNeighborDirection(centerGrid, northGrid));
@@ -578,8 +573,8 @@ public class VoxelGridTests : IDisposable
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        Assert.True(GlobalGridManager.TryRemoveGrid(gridIndex));
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        Assert.True(_world.TryRemoveGrid(gridIndex));
 
         Type poolsType = typeof(VoxelGrid).Assembly.GetType("GridForge.Grids.Pools");
         MethodInfo clearPools = poolsType?.GetMethod(
@@ -589,8 +584,8 @@ public class VoxelGridTests : IDisposable
         Assert.NotNull(clearPools);
         clearPools.Invoke(null, null);
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort reusedIndex));
-        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort reusedIndex));
+        VoxelGrid reusedGrid = _world.ActiveGrids[reusedIndex];
 
         Assert.True(reusedGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
         Assert.NotNull(voxel);
@@ -639,22 +634,23 @@ public class VoxelGridTests : IDisposable
 
     private static VoxelGrid CreateStandaloneGrid(ushort globalIndex, Vector3d min, Vector3d max)
     {
+        GridWorld world = GridWorldTestFactory.CreateWorld();
         VoxelGrid grid = new();
-        InvokeGridInitialize(grid, globalIndex, new GridConfiguration(min, max));
+        InvokeGridInitialize(grid, world, globalIndex, new GridConfiguration(min, max));
         return grid;
     }
 
-    private static void InvokeGridInitialize(VoxelGrid grid, ushort globalIndex, GridConfiguration configuration)
+    private static void InvokeGridInitialize(VoxelGrid grid, GridWorld world, ushort globalIndex, GridConfiguration configuration)
     {
         MethodInfo initializeMethod = typeof(VoxelGrid).GetMethod(
             "Initialize",
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
-            new[] { typeof(ushort), typeof(GridConfiguration) },
+            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration) },
             null);
 
         Assert.NotNull(initializeMethod);
-        initializeMethod.Invoke(grid, new object[] { globalIndex, configuration });
+        initializeMethod.Invoke(grid, new object[] { world, globalIndex, configuration });
     }
 
     private static void InvokeGridReset(VoxelGrid grid)
@@ -707,23 +703,11 @@ public class VoxelGridTests : IDisposable
         versionField.SetValue(grid, version);
     }
 
-    private static object GetManagerBackingField(string propertyName)
+    private void ResetWorld(
+        Fixed64? voxelSize = null,
+        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
-        FieldInfo backingField = typeof(GlobalGridManager).GetField(
-            $"<{propertyName}>k__BackingField",
-            BindingFlags.Static | BindingFlags.NonPublic);
-
-        Assert.NotNull(backingField);
-        return backingField.GetValue(null);
-    }
-
-    private static void SetManagerBackingField(string propertyName, object value)
-    {
-        FieldInfo backingField = typeof(GlobalGridManager).GetField(
-            $"<{propertyName}>k__BackingField",
-            BindingFlags.Static | BindingFlags.NonPublic);
-
-        Assert.NotNull(backingField);
-        backingField.SetValue(null, value);
+        _world.Dispose();
+        _world = GridWorldTestFactory.CreateWorld(voxelSize, spatialGridCellSize);
     }
 }

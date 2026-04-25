@@ -59,7 +59,6 @@ Key ideas:
 - `GridWorld` owns runtime state such as voxel size, spatial hash size, active grids, tracing, blocker reactivity, and world-space lookup.
 - `VoxelGrid` is world-local. `GridIndex` is unique only within its owning world.
 - `WorldVoxelIndex` is the cross-system identity for a voxel and includes world scope.
-- `GlobalGridManager` still exists during the migration branch as a temporary default-world facade, but new code should prefer explicit `GridWorld` usage.
 
 ## Why Explicit Worlds
 
