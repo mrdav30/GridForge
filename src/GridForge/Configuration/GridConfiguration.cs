@@ -1,5 +1,4 @@
 ﻿using FixedMathSharp;
-using GridForge.Grids;
 using MemoryPack;
 using SwiftCollections;
 using System;
@@ -9,7 +8,7 @@ namespace GridForge.Configuration;
 
 /// <summary>
 /// Defines the configuration parameters for a grid, including boundaries and scan cell size.
-/// Used to initialize and validate grid properties before creation.
+/// Used to describe grid properties before a world normalizes and registers the grid.
 /// </summary>
 [Serializable]
 [MemoryPackable]
@@ -71,8 +70,14 @@ public readonly partial struct GridConfiguration
         if (boundsMin > boundsMax)
             GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
 
-        // Ensures GridMin <= GridMax for each coordinate axis
-        (BoundsMin, BoundsMax) = GlobalGridManager.SnapBoundsToVoxelSize(boundsMin, boundsMax);
+        BoundsMin = new Vector3d(
+            FixedMath.Min(boundsMin.x, boundsMax.x),
+            FixedMath.Min(boundsMin.y, boundsMax.y),
+            FixedMath.Min(boundsMin.z, boundsMax.z));
+        BoundsMax = new Vector3d(
+            FixedMath.Max(boundsMin.x, boundsMax.x),
+            FixedMath.Max(boundsMin.y, boundsMax.y),
+            FixedMath.Max(boundsMin.z, boundsMax.z));
 
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
     }

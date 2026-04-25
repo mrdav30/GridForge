@@ -13,6 +13,7 @@ public class BlockerMemoryBenchmarks
 {
     private BoundingArea[] _areas;
     private BoundsBlocker[] _blockers;
+    private GridWorld _world;
 
     public int BlockerCount { get; set; } = 64;
 
@@ -64,19 +65,19 @@ public class BlockerMemoryBenchmarks
 
     private void InitializeScenario(bool cacheCoveredVoxels)
     {
-        BenchmarkEnvironment.PrepareWorld();
+        _world = BenchmarkEnvironment.PrepareWorld();
 
         GridConfiguration configuration = new(
             new Vector3d(0, 0, 0),
             new Vector3d(191, 0, 191),
             scanCellSize: 8);
 
-        if (!GlobalGridManager.TryAddGrid(configuration, out _))
+        if (!_world.TryAddGrid(configuration, out _))
             throw new InvalidOperationException("Unable to allocate blocker benchmark grid.");
 
         _blockers = new BoundsBlocker[_areas.Length];
         for (int i = 0; i < _areas.Length; i++)
-            _blockers[i] = new BoundsBlocker(_areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
+            _blockers[i] = new BoundsBlocker(_world, _areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
     }
 
     private BoundingArea[] BuildAreas()

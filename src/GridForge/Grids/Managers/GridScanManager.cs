@@ -18,58 +18,32 @@ public static class GridScanManager
     #region Scan Methods
 
     /// <summary>
-    /// Scans for occupants within a given radius from a specified position.
+    /// Scans for occupants within a given radius from a specified position in the supplied world.
     /// </summary>
-    /// <param name="position">The center position to scan from.</param>
-    /// <param name="radius">The search radius.</param>
-    /// <param name="occupantCondition">Optional filter for occupants.</param>
-    /// <param name="groupCondition">Optional filter for occupant groups.</param>
-    /// <returns>An enumerable of all occupants found within the radius.</returns>
     public static IEnumerable<IVoxelOccupant> ScanRadius(
+        GridWorld world,
         Vector3d position,
         Fixed64 radius,
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        Fixed64 squaredRadius = radius * radius;
-        SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
+        if (world == null || !world.IsActive)
+            return Enumerable.Empty<IVoxelOccupant>();
 
-        // Get bounds for the search area
-        Vector3d boundsMin = position - radius;
-        Vector3d boundsMax = position + radius;
-
-        foreach (ScanCell scanCell in GridTracer.GetCoveredScanCells(boundsMin, boundsMax))
-        {
-            if (!scanCell.IsOccupied)
-                continue;
-
-            IEnumerable<IVoxelOccupant> occupants = occupantCondition == null && groupCondition == null
-                ? scanCell.GetOccupants()
-                : scanCell.GetConditionalOccupants(occupantCondition, groupCondition);
-
-            foreach (IVoxelOccupant occupant in occupants)
-            {
-                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
-                    results.Add(occupant);
-            }
-        }
-
-        foreach (IVoxelOccupant result in results)
-            yield return result;
-
-        SwiftListPool<IVoxelOccupant>.Shared.Release(results);
+        return ScanRadiusIterator(world, position, radius, occupantCondition, groupCondition);
     }
 
     /// <summary>
-    /// Scans for occupants of a specific type within a given radius.
+    /// Scans for occupants of a specific type within a given radius in the supplied world.
     /// </summary>
     public static IEnumerable<T> ScanRadius<T>(
+        GridWorld world,
         Vector3d position,
         Fixed64 radius,
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        return ScanRadius(position, radius, occupantCondition, groupCondition).OfType<T>();
+        return ScanRadius(world, position, radius, occupantCondition, groupCondition).OfType<T>();
     }
 
     #endregion
@@ -77,14 +51,11 @@ public static class GridScanManager
     #region Occupant Registration & Retrieval
 
     /// <summary>
-    /// Retrieves all occupants of a specific type at a given global voxel index.
+    /// Retrieves all occupants of a specific type at a given world-scoped voxel identity in the supplied world.
     /// </summary>
-    /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-    /// <param name="index">The global voxel index to check for occupants.</param>
-    /// <returns>An enumerable collection of occupants of the specified type.</returns>
-    public static IEnumerable<T> GetVoxelOccupantsByType<T>(GlobalVoxelIndex index) where T : IVoxelOccupant
+    public static IEnumerable<T> GetVoxelOccupantsByType<T>(GridWorld world, WorldVoxelIndex index) where T : IVoxelOccupant
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+        return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetVoxelOccupantsByType<T>(voxel!)
             : Enumerable.Empty<T>();
     }
@@ -92,10 +63,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants of a specific type at a given world position.
     /// </summary>
-    /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="position">The world position of the voxel.</param>
-    /// <returns>An enumerable collection of occupants of the specified type.</returns>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Vector3d position) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
@@ -106,10 +73,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants of a specific type at a given voxel coordinate.
     /// </summary>
-    /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="index">The local voxel coordinates.</param>
-    /// <returns>An enumerable collection of occupants of the specified type.</returns>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex index) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(index, out Voxel? voxel)
@@ -120,10 +83,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants of a specific type at a given voxel.
     /// </summary>
-    /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-    /// <param name="grid">The grid containing the voxel.</param>
-    /// <param name="voxel">The target voxel.</param>
-    /// <returns>An enumerable collection of occupants of the specified type.</returns>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Voxel voxel) where T : IVoxelOccupant
     {
         return voxel == null
@@ -132,30 +91,23 @@ public static class GridScanManager
     }
 
     /// <summary>
-    /// Retrieves a specific occupant at a given world position using an occupant ticket.
+    /// Retrieves a specific occupant at a given world-scoped voxel identity using an occupant ticket in the supplied world.
     /// </summary>
-    /// <param name="index">The global voxel index to check for an occupant.</param>
-    /// <param name="occupant">The retrieved occupant if found.</param>
-    /// <param name="ticket">The occupant's ticket assigned by the scancell.</param>
-    /// <returns>True if the occupant was found, otherwise false.</returns>
     public static bool TryGetVoxelOccupant(
-        GlobalVoxelIndex index,
+        GridWorld world,
+        WorldVoxelIndex index,
         int ticket,
         out IVoxelOccupant? occupant)
     {
         occupant = null;
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+        return world != null
+            && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryGetVoxelOccupant(voxel!, ticket, out occupant);
     }
 
     /// <summary>
     /// Retrieves a specific occupant at a given world position using an occupant ticket.
     /// </summary>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="position">The world position of the voxel.</param>
-    /// <param name="ticket">The occupant's ticket assigned by the scancell.</param>
-    /// <param name="occupant">The retrieved occupant if found.</param>
-    /// <returns>True if the occupant was found, otherwise false.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Vector3d position,
@@ -170,11 +122,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant at a given voxel coordinate using an occupant ticket.
     /// </summary>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="index">The local voxel coordinates.</param>
-    /// <param name="ticket">The occupant's ticket assigned by the scancell.</param>
-    /// <param name="occupant">The retrieved occupant if found.</param>
-    /// <returns>True if the occupant was found, otherwise false.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         VoxelIndex index,
@@ -189,11 +136,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant from a given voxel using an occupant ticket.
     /// </summary>
-    /// <param name="grid">The grid containing the voxel.</param>
-    /// <param name="voxel">The target voxel.</param>
-    /// <param name="ticket">The occupant's ticket assigned by the scancell.</param>
-    /// <param name="occupant">The retrieved occupant if found.</param>
-    /// <returns>True if the occupant was found, otherwise false.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Voxel voxel,
@@ -204,17 +146,15 @@ public static class GridScanManager
         return voxel.IsOccupied
             && grid.TryGetScanCell(voxel.ScanCellKey, out ScanCell? scanCell)
             && scanCell!.IsOccupied
-            && scanCell.TryGetOccupantAt(voxel.GlobalIndex, ticket, out occupant);
+            && scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out occupant);
     }
 
     /// <summary>
-    /// Retrieves all occupants at a given global voxel index.
+    /// Retrieves all occupants at a given world-scoped voxel identity in the supplied world.
     /// </summary>
-    /// <param name="index">The global voxel index to check for occupants.</param>
-    /// <returns>An enumerable collection of voxel occupants.</returns>
-    public static IEnumerable<IVoxelOccupant> GetOccupants(GlobalVoxelIndex index)
+    public static IEnumerable<IVoxelOccupant> GetOccupants(GridWorld world, WorldVoxelIndex index)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+        return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetOccupants(voxel!)
             : Enumerable.Empty<IVoxelOccupant>();
     }
@@ -222,9 +162,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants at a given world position within the grid.
     /// </summary>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="position">The world position to check for occupants.</param>
-    /// <returns>An enumerable collection of voxel occupants.</returns>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Vector3d position)
     {
         return grid.TryGetVoxel(position, out Voxel? targetVoxel)
@@ -235,9 +172,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants at a given voxel coordinate within the grid.
     /// </summary>
-    /// <param name="grid">The grid to query.</param>
-    /// <param name="index">The local coordinates of the voxel.</param>
-    /// <returns>An enumerable collection of voxel occupants.</returns>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex index)
     {
         return grid.TryGetVoxel(index, out Voxel? targetVoxel)
@@ -248,9 +182,6 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves all occupants at a given voxel.
     /// </summary>
-    /// <param name="grid">The grid containing the voxel.</param>
-    /// <param name="voxel">The target voxel to retrieve occupants from.</param>
-    /// <returns>An enumerable collection of voxel occupants.</returns>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Voxel voxel)
     {
         return voxel.IsOccupied
@@ -261,14 +192,15 @@ public static class GridScanManager
     }
 
     /// <summary>
-    /// Retrieves occupants whose group Ids match a given condition.
+    /// Retrieves occupants whose group Ids match a given condition at a world-scoped voxel identity in the supplied world.
     /// </summary>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
-        GlobalVoxelIndex index,
+        GridWorld world,
+        WorldVoxelIndex index,
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+        return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition)
             : Enumerable.Empty<IVoxelOccupant>();
     }
@@ -316,6 +248,45 @@ public static class GridScanManager
             && scanCell!.IsOccupied
             ? scanCell.GetConditionalOccupants(occupantCondition, groupCondition)
             : Enumerable.Empty<IVoxelOccupant>();
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private static IEnumerable<IVoxelOccupant> ScanRadiusIterator(
+        GridWorld world,
+        Vector3d position,
+        Fixed64 radius,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
+        Fixed64 squaredRadius = radius * radius;
+        SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
+
+        Vector3d boundsMin = position - radius;
+        Vector3d boundsMax = position + radius;
+
+        foreach (ScanCell scanCell in GridTracer.GetCoveredScanCells(world, boundsMin, boundsMax))
+        {
+            if (!scanCell.IsOccupied)
+                continue;
+
+            IEnumerable<IVoxelOccupant> occupants = occupantCondition == null && groupCondition == null
+                ? scanCell.GetOccupants()
+                : scanCell.GetConditionalOccupants(occupantCondition, groupCondition);
+
+            foreach (IVoxelOccupant occupant in occupants)
+            {
+                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
+                    results.Add(occupant);
+            }
+        }
+
+        foreach (IVoxelOccupant result in results)
+            yield return result;
+
+        SwiftListPool<IVoxelOccupant>.Shared.Release(results);
     }
 
     #endregion

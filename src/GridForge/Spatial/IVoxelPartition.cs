@@ -9,15 +9,15 @@ namespace GridForge.Spatial;
 public interface IVoxelPartition
 {
     /// <summary>
-    /// The global index of the parent voxel where this partition is attached.
+    /// The world-scoped identity of the parent voxel where this partition is attached.
     /// </summary>
-    GlobalVoxelIndex GlobalIndex { get; }
+    WorldVoxelIndex WorldIndex { get; }
 
     /// <summary>
     /// Called when adding this partition to a <see cref="Voxel"/>
     /// </summary>
-    /// <param name="parentVoxelIndex">The global index of the parent <see cref="Voxel"/>.</param>
-    void SetParentIndex(GlobalVoxelIndex parentVoxelIndex);
+    /// <param name="parentVoxelIndex">The world-scoped identity of the parent <see cref="Voxel"/>.</param>
+    void SetParentIndex(WorldVoxelIndex parentVoxelIndex);
 
     /// <summary>
     /// Called when adding this partition to a <see cref="Voxel"/>.

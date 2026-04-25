@@ -12,24 +12,8 @@ using Xunit;
 namespace GridForge.Spatial.Tests;
 
 [Collection("GridForgeCollection")]
-public class SpatialTypesTests : IDisposable
+public class SpatialTypesTests
 {
-    public SpatialTypesTests()
-    {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-
-        GlobalGridManager.Setup();
-    }
-
-    public void Dispose()
-    {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-
-        GC.SuppressFinalize(this);
-    }
-
     [Fact]
     public void VoxelIndex_ShouldSupportTwoArgumentConstructionAndEqualityOperators()
     {
@@ -52,22 +36,23 @@ public class SpatialTypesTests : IDisposable
     }
 
     [Fact]
-    public void GlobalVoxelIndex_ShouldSupportEqualityOperatorsAndObjectComparison()
+    public void WorldVoxelIndex_ShouldSupportEqualityOperatorsAndObjectComparison()
     {
-        GlobalVoxelIndex first = new(2, new VoxelIndex(1, 2, 3), 99);
-        GlobalVoxelIndex second = new(2, new VoxelIndex(1, 2, 3), 100);
+        WorldVoxelIndex first = new(17, 2, 99, new VoxelIndex(1, 2, 3));
+        WorldVoxelIndex second = new(17, 2, 100, new VoxelIndex(1, 2, 3));
         object boxed = second;
 
         Assert.False(first == second);
         Assert.True(first != second);
         Assert.False(first.Equals(boxed));
-        Assert.False(first.Equals("not a global voxel index"));
+        Assert.False(first.Equals("not a world voxel index"));
         Assert.NotEqual(first.GetHashCode(), second.GetHashCode());
-        Assert.Contains("Index: 2", first.ToString());
+        Assert.Contains("World: 17", first.ToString());
+        Assert.Contains("Grid: 2", first.ToString());
     }
 
     [Fact]
-    public void GridConfiguration_ShouldSnapBoundsAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
+    public void GridConfiguration_ShouldNormalizeOrderingAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
     {
         GridConfiguration configuration = new(
             new Vector3d(5, 5, 5),
@@ -82,7 +67,7 @@ public class SpatialTypesTests : IDisposable
     }
 
     [Fact]
-    public void GridConfiguration_ShouldUseJsonConstructorNormalization_WhenDeserializing()
+    public void GridConfiguration_ShouldUseJsonConstructorOrderingNormalization_WhenDeserializing()
     {
         string boundsMinJson = JsonSerializer.Serialize(new Vector3d(5, 5, 5));
         string boundsMaxJson = JsonSerializer.Serialize(new Vector3d(1, 1, 1));
@@ -184,15 +169,16 @@ public class SpatialTypesTests : IDisposable
             new Vector3d(-2, 0, -1),
             new Vector3d(2, 0, 1),
             scanCellSize: 4);
-        GlobalVoxelIndex voxelIndex = new(7, new VoxelIndex(1, 2, 3), 42);
+        WorldVoxelIndex voxelIndex = new(13, 7, 42, new VoxelIndex(1, 2, 3));
         BoundsKey obstacleToken = new(new Vector3d(-1, 0, -1), new Vector3d(1, 0, 1));
         TestOccupant occupant = new(new Vector3d(0, 0, 0), 5);
 
-        GridEventInfo gridEventInfo = new(7, 99, configuration, 3);
+        GridEventInfo gridEventInfo = new(13, 7, 99, configuration, 3);
         ObstacleEventInfo obstacleEventInfo = new(voxelIndex, obstacleToken, 2, 4);
         ObstacleClearEventInfo obstacleClearEventInfo = new(voxelIndex, 2, 5);
         OccupantEventInfo occupantEventInfo = new(voxelIndex, occupant, 12, 1);
 
+        Assert.Equal(13, gridEventInfo.WorldSpawnToken);
         Assert.Equal((ushort)7, gridEventInfo.GridIndex);
         Assert.Equal(99, gridEventInfo.GridSpawnToken);
         Assert.Equal(configuration.BoundsMin, gridEventInfo.BoundsMin);

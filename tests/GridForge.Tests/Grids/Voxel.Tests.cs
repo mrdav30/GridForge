@@ -11,17 +11,16 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public class VoxelTests : IDisposable
 {
+    private readonly GridWorld _world;
+
     public VoxelTests()
     {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset();
-        else
-            GlobalGridManager.Setup();
+        _world = GridWorldTestFactory.CreateWorld();
     }
 
     public void Dispose()
     {
-        GlobalGridManager.Reset();
+        _world.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -29,8 +28,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldInitializeCorrectly()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d testPosition = new(10, 0, 10);
 
@@ -64,8 +63,8 @@ public class VoxelTests : IDisposable
         Assert.False(detachedVoxel.IsOccupied);
 
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
         Assert.False(voxel.IsBlocked);
@@ -89,17 +88,17 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldHandleOccupantsCorrectly()
     {
         var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d position = new(6, 0, 6);
         TestOccupant occupant = new(position);
         grid.TryAddVoxelOccupant(occupant);
 
         int previousTicket = -1;
-        foreach (GlobalVoxelIndex occupiedIndex in GridOccupantManager.GetOccupiedIndices(occupant))
+        foreach (WorldVoxelIndex occupiedIndex in GridOccupantManager.GetOccupiedIndices(_world, occupant))
         {
-            Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant, occupiedIndex, out int ticket));
+            Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant, occupiedIndex, out int ticket));
             grid.TryGetVoxel(occupiedIndex.VoxelIndex, out Voxel occupantVoxel);
 
             Assert.True(occupantVoxel.IsOccupied);
@@ -115,8 +114,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldCorrectlyBlockAndUnblock()
     {
         var config = new GridConfiguration(new(35, 1, 35), new(40, 1, 40));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(36, 1, 36), out Voxel voxel);
 
         BoundsKey spawnKey = new(new(36, 1, 36), new(37, 1, 37));
@@ -132,8 +131,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldCorrectlyHandlePartitions()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         var partition = new TestPartition();
@@ -155,8 +154,8 @@ public class VoxelTests : IDisposable
     public void TryAddPartition_ShouldRejectDuplicateTypeAndRetainOriginalPartition()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         TestPartition originalPartition = new();
@@ -172,8 +171,8 @@ public class VoxelTests : IDisposable
     public void PartitionQueries_ShouldReturnGracefulDefaultsWhenPartitionIsAbsent()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         Assert.False(voxel.HasPartition<TestPartition>());
@@ -186,8 +185,8 @@ public class VoxelTests : IDisposable
     public void TryAddPartition_ShouldRollbackProviderStateWhenOnAddThrows()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         ThrowOnAddPartition partition = new();
@@ -210,8 +209,8 @@ public class VoxelTests : IDisposable
     public void TryRemovePartition_ShouldRemovePartitionEvenWhenOnRemoveThrows()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         ThrowOnRemovePartition partition = new();
@@ -228,8 +227,8 @@ public class VoxelTests : IDisposable
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
 
@@ -246,13 +245,13 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
-    public void Reset_ShouldResolveOwnerGridFromGlobalManagerWhenNotProvided()
+    public void Reset_ShouldNotResolveOwnerGridWhenNotProvided()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
 
@@ -265,29 +264,29 @@ public class VoxelTests : IDisposable
 
         Assert.False(voxel.IsAllocated);
         Assert.False(voxel.IsBlocked);
-        Assert.Equal(0, grid.ObstacleCount);
+        Assert.Equal(1, grid.ObstacleCount);
     }
 
     [Fact]
     public void Voxel_ShouldSetPartitionParentIndex()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         var partition = new TestPartition();
 
         Assert.True(voxel.TryAddPartition(partition));
-        Assert.Equal(voxel.GlobalIndex, partition.GlobalIndex);
+        Assert.Equal(voxel.WorldIndex, partition.WorldIndex);
     }
 
     [Fact]
     public void Voxel_ShouldAllowDistinctConcretePartitionsWithSameTypeName()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
 
         var partitionA = new PartitionFamilyA.SharedPartition();
@@ -297,8 +296,8 @@ public class VoxelTests : IDisposable
         Assert.True(voxel.TryAddPartition(partitionB));
         Assert.True(voxel.TryGetPartition<PartitionFamilyA.SharedPartition>(out PartitionFamilyA.SharedPartition storedA));
         Assert.True(voxel.TryGetPartition<PartitionFamilyB.SharedPartition>(out PartitionFamilyB.SharedPartition storedB));
-        Assert.Equal(voxel.GlobalIndex, partitionA.GlobalIndex);
-        Assert.Equal(voxel.GlobalIndex, partitionB.GlobalIndex);
+        Assert.Equal(voxel.WorldIndex, partitionA.WorldIndex);
+        Assert.Equal(voxel.WorldIndex, partitionB.WorldIndex);
         Assert.Same(partitionA, storedA);
         Assert.Same(partitionB, storedB);
     }
@@ -307,8 +306,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldRespectBoundaryConditions()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         grid.TryGetVoxel(new Vector3d(-10, 0, 0), out Voxel westVoxel);
         grid.TryGetVoxel(new Vector3d(10, 0, 0), out Voxel eastVoxel);
@@ -321,8 +320,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldNotIncrementObstacleCountBeyondLimit()
     {
         var config = new GridConfiguration(new Vector3d(36, 1, 36), new Vector3d(40, 1, 40));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(37, 1, 37), out Voxel voxel);
 
         BoundsKey spawnKey = new(new(37, 1, 37), new(38, 1, 38));
@@ -341,8 +340,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldAllowMultipleOccupants()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d position = new(10, 0, 10);
         TestOccupant occupant1 = new(position);
@@ -356,8 +355,8 @@ public class VoxelTests : IDisposable
         Assert.True(targetVoxel.IsOccupied);
         Assert.True(targetVoxel.OccupantCount > 0);
 
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant1, targetVoxel.GlobalIndex, out int ticket1));
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(occupant2, targetVoxel.GlobalIndex, out int ticket2));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant1, targetVoxel.WorldIndex, out int ticket1));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant2, targetVoxel.WorldIndex, out int ticket2));
 
         grid.TryRemoveVoxelOccupant(targetVoxel, occupant1);
         Assert.False(grid.TryGetVoxelOccupant(targetVoxel, ticket1, out _));
@@ -373,8 +372,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldNotChangeStateIfRemovingNonExistentOccupant()
     {
         var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d position = new(0, 0, 0);
         TestOccupant occupant = new(position);
@@ -392,8 +391,8 @@ public class VoxelTests : IDisposable
     public void Voxel_ShouldRetrieveOccupantsByType()
     {
         var config = new GridConfiguration(new Vector3d(-30, 0, -30), new Vector3d(-20, 0, -20));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Vector3d position = new(-27, 0, -27);
         TestOccupant occupant1 = new(position);
@@ -413,12 +412,12 @@ public class VoxelTests : IDisposable
     public void GetNeighbors_ShouldReturnDeterministicDirectionOrderForInteriorVoxel()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
-        var neighbors = voxel.GetNeighbors(useCache: false).ToList();
+        var neighbors = voxel.GetNeighbors(grid, useCache: false).ToList();
 
         Assert.Equal(SpatialAwareness.DirectionOffsets.Length, neighbors.Count);
 
@@ -436,12 +435,12 @@ public class VoxelTests : IDisposable
     public void GetNeighbors_ShouldReturnOnlyValidDirectionsForCornerVoxel()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        var actualDirections = voxel.GetNeighbors(useCache: false)
+        var actualDirections = voxel.GetNeighbors(grid, useCache: false)
             .Select(result => result.Item1)
             .ToList();
         var expectedDirections = SpatialAwareness.AllDirections
@@ -460,18 +459,20 @@ public class VoxelTests : IDisposable
     public void GetNeighbors_ShouldResolveIdenticallyWithAndWithoutCache()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
         foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
         {
             bool foundWithoutCache = voxel.TryGetNeighborFromDirection(
+                grid,
                 direction,
                 out Voxel uncachedNeighbor,
                 useCache: false);
             bool foundWithCache = voxel.TryGetNeighborFromDirection(
+                grid,
                 direction,
                 out Voxel cachedNeighbor,
                 useCache: true);
@@ -487,13 +488,13 @@ public class VoxelTests : IDisposable
     public void GetNeighbors_ShouldNotDuplicateResultsWhenCacheIsReused()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
-        var firstPass = voxel.GetNeighbors(useCache: true).ToList();
-        var secondPass = voxel.GetNeighbors(useCache: true).ToList();
+        var firstPass = voxel.GetNeighbors(grid, useCache: true).ToList();
+        var secondPass = voxel.GetNeighbors(grid, useCache: true).ToList();
 
         Assert.Equal(firstPass.Count, secondPass.Count);
         Assert.Equal(firstPass.Select(result => result.Item1), secondPass.Select(result => result.Item1));
@@ -503,15 +504,15 @@ public class VoxelTests : IDisposable
     public void GetNeighbors_ShouldSkipNullEntriesWhenEnumeratingFromCachedCornerState()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
-        GlobalGridManager.TryAddGrid(config, out ushort gridIndex);
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        SpatialDirection[] firstPass = voxel.GetNeighbors(useCache: true)
+        SpatialDirection[] firstPass = voxel.GetNeighbors(grid, useCache: true)
             .Select(result => result.Item1)
             .ToArray();
-        SpatialDirection[] secondPass = voxel.GetNeighbors(useCache: true)
+        SpatialDirection[] secondPass = voxel.GetNeighbors(grid, useCache: true)
             .Select(result => result.Item1)
             .ToArray();
 
@@ -525,20 +526,20 @@ public class VoxelTests : IDisposable
     [Fact]
     public void TryGetNeighborFromOffset_ShouldResolveAcrossConjoinedGridBoundary()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
             out ushort firstGridIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0)),
             out ushort secondGridIndex));
 
-        VoxelGrid firstGrid = GlobalGridManager.ActiveGrids[firstGridIndex];
-        VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondGridIndex];
+        VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
 
         Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
         Assert.True(secondGrid.TryGetVoxel(new Vector3d(2, 0, 0), out Voxel adjacentVoxel));
 
-        Assert.True(boundaryVoxel.TryGetNeighborFromOffset((1, 0, 0), out Voxel resolvedNeighbor));
+        Assert.True(boundaryVoxel.TryGetNeighborFromOffset(firstGrid, (1, 0, 0), out Voxel resolvedNeighbor));
         Assert.Same(adjacentVoxel, resolvedNeighbor);
     }
 
@@ -546,36 +547,37 @@ public class VoxelTests : IDisposable
     public void TryGetNeighborFromDirection_ShouldHandleInvalidDirectionsGracefully()
     {
         Voxel detachedVoxel = new();
+        VoxelGrid detachedGrid = new();
 
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.None, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(SpatialDirection.West, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection((SpatialDirection)(-2), out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection((SpatialDirection)999, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromOffset((1, 0, 0), out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, SpatialDirection.None, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, SpatialDirection.West, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, (SpatialDirection)(-2), out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, (SpatialDirection)999, out _));
+        Assert.False(detachedVoxel.TryGetNeighborFromOffset(detachedGrid, (1, 0, 0), out _));
     }
 
     [Fact]
     public void BoundaryNeighborCache_ShouldRefreshWhenAdjacentGridsLoadAndUnload()
     {
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
             out ushort centerIndex));
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.True(centerGrid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel boundaryVoxel));
-        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out _, useCache: true));
+        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out _, useCache: true));
 
-        Assert.True(GlobalGridManager.TryAddGrid(
+        Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2)),
             out ushort northEastIndex));
-        VoxelGrid northEastGrid = GlobalGridManager.ActiveGrids[northEastIndex];
+        VoxelGrid northEastGrid = _world.ActiveGrids[northEastIndex];
 
         Assert.True(northEastGrid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel expectedNeighbor));
-        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out Voxel cachedNeighbor, useCache: true));
+        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out Voxel cachedNeighbor, useCache: true));
         Assert.Same(expectedNeighbor, cachedNeighbor);
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(northEastIndex));
-        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(SpatialDirection.NorthEast, out _, useCache: true));
+        Assert.True(_world.TryRemoveGrid(northEastIndex));
+        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out _, useCache: true));
     }
 
     [Fact]
@@ -585,29 +587,29 @@ public class VoxelTests : IDisposable
         GridConfiguration eastConfig = new(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
         BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
-        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort centerIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(eastConfig, out ushort eastIndex));
+        Assert.True(_world.TryAddGrid(centerConfig, out ushort centerIndex));
+        Assert.True(_world.TryAddGrid(eastConfig, out ushort eastIndex));
 
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.True(centerGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel oldVoxel));
-        Assert.True(oldVoxel.TryGetNeighborFromDirection(SpatialDirection.East, out Voxel eastNeighbor, useCache: true));
+        Assert.True(oldVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.East, out Voxel eastNeighbor, useCache: true));
         Assert.Equal(new Vector3d(1, 0, 0), eastNeighbor.WorldPosition);
         Assert.True(oldVoxel.TryAddPartition(new TestPartition()));
         Assert.True(centerGrid.TryAddObstacle(oldVoxel, obstacleToken));
 
-        Assert.True(GlobalGridManager.TryRemoveGrid(eastIndex));
-        Assert.True(GlobalGridManager.TryRemoveGrid(centerIndex));
-        Assert.True(GlobalGridManager.TryAddGrid(centerConfig, out ushort reusedIndex));
+        Assert.True(_world.TryRemoveGrid(eastIndex));
+        Assert.True(_world.TryRemoveGrid(centerIndex));
+        Assert.True(_world.TryAddGrid(centerConfig, out ushort reusedIndex));
 
-        VoxelGrid reusedGrid = GlobalGridManager.ActiveGrids[reusedIndex];
+        VoxelGrid reusedGrid = _world.ActiveGrids[reusedIndex];
 
         Assert.True(reusedGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel reusedVoxel));
         Assert.False(reusedVoxel.HasPartition<TestPartition>());
         Assert.Null(reusedVoxel.GetPartitionOrDefault<TestPartition>());
         Assert.False(reusedVoxel.IsBlocked);
         Assert.Equal(0, reusedVoxel.ObstacleCount);
-        Assert.False(reusedVoxel.TryGetNeighborFromDirection(SpatialDirection.East, out _, useCache: true));
+        Assert.False(reusedVoxel.TryGetNeighborFromDirection(reusedGrid, SpatialDirection.East, out _, useCache: true));
         Assert.True(reusedGrid.TryAddObstacle(reusedVoxel, obstacleToken));
     }
 
@@ -617,17 +619,21 @@ public class VoxelTests : IDisposable
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
         BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
         Assert.True(voxel.TryAddPartition(new ThrowOnRemovePartition()));
         Assert.True(voxel.IsPartioned);
-        Assert.Equal(voxel.GlobalIndex.GridIndex, voxel.GridIndex);
+        Assert.Equal(voxel.WorldIndex.GridIndex, voxel.GridIndex);
 
-        _ = voxel.GetNeighbors(useCache: true).ToArray();
-        voxel.GlobalIndex = new GlobalVoxelIndex(ushort.MaxValue, voxel.Index, voxel.GlobalIndex.GridSpawnToken);
+        _ = voxel.GetNeighbors(grid, useCache: true).ToArray();
+        voxel.WorldIndex = new WorldVoxelIndex(
+            voxel.WorldIndex.WorldSpawnToken,
+            ushort.MaxValue,
+            voxel.WorldIndex.GridSpawnToken,
+            voxel.Index);
 
         InvokeVoxelReset(voxel);
 
@@ -645,12 +651,12 @@ public class VoxelTests : IDisposable
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
 
-        Assert.True(GlobalGridManager.TryAddGrid(config, out ushort gridIndex));
-        VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        Assert.Equal(voxel.GlobalIndex.ToString(), voxel.ToString());
+        Assert.Equal(voxel.WorldIndex.ToString(), voxel.ToString());
         Assert.True(voxel.Equals((object)voxel));
         Assert.False(voxel.Equals((object)new object()));
     }

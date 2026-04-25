@@ -10,7 +10,7 @@ public readonly struct OccupantEventInfo
     /// <summary>
     /// The voxel affected by the occupant mutation.
     /// </summary>
-    public readonly GlobalVoxelIndex VoxelIndex;
+    public readonly WorldVoxelIndex VoxelIndex;
 
     /// <summary>
     /// The occupant that was added to or removed from the voxel.
@@ -36,7 +36,7 @@ public readonly struct OccupantEventInfo
     /// Initializes a new immutable occupant mutation snapshot.
     /// </summary>
     public OccupantEventInfo(
-        GlobalVoxelIndex voxelIndex,
+        WorldVoxelIndex voxelIndex,
         IVoxelOccupant occupant,
         int ticket,
         byte occupantCount)

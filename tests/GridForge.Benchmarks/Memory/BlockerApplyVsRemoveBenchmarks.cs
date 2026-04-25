@@ -13,6 +13,7 @@ public class BlockerApplyVsRemoveBenchmarks
 {
     private BoundingArea[] _areas;
     private BoundsBlocker[] _blockers;
+    private GridWorld _world;
 
     public int BlockerCount { get; set; } = 64;
 
@@ -94,7 +95,7 @@ public class BlockerApplyVsRemoveBenchmarks
 
     private void InitializeScenario(bool cacheCoveredVoxels, bool applyInSetup)
     {
-        BenchmarkEnvironment.PrepareWorld();
+        _world = BenchmarkEnvironment.PrepareWorld();
 
         GridConfiguration[] configurations = BenchmarkScenarioFactory.CreateTiledFlatGridConfigurations(
             tilesX: 2,
@@ -104,13 +105,13 @@ public class BlockerApplyVsRemoveBenchmarks
 
         for (int i = 0; i < configurations.Length; i++)
         {
-            if (!GlobalGridManager.TryAddGrid(configurations[i], out _))
+            if (!_world.TryAddGrid(configurations[i], out _))
                 throw new InvalidOperationException($"Unable to allocate blocker benchmark grid {i}.");
         }
 
         _blockers = new BoundsBlocker[_areas.Length];
         for (int i = 0; i < _areas.Length; i++)
-            _blockers[i] = new BoundsBlocker(_areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
+            _blockers[i] = new BoundsBlocker(_world, _areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
 
         if (applyInSetup)
         {

@@ -14,9 +14,14 @@ public class ScanCell
     #region Properties
 
     /// <summary>
-    /// The global index of the grid this scan cell belongs to.
+    /// The world-local index of the grid this scan cell belongs to.
     /// </summary>
     public ushort GridIndex { get; private set; }
+
+    /// <summary>
+    /// The world that owns this scan cell through its parent grid.
+    /// </summary>
+    public GridWorld? World { get; private set; }
 
     /// <summary>
     /// A unique identifier for this scan cell in the grid.
@@ -30,9 +35,9 @@ public class ScanCell
     public int SpawnToken { get; private set; }
 
     /// <summary>
-    /// Maps a <see cref="Voxel.GlobalIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
+    /// Maps a <see cref="Voxel.WorldIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
     /// </summary>
-    private SwiftDictionary<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>>? _voxelOccupants;
+    private SwiftDictionary<WorldVoxelIndex, SwiftBucket<IVoxelOccupant>>? _voxelOccupants;
 
     /// <summary>
     /// The total number of occupants in this scan cell.
@@ -57,8 +62,9 @@ public class ScanCell
     /// <summary>
     /// Initializes the scan cell with the specified grid index and unique cell key.
     /// </summary>
-    internal void Initialize(ushort gridIndex, int cellKey)
+    internal void Initialize(GridWorld world, ushort gridIndex, int cellKey)
     {
+        World = world;
         GridIndex = gridIndex;
         CellKey = cellKey;
         SpawnToken = GetHashCode();
@@ -79,7 +85,7 @@ public class ScanCell
             foreach (var kvp in _voxelOccupants)
             {
                 SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-                GridOccupantManager.ForgetTrackedOccupancies(bucket, kvp.Key);
+                GridOccupantManager.ForgetTrackedOccupancies(World, bucket, kvp.Key);
                 Pools.VoxelOccupantBucketPool.Release(bucket);
             }
 
@@ -89,6 +95,7 @@ public class ScanCell
 
         CellOccupantCount = 0;
 
+        World = null;
         GridIndex = ushort.MaxValue;
         CellKey = byte.MaxValue;
 
@@ -105,7 +112,7 @@ public class ScanCell
     /// <param name="index">The global index of the voxel where the occupant resides.</param>
     /// <param name="occupant">The occupant instance to add.</param>
     /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
-    internal int AddOccupant(GlobalVoxelIndex index, IVoxelOccupant occupant)
+    internal int AddOccupant(WorldVoxelIndex index, IVoxelOccupant occupant)
     {
         _voxelOccupants ??= Pools.VoxelOccupantDictionaryPool.Rent();
         if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> bucket))
@@ -126,7 +133,7 @@ public class ScanCell
     /// <param name="ticket">The ticket assigned to the occupant instance from this scancell.</param>
     /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
     internal bool TryRemoveOccupant(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         int ticket)
     {
         if (!IsOccupied || _voxelOccupants?.TryGetValue(index, out var bucket) != true)
@@ -198,7 +205,7 @@ public class ScanCell
     /// </summary>
     /// <param name="index">The global index of the voxel.</param>
     /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
-    public IEnumerable<IVoxelOccupant> GetOccupantsFor(GlobalVoxelIndex index)
+    public IEnumerable<IVoxelOccupant> GetOccupantsFor(WorldVoxelIndex index)
     {
         if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
             yield break;
@@ -215,7 +222,7 @@ public class ScanCell
     /// <param name="voxelOccupant">The retrieved occupant if found.</param>
     /// <returns>True if the occupant was found, otherwise false.</returns>
     public bool TryGetOccupantAt(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         int occupantTicket,
         out IVoxelOccupant? voxelOccupant)
     {

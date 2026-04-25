@@ -6,7 +6,7 @@ This document is for both human contributors and AI coding agents working in thi
 
 GridForge is a deterministic voxel-grid library for spatial partitioning, simulation, and game-development use cases. The core library is framework-agnostic and centers on:
 
-- global grid registration and lookup
+- explicit `GridWorld` ownership and world-scoped grid registration
 - voxelized world-space bounds
 - scan-cell overlays for fast spatial queries
 - obstacle and occupant tracking
@@ -57,18 +57,18 @@ Ignore these when reading or editing unless the task is specifically about build
 
 ### Core Types
 
-- **`GlobalGridManager`:** static entry point for setup, reset, grid registration, spatial hashing, and top-level queries. This is shared mutable state, so most test isolation concerns start here.
+- **`GridWorld`:** primary runtime owner for one world's mutable state: setup values, active grids, spatial hash, world-space lookups, and world-level events.
 - **`VoxelGrid`:** represents a single configured grid with voxels, scan cells, neighbor relationships, occupancy state, and versioning.
 - **`Voxel`:** holds world position, grid indices, obstacle state, occupancy state, partition attachments, and cached neighbor data.
 - **`ScanCell`:** secondary overlay used to accelerate neighborhood and area queries over voxels.
-- **`GridTracer`:** converts lines and bounding regions into covered voxel sets across one or more grids.
+- **`GridTracer`:** converts lines and bounding regions into covered voxel sets inside an explicit `GridWorld`.
 - **`BoundsBlocker` and `Blocker`:** apply or remove obstacle state across covered voxels returned by tracing logic.
 - **`PartitionProvider`, `IVoxelPartition`, and `IVoxelOccupant`:** extension points for custom metadata and occupant systems.
 
 ### Important Design Characteristics
 
 - Deterministic math matters. The library uses `Fixed64`, `Vector2d`, and `Vector3d` from `FixedMathSharp`.
-- Grid state is centralized. `GlobalGridManager` must be initialized before most operations.
+- Grid state is world-scoped. Most runtime APIs should be anchored to an explicit `GridWorld`.
 - Bounds are snapped to voxel size. Many APIs normalize or snap incoming coordinates.
 - Object pooling is used heavily for grids, voxels, scan cells, arrays, and temporary collections.
 - Performance-sensitive code favors explicit control flow over abstraction-heavy patterns.
@@ -77,8 +77,8 @@ Ignore these when reading or editing unless the task is specifically about build
 
 Treat the following as core rules of the system:
 
-- Call `GlobalGridManager.Setup()` before using grid APIs.
-- Call `GlobalGridManager.Reset()` when a test or tool run needs a clean world state.
+- Create a `GridWorld` before using world-scoped grid APIs.
+- Dispose a `GridWorld` or call `Reset()` when a test or tool run needs a clean world state.
 - Use fixed-point types for grid math. Avoid introducing `float` or `double` into core simulation logic unless there is a clear boundary conversion reason.
 - Assume bounds and positions may be snapped to the configured voxel size. When debugging odd query results, check snapped values first.
 - Respect pooling. If a type or collection comes from a pool, verify whether it is safe to retain beyond the immediate operation.
@@ -108,7 +108,7 @@ Match the surrounding code instead of imposing a new style on untouched files.
 ### `src/GridForge/Grids`
 
 - This is the center of the library.
-- `GlobalGridManager` owns grid registration, spatial hashing, setup/reset, and lookup helpers.
+- `GridWorld` owns grid registration, spatial hashing, setup/reset, and world-space lookup helpers.
 - `VoxelGrid` owns dimensions, scan-cell generation, voxel generation, and neighbor relationships.
 - `Voxel` owns obstacle/occupant/partition state and neighbor caching.
 - `Pools` defines reusable object and array pools. Changes here can have broad memory and lifetime effects.
@@ -159,21 +159,21 @@ Repo-specific testing guidance:
 
 - Use the existing xUnit suite in `tests/GridForge.Tests` as the reference for expected behavior.
 - Use `tests/GridForge.Benchmarks` to validate allocation-sensitive changes and pooling or caching regressions.
-- Tests frequently need to guard shared global state with `GlobalGridManager.Setup()` and `GlobalGridManager.Reset()`.
-- Many tests use `[Collection("GridForgeCollection")]` or explicit setup/teardown to avoid leaked static state.
+- Prefer explicit `GridWorld` creation in new tests.
+- Many tests use `[Collection("GridForgeCollection")]` plus explicit setup/teardown to avoid leaked shared state.
 - Prefer deterministic coordinates and explicit assertions over fuzzy tolerances.
 - If you change behavior in tracing, blockers, occupancy, scan cells, or grid registration, update or add tests in the matching folder.
 
-As of March 9, 2026, the solution builds successfully and the test suite passes locally with:
+As of April 25, 2026, the library project builds successfully and the test suite passes locally with:
 
-- 52 tests passed
+- 175 tests passed
 
 ## Common Change Patterns
 
 ### Adding a New Core Grid Behavior
 
 - Start in `src/GridForge/Grids`
-- Identify whether the change belongs at global-manager level, per-grid level, per-voxel level, or scan-cell/query level
+- Identify whether the change belongs at world level, per-grid level, per-voxel level, or scan-cell/query level
 - Add or update tests under `tests/GridForge.Tests/Grids` or `tests/GridForge.Tests/Utility`
 - Check for interactions with pooling, versioning, and neighbor caches
 
@@ -191,7 +191,7 @@ As of March 9, 2026, the solution builds successfully and the test suite passes 
 
 ## Pitfalls To Avoid
 
-- Do not assume the library is instance-based. Much of the state is global and static.
+- Do not assume process-wide mutable world state still exists. The target model is instance-based through `GridWorld`.
 - Do not edit build outputs under `bin`, `obj`, or `TestResults`.
 - Do not introduce engine-specific code or Unity-only assumptions into the core library.
 - Do not bypass snapping or fixed-point conversions in core spatial logic.
@@ -221,7 +221,7 @@ When working on a task in this repository:
 
 - Use `README.md` for the high-level external overview.
 - Use this file for repo-specific implementation guidance.
-- Start debugging behavioral issues from the smallest relevant layer in this order: configuration and bounds snapping, global grid lookup, voxel lookup, tracer or scan logic, then blocker, occupant, or partition mutation.
+- Start debugging behavioral issues from the smallest relevant layer in this order: configuration and bounds snapping, world lookup, voxel lookup, tracer or scan logic, then blocker, occupant, or partition mutation.
 - If a bug looks spatial, log or inspect snapped positions and grid bounds before changing algorithms.
 
 ## If You Need More Context
@@ -230,11 +230,11 @@ The most useful files to read first are usually:
 
 - `README.md`
 - `src/GridForge/GridForge.csproj`
-- `src/GridForge/Grids/GlobalGridManager.cs`
+- `src/GridForge/Grids/Managers/GridWorld.cs`
 - `src/GridForge/Grids/VoxelGrid.cs`
 - `src/GridForge/Grids/Voxel.cs`
 - `src/GridForge/Utility/GridTracer.cs`
-- `tests/GridForge.Tests/Grids/GlobalGridManager.Tests.cs`
+- `tests/GridForge.Tests/Grids/GridWorld.Tests.cs`
 - `tests/GridForge.Tests/Blockers/BlockerTests.cs`
 
 Keep this document current when the solution layout, build flow, or core architecture changes.

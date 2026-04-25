@@ -12,11 +12,12 @@ internal static class BenchmarkEnvironment
 {
     private static readonly Action _clearGridForgePools = CreateGridForgePoolClearer();
     private static bool _loggingSuppressed;
+    private static GridWorld _currentWorld;
 
-    public static void PrepareWorld(
+    public static GridWorld PrepareWorld(
         bool clearAllPools = false,
         Fixed64? voxelSize = null,
-        int spatialGridCellSize = GlobalGridManager.DefaultSpatialGridCellSize)
+        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
         SuppressLogging();
         ResetWorld();
@@ -24,13 +25,17 @@ internal static class BenchmarkEnvironment
         if (clearAllPools)
             ClearAllPools();
 
-        GlobalGridManager.Setup(voxelSize, spatialGridCellSize);
+        _currentWorld = new GridWorld(voxelSize, spatialGridCellSize);
+        return _currentWorld;
     }
 
     public static void ResetWorld()
     {
-        if (GlobalGridManager.IsActive)
-            GlobalGridManager.Reset(deactivate: true);
+        if (_currentWorld == null)
+            return;
+
+        _currentWorld.Dispose();
+        _currentWorld = null;
     }
 
     public static void ClearAllPools()
@@ -58,7 +63,7 @@ internal static class BenchmarkEnvironment
 
     private static Action CreateGridForgePoolClearer()
     {
-        Type poolsType = typeof(GlobalGridManager).Assembly.GetType("GridForge.Grids.Pools");
+        Type poolsType = typeof(GridWorld).Assembly.GetType("GridForge.Grids.Pools");
         if (poolsType == null)
             throw new InvalidOperationException("Unable to locate GridForge pool manager.");
 

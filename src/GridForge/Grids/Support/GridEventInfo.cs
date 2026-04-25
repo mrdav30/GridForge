@@ -4,12 +4,17 @@ using GridForge.Configuration;
 namespace GridForge.Grids;
 
 /// <summary>
-/// Immutable snapshot describing a grid at the time a global grid notification is raised.
+/// Immutable snapshot describing a grid at the time a world grid notification is raised.
 /// </summary>
 public readonly struct GridEventInfo
 {
     /// <summary>
-    /// The stable slot index assigned to the grid within <see cref="GlobalGridManager.ActiveGrids"/>.
+    /// The runtime token of the owning <see cref="GridWorld"/> instance.
+    /// </summary>
+    public readonly int WorldSpawnToken;
+
+    /// <summary>
+    /// The stable slot index assigned to the grid within <see cref="GridWorld.ActiveGrids"/>.
     /// </summary>
     public readonly ushort GridIndex;
 
@@ -42,11 +47,13 @@ public readonly struct GridEventInfo
     /// Initializes a new immutable grid event snapshot.
     /// </summary>
     public GridEventInfo(
+        int worldSpawnToken,
         ushort gridIndex,
         int gridSpawnToken,
         GridConfiguration configuration,
         uint gridVersion)
     {
+        WorldSpawnToken = worldSpawnToken;
         GridIndex = gridIndex;
         GridSpawnToken = gridSpawnToken;
         Configuration = configuration;
