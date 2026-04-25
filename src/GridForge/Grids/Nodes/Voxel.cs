@@ -21,19 +21,19 @@ public class Voxel : IEquatable<Voxel>
     public int SpawnToken { get; private set; }
 
     /// <summary>
-    /// The global and local coordinates of this voxel within the grid system.
+    /// The world-scoped runtime identity of this voxel within the grid system.
     /// </summary>
-    public GlobalVoxelIndex GlobalIndex { get; set; }
+    public WorldVoxelIndex WorldIndex { get; set; }
 
     /// <summary>
-    /// The global index of the grid this voxel belongs to.
+    /// The world-local index of the grid this voxel belongs to.
     /// </summary>
-    public ushort GridIndex => GlobalIndex.GridIndex;
+    public ushort GridIndex => WorldIndex.GridIndex;
 
     /// <summary>
     /// The local coordinates of this voxel within its grid.
     /// </summary>
-    public VoxelIndex Index => GlobalIndex.VoxelIndex;
+    public VoxelIndex Index => WorldIndex.VoxelIndex;
 
     /// <summary>
     /// The grid-local key of the scan cell that this voxel belongs to.
@@ -194,7 +194,7 @@ public class Voxel : IEquatable<Voxel>
     /// Configures the voxel with its position, grid version, and boundary status.
     /// </summary>
     internal void Initialize(
-        GlobalVoxelIndex globalVoxelIndex,
+        WorldVoxelIndex worldVoxelIndex,
         Vector3d worldPosition,
         int scanCellKey,
         bool isBoundaryVoxel,
@@ -203,7 +203,7 @@ public class Voxel : IEquatable<Voxel>
         ScanCellKey = scanCellKey;
         IsBoundaryVoxel = isBoundaryVoxel;
 
-        GlobalIndex = globalVoxelIndex;
+        WorldIndex = worldVoxelIndex;
         WorldPosition = worldPosition;
 
         SpawnToken = GetHashCode();
@@ -248,10 +248,6 @@ public class Voxel : IEquatable<Voxel>
 
         if (ObstacleTracker != null && ObstacleTracker.Count > 0)
         {
-            ownerGrid ??= GlobalGridManager.TryGetGrid(GlobalIndex.GridIndex, out VoxelGrid? grid)
-                ? grid
-                : null;
-
             if (ownerGrid == null)
             {
                 if (ObstacleTracker != null)
@@ -274,6 +270,7 @@ public class Voxel : IEquatable<Voxel>
 
         SpawnToken = 0;
         ScanCellKey = 0;
+        WorldIndex = default;
 
         OccupantCount = 0;
         _onObstacleAdded = null;
@@ -304,7 +301,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle add error: {ex.Message}");
+                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle add error: {ex.Message}");
             }
         }
     }
@@ -324,7 +321,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle remove error: {ex.Message}");
+                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle remove error: {ex.Message}");
             }
         }
     }
@@ -344,7 +341,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Obstacle clear error: {ex.Message}");
+                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle clear error: {ex.Message}");
             }
         }
     }
@@ -364,7 +361,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Occupant add error: {ex.Message}");
+                GridForgeLogger.Error($"[Voxel {WorldIndex}] Occupant add error: {ex.Message}");
             }
         }
     }
@@ -384,7 +381,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {GlobalIndex}] Occupant remove error: {ex.Message}");
+                GridForgeLogger.Error($"[Voxel {WorldIndex}] Occupant remove error: {ex.Message}");
             }
         }
     }
@@ -412,7 +409,7 @@ public class Voxel : IEquatable<Voxel>
 
         try
         {
-            partition.SetParentIndex(GlobalIndex);
+            partition.SetParentIndex(WorldIndex);
             partition.OnAddToVoxel(this);
             return true;
         }
@@ -500,7 +497,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves the neighbors of this voxel, caching results if specified.
     /// </summary>
-    public IEnumerable<(SpatialDirection, Voxel)> GetNeighbors(bool useCache = true)
+    public IEnumerable<(SpatialDirection, Voxel)> GetNeighbors(VoxelGrid ownerGrid, bool useCache = true)
     {
         if (useCache && _isNeighborCacheValid)
         {
@@ -514,7 +511,7 @@ public class Voxel : IEquatable<Voxel>
             yield break;
         }
 
-        RefreshNeighborCache();
+        RefreshNeighborCache(ownerGrid);
 
         for (int i = 0; i < _cachedNeighbors!.Length; i++)
         {
@@ -527,7 +524,11 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves a neighbor voxel in a specific direction.
     /// </summary>
-    public bool TryGetNeighborFromDirection(SpatialDirection direction, out Voxel? neighbor, bool useCache = true)
+    public bool TryGetNeighborFromDirection(
+        VoxelGrid ownerGrid,
+        SpatialDirection direction,
+        out Voxel? neighbor,
+        bool useCache = true)
     {
         neighbor = null;
 
@@ -542,24 +543,34 @@ public class Voxel : IEquatable<Voxel>
         if (useCache)
         {
             if (!_isNeighborCacheValid)
-                RefreshNeighborCache();
+                RefreshNeighborCache(ownerGrid);
 
             neighbor = _cachedNeighbors![directionIndex];
             return neighbor != null;
         }
 
         (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[directionIndex];
-        return TryGetNeighborFromOffset(offset, out neighbor);
+        return TryGetNeighborFromOffset(ownerGrid, offset, out neighbor);
     }
 
     /// <summary>
     /// Retrieves a neighbor voxel based on a coordinate offset.
     /// </summary>
-    public bool TryGetNeighborFromOffset((int x, int y, int z) offset, out Voxel? neighbor)
+    public bool TryGetNeighborFromOffset(
+        VoxelGrid ownerGrid,
+        (int x, int y, int z) offset,
+        out Voxel? neighbor)
     {
         neighbor = null;
-        if (!GlobalGridManager.TryGetGrid(GlobalIndex, out VoxelGrid? grid))
+        if (ownerGrid == null
+            || !ownerGrid.IsActive
+            || ownerGrid.GridIndex != WorldIndex.GridIndex
+            || ownerGrid.SpawnToken != WorldIndex.GridSpawnToken
+            || ownerGrid.World == null
+            || ownerGrid.World.SpawnToken != WorldIndex.WorldSpawnToken)
+        {
             return false;
+        }
 
         VoxelIndex neighborCoords = new(
             Index.x + offset.x,
@@ -567,24 +578,22 @@ public class Voxel : IEquatable<Voxel>
             Index.z + offset.z
         );
 
-        if (grid!.TryGetVoxel(neighborCoords, out neighbor))
+        if (ownerGrid.TryGetVoxel(neighborCoords, out neighbor))
             return true;
 
-        Fixed64 voxelSize = grid.World != null ? grid.World.VoxelSize : GlobalGridManager.VoxelSize;
+        Fixed64 voxelSize = ownerGrid.World.VoxelSize;
         Vector3d neighborPosition = new(
             WorldPosition.x + offset.x * voxelSize,
             WorldPosition.y + offset.y * voxelSize,
             WorldPosition.z + offset.z * voxelSize);
 
-        return grid.World != null
-            ? grid.World.TryGetVoxel(neighborPosition, out neighbor)
-            : GlobalGridManager.TryGetVoxel(neighborPosition, out neighbor);
+        return ownerGrid.World.TryGetVoxel(neighborPosition, out neighbor);
     }
 
     /// <summary>
     /// Updates and caches the neighboring voxels of this voxel.
     /// </summary>
-    private void RefreshNeighborCache()
+    private void RefreshNeighborCache(VoxelGrid ownerGrid)
     {
         _cachedNeighbors ??= Pools.VoxelNeighborPool.Rent(SpatialAwareness.DirectionOffsets.Length);
         Array.Clear(_cachedNeighbors, 0, _cachedNeighbors.Length); // Ensure clean state
@@ -592,7 +601,7 @@ public class Voxel : IEquatable<Voxel>
         for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
         {
             (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
-            if (TryGetNeighborFromOffset(offset, out Voxel? neighbor))
+            if (TryGetNeighborFromOffset(ownerGrid, offset, out Voxel? neighbor))
                 _cachedNeighbors[i] = neighbor!;
         }
 
@@ -607,7 +616,7 @@ public class Voxel : IEquatable<Voxel>
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
     /// <inheritdoc/>
-    public override string ToString() => GlobalIndex.ToString();
+    public override string ToString() => WorldIndex.ToString();
 
     /// <inheritdoc/>
     public bool Equals(Voxel? other) => ReferenceEquals(this, other);

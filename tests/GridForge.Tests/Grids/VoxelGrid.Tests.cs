@@ -55,12 +55,12 @@ public class VoxelGridTests : IDisposable
         Assert.True(GlobalGridManager.TryAddGrid(initialConfig, out ushort gridIndex));
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
         int originalSpawnToken = grid.SpawnToken;
-        ushort originalIndex = grid.GlobalIndex;
+        ushort originalIndex = grid.GridIndex;
 
         InvokeGridInitialize(grid, 999, secondConfig);
 
         Assert.True(grid.IsActive);
-        Assert.Equal(originalIndex, grid.GlobalIndex);
+        Assert.Equal(originalIndex, grid.GridIndex);
         Assert.Equal(originalSpawnToken, grid.SpawnToken);
         Assert.Equal(initialConfig.BoundsMin, grid.BoundsMin);
         Assert.Equal(initialConfig.BoundsMax, grid.BoundsMax);
@@ -139,12 +139,12 @@ public class VoxelGridTests : IDisposable
         // get the direction before removal
         int neighborIndex = (int)VoxelGrid.GetNeighborDirection(grid1, grid2);
 
-        GlobalGridManager.TryRemoveGrid(grid2.GlobalIndex);
+        GlobalGridManager.TryRemoveGrid(grid2.GridIndex);
 
         if (grid1.Neighbors != null)
         {
             if (grid1.Neighbors.ContainsKey(neighborIndex))
-                Assert.DoesNotContain(grid2.GlobalIndex, grid1.Neighbors[neighborIndex]);
+                Assert.DoesNotContain(grid2.GridIndex, grid1.Neighbors[neighborIndex]);
         }
         else
             Assert.False(grid1.IsConjoined);
@@ -436,12 +436,12 @@ public class VoxelGridTests : IDisposable
         VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
 
         Assert.Equal(3, centerGrid.NeighborCount);
-        Assert.Equal(3, centerGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex).Distinct().Count());
+        Assert.Equal(3, centerGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex).Distinct().Count());
 
         Assert.True(GlobalGridManager.TryRemoveGrid(northEastIndex));
 
         Assert.Equal(2, centerGrid.NeighborCount);
-        Assert.Equal(2, centerGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex).Distinct().Count());
+        Assert.Equal(2, centerGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex).Distinct().Count());
     }
 
     [Fact]

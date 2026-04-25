@@ -314,7 +314,7 @@ public sealed class GridWorld : IDisposable
                 if (!SpatialGridHash.ContainsKey(cellIndex))
                     continue;
 
-                SpatialGridHash[cellIndex].Remove(gridToRemove.GlobalIndex);
+                SpatialGridHash[cellIndex].Remove(gridToRemove.GridIndex);
 
                 if (gridToRemove.IsConjoined)
                 {
@@ -426,16 +426,17 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
-    /// Retrieves a grid by its global voxel identity.
+    /// Retrieves a grid by a world-scoped voxel identity.
     /// </summary>
-    /// <param name="globalVoxelIndex">The voxel identity whose grid should be resolved.</param>
+    /// <param name="worldVoxelIndex">The voxel identity whose grid should be resolved.</param>
     /// <param name="result">The resolved grid, if found.</param>
     /// <returns>True if the grid was resolved; otherwise false.</returns>
-    public bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid? result)
+    public bool TryGetGrid(WorldVoxelIndex worldVoxelIndex, out VoxelGrid? result)
     {
         result = null;
-        if (!TryGetGrid(globalVoxelIndex.GridIndex, out VoxelGrid? resolvedGrid)
-            || globalVoxelIndex.GridSpawnToken != resolvedGrid?.SpawnToken)
+        if (worldVoxelIndex.WorldSpawnToken != SpawnToken
+            || !TryGetGrid(worldVoxelIndex.GridIndex, out VoxelGrid? resolvedGrid)
+            || worldVoxelIndex.GridSpawnToken != resolvedGrid?.SpawnToken)
         {
             return false;
         }
@@ -464,18 +465,18 @@ public sealed class GridWorld : IDisposable
     /// <summary>
     /// Retrieves the grid and voxel for a given voxel identity.
     /// </summary>
-    /// <param name="globalVoxelIndex">The voxel identity to resolve.</param>
+    /// <param name="worldVoxelIndex">The voxel identity to resolve.</param>
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <param name="result">The resolved voxel, if found.</param>
     /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
     public bool TryGetGridAndVoxel(
-        GlobalVoxelIndex globalVoxelIndex,
+        WorldVoxelIndex worldVoxelIndex,
         out VoxelGrid? outGrid,
         out Voxel? result)
     {
         result = null;
-        return TryGetGrid(globalVoxelIndex, out outGrid)
-            && outGrid?.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result) == true;
+        return TryGetGrid(worldVoxelIndex, out outGrid)
+            && outGrid?.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result) == true;
     }
 
     /// <summary>
@@ -494,18 +495,18 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
-    /// Retrieves a voxel from a global voxel identity.
+    /// Retrieves a voxel from a world-scoped voxel identity.
     /// </summary>
-    /// <param name="globalVoxelIndex">The voxel identity to resolve.</param>
+    /// <param name="worldVoxelIndex">The voxel identity to resolve.</param>
     /// <param name="result">The resolved voxel, if found.</param>
     /// <returns>True if the voxel was resolved; otherwise false.</returns>
     public bool TryGetVoxel(
-        GlobalVoxelIndex globalVoxelIndex,
+        WorldVoxelIndex worldVoxelIndex,
         out Voxel? result)
     {
         result = null;
-        return TryGetGrid(globalVoxelIndex, out VoxelGrid? grid)
-            && grid?.TryGetVoxel(globalVoxelIndex.VoxelIndex, out result) == true;
+        return TryGetGrid(worldVoxelIndex, out VoxelGrid? grid)
+            && grid?.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result) == true;
     }
 
     #endregion
@@ -579,7 +580,7 @@ public sealed class GridWorld : IDisposable
 
             foreach (ushort neighborIndex in gridList)
             {
-                if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == targetGrid.GlobalIndex)
+                if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == targetGrid.GridIndex)
                     continue;
 
                 VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
@@ -679,7 +680,7 @@ public sealed class GridWorld : IDisposable
 
     private GridEventInfo CreateGridEventInfo(VoxelGrid grid)
     {
-        return new GridEventInfo(grid.GlobalIndex, grid.SpawnToken, grid.Configuration, grid.Version);
+        return new GridEventInfo(SpawnToken, grid.GridIndex, grid.SpawnToken, grid.Configuration, grid.Version);
     }
 
     private void NotifyActiveGridAdded(GridEventInfo eventInfo)

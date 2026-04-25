@@ -49,7 +49,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Stable voxel identifiers cached for safe blocker removal when <see cref="CacheCoveredVoxels"/> is true.
     /// </summary>
-    protected SwiftList<GlobalVoxelIndex>? _cachedCoveredVoxels;
+    protected SwiftList<WorldVoxelIndex>? _cachedCoveredVoxels;
 
     /// <summary>
     /// Grid indices currently covered by this blocker.
@@ -134,7 +134,7 @@ public abstract class Blocker : IBlocker
         BlockageToken = new(CacheMin, CacheMax);
 
         if (CacheCoveredVoxels)
-            _cachedCoveredVoxels ??= new SwiftList<GlobalVoxelIndex>();
+            _cachedCoveredVoxels ??= new SwiftList<WorldVoxelIndex>();
 
         RegisterGridWatcher();
         _cachedCoveredVoxels?.Clear();
@@ -149,7 +149,7 @@ public abstract class Blocker : IBlocker
                 continue;
 
             foundCoverage = true;
-            _watchedGridIndices.Add(covered.Grid.GlobalIndex);
+            _watchedGridIndices.Add(covered.Grid.GridIndex);
 
             foreach (Voxel voxel in covered.Voxels)
             {
@@ -160,7 +160,7 @@ public abstract class Blocker : IBlocker
                 }
 
                 if (CacheCoveredVoxels)
-                    _cachedCoveredVoxels!.Add(voxel.GlobalIndex);
+                    _cachedCoveredVoxels!.Add(voxel.WorldIndex);
             }
         }
 
@@ -199,7 +199,7 @@ public abstract class Blocker : IBlocker
 
         if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
-            foreach (GlobalVoxelIndex voxelIndex in _cachedCoveredVoxels)
+            foreach (WorldVoxelIndex voxelIndex in _cachedCoveredVoxels)
                 GridObstacleManager.TryRemoveObstacle(voxelIndex, BlockageToken);
         }
         else
@@ -303,7 +303,7 @@ public abstract class Blocker : IBlocker
 
         CacheCoveredVoxels = cache;
         if (cache && _cachedCoveredVoxels == null)
-            _cachedCoveredVoxels = new SwiftList<GlobalVoxelIndex>();
+            _cachedCoveredVoxels = new SwiftList<WorldVoxelIndex>();
         else if (!cache)
             _cachedCoveredVoxels = null;
     }

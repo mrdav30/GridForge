@@ -46,7 +46,7 @@ internal static class Pools
     /// </summary>
     public static readonly SwiftArrayPool<Voxel> VoxelNeighborPool = new();
 
-    public static readonly SwiftDictionaryPool<GlobalVoxelIndex, SwiftBucket<IVoxelOccupant>> VoxelOccupantDictionaryPool = new();
+    public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftBucket<IVoxelOccupant>> VoxelOccupantDictionaryPool = new();
 
     public static readonly SwiftObjectPool<SwiftBucket<IVoxelOccupant>> VoxelOccupantBucketPool = new(
         createFunc: () => new SwiftBucket<IVoxelOccupant>(),

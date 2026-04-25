@@ -10,7 +10,7 @@ public readonly struct ObstacleClearEventInfo
     /// <summary>
     /// The voxel that had its obstacles cleared.
     /// </summary>
-    public readonly GlobalVoxelIndex VoxelIndex;
+    public readonly WorldVoxelIndex VoxelIndex;
 
     /// <summary>
     /// The number of obstacles removed by the clear operation.
@@ -31,7 +31,7 @@ public readonly struct ObstacleClearEventInfo
     /// Initializes a new immutable obstacle clear snapshot.
     /// </summary>
     public ObstacleClearEventInfo(
-        GlobalVoxelIndex voxelIndex,
+        WorldVoxelIndex voxelIndex,
         byte clearedObstacleCount,
         uint gridVersion)
     {

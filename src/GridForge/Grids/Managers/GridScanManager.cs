@@ -77,12 +77,12 @@ public static class GridScanManager
     #region Occupant Registration & Retrieval
 
     /// <summary>
-    /// Retrieves all occupants of a specific type at a given global voxel index.
+    /// Retrieves all occupants of a specific type at a given world-scoped voxel identity.
     /// </summary>
     /// <typeparam name="T">The type of occupant to retrieve.</typeparam>
-    /// <param name="index">The global voxel index to check for occupants.</param>
+    /// <param name="index">The world-scoped voxel identity to check for occupants.</param>
     /// <returns>An enumerable collection of occupants of the specified type.</returns>
-    public static IEnumerable<T> GetVoxelOccupantsByType<T>(GlobalVoxelIndex index) where T : IVoxelOccupant
+    public static IEnumerable<T> GetVoxelOccupantsByType<T>(WorldVoxelIndex index) where T : IVoxelOccupant
     {
         return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetVoxelOccupantsByType<T>(voxel!)
@@ -134,12 +134,12 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant at a given world position using an occupant ticket.
     /// </summary>
-    /// <param name="index">The global voxel index to check for an occupant.</param>
+    /// <param name="index">The world-scoped voxel identity to check for an occupant.</param>
     /// <param name="occupant">The retrieved occupant if found.</param>
     /// <param name="ticket">The occupant's ticket assigned by the scancell.</param>
     /// <returns>True if the occupant was found, otherwise false.</returns>
     public static bool TryGetVoxelOccupant(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         int ticket,
         out IVoxelOccupant? occupant)
     {
@@ -204,15 +204,15 @@ public static class GridScanManager
         return voxel.IsOccupied
             && grid.TryGetScanCell(voxel.ScanCellKey, out ScanCell? scanCell)
             && scanCell!.IsOccupied
-            && scanCell.TryGetOccupantAt(voxel.GlobalIndex, ticket, out occupant);
+            && scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out occupant);
     }
 
     /// <summary>
-    /// Retrieves all occupants at a given global voxel index.
+    /// Retrieves all occupants at a given world-scoped voxel identity.
     /// </summary>
-    /// <param name="index">The global voxel index to check for occupants.</param>
+    /// <param name="index">The world-scoped voxel identity to check for occupants.</param>
     /// <returns>An enumerable collection of voxel occupants.</returns>
-    public static IEnumerable<IVoxelOccupant> GetOccupants(GlobalVoxelIndex index)
+    public static IEnumerable<IVoxelOccupant> GetOccupants(WorldVoxelIndex index)
     {
         return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             ? grid!.GetOccupants(voxel!)
@@ -264,7 +264,7 @@ public static class GridScanManager
     /// Retrieves occupants whose group Ids match a given condition.
     /// </summary>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {

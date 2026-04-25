@@ -553,6 +553,7 @@ public class BlockerTests : IDisposable
             cacheCoveredVoxels: false);
         GridEventInfo overlappingEvent = new(
             1,
+            1,
             10,
             new GridConfiguration(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
             1);

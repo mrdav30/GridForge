@@ -69,9 +69,9 @@ public static class GridObstacleManager
     #region Public Methods
 
     /// <summary>
-    /// Attempts to add an obstacle at the given global voxel index.
+    /// Attempts to add an obstacle at the given world-scoped voxel identity.
     /// </summary>
-    public static bool TryAddObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
+    public static bool TryAddObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
         return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryAddObstacle(voxel!, obstacleSpawnToken) == true;
@@ -98,7 +98,7 @@ public static class GridObstacleManager
         if (!targetVoxel.IsBlockable)
             return false;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte obstacleCount;
         uint gridVersion;
 
@@ -120,9 +120,9 @@ public static class GridObstacleManager
     }
 
     /// <summary>
-    /// Attempts to remove an obstacle at the given global voxel index.
+    /// Attempts to remove an obstacle at the given world-scoped voxel identity.
     /// </summary>
-    public static bool TryRemoveObstacle(GlobalVoxelIndex index, BoundsKey obstacleSpawnToken)
+    public static bool TryRemoveObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
         return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
             && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
@@ -144,11 +144,11 @@ public static class GridObstacleManager
     {
         if (targetVoxel.ObstacleCount == 0)
         {
-            GridForgeLogger.Warn($"No obstacle to remove on voxel ({targetVoxel.GlobalIndex})!");
+            GridForgeLogger.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
             return false;
         }
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte obstacleCount;
         uint gridVersion;
 
@@ -184,7 +184,7 @@ public static class GridObstacleManager
         if (targetVoxel.ObstacleCount == 0)
             return;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte clearedObstacleCount;
         uint gridVersion;
 
@@ -219,7 +219,7 @@ public static class GridObstacleManager
         byte obstacleCount,
         uint gridVersion)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleSpawnToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
         if (handlers != null)
         {
@@ -232,7 +232,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle add error: {ex.Message}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle add error: {ex.Message}");
                 }
             }
         }
@@ -253,7 +253,7 @@ public static class GridObstacleManager
         byte obstacleCount,
         uint gridVersion)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.GlobalIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleSpawnToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
         if (handlers != null)
         {
@@ -266,7 +266,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle remove error: {ex.Message}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle remove error: {ex.Message}");
                 }
             }
         }
@@ -286,7 +286,7 @@ public static class GridObstacleManager
         byte clearedObstacleCount,
         uint gridVersion)
     {
-        ObstacleClearEventInfo eventInfo = new(targetVoxel.GlobalIndex, clearedObstacleCount, gridVersion);
+        ObstacleClearEventInfo eventInfo = new(targetVoxel.WorldIndex, clearedObstacleCount, gridVersion);
         Action<ObstacleClearEventInfo>? handlers = _onObstaclesCleared;
         if (handlers != null)
         {
@@ -299,7 +299,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Obstacle clear error: {ex.Message}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle clear error: {ex.Message}");
                 }
             }
         }

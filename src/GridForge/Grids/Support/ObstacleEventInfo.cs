@@ -10,7 +10,7 @@ public readonly struct ObstacleEventInfo
     /// <summary>
     /// The voxel affected by the obstacle mutation.
     /// </summary>
-    public readonly GlobalVoxelIndex VoxelIndex;
+    public readonly WorldVoxelIndex VoxelIndex;
 
     /// <summary>
     /// The token identifying the obstacle that was added or removed.
@@ -36,7 +36,7 @@ public readonly struct ObstacleEventInfo
     /// Initializes a new immutable obstacle mutation snapshot.
     /// </summary>
     public ObstacleEventInfo(
-        GlobalVoxelIndex voxelIndex,
+        WorldVoxelIndex voxelIndex,
         BoundsKey obstacleToken,
         byte obstacleCount,
         uint gridVersion)

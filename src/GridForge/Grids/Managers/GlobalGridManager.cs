@@ -273,13 +273,13 @@ public static class GlobalGridManager
     }
 
     /// <summary>
-    /// Retrieves a grid by its unique global voxel identity.
+    /// Retrieves a grid by its world-scoped voxel identity.
     /// </summary>
-    public static bool TryGetGrid(GlobalVoxelIndex globalVoxelIndex, out VoxelGrid? result)
+    public static bool TryGetGrid(WorldVoxelIndex worldVoxelIndex, out VoxelGrid? result)
     {
         result = null;
         return TryGetDefaultWorld(out GridWorld? world)
-            && world!.TryGetGrid(globalVoxelIndex, out result);
+            && world!.TryGetGrid(worldVoxelIndex, out result);
     }
 
     /// <summary>
@@ -297,17 +297,17 @@ public static class GlobalGridManager
     }
 
     /// <summary>
-    /// Retrieves the grid containing a given global coordinate and the voxel at that position.
+    /// Retrieves the grid containing a given world-scoped voxel identity and the voxel at that position.
     /// </summary>
     public static bool TryGetGridAndVoxel(
-        GlobalVoxelIndex globalVoxelIndex,
+        WorldVoxelIndex worldVoxelIndex,
         out VoxelGrid? outGrid,
         out Voxel? result)
     {
         outGrid = null;
         result = null;
         return TryGetDefaultWorld(out GridWorld? world)
-            && world!.TryGetGridAndVoxel(globalVoxelIndex, out outGrid, out result);
+            && world!.TryGetGridAndVoxel(worldVoxelIndex, out outGrid, out result);
     }
 
     /// <summary>
@@ -323,15 +323,15 @@ public static class GlobalGridManager
     }
 
     /// <summary>
-    /// Retrieves the voxel from the given global coordinate.
+    /// Retrieves the voxel from the given world-scoped identity.
     /// </summary>
     public static bool TryGetVoxel(
-        GlobalVoxelIndex globalVoxelIndex,
+        WorldVoxelIndex worldVoxelIndex,
         out Voxel? result)
     {
         result = null;
         return TryGetDefaultWorld(out GridWorld? world)
-            && world!.TryGetVoxel(globalVoxelIndex, out result);
+            && world!.TryGetVoxel(worldVoxelIndex, out result);
     }
 
     #endregion

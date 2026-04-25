@@ -7,7 +7,7 @@ This document tracks the breaking refactor from one process-wide static world to
 - Started: 2026-04-24
 - Release posture: Breaking release
 - Backwards compatibility: Explicitly out of scope
-- Current state: Phase 1 complete, Phase 2 not started
+- Current state: Phase 2 complete, Phase 3 not started
 
 ## Scope
 
@@ -77,7 +77,7 @@ This is also the right time to take the break because:
 
 - [x] Phase 0: Lock the new world model and migration boundaries.
 - [x] Phase 1: Introduce `GridWorld` core runtime ownership.
-- [ ] Phase 2: Move grid identity and lookup to world scope.
+- [x] Phase 2: Move grid identity and lookup to world scope.
 - [ ] Phase 3: Move mutation and query services to world scope.
 - [ ] Phase 4: Rebuild validation, docs, and benchmarks around explicit worlds.
 - [ ] Phase 5: Ship the breaking release cleanup.
@@ -184,7 +184,7 @@ Intent: remove the single global namespace assumption from runtime identity and 
 
 Likely files:
 
-- `src/GridForge/Spatial/GlobalVoxelIndex.cs`
+- `src/GridForge/Spatial/WorldVoxelIndex.cs`
 - `src/GridForge/Grids/Managers/GlobalGridManager.cs`
 - `src/GridForge/Grids/VoxelGrid.cs`
 - `src/GridForge/Grids/Nodes/Voxel.cs`
@@ -192,18 +192,25 @@ Likely files:
 
 Checklist:
 
-- [ ] Replace or rename `GlobalVoxelIndex` so voxel identity includes world scope as well as grid scope.
-- [ ] Add a world instance or spawn token so stale references fail safely after world teardown and slot reuse.
-- [ ] Update grid identity and event payloads to carry world context where required.
-- [ ] Move grid lookup APIs from global static entry points onto the world runtime.
-- [ ] Update `VoxelGrid` and `Voxel` paths that currently resolve neighbors or lookups through `GlobalGridManager`.
-- [ ] Revisit any comments, XML docs, and terminology that still describe grid indices as globally unique.
+- [x] Replace or rename `GlobalVoxelIndex` so voxel identity includes world scope as well as grid scope.
+- [x] Add a world instance or spawn token so stale references fail safely after world teardown and slot reuse.
+- [x] Update grid identity and event payloads to carry world context where required.
+- [x] Move grid lookup APIs from global static entry points onto the world runtime.
+- [x] Update `VoxelGrid` and `Voxel` paths that currently resolve neighbors or lookups through `GlobalGridManager`.
+- [x] Revisit any comments, XML docs, and terminology that still describe grid indices as globally unique.
 
 Exit criteria:
 
-- [ ] Grid and voxel identities are unambiguous across multiple loaded worlds.
-- [ ] World-space and identity-based lookups are world-scoped.
-- [ ] Boundary neighbor traversal still works when multiple worlds are loaded.
+- [x] Grid and voxel identities are unambiguous across multiple loaded worlds.
+- [x] World-space and identity-based lookups are world-scoped.
+- [x] Boundary neighbor traversal still works when multiple worlds are loaded.
+
+Implementation notes:
+
+- `WorldVoxelIndex` now carries `WorldSpawnToken`, `GridIndex`, `GridSpawnToken`, and `VoxelIndex`.
+- `VoxelGrid.GlobalIndex` has been renamed to `VoxelGrid.GridIndex`.
+- `GridEventInfo` now carries `WorldSpawnToken`.
+- `Voxel` neighbor traversal no longer resolves its owner through `GlobalGridManager`; callers must provide the owning `VoxelGrid` when using voxel-level neighbor APIs.
 
 ## Phase 3: Move Mutation And Query Services To World Scope
 

@@ -24,9 +24,9 @@ public class VoxelGrid
     public int SpawnToken { get; private set; }
 
     /// <summary>
-    /// Global index of the grid within the world.
+    /// World-local index of the grid within its owning world.
     /// </summary>
-    public ushort GlobalIndex { get; private set; }
+    public ushort GridIndex { get; private set; }
 
     /// <summary>
     /// The world that owns this grid instance.
@@ -144,34 +144,34 @@ public class VoxelGrid
     /// <summary>
     /// Initializes the grid with the given settings.
     /// </summary>
-    /// <param name="globalIndex">The unique index of this grid in the world.</param>
+    /// <param name="gridIndex">The unique index of this grid in the world.</param>
     /// <param name="configuration">The configuration settings for the grid.</param>
-    internal void Initialize(ushort globalIndex, GridConfiguration configuration)
+    internal void Initialize(ushort gridIndex, GridConfiguration configuration)
     {
         if (GlobalGridManager.DefaultWorld == null)
             throw new InvalidOperationException("No default GridWorld is active to initialize this grid.");
 
-        Initialize(GlobalGridManager.DefaultWorld, globalIndex, configuration);
+        Initialize(GlobalGridManager.DefaultWorld, gridIndex, configuration);
     }
 
     /// <summary>
     /// Initializes the grid with an explicit owning world.
     /// </summary>
     /// <param name="world">The world that will own this grid.</param>
-    /// <param name="globalIndex">The unique index of this grid in the world.</param>
+    /// <param name="gridIndex">The unique index of this grid in the world.</param>
     /// <param name="configuration">The normalized configuration settings for the grid.</param>
-    internal void Initialize(GridWorld world, ushort globalIndex, GridConfiguration configuration)
+    internal void Initialize(GridWorld world, ushort gridIndex, GridConfiguration configuration)
     {
         if (IsActive)
         {
-            GridForgeLogger.Warn($"Grid at {nameof(globalIndex)} is already active.");
+            GridForgeLogger.Warn($"Grid at {nameof(gridIndex)} is already active.");
             return;
         }
 
         Version = 1;
 
         World = world;
-        GlobalIndex = globalIndex;
+        GridIndex = gridIndex;
 
         Configuration = configuration;
 
@@ -249,7 +249,7 @@ public class VoxelGrid
         SpawnToken = 0;
         Version = 0;
 
-        GlobalIndex = ushort.MaxValue;
+        GridIndex = ushort.MaxValue;
 
         Width = 0;
         Height = 0;
@@ -295,7 +295,7 @@ public class VoxelGrid
                     int cellKey = x + y * _scanWidth + z * _scanLayerSize;
 
                     ScanCell scanCell = Pools.ScanCellPool.Rent();
-                    scanCell.Initialize(GlobalIndex, cellKey);
+                    scanCell.Initialize(GridIndex, cellKey);
                     ScanCells.Add(cellKey, scanCell);
                 }
             }
@@ -333,7 +333,7 @@ public class VoxelGrid
                     int scanCellKey = GetScanCellKey(index);
 
                     voxel.Initialize(
-                        new GlobalVoxelIndex(GlobalIndex, index, SpawnToken),
+                        new WorldVoxelIndex(World!.SpawnToken, GridIndex, SpawnToken, index),
                         position,
                         scanCellKey,
                         isBoundaryVoxel,
@@ -391,7 +391,7 @@ public class VoxelGrid
             Neighbors.Add(neightborIndex, neighborSet);
         }
 
-        if (!neighborSet.Add(neighborGrid.GlobalIndex))
+        if (!neighborSet.Add(neighborGrid.GridIndex))
             return false;
 
         NeighborCount++;
@@ -417,7 +417,7 @@ public class VoxelGrid
         if (neighborIndex == -1 || !Neighbors!.TryGetValue(neighborIndex, out SwiftHashSet<int> neighborSet))
             return false;
 
-        if (!neighborSet.Remove(neighborGrid.GlobalIndex))
+        if (!neighborSet.Remove(neighborGrid.GridIndex))
             return false;
 
         if (Neighbors[neighborIndex].Count == 0)
@@ -528,8 +528,7 @@ public class VoxelGrid
             SwiftHashSet<int> neighborSet = values[i];
             foreach (int neighborIndex in neighborSet)
             {
-                if ((World != null && World.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
-                    || GlobalGridManager.TryGetGrid(neighborIndex, out neighborGrid))
+                if (World != null && World.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
                 {
                     yield return neighborGrid!;
                 }
@@ -782,7 +781,7 @@ public class VoxelGrid
 
     /// <inheritdoc/>
     public override int GetHashCode() =>
-        SwiftHashTools.CombineHashCodes(GlobalIndex, BoundsMin, BoundsMax);
+        SwiftHashTools.CombineHashCodes(GridIndex, BoundsMin, BoundsMax);
 
     #endregion
 }

@@ -218,7 +218,7 @@ public class GlobalGridManagerTests : IDisposable
 
         VoxelGrid grid = GlobalGridManager.ActiveGrids[index];
 
-        Assert.Equal(index, grid.GlobalIndex);
+        Assert.Equal(index, grid.GridIndex);
 
         foreach (int cellIndex in GlobalGridManager.GetSpatialGridCells(grid.BoundsMin, grid.BoundsMax))
         {
@@ -252,7 +252,7 @@ public class GlobalGridManagerTests : IDisposable
 
         Assert.True(GlobalGridManager.TryAddGrid(dynamicConfig, out ushort dynamicIndex));
         Assert.True(GlobalGridManager.TryGetGrid(dynamicPosition, out VoxelGrid loadedGrid));
-        Assert.Equal(dynamicIndex, loadedGrid.GlobalIndex);
+        Assert.Equal(dynamicIndex, loadedGrid.GridIndex);
 
         Assert.True(GlobalGridManager.TryRemoveGrid(dynamicIndex));
         Assert.False(GlobalGridManager.TryGetGrid(dynamicPosition, out _));
@@ -351,10 +351,11 @@ public class GlobalGridManagerTests : IDisposable
         VoxelGrid secondGrid = GlobalGridManager.ActiveGrids[secondIndex];
         Assert.True(secondGrid.TryGetVoxel(new Vector3d(10, 0, 10), out Voxel voxel));
 
-        GlobalVoxelIndex wrongSpawnIndex = new(
+        WorldVoxelIndex wrongSpawnIndex = new(
+            voxel.WorldIndex.WorldSpawnToken,
             secondIndex,
-            voxel.Index,
-            voxel.GlobalIndex.GridSpawnToken + 1);
+            voxel.WorldIndex.GridSpawnToken + 1,
+            voxel.Index);
 
         Assert.False(GlobalGridManager.TryGetGrid(wrongSpawnIndex, out VoxelGrid mismatchedGrid));
         Assert.Null(mismatchedGrid);
@@ -412,8 +413,8 @@ public class GlobalGridManagerTests : IDisposable
 
         Assert.True(anchorGrid.IsConjoined);
         Assert.True(newGrid.IsConjoined);
-        Assert.Contains(newIndex, anchorGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
-        Assert.Contains(anchorIndex, newGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+        Assert.Contains(newIndex, anchorGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex));
+        Assert.Contains(anchorIndex, newGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex));
     }
 
     [Fact]
@@ -467,7 +468,7 @@ public class GlobalGridManagerTests : IDisposable
 
         Assert.True(GlobalGridManager.TryRemoveGrid(removableIndex));
         Assert.True(GlobalGridManager.TryGetGrid(adjacentIndex, out VoxelGrid adjacentGrid));
-        Assert.DoesNotContain(removableIndex, adjacentGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+        Assert.DoesNotContain(removableIndex, adjacentGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex));
     }
 
     [Fact]
@@ -499,7 +500,7 @@ public class GlobalGridManagerTests : IDisposable
         GlobalGridManager.SpatialGridHash[occupiedCells[^1]].Add(farIndex);
 
         Assert.True(GlobalGridManager.TryRemoveGrid(removableIndex));
-        Assert.DoesNotContain(removableIndex, adjacentGrid.GetAllGridNeighbors().Select(grid => grid.GlobalIndex));
+        Assert.DoesNotContain(removableIndex, adjacentGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex));
         Assert.True(GlobalGridManager.TryGetGrid(farIndex, out _));
     }
 
@@ -512,8 +513,8 @@ public class GlobalGridManagerTests : IDisposable
         VoxelGrid grid = GlobalGridManager.ActiveGrids[gridIndex];
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel voxel));
-        Assert.True(GlobalGridManager.TryGetGridAndVoxel(voxel.GlobalIndex, out VoxelGrid resolvedGrid, out Voxel resolvedVoxel));
-        Assert.True(GlobalGridManager.TryGetVoxel(voxel.GlobalIndex, out Voxel directVoxel));
+        Assert.True(GlobalGridManager.TryGetGridAndVoxel(voxel.WorldIndex, out VoxelGrid resolvedGrid, out Voxel resolvedVoxel));
+        Assert.True(GlobalGridManager.TryGetVoxel(voxel.WorldIndex, out Voxel directVoxel));
         Assert.Same(grid, resolvedGrid);
         Assert.Same(voxel, resolvedVoxel);
         Assert.Same(voxel, directVoxel);
@@ -565,7 +566,7 @@ public class GlobalGridManagerTests : IDisposable
         VoxelGrid[] overlaps = GlobalGridManager.FindOverlappingGrids(targetGrid).ToArray();
 
         Assert.Single(overlaps);
-        Assert.Equal(neighborIndex, overlaps[0].GlobalIndex);
+        Assert.Equal(neighborIndex, overlaps[0].GridIndex);
     }
 
     [Fact]
@@ -639,6 +640,7 @@ public class GlobalGridManagerTests : IDisposable
         GlobalGridManager.OnActiveGridChange += recordingHandler;
 
         InvokeNotifyActiveGridChange(new GridEventInfo(
+            1,
             7,
             99,
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),

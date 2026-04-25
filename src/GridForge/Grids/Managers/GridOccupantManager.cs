@@ -69,7 +69,7 @@ public static class GridOccupantManager
     private sealed class OccupancyRecord
     {
         public readonly IVoxelOccupant Occupant;
-        public readonly SwiftDictionary<GlobalVoxelIndex, int> Tickets = new();
+        public readonly SwiftDictionary<WorldVoxelIndex, int> Tickets = new();
 
         public OccupancyRecord(IVoxelOccupant occupant)
         {
@@ -82,10 +82,10 @@ public static class GridOccupantManager
     /// </summary>
     private readonly struct TrackedOccupancy
     {
-        public readonly GlobalVoxelIndex VoxelIndex;
+        public readonly WorldVoxelIndex VoxelIndex;
         public readonly int Ticket;
 
-        public TrackedOccupancy(GlobalVoxelIndex voxelIndex, int ticket)
+        public TrackedOccupancy(WorldVoxelIndex voxelIndex, int ticket)
         {
             VoxelIndex = voxelIndex;
             Ticket = ticket;
@@ -112,13 +112,13 @@ public static class GridOccupantManager
     /// </summary>
     /// <param name="occupant">The occupant whose tracked voxel indices should be returned.</param>
     /// <returns>A deterministic snapshot of the occupant's currently tracked voxel indices.</returns>
-    public static IEnumerable<GlobalVoxelIndex> GetOccupiedIndices(IVoxelOccupant occupant)
+    public static IEnumerable<WorldVoxelIndex> GetOccupiedIndices(IVoxelOccupant occupant)
     {
         TrackedOccupancy[] occupancies = GetTrackedOccupanciesSnapshot(occupant);
         if (occupancies.Length == 0)
-            return Array.Empty<GlobalVoxelIndex>();
+            return Array.Empty<WorldVoxelIndex>();
 
-        GlobalVoxelIndex[] indices = new GlobalVoxelIndex[occupancies.Length];
+        WorldVoxelIndex[] indices = new WorldVoxelIndex[occupancies.Length];
         for (int i = 0; i < occupancies.Length; i++)
             indices[i] = occupancies[i].VoxelIndex;
 
@@ -134,7 +134,7 @@ public static class GridOccupantManager
     /// <returns>True if the occupant is registered to the voxel, otherwise false.</returns>
     public static bool TryGetOccupancyTicket(
         IVoxelOccupant occupant,
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         out int ticket)
     {
         ticket = -1;
@@ -147,10 +147,10 @@ public static class GridOccupantManager
     }
 
     /// <summary>
-    /// Attempts to add an occupant from the given global voxel index.
+    /// Attempts to add an occupant from the given world-scoped voxel identity.
     /// </summary>
     public static bool TryAddVoxelOccupant(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         IVoxelOccupant occupant)
     {
         return occupant != null
@@ -195,16 +195,16 @@ public static class GridOccupantManager
         if (!targetVoxel.HasVacancy || !grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell))
             return false;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         int ticket = -1;
         byte occupantCount;
 
         lock (gridLock)
         {
-            ticket = scanCell!.AddOccupant(targetVoxel.GlobalIndex, occupant);
-            if (!TryTrackOccupancy(occupant, targetVoxel.GlobalIndex, ticket))
+            ticket = scanCell!.AddOccupant(targetVoxel.WorldIndex, occupant);
+            if (!TryTrackOccupancy(occupant, targetVoxel.WorldIndex, ticket))
             {
-                scanCell!.TryRemoveOccupant(targetVoxel.GlobalIndex, ticket);
+                scanCell!.TryRemoveOccupant(targetVoxel.WorldIndex, ticket);
                 return false;
             }
 
@@ -234,7 +234,7 @@ public static class GridOccupantManager
 
         for (int i = 0; i < occupancies.Length; i++)
         {
-            GlobalVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
+            WorldVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
             if (!GlobalGridManager.TryGetGridAndVoxel(voxelIndex, out VoxelGrid? grid, out Voxel? voxel))
             {
                 removedAny |= ForgetTrackedOccupancy(occupant, voxelIndex);
@@ -248,10 +248,10 @@ public static class GridOccupantManager
     }
 
     /// <summary>
-    /// Attempts to remove an occupant from the given global voxel index.
+    /// Attempts to remove an occupant from the given world-scoped voxel identity.
     /// </summary>
     public static bool TryRemoveVoxelOccupant(
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         IVoxelOccupant occupant)
     {
         return occupant != null
@@ -266,7 +266,7 @@ public static class GridOccupantManager
         this VoxelGrid grid,
         IVoxelOccupant occupant)
     {
-        TrackedOccupancy[] occupancies = GetTrackedOccupanciesSnapshot(occupant, grid.GlobalIndex);
+        TrackedOccupancy[] occupancies = GetTrackedOccupanciesSnapshot(occupant, grid.GridIndex);
         if (occupancies.Length == 0)
             return false;
 
@@ -274,7 +274,7 @@ public static class GridOccupantManager
 
         for (int i = 0; i < occupancies.Length; i++)
         {
-            GlobalVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
+            WorldVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
             if (voxelIndex.GridSpawnToken != grid.SpawnToken || !grid.TryGetVoxel(voxelIndex.VoxelIndex, out Voxel? voxel))
             {
                 removedAny |= ForgetTrackedOccupancy(occupant, voxelIndex);
@@ -311,9 +311,9 @@ public static class GridOccupantManager
         if (occupant == null)
             return false;
 
-        if (!TryGetOccupancyTicket(occupant, targetVoxel.GlobalIndex, out int ticket))
+        if (!TryGetOccupancyTicket(occupant, targetVoxel.WorldIndex, out int ticket))
         {
-            GridForgeLogger.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.GlobalIndex}.");
+            GridForgeLogger.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.WorldIndex}.");
             return false;
         }
 
@@ -323,14 +323,14 @@ public static class GridOccupantManager
         bool success = false;
         byte occupantCount = targetVoxel.OccupantCount;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GlobalIndex, _ => new object());
+        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
 
         lock (gridLock)
         {
-            success = scanCell!.TryRemoveOccupant(targetVoxel.GlobalIndex, ticket);
+            success = scanCell!.TryRemoveOccupant(targetVoxel.WorldIndex, ticket);
             if (success)
             {
-                ForgetTrackedOccupancy(occupant, targetVoxel.GlobalIndex);
+                ForgetTrackedOccupancy(occupant, targetVoxel.WorldIndex);
 
                 if (!scanCell.IsOccupied && grid.ActiveScanCells != null)
                 {
@@ -358,7 +358,7 @@ public static class GridOccupantManager
 
     #region Internal Helpers
 
-    internal static void ForgetTrackedOccupancies(IEnumerable<IVoxelOccupant> occupants, GlobalVoxelIndex index)
+    internal static void ForgetTrackedOccupancies(IEnumerable<IVoxelOccupant> occupants, WorldVoxelIndex index)
     {
         foreach (IVoxelOccupant occupant in occupants)
             ForgetTrackedOccupancy(occupant, index);
@@ -376,7 +376,7 @@ public static class GridOccupantManager
 
     private static bool TryTrackOccupancy(
         IVoxelOccupant occupant,
-        GlobalVoxelIndex index,
+        WorldVoxelIndex index,
         int ticket)
     {
         lock (_occupancyRegistryLock)
@@ -408,7 +408,7 @@ public static class GridOccupantManager
 
     private static bool ForgetTrackedOccupancy(
         IVoxelOccupant occupant,
-        GlobalVoxelIndex index)
+        WorldVoxelIndex index)
     {
         if (occupant == null)
             return false;
@@ -452,7 +452,7 @@ public static class GridOccupantManager
             TrackedOccupancy[] occupancies = new TrackedOccupancy[record.Tickets.Count];
             int count = 0;
 
-            foreach (GlobalVoxelIndex index in record.Tickets.Keys)
+            foreach (WorldVoxelIndex index in record.Tickets.Keys)
             {
                 if (gridIndex.HasValue && index.GridIndex != gridIndex.Value)
                     continue;
@@ -473,7 +473,11 @@ public static class GridOccupantManager
 
     private static int CompareTrackedOccupancies(TrackedOccupancy left, TrackedOccupancy right)
     {
-        int result = left.VoxelIndex.GridIndex.CompareTo(right.VoxelIndex.GridIndex);
+        int result = left.VoxelIndex.WorldSpawnToken.CompareTo(right.VoxelIndex.WorldSpawnToken);
+        if (result != 0)
+            return result;
+
+        result = left.VoxelIndex.GridIndex.CompareTo(right.VoxelIndex.GridIndex);
         if (result != 0)
             return result;
 
@@ -505,7 +509,7 @@ public static class GridOccupantManager
         int ticket,
         byte occupantCount)
     {
-        OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
+        OccupantEventInfo eventInfo = new(targetVoxel.WorldIndex, occupant, ticket, occupantCount);
         Action<OccupantEventInfo>? handlers = _onOccupantAdded;
         if (handlers != null)
         {
@@ -518,7 +522,7 @@ public static class GridOccupantManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Occupant add error: {ex.Message}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant add error: {ex.Message}");
                 }
             }
         }
@@ -535,7 +539,7 @@ public static class GridOccupantManager
         int ticket,
         byte occupantCount)
     {
-        OccupantEventInfo eventInfo = new(targetVoxel.GlobalIndex, occupant, ticket, occupantCount);
+        OccupantEventInfo eventInfo = new(targetVoxel.WorldIndex, occupant, ticket, occupantCount);
         Action<OccupantEventInfo>? handlers = _onOccupantRemoved;
         if (handlers != null)
         {
@@ -548,7 +552,7 @@ public static class GridOccupantManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.GlobalIndex}] Occupant remove error: {ex.Message}");
+                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant remove error: {ex.Message}");
                 }
             }
         }

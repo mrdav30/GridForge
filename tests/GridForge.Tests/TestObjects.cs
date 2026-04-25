@@ -6,11 +6,11 @@ namespace GridForge.Grids.Tests;
 
 public class TestPartition : IVoxelPartition
 {
-    public GlobalVoxelIndex GlobalIndex { get; private set; }
+    public WorldVoxelIndex WorldIndex { get; private set; }
 
-    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    public void SetParentIndex(WorldVoxelIndex worldIndex)
     {
-        GlobalIndex = globalIndex;
+        WorldIndex = worldIndex;
     }
 
     public void OnAddToVoxel(Voxel voxel) { }
@@ -20,11 +20,11 @@ public class TestPartition : IVoxelPartition
 
 public sealed class ThrowOnAddPartition : IVoxelPartition
 {
-    public GlobalVoxelIndex GlobalIndex { get; private set; }
+    public WorldVoxelIndex WorldIndex { get; private set; }
 
-    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    public void SetParentIndex(WorldVoxelIndex worldIndex)
     {
-        GlobalIndex = globalIndex;
+        WorldIndex = worldIndex;
     }
 
     public void OnAddToVoxel(Voxel voxel)
@@ -37,11 +37,11 @@ public sealed class ThrowOnAddPartition : IVoxelPartition
 
 public sealed class ThrowOnRemovePartition : IVoxelPartition
 {
-    public GlobalVoxelIndex GlobalIndex { get; private set; }
+    public WorldVoxelIndex WorldIndex { get; private set; }
 
-    public void SetParentIndex(GlobalVoxelIndex globalIndex)
+    public void SetParentIndex(WorldVoxelIndex worldIndex)
     {
-        GlobalIndex = globalIndex;
+        WorldIndex = worldIndex;
     }
 
     public void OnAddToVoxel(Voxel voxel) { }
@@ -56,11 +56,11 @@ public static class PartitionFamilyA
 {
     public sealed class SharedPartition : IVoxelPartition
     {
-        public GlobalVoxelIndex GlobalIndex { get; private set; }
+        public WorldVoxelIndex WorldIndex { get; private set; }
 
-        public void SetParentIndex(GlobalVoxelIndex globalIndex)
+        public void SetParentIndex(WorldVoxelIndex worldIndex)
         {
-            GlobalIndex = globalIndex;
+            WorldIndex = worldIndex;
         }
 
         public void OnAddToVoxel(Voxel voxel) { }
@@ -73,11 +73,11 @@ public static class PartitionFamilyB
 {
     public sealed class SharedPartition : IVoxelPartition
     {
-        public GlobalVoxelIndex GlobalIndex { get; private set; }
+        public WorldVoxelIndex WorldIndex { get; private set; }
 
-        public void SetParentIndex(GlobalVoxelIndex globalIndex)
+        public void SetParentIndex(WorldVoxelIndex worldIndex)
         {
-            GlobalIndex = globalIndex;
+            WorldIndex = worldIndex;
         }
 
         public void OnAddToVoxel(Voxel voxel) { }
