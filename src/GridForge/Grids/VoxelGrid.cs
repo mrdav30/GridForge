@@ -33,6 +33,16 @@ public class VoxelGrid
     /// </summary>
     public GridWorld? World { get; private set; }
 
+    /// <summary>
+    /// Synchronizes obstacle mutations for this grid.
+    /// </summary>
+    internal object ObstacleSyncRoot { get; } = new object();
+
+    /// <summary>
+    /// Synchronizes occupant mutations for this grid.
+    /// </summary>
+    internal object OccupantSyncRoot { get; } = new object();
+
     /// <inheritdoc cref="GridConfiguration"/>
     public GridConfiguration Configuration { get; private set; }
 
@@ -295,7 +305,7 @@ public class VoxelGrid
                     int cellKey = x + y * _scanWidth + z * _scanLayerSize;
 
                     ScanCell scanCell = Pools.ScanCellPool.Rent();
-                    scanCell.Initialize(GridIndex, cellKey);
+                    scanCell.Initialize(World!, GridIndex, cellKey);
                     ScanCells.Add(cellKey, scanCell);
                 }
             }

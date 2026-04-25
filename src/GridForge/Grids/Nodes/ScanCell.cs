@@ -14,9 +14,14 @@ public class ScanCell
     #region Properties
 
     /// <summary>
-    /// The global index of the grid this scan cell belongs to.
+    /// The world-local index of the grid this scan cell belongs to.
     /// </summary>
     public ushort GridIndex { get; private set; }
+
+    /// <summary>
+    /// The world that owns this scan cell through its parent grid.
+    /// </summary>
+    public GridWorld? World { get; private set; }
 
     /// <summary>
     /// A unique identifier for this scan cell in the grid.
@@ -57,8 +62,9 @@ public class ScanCell
     /// <summary>
     /// Initializes the scan cell with the specified grid index and unique cell key.
     /// </summary>
-    internal void Initialize(ushort gridIndex, int cellKey)
+    internal void Initialize(GridWorld world, ushort gridIndex, int cellKey)
     {
+        World = world;
         GridIndex = gridIndex;
         CellKey = cellKey;
         SpawnToken = GetHashCode();
@@ -79,7 +85,7 @@ public class ScanCell
             foreach (var kvp in _voxelOccupants)
             {
                 SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-                GridOccupantManager.ForgetTrackedOccupancies(bucket, kvp.Key);
+                GridOccupantManager.ForgetTrackedOccupancies(World, bucket, kvp.Key);
                 Pools.VoxelOccupantBucketPool.Release(bucket);
             }
 
@@ -89,6 +95,7 @@ public class ScanCell
 
         CellOccupantCount = 0;
 
+        World = null;
         GridIndex = ushort.MaxValue;
         CellKey = byte.MaxValue;
 

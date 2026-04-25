@@ -8,6 +8,11 @@ namespace GridForge.Blockers;
 public readonly struct BlockageEventInfo
 {
     /// <summary>
+    /// The world instance that produced this blocker event.
+    /// </summary>
+    public readonly int WorldSpawnToken;
+
+    /// <summary>
     /// The unique token representing the blocker coverage.
     /// </summary>
     public readonly BoundsKey BlockageToken;
@@ -26,10 +31,12 @@ public readonly struct BlockageEventInfo
     /// Initializes a new immutable blockage snapshot.
     /// </summary>
     public BlockageEventInfo(
+        int worldSpawnToken,
         BoundsKey blockageToken,
         Vector3d boundsMin,
         Vector3d boundsMax)
     {
+        WorldSpawnToken = worldSpawnToken;
         BlockageToken = blockageToken;
         BoundsMin = boundsMin;
         BoundsMax = boundsMax;

@@ -7,7 +7,7 @@ This document tracks the breaking refactor from one process-wide static world to
 - Started: 2026-04-24
 - Release posture: Breaking release
 - Backwards compatibility: Explicitly out of scope
-- Current state: Phase 2 complete, Phase 3 not started
+- Current state: Phase 3 complete, Phase 4 not started
 
 ## Scope
 
@@ -78,7 +78,7 @@ This is also the right time to take the break because:
 - [x] Phase 0: Lock the new world model and migration boundaries.
 - [x] Phase 1: Introduce `GridWorld` core runtime ownership.
 - [x] Phase 2: Move grid identity and lookup to world scope.
-- [ ] Phase 3: Move mutation and query services to world scope.
+- [x] Phase 3: Move mutation and query services to world scope.
 - [ ] Phase 4: Rebuild validation, docs, and benchmarks around explicit worlds.
 - [ ] Phase 5: Ship the breaking release cleanup.
 
@@ -226,18 +226,27 @@ Likely files:
 
 Checklist:
 
-- [ ] Convert `GridTracer` APIs to operate against an explicit world.
-- [ ] Move blocker grid-watching from process-wide global events to world-level events.
-- [ ] Make occupant tracking registries world-scoped rather than process-scoped.
-- [ ] Make scan query entry points world-scoped.
-- [ ] Make obstacle mutation notifications route through world-owned lookup and versioning.
-- [ ] Audit pooled temporary collections and caches for assumptions that one global world exists.
+- [x] Convert `GridTracer` APIs to operate against an explicit world.
+- [x] Move blocker grid-watching from process-wide global events to world-level events.
+- [x] Make occupant tracking registries world-scoped rather than process-scoped.
+- [x] Make scan query entry points world-scoped.
+- [x] Make obstacle mutation notifications route through world-owned lookup and versioning.
+- [x] Audit pooled temporary collections and caches for assumptions that one global world exists.
 
 Exit criteria:
 
-- [ ] Blockers in one world never react to grid changes in another world.
-- [ ] Occupants and scan queries cannot cross world boundaries accidentally.
-- [ ] Tracing and coverage enumeration operate only on the specified world.
+- [x] Blockers in one world never react to grid changes in another world.
+- [x] Occupants and scan queries cannot cross world boundaries accidentally.
+- [x] Tracing and coverage enumeration operate only on the specified world.
+
+Implementation notes:
+
+- `GridTracer` now has explicit `GridWorld` overloads for line tracing, voxel coverage, and scan-cell coverage. Temporary default-world wrappers still exist during the migration branch.
+- `Blocker` instances are now bound to a single `GridWorld` and watch that world's grid lifecycle events instead of subscribing through process-wide static hooks.
+- `GridOccupantManager` now partitions tracked occupancy registries by `GridWorld`, allowing overlapping coordinates and occupant ids to coexist safely across worlds.
+- `GridScanManager` now exposes explicit-world overloads for radius scans and world-scoped voxel identity queries.
+- `GridObstacleManager` now resolves identity-based obstacle mutations against an explicit world and routes grid change notifications back through the owning world.
+- `ScanCell` now carries its owning world so pooled scan-cell cleanup can forget tracked occupancies without falling back to global state.
 
 ## Phase 4: Rebuild Validation, Benchmarks, And Docs
 

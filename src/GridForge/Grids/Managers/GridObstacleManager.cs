@@ -2,7 +2,6 @@
 using GridForge.Spatial;
 using SwiftCollections.Pool;
 using System;
-using System.Collections.Concurrent;
 
 namespace GridForge.Grids;
 
@@ -57,24 +56,28 @@ public static class GridObstacleManager
 
     #endregion
 
-    #region Private Fields
-
-    /// <summary>
-    /// Per-grid locks for ensuring thread-safe obstacle operations.
-    /// </summary>
-    private static readonly ConcurrentDictionary<ushort, object> _gridLocks = new();
-
-    #endregion
-
     #region Public Methods
 
     /// <summary>
-    /// Attempts to add an obstacle at the given world-scoped voxel identity.
+    /// Attempts to add an obstacle at the given world-scoped voxel identity in the supplied world.
+     /// </summary>
+    public static bool TryAddObstacle(
+        GridWorld world,
+        WorldVoxelIndex index,
+        BoundsKey obstacleSpawnToken)
+    {
+        return world != null
+            && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryAddObstacle(voxel!, obstacleSpawnToken) == true;
+    }
+
+    /// <summary>
+    /// Attempts to add an obstacle at the given world-scoped voxel identity in the default world.
     /// </summary>
     public static bool TryAddObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            && grid!.TryAddObstacle(voxel!, obstacleSpawnToken) == true;
+        GridWorld? world = GlobalGridManager.DefaultWorld;
+        return world != null && TryAddObstacle(world, index, obstacleSpawnToken);
     }
 
     /// <summary>
@@ -98,11 +101,10 @@ public static class GridObstacleManager
         if (!targetVoxel.IsBlockable)
             return false;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte obstacleCount;
         uint gridVersion;
 
-        lock (gridLock)
+        lock (grid.ObstacleSyncRoot)
         {
             targetVoxel.ObstacleTracker ??= SwiftHashSetPool<BoundsKey>.Shared.Rent();
             if (!targetVoxel.ObstacleTracker.Add(obstacleSpawnToken))
@@ -120,12 +122,25 @@ public static class GridObstacleManager
     }
 
     /// <summary>
-    /// Attempts to remove an obstacle at the given world-scoped voxel identity.
+    /// Attempts to remove an obstacle at the given world-scoped voxel identity in the supplied world.
+    /// </summary>
+    public static bool TryRemoveObstacle(
+        GridWorld world,
+        WorldVoxelIndex index,
+        BoundsKey obstacleSpawnToken)
+    {
+        return world != null
+            && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
+            && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
+    }
+
+    /// <summary>
+    /// Attempts to remove an obstacle at the given world-scoped voxel identity in the default world.
     /// </summary>
     public static bool TryRemoveObstacle(WorldVoxelIndex index, BoundsKey obstacleSpawnToken)
     {
-        return GlobalGridManager.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
+        GridWorld? world = GlobalGridManager.DefaultWorld;
+        return world != null && TryRemoveObstacle(world, index, obstacleSpawnToken);
     }
 
     /// <summary>
@@ -148,11 +163,10 @@ public static class GridObstacleManager
             return false;
         }
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte obstacleCount;
         uint gridVersion;
 
-        lock (gridLock)
+        lock (grid.ObstacleSyncRoot)
         {
             if (targetVoxel.ObstacleTracker?.Remove(obstacleSpawnToken) != true)
                 return false;
@@ -184,11 +198,10 @@ public static class GridObstacleManager
         if (targetVoxel.ObstacleCount == 0)
             return;
 
-        object gridLock = _gridLocks.GetOrAdd(grid.GridIndex, _ => new object());
         byte clearedObstacleCount;
         uint gridVersion;
 
-        lock (gridLock)
+        lock (grid.ObstacleSyncRoot)
         {
             clearedObstacleCount = targetVoxel.ObstacleCount;
             if (targetVoxel.ObstacleTracker != null)
@@ -240,7 +253,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstacleAdded(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        GlobalGridManager.NotifyActiveGridChange(grid);
+        grid.World?.NotifyActiveGridChange(grid);
     }
 
     /// <summary>
@@ -274,7 +287,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstacleRemoved(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        GlobalGridManager.NotifyActiveGridChange(grid);
+        grid.World?.NotifyActiveGridChange(grid);
     }
 
     /// <summary>
@@ -307,7 +320,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstaclesCleared(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        GlobalGridManager.NotifyActiveGridChange(grid);
+        grid.World?.NotifyActiveGridChange(grid);
     }
 
     #endregion

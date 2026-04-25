@@ -185,11 +185,12 @@ public sealed class GridWorld : IDisposable
         ActiveGrids.Clear();
         BoundsTracker.Clear();
         SpatialGridHash.Clear();
-        GridOccupantManager.ClearTrackedOccupancies();
+        GridOccupantManager.ClearTrackedOccupancies(this);
 
         if (!deactivate)
             return;
 
+        GridOccupantManager.ReleaseTrackedOccupancies(this);
         IsActive = false;
         SpawnToken = 0;
         _onActiveGridAdded = null;

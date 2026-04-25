@@ -480,7 +480,7 @@ public class ManagerCoverageTests : IDisposable
             firstVoxel.WorldIndex,
             out int missingTicket));
         Assert.Equal(-1, missingTicket);
-        Assert.False(InvokeTryGetTrackedRecordUnsafe(null));
+        Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, null));
 
         Assert.False(firstGrid.TryAddVoxelOccupant(firstVoxel, collidingOccupant));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(
@@ -534,6 +534,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.Equal(secondVoxel.WorldIndex, remainingIndices[0]);
 
         Assert.True(InvokeTryTrackOccupancy(
+            firstGrid.World!,
             occupant,
             new WorldVoxelIndex(int.MaxValue, ushort.MaxValue, 0, new VoxelIndex(0, 0, 0)),
             77));
@@ -555,19 +556,20 @@ public class ManagerCoverageTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        Assert.True(InvokeTryTrackOccupancy(unavailableVoxelOccupant, voxel.WorldIndex, 123));
+        Assert.True(InvokeTryTrackOccupancy(grid.World!, unavailableVoxelOccupant, voxel.WorldIndex, 123));
         Assert.False(grid.TryRemoveVoxelOccupant(voxel, unavailableVoxelOccupant));
-        Assert.True(InvokeForgetTrackedOccupancy(unavailableVoxelOccupant, voxel.WorldIndex));
-        Assert.False(InvokeForgetTrackedOccupancy(unavailableVoxelOccupant, voxel.WorldIndex));
-        Assert.False(InvokeForgetTrackedOccupancy(null, voxel.WorldIndex));
+        Assert.True(InvokeForgetTrackedOccupancy(grid.World!, unavailableVoxelOccupant, voxel.WorldIndex));
+        Assert.False(InvokeForgetTrackedOccupancy(grid.World!, unavailableVoxelOccupant, voxel.WorldIndex));
+        Assert.False(InvokeForgetTrackedOccupancy(grid.World!, null, voxel.WorldIndex));
 
         WorldVoxelIndex staleLocalIndex = new(
             grid.World!.SpawnToken,
             grid.GridIndex,
             grid.SpawnToken,
             new VoxelIndex(99, 0, 99));
-        Assert.True(InvokeTryTrackOccupancy(staleGridOccupant, staleLocalIndex, 321));
+        Assert.True(InvokeTryTrackOccupancy(grid.World!, staleGridOccupant, staleLocalIndex, 321));
         Assert.True(InvokeTryTrackOccupancy(
+            grid.World!,
             staleSpawnOccupant,
             new WorldVoxelIndex(grid.World!.SpawnToken, grid.GridIndex, grid.SpawnToken + 1, voxel.Index),
             222));
@@ -621,33 +623,40 @@ public class ManagerCoverageTests : IDisposable
         Assert.Equal(0, CompareTrackedOccupancies(origin, 3, origin, 3));
     }
 
-    private static bool InvokeTryTrackOccupancy(IVoxelOccupant occupant, WorldVoxelIndex index, int ticket)
+    private static bool InvokeTryTrackOccupancy(
+        GridWorld world,
+        IVoxelOccupant occupant,
+        WorldVoxelIndex index,
+        int ticket)
     {
         MethodInfo method = typeof(GridOccupantManager).GetMethod(
             "TryTrackOccupancy",
             BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryTrackOccupancy.");
 
-        return (bool)method.Invoke(null, new object[] { occupant, index, ticket });
+        return (bool)method.Invoke(null, new object[] { world, occupant, index, ticket });
     }
 
-    private static bool InvokeForgetTrackedOccupancy(IVoxelOccupant occupant, WorldVoxelIndex index)
+    private static bool InvokeForgetTrackedOccupancy(
+        GridWorld world,
+        IVoxelOccupant occupant,
+        WorldVoxelIndex index)
     {
         MethodInfo method = typeof(GridOccupantManager).GetMethod(
             "ForgetTrackedOccupancy",
             BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find GridOccupantManager.ForgetTrackedOccupancy.");
 
-        return (bool)method.Invoke(null, new object[] { occupant, index });
+        return (bool)method.Invoke(null, new object[] { world, occupant, index });
     }
 
-    private static bool InvokeTryGetTrackedRecordUnsafe(IVoxelOccupant occupant)
+    private static bool InvokeTryGetTrackedRecordUnsafe(GridWorld world, IVoxelOccupant occupant)
     {
         MethodInfo method = typeof(GridOccupantManager).GetMethod(
             "TryGetTrackedRecordUnsafe",
             BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryGetTrackedRecordUnsafe.");
-        object[] arguments = { occupant, null };
+        object[] arguments = { world, occupant, null };
 
         bool result = (bool)method.Invoke(null, arguments);
         return result;
