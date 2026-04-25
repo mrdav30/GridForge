@@ -13,6 +13,7 @@ namespace GridForge.Benchmarks;
 public class NeighborCacheBenchmarks
 {
     private NeighborLookup[] _lookups;
+    private GridWorld _world;
 
     public int Rounds { get; set; } = 128;
 
@@ -50,7 +51,7 @@ public class NeighborCacheBenchmarks
 
     private void InitializeScenario(bool primeCache)
     {
-        BenchmarkEnvironment.PrepareWorld();
+        _world = BenchmarkEnvironment.PrepareWorld();
 
         GridConfiguration[] configurations = BenchmarkScenarioFactory.CreateTiledFlatGridConfigurations(
             tilesX: 3,
@@ -68,7 +69,7 @@ public class NeighborCacheBenchmarks
         {
             for (int x = 0; x < 3; x++)
             {
-                if (!GlobalGridManager.TryAddGrid(configurations[configurationIndex++], out ushort gridIndex))
+                if (!_world.TryAddGrid(configurations[configurationIndex++], out ushort gridIndex))
                     throw new InvalidOperationException($"Unable to allocate neighbor benchmark grid ({x}, {z}).");
 
                 if (x == 1 && z == 1)
@@ -79,14 +80,18 @@ public class NeighborCacheBenchmarks
         if (centerIndex == ushort.MaxValue)
             throw new InvalidOperationException("Unable to resolve center grid for neighbor benchmark.");
 
-        VoxelGrid centerGrid = GlobalGridManager.ActiveGrids[centerIndex];
+        VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
         _lookups = BuildLookups(centerGrid);
 
         if (primeCache)
         {
             for (int i = 0; i < _lookups.Length; i++)
             {
-                if (!_lookups[i].Voxel.TryGetNeighborFromDirection(_lookups[i].Direction, out _, useCache: true))
+                if (!_lookups[i].Voxel.TryGetNeighborFromDirection(
+                    _lookups[i].OwnerGrid,
+                    _lookups[i].Direction,
+                    out _,
+                    useCache: true))
                 {
                     throw new InvalidOperationException(
                         $"Unable to prime cached lookup {i} for direction {_lookups[i].Direction}.");
@@ -101,20 +106,20 @@ public class NeighborCacheBenchmarks
 
         for (int z = 0; z <= 31; z++)
         {
-            lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 31, z), SpatialDirection.East));
-            lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 0, z), SpatialDirection.West));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, z), SpatialDirection.East));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, z), SpatialDirection.West));
         }
 
         for (int x = 1; x < 31; x++)
         {
-            lookups.Add(new NeighborLookup(GetVoxel(centerGrid, x, 31), SpatialDirection.North));
-            lookups.Add(new NeighborLookup(GetVoxel(centerGrid, x, 0), SpatialDirection.South));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 31), SpatialDirection.North));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 0), SpatialDirection.South));
         }
 
-        lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 31, 31), SpatialDirection.NorthEast));
-        lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 0, 31), SpatialDirection.NorthWest));
-        lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 31, 0), SpatialDirection.SouthEast));
-        lookups.Add(new NeighborLookup(GetVoxel(centerGrid, 0, 0), SpatialDirection.SouthWest));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 31), SpatialDirection.NorthEast));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 31), SpatialDirection.NorthWest));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 0), SpatialDirection.SouthEast));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 0), SpatialDirection.SouthWest));
 
         return lookups.ToArray();
     }
@@ -136,7 +141,11 @@ public class NeighborCacheBenchmarks
         {
             for (int i = 0; i < _lookups.Length; i++)
             {
-                if (_lookups[i].Voxel.TryGetNeighborFromDirection(_lookups[i].Direction, out _, useCache))
+                if (_lookups[i].Voxel.TryGetNeighborFromDirection(
+                    _lookups[i].OwnerGrid,
+                    _lookups[i].Direction,
+                    out _,
+                    useCache))
                     hitCount++;
             }
         }
@@ -146,11 +155,13 @@ public class NeighborCacheBenchmarks
 
     private readonly struct NeighborLookup
     {
+        public readonly VoxelGrid OwnerGrid;
         public readonly Voxel Voxel;
         public readonly SpatialDirection Direction;
 
-        public NeighborLookup(Voxel voxel, SpatialDirection direction)
+        public NeighborLookup(VoxelGrid ownerGrid, Voxel voxel, SpatialDirection direction)
         {
+            OwnerGrid = ownerGrid;
             Voxel = voxel;
             Direction = direction;
         }

@@ -11,6 +11,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class ScanRadiusMemoryBenchmarks
 {
+    private GridWorld _world;
     private Vector3d _queryCenter;
     private Fixed64 _queryRadius;
 
@@ -50,7 +51,7 @@ public class ScanRadiusMemoryBenchmarks
 
     private void InitializeScenario(bool clearAllPools)
     {
-        BenchmarkEnvironment.PrepareWorld(clearAllPools);
+        _world = BenchmarkEnvironment.PrepareWorld(clearAllPools);
 
         int gridSize = 63;
         for (int gridX = 0; gridX < 2; gridX++)
@@ -64,18 +65,18 @@ public class ScanRadiusMemoryBenchmarks
                     new Vector3d(minX + gridSize, 0, minZ + gridSize),
                     scanCellSize: 8);
 
-                if (!GlobalGridManager.TryAddGrid(configuration, out _))
+                if (!_world.TryAddGrid(configuration, out _))
                     throw new InvalidOperationException($"Unable to allocate scan benchmark grid ({gridX}, {gridZ}).");
             }
         }
 
-        PopulateOccupants(OccupantCount);
+        PopulateOccupants(_world, OccupantCount);
 
         _queryCenter = new Vector3d(64, 0, 64);
         _queryRadius = (Fixed64)72;
     }
 
-    private static void PopulateOccupants(int occupantCount)
+    private static void PopulateOccupants(GridWorld world, int occupantCount)
     {
         int placed = 0;
         int groupId = 0;
@@ -88,7 +89,7 @@ public class ScanRadiusMemoryBenchmarks
                     new Vector3d(x, 0, z),
                     (byte)(groupId++ & 7));
 
-                if (!GridOccupantManager.TryRegister(occupant))
+                if (!GridOccupantManager.TryRegister(world, occupant))
                     throw new InvalidOperationException($"Unable to register benchmark occupant at {(x, z)}.");
 
                 placed++;
@@ -103,7 +104,7 @@ public class ScanRadiusMemoryBenchmarks
     {
         int occupantHits = 0;
 
-        foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(_queryCenter, _queryRadius))
+        foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(_world, _queryCenter, _queryRadius))
             occupantHits++;
 
         return occupantHits;

@@ -9,25 +9,11 @@
 [![License](https://img.shields.io/github/license/mrdav30/GridForge.svg)](https://github.com/mrdav30/GridForge/blob/main/LICENSE)
 [![Frameworks](https://img.shields.io/badge/frameworks-netstandard2.1%20%7C%20net8.0-512BD4.svg)](https://github.com/mrdav30/GridForge)
 
-**GridForge** is a high-performance, deterministic voxel grid system for spatial partitioning, simulation, and game development.
+**GridForge** is a deterministic, high-performance voxel-grid library for spatial partitioning, simulation, and game-development workflows.
 
-Lightweight, framework-agnostic, and optimized for lockstep engines.
+The core unit is an explicit `GridWorld`. That lets you run multiple isolated worlds in one process without leaking grid registration, tracing, blockers, occupants, or scan queries across world boundaries.
 
----
-
-## 🚀 Key Features
-
-- **Voxel-Based Spatial Partitioning** – Build efficient 3D **voxel grids** with fast access & updates.
-- **Deterministic & Lockstep Ready** – Designed for **synchronized multiplayer** and physics-safe environments.
-- **ScanCell Overlay System** – Accelerated **proximity and radius queries** using spatial hashing.
-- **Dynamic Occupancy & Obstacle Tracking** – Manage **moving occupants, dynamic obstacles**, and voxel metadata.
-- **Minimal Allocations & Fast Queries** – Built with **SwiftCollections** and **FixedMathSharp** for optimal performance.
-- **Framework Agnostic** – Works in **Unity**, **.NET**, **lockstep engines**, and **server-side simulations**.
-- **Multi-Layered Grid System** – **Dynamic, hierarchical, and persistent grids**.
-
----
-
-## 📦 Install
+## Install
 
 ```bash
 dotnet add package GridForge
@@ -39,9 +25,52 @@ GridForge targets `netstandard2.1` and `net8.0` and builds on `FixedMathSharp`, 
 
 Unity-specific integration lives in the separate [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity) repository.
 
----
+## Quick Start
 
-## 📖 Start With The Wiki
+```csharp
+using System;
+using FixedMathSharp;
+using GridForge.Configuration;
+using GridForge.Grids;
+
+using GridWorld world = new GridWorld();
+
+GridConfiguration configuration = new(
+    new Vector3d(-10, 0, -10),
+    new Vector3d(10, 0, 10),
+    scanCellSize: 8);
+
+if (!world.TryAddGrid(configuration, out ushort gridIndex))
+    throw new InvalidOperationException("Failed to add grid.");
+
+VoxelGrid grid = world.ActiveGrids[gridIndex];
+Vector3d position = new(2, 0, -3);
+
+if (world.TryGetGridAndVoxel(position, out VoxelGrid resolvedGrid, out Voxel voxel))
+{
+    Console.WriteLine($"Grid: {resolvedGrid.GridIndex}");
+    Console.WriteLine($"Voxel: {voxel.Index}");
+    Console.WriteLine($"World position: {voxel.WorldPosition}");
+}
+```
+
+Key ideas:
+
+- `GridWorld` owns runtime state such as voxel size, spatial hash size, active grids, tracing, blocker reactivity, and world-space lookup.
+- `VoxelGrid` is world-local. `GridIndex` is unique only within its owning world.
+- `WorldVoxelIndex` is the cross-system identity for a voxel and includes world scope.
+- `GlobalGridManager` still exists during the migration branch as a temporary default-world facade, but new code should prefer explicit `GridWorld` usage.
+
+## Why Explicit Worlds
+
+Having `GridWorld` own world state makes it practical to build:
+
+- multi-world simulations with overlapping local coordinates
+- streamed loading and unloading without cross-world state leakage
+- save and load flows keyed by world identity
+- higher-level orchestration such as galaxies, sectors, or planet registries above the library
+
+## Start With The Wiki
 
 - [Wiki Home](https://github.com/mrdav30/GridForge/wiki/Home)
 - [Getting Started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)
@@ -51,9 +80,7 @@ Unity-specific integration lives in the separate [GridForge-Unity](https://githu
 - [Recipes](https://github.com/mrdav30/GridForge/wiki/Recipes)
 - [FAQ and Troubleshooting](https://github.com/mrdav30/GridForge/wiki/FAQ-and-Troubleshooting)
 
----
-
-## 🧪 Local Validation
+## Local Validation
 
 ```bash
 dotnet restore GridForge.slnx
@@ -67,15 +94,11 @@ For benchmark discovery:
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 ```
 
----
-
-## 🤝 Contributing
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and workflow details.
 
----
-
-## 💬 Community & Support
+## Community & Support
 
 For questions, discussions, or general support, join the official Discord community:
 
@@ -83,10 +106,6 @@ For questions, discussions, or general support, join the official Discord commun
 
 For bug reports or feature requests, please open an issue in this repository.
 
-We welcome feedback, contributors, and community discussion across all projects.
-
----
-
-## 📄 License
+## License
 
 GridForge is licensed under the MIT License. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [COPYRIGHT](COPYRIGHT) for details.

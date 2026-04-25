@@ -7,7 +7,7 @@ This document tracks the breaking refactor from one process-wide static world to
 - Started: 2026-04-24
 - Release posture: Breaking release
 - Backwards compatibility: Explicitly out of scope
-- Current state: Phase 3 complete, Phase 4 not started
+- Current state: Phase 4 complete, Phase 5 not started
 
 ## Scope
 
@@ -79,7 +79,7 @@ This is also the right time to take the break because:
 - [x] Phase 1: Introduce `GridWorld` core runtime ownership.
 - [x] Phase 2: Move grid identity and lookup to world scope.
 - [x] Phase 3: Move mutation and query services to world scope.
-- [ ] Phase 4: Rebuild validation, docs, and benchmarks around explicit worlds.
+- [x] Phase 4: Rebuild validation, docs, and benchmarks around explicit worlds.
 - [ ] Phase 5: Ship the breaking release cleanup.
 
 ## Phase 0: Lock The Model
@@ -262,18 +262,26 @@ Likely files:
 
 Checklist:
 
-- [ ] Replace shared static-world test setup with explicit world fixtures or factories.
-- [ ] Add coverage for multiple worlds loaded simultaneously with overlapping local coordinates.
-- [ ] Add coverage for world teardown, slot reuse, and stale identity rejection.
-- [ ] Add coverage for blockers, occupants, tracing, and scan queries staying inside their world.
-- [ ] Update benchmarks to construct and tear down explicit worlds during setup.
-- [ ] Rewrite README and wiki examples to start with world creation instead of `GlobalGridManager.Setup()`.
+- [x] Replace shared static-world test setup with explicit world fixtures or factories.
+- [x] Add coverage for multiple worlds loaded simultaneously with overlapping local coordinates.
+- [x] Add coverage for world teardown, slot reuse, and stale identity rejection.
+- [x] Add coverage for blockers, occupants, tracing, and scan queries staying inside their world.
+- [x] Update benchmarks to construct and tear down explicit worlds during setup.
+- [x] Rewrite README and wiki examples to start with world creation instead of `GlobalGridManager.Setup()`.
 
 Exit criteria:
 
-- [ ] Tests cover both single-world parity and multi-world isolation.
-- [ ] Benchmarks still run and reflect the new initialization model.
-- [ ] Docs no longer describe GridForge as process-wide shared world state.
+- [x] Tests cover both single-world parity and multi-world isolation.
+- [x] Benchmarks still run and reflect the new initialization model.
+- [x] Docs no longer describe GridForge as process-wide shared world state.
+
+Implementation notes:
+
+- `GridForgeFixture` now focuses on logger configuration and default-world cleanup instead of implicitly creating runtime world state for every test.
+- `GridWorldTestFactory` was added to keep explicit-world test setup small and repeatable.
+- Multi-world isolation coverage now includes overlapping local coordinates, blocker isolation, occupant isolation, scan isolation, and stale `WorldVoxelIndex` rejection after teardown.
+- Benchmark setup now creates and tears down explicit `GridWorld` instances through `BenchmarkEnvironment` instead of relying on ambient global setup.
+- The README, `AGENTS.md`, and the high-traffic wiki pages now present `GridWorld` as the runtime owner and describe `GlobalGridManager` only as a temporary migration facade.
 
 ## Phase 5: Ship The Breaking Cleanup
 

@@ -11,6 +11,7 @@ public class GridRegistrationBenchmarks
 {
     private GridConfiguration[] _configurations;
     private ushort[] _allocatedIndices;
+    private GridWorld _world;
 
     public int GridCountPerAxis { get; set; } = 8;
 
@@ -36,14 +37,14 @@ public class GridRegistrationBenchmarks
     }
 
     [Benchmark(Baseline = true, Description = "Register many adjacent grids")]
-    [BenchmarkCategory("Memory", "Registration", "GlobalGridManager")]
+    [BenchmarkCategory("Memory", "Registration", "GridWorld")]
     public int RegisterAdjacentGrids()
     {
         return ExecuteRegistration();
     }
 
     [Benchmark(Description = "Remove many adjacent grids")]
-    [BenchmarkCategory("Memory", "Registration", "GlobalGridManager")]
+    [BenchmarkCategory("Memory", "Registration", "GridWorld")]
     public int RemoveAdjacentGrids()
     {
         return ExecuteRemoval();
@@ -51,7 +52,7 @@ public class GridRegistrationBenchmarks
 
     private void InitializeScenario()
     {
-        BenchmarkEnvironment.PrepareWorld(clearAllPools: true);
+        _world = BenchmarkEnvironment.PrepareWorld(clearAllPools: true);
 
         _configurations = BenchmarkScenarioFactory.CreateTiledFlatGridConfigurations(
             GridCountPerAxis,
@@ -69,7 +70,7 @@ public class GridRegistrationBenchmarks
     {
         AllocateAllGrids();
         BenchmarkEnvironment.ResetWorld();
-        GlobalGridManager.Setup();
+        _world = BenchmarkEnvironment.PrepareWorld();
     }
 
     private int ExecuteRegistration()
@@ -77,7 +78,7 @@ public class GridRegistrationBenchmarks
         AllocateAllGrids();
 
         int totalNeighborLinks = 0;
-        foreach (VoxelGrid grid in GlobalGridManager.ActiveGrids)
+        foreach (VoxelGrid grid in _world.ActiveGrids)
             totalNeighborLinks += grid.NeighborCount;
 
         return totalNeighborLinks;
@@ -87,7 +88,7 @@ public class GridRegistrationBenchmarks
     {
         for (int i = 0; i < _configurations.Length; i++)
         {
-            if (!GlobalGridManager.TryAddGrid(_configurations[i], out ushort gridIndex))
+            if (!_world.TryAddGrid(_configurations[i], out ushort gridIndex))
                 throw new InvalidOperationException($"Unable to allocate registration benchmark grid {i}.");
 
             _allocatedIndices[i] = gridIndex;
@@ -100,7 +101,7 @@ public class GridRegistrationBenchmarks
 
         for (int i = _allocatedIndices.Length - 1; i >= 0; i--)
         {
-            if (!GlobalGridManager.TryRemoveGrid(_allocatedIndices[i]))
+            if (!_world.TryRemoveGrid(_allocatedIndices[i]))
                 throw new InvalidOperationException($"Unable to remove registration benchmark grid {_allocatedIndices[i]}.");
 
             removedCount++;

@@ -12,6 +12,7 @@ public class VoxelGridMemoryBenchmarks
 {
     private GridConfiguration[] _configurations;
     private ushort[] _allocatedIndices;
+    private GridWorld _world;
 
     public int GridCount { get; set; } = 4;
 
@@ -51,7 +52,7 @@ public class VoxelGridMemoryBenchmarks
 
     private void InitializeScenario(bool clearAllPools)
     {
-        BenchmarkEnvironment.PrepareWorld(clearAllPools);
+        _world = BenchmarkEnvironment.PrepareWorld(clearAllPools);
 
         _configurations = new GridConfiguration[GridCount];
         _allocatedIndices = new ushort[GridCount];
@@ -71,16 +72,16 @@ public class VoxelGridMemoryBenchmarks
 
         for (int i = 0; i < _configurations.Length; i++)
         {
-            if (!GlobalGridManager.TryAddGrid(_configurations[i], out ushort gridIndex))
+            if (!_world.TryAddGrid(_configurations[i], out ushort gridIndex))
                 throw new InvalidOperationException($"Unable to allocate benchmark grid {i}.");
 
             _allocatedIndices[i] = gridIndex;
-            totalVoxelCount += GlobalGridManager.ActiveGrids[gridIndex].Size;
+            totalVoxelCount += _world.ActiveGrids[gridIndex].Size;
         }
 
         for (int i = _allocatedIndices.Length - 1; i >= 0; i--)
         {
-            if (!GlobalGridManager.TryRemoveGrid(_allocatedIndices[i]))
+            if (!_world.TryRemoveGrid(_allocatedIndices[i]))
                 throw new InvalidOperationException($"Unable to release benchmark grid {_allocatedIndices[i]}.");
         }
 

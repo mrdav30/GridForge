@@ -11,6 +11,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class GridTracerBenchmarks
 {
+    private GridWorld _world;
     private Vector3d _coverageMin;
     private Vector3d _coverageMax;
     private Vector3d _lineStart;
@@ -76,7 +77,7 @@ public class GridTracerBenchmarks
 
     private void InitializeScenario(bool clearAllPools)
     {
-        BenchmarkEnvironment.PrepareWorld(clearAllPools);
+        _world = BenchmarkEnvironment.PrepareWorld(clearAllPools);
 
         GridConfiguration[] configurations = BenchmarkScenarioFactory.CreateTiledFlatGridConfigurations(
             tilesX: 2,
@@ -86,7 +87,7 @@ public class GridTracerBenchmarks
 
         for (int i = 0; i < configurations.Length; i++)
         {
-            if (!GlobalGridManager.TryAddGrid(configurations[i], out _))
+            if (!_world.TryAddGrid(configurations[i], out _))
                 throw new InvalidOperationException($"Unable to allocate tracer benchmark grid {i}.");
         }
 
@@ -100,7 +101,7 @@ public class GridTracerBenchmarks
     {
         int voxelCount = 0;
 
-        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(_coverageMin, _coverageMax))
+        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(_world, _coverageMin, _coverageMax))
             voxelCount += covered.Voxels.Count;
 
         return voxelCount;
@@ -110,7 +111,7 @@ public class GridTracerBenchmarks
     {
         int voxelCount = 0;
 
-        foreach (GridVoxelSet traced in GridTracer.TraceLine(_lineStart, _lineEnd, includeEnd: true))
+        foreach (GridVoxelSet traced in GridTracer.TraceLine(_world, _lineStart, _lineEnd, includeEnd: true))
             voxelCount += traced.Voxels.Count;
 
         return voxelCount;

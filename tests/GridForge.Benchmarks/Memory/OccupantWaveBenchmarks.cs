@@ -12,6 +12,7 @@ public class OccupantWaveBenchmarks
 {
     private BenchmarkOccupant[] _occupants;
     private VoxelGrid _grid;
+    private GridWorld _world;
 
     public int OccupantCount { get; set; } = 8192;
 
@@ -51,17 +52,17 @@ public class OccupantWaveBenchmarks
 
     private void InitializeScenario(bool clearAllPools)
     {
-        BenchmarkEnvironment.PrepareWorld(clearAllPools);
+        _world = BenchmarkEnvironment.PrepareWorld(clearAllPools);
 
         GridConfiguration configuration = new(
             new Vector3d(0, 0, 0),
             new Vector3d(127, 0, 127),
             scanCellSize: 8);
 
-        if (!GlobalGridManager.TryAddGrid(configuration, out ushort gridIndex))
+        if (!_world.TryAddGrid(configuration, out ushort gridIndex))
             throw new InvalidOperationException("Unable to allocate occupant wave benchmark grid.");
 
-        _grid = GlobalGridManager.ActiveGrids[gridIndex];
+        _grid = _world.ActiveGrids[gridIndex];
         _occupants = BenchmarkScenarioFactory.CreateOccupants(OccupantCount, 128, 128);
     }
 
