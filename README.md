@@ -19,7 +19,37 @@ The core unit is an explicit `GridWorld`. That lets you run multiple isolated wo
 dotnet add package GridForge
 ```
 
-GridForge targets `netstandard2.1` and `net8.0` and builds on `FixedMathSharp`, `SwiftCollections`, and `MemoryPack`.
+GridForge targets `netstandard2.1` and `net8.0`.
+
+### Package Variants
+
+GridForge is published in two build variants so you can choose between built-in `MemoryPack` support and a leaner dependency set:
+
+- `GridForge`  
+  Includes `MemoryPack` and depends on the standard `FixedMathSharp` and `SwiftCollections` packages. This is the best default choice for most .NET applications.
+- `GridForge.Lean`  
+  Excludes the `MemoryPack` package, swaps to `FixedMathSharp.NoMemoryPack` and `SwiftCollections.Lean`, and uses internal shim attributes so the same source can compile without the dependency. Choose this when you do not need built-in MemoryPack serialization, when you prefer a different serializer, or when you want the leanest dependency surface.
+
+Both variants expose the same core voxel-grid API. The main difference is whether `MemoryPack` and the standard dependency chain are included.
+
+Install via NuGet:
+
+- Standard package:
+
+  ```bash
+  dotnet add package GridForge
+  ```
+
+- Lean package:
+
+  ```bash
+  dotnet add package GridForge.Lean
+  ```
+
+If you build from source, the repository also provides matching release configurations:
+
+- `Release` builds the standard `GridForge` package and release archives.
+- `ReleaseLean` builds the `GridForge.Lean` package and release archives.
 
 ### Unity
 
