@@ -59,7 +59,7 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
 	
-		<!-- Configurations Properties -->
+	<!-- Configurations Properties -->
 
 	<PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
 		<DisableMemoryPack>true</DisableMemoryPack>
@@ -94,16 +94,16 @@
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
 		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections" Version="4.0.1" />
+		<PackageReference Include="SwiftCollections" Version="4.0.2" />
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<PackageReference Include="FixedMathSharp.NoMemoryPack" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections.Lean" Version="4.0.1" />
+		<PackageReference Include="SwiftCollections.Lean" Version="4.0.2" />
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<PackageReference Include="System.Text.Json" Version="10.0.5" />
+		<PackageReference Include="System.Text.Json" Version="10.0.7" />
 	</ItemGroup>
 
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->
@@ -116,4 +116,8 @@
 		<None Remove=".gitignore" />
 	</ItemGroup>
 	
+	<!-- Ensure MemoryPack files are excluded when disabled -->
+	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
+		<Compile Remove="**\*.MemoryPack.cs" />
+	</ItemGroup>
 </Project>

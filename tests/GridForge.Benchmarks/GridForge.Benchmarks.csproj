@@ -16,7 +16,7 @@
     <ProjectReference Include="..\..\src\GridForge\GridForge.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageReference Include="FixedMathSharp" Version="3.0.1" />
-	<PackageReference Include="SwiftCollections" Version="4.0.1" />
+	<PackageReference Include="SwiftCollections" Version="4.0.2" />
 	<PackageReference Include="System.Text.Json" Version="10.0.7" />
     <!-- The Test SDK is required only for the VSTest Adapter to work -->
   </ItemGroup>

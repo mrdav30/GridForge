@@ -54,8 +54,17 @@ The public entry points are intentionally minimal:
 - `GridForgeLogger.Info(...)`
 - `GridForgeLogger.Warn(...)`
 - `GridForgeLogger.Error(...)`
+- `GridForgeLogger.Write(DiagnosticLevel, ...)`
 
-`Error(...)` also accepts an optional `Exception` and will include exception type, message, and stack trace in the emitted log body.
+`Info(...)`, `Warn(...)`, and `Error(...)` are fixed-level interpolated diagnostic helpers. `Write(DiagnosticLevel, ...)` is the matching generic primitive when the level is selected dynamically.
+
+All logger entry points use the SwiftCollections diagnostic string handler, so formatted expressions are not evaluated when the requested level is disabled. This means call sites should pass interpolated strings, even for literal messages:
+
+```csharp
+GridForgeLogger.Warn($"Grid world not active. Cannot resolve grids.");
+```
+
+If you need exception details, include only the details you want in the interpolated message. They will still be skipped when the error level is disabled.
 
 For most library work, that is enough. If you need more control, configure the handler or formatter rather than creating a second logging path.
 
@@ -136,6 +145,21 @@ GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 
 This is a good fit when you are tracing registration, blocker lifecycle, or occupant add and remove behavior.
 
+For fixed-level diagnostics, use the matching helper:
+
+```csharp
+GridForgeLogger.Warn(
+    $"Occupant {occupant.GlobalId} is not registered to voxel {voxel.WorldIndex}.");
+```
+
+When `Warning` is disabled, the formatted values in that message are not evaluated and the final message string is not built.
+
+When the level is dynamic, use `Write(...)`:
+
+```csharp
+GridForgeLogger.Write(level, $"Resolved {count} candidate voxels.");
+```
+
 ### During longer-running tools or simulations
 
 If you need a persistent record, set `LogFilePath` to a writable location and leave the standard logger surface in place.
@@ -169,6 +193,7 @@ GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
 
 - Adding direct console output in core code instead of routing through `GridForgeLogger`
 - Forgetting that info logs are filtered out by default
+- Passing plain strings such as `GridForgeLogger.Warn("message")`; use interpolated strings such as `GridForgeLogger.Warn($"message")` so the handler overload is selected
 - Treating logging as a control-flow mechanism instead of diagnostics
 - Assuming a failed log-file write will throw back into the caller
 - Forgetting to reset logger settings in tests after customizing them

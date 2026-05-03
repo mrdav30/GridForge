@@ -68,7 +68,7 @@ public readonly partial struct GridConfiguration
         int scanCellSize = DefaultScanCellSize)
     {
         if (boundsMin > boundsMax)
-            GridForgeLogger.Warn("GridMin was greater than GridMax, auto-correcting values.");
+            GridForgeLogger.Warn($"GridMin was greater than GridMax, auto-correcting values.");
 
         BoundsMin = new Vector3d(
             FixedMath.Min(boundsMin.x, boundsMax.x),
