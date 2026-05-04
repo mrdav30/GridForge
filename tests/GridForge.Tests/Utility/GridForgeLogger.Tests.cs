@@ -52,7 +52,7 @@ public class GridForgeLoggerTests
             GridForgeLogger.LogFilePath = Path.GetTempPath();
             GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 
-            Exception exception = Record.Exception(() => GridForgeLogger.Info($"write failure fallback"));
+            Exception exception = Record.Exception(() => GridForgeLogger.Channel.Info($"write failure fallback"));
 
             Assert.Null(exception);
         }
@@ -81,7 +81,7 @@ public class GridForgeLoggerTests
             GridForgeLogger.LogFilePath = tempFilePath;
             GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 
-            GridForgeLogger.Info($"persist me", method: "WriteFile", filePath: "/tmp/FileLogger.cs");
+            GridForgeLogger.Channel.Info($"persist me", method: "WriteFile", filePath: "/tmp/FileLogger.cs");
 
             string logContents = File.ReadAllText(tempFilePath);
 
@@ -120,7 +120,7 @@ public class GridForgeLoggerTests
                 capturedSource = source;
             };
 
-            GridForgeLogger.Error($"boom", method: "FakeMethod", filePath: "/tmp/FakeClass.cs");
+            GridForgeLogger.Channel.Error($"boom", method: "FakeMethod", filePath: "/tmp/FakeClass.cs");
 
             Assert.Equal(DiagnosticLevel.Error, capturedLevel);
             Assert.Equal("boom", capturedMessage);
@@ -150,7 +150,7 @@ public class GridForgeLoggerTests
                 capturedMessage = message;
             };
 
-            GridForgeLogger.Error(
+            GridForgeLogger.Channel.Error(
                 $"boom with detail {"exploded"}",
                 method: "ThrowingMethod",
                 filePath: "/tmp/ErrorLogger.cs");
@@ -189,7 +189,7 @@ public class GridForgeLoggerTests
     }
 
     [Fact]
-    public void WriteInterpolated_ShouldNotEvaluateFormattedExpressions_WhenLevelIsDisabled()
+    public void LogInterpolated_ShouldNotEvaluateFormattedExpressions_WhenLevelIsDisabled()
     {
         Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
         DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
@@ -207,7 +207,7 @@ public class GridForgeLoggerTests
                 callCount++;
             };
 
-            GridForgeLogger.Write(DiagnosticLevel.Info, $"expensive {Evaluate()}");
+            GridForgeLogger.Channel.Log(DiagnosticLevel.Info, $"expensive {Evaluate()}");
 
             Assert.Equal(0, evaluationCount);
             Assert.Equal(0, callCount);
@@ -244,7 +244,7 @@ public class GridForgeLoggerTests
                 callCount++;
             };
 
-            GridForgeLogger.Info($"expensive {Evaluate()}");
+            GridForgeLogger.Channel.Info($"expensive {Evaluate()}");
 
             Assert.Equal(0, evaluationCount);
             Assert.Equal(0, callCount);
@@ -263,7 +263,68 @@ public class GridForgeLoggerTests
     }
 
     [Fact]
-    public void WriteInterpolated_ShouldEmitExpectedDiagnostic_WhenLevelIsEnabled()
+    public void DiagnosticChannelInfo_ShouldUseProvidedChannelForEnablement()
+    {
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
+
+            DiagnosticChannel channel = new("Standalone")
+            {
+                MinimumLevel = DiagnosticLevel.Warning,
+                Sink = (in DiagnosticEvent _) => throw new InvalidOperationException("Disabled diagnostics should not emit.")
+            };
+
+            int evaluationCount = 0;
+
+            channel.Info($"standalone {Evaluate()}");
+
+            Assert.Equal(0, evaluationCount);
+
+            string Evaluate()
+            {
+                evaluationCount++;
+                return "value";
+            }
+        }
+        finally
+        {
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+        }
+    }
+
+    [Fact]
+    public void DiagnosticChannelWarn_ShouldEmitThroughProvidedChannel()
+    {
+        DiagnosticLevel? capturedLevel = null;
+        string capturedMessage = null;
+        string capturedSource = null;
+
+        DiagnosticChannel channel = new("Standalone")
+        {
+            MinimumLevel = DiagnosticLevel.Info,
+            Sink = (in DiagnosticEvent diagnostic) =>
+            {
+                capturedLevel = diagnostic.Level;
+                capturedMessage = diagnostic.Message;
+                capturedSource = diagnostic.Source;
+            }
+        };
+
+        channel.Warn(
+            $"standalone value {42}",
+            method: "StandaloneMethod",
+            filePath: "/tmp/StandaloneLogger.cs");
+
+        Assert.Equal(DiagnosticLevel.Warning, capturedLevel);
+        Assert.Equal("standalone value 42", capturedMessage);
+        Assert.Equal("StandaloneLogger.StandaloneMethod", capturedSource);
+    }
+
+    [Fact]
+    public void LogInterpolated_ShouldEmitExpectedDiagnostic_WhenLevelIsEnabled()
     {
         Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
         DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
@@ -281,7 +342,7 @@ public class GridForgeLoggerTests
                 capturedSource = source;
             };
 
-            GridForgeLogger.Write(
+            GridForgeLogger.Channel.Log(
                 DiagnosticLevel.Warning,
                 $"enabled value {42}",
                 method: "InterpolatedMethod",
@@ -317,7 +378,7 @@ public class GridForgeLoggerTests
                 capturedSource = source;
             };
 
-            GridForgeLogger.Warn($"plain warning", method: "StringMethod", filePath: "/tmp/StringLogger.cs");
+            GridForgeLogger.Channel.Warn($"plain warning", method: "StringMethod", filePath: "/tmp/StringLogger.cs");
 
             Assert.Equal(DiagnosticLevel.Warning, capturedLevel);
             Assert.Equal("plain warning", capturedMessage);
@@ -349,9 +410,9 @@ public class GridForgeLoggerTests
                 capturedLevel = level;
             };
 
-            GridForgeLogger.Info($"info");
-            GridForgeLogger.Warn($"warn");
-            GridForgeLogger.Error($"error");
+            GridForgeLogger.Channel.Info($"info");
+            GridForgeLogger.Channel.Warn($"warn");
+            GridForgeLogger.Channel.Error($"error");
 
             Assert.Equal(1, callCount);
             Assert.Equal(DiagnosticLevel.Error, capturedLevel);
@@ -381,9 +442,9 @@ public class GridForgeLoggerTests
                 callCount++;
             };
 
-            GridForgeLogger.Info($"info");
-            GridForgeLogger.Warn($"warn");
-            GridForgeLogger.Error($"error");
+            GridForgeLogger.Channel.Info($"info");
+            GridForgeLogger.Channel.Warn($"warn");
+            GridForgeLogger.Channel.Error($"error");
 
             Assert.Equal(0, callCount);
         }

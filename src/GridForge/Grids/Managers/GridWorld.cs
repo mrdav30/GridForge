@@ -158,7 +158,7 @@ public sealed class GridWorld : IDisposable
     {
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"Grid world not active. Cannot reset an inactive world.");
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot reset an inactive world.");
             return;
         }
 
@@ -174,7 +174,7 @@ public sealed class GridWorld : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"World reset notification error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"World reset notification error: {ex.Message}");
                 }
             }
         }
@@ -223,13 +223,13 @@ public sealed class GridWorld : IDisposable
 
         if (!IsActive)
         {
-            GridForgeLogger.Error($"Grid world not active. Cannot add grids to an inactive world.");
+            GridForgeLogger.Channel.Error($"Grid world not active. Cannot add grids to an inactive world.");
             return false;
         }
 
         if ((uint)ActiveGrids.Count > MaxGrids)
         {
-            GridForgeLogger.Warn($"No more grids can be added at this time.");
+            GridForgeLogger.Channel.Warn($"No more grids can be added at this time.");
             return false;
         }
 
@@ -241,7 +241,7 @@ public sealed class GridWorld : IDisposable
         {
             if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
             {
-                GridForgeLogger.Warn($"A grid with these bounds has already been allocated.");
+                GridForgeLogger.Channel.Warn($"A grid with these bounds has already been allocated.");
                 return false;
             }
         }
@@ -371,19 +371,19 @@ public sealed class GridWorld : IDisposable
         outGrid = null;
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"Grid world not active. Cannot resolve grids.");
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve grids.");
             return false;
         }
 
         if ((uint)index > ActiveGrids.Count)
         {
-            GridForgeLogger.Error($"GridIndex '{index}' is out-of-bounds for ActiveGrids.");
+            GridForgeLogger.Channel.Error($"GridIndex '{index}' is out-of-bounds for ActiveGrids.");
             return false;
         }
 
         if (!ActiveGrids.IsAllocated(index))
         {
-            GridForgeLogger.Error($"GridIndex '{index}' has not been allocated to ActiveGrids.");
+            GridForgeLogger.Channel.Error($"GridIndex '{index}' has not been allocated to ActiveGrids.");
             return false;
         }
 
@@ -402,7 +402,7 @@ public sealed class GridWorld : IDisposable
         outGrid = null;
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"Grid world not active. Cannot resolve positions.");
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve positions.");
             return false;
         }
 
@@ -422,7 +422,7 @@ public sealed class GridWorld : IDisposable
             }
         }
 
-        GridForgeLogger.Info($"No grid contains position {position}.");
+        GridForgeLogger.Channel.Info($"No grid contains position {position}.");
         return false;
     }
 
@@ -529,7 +529,7 @@ public sealed class GridWorld : IDisposable
     {
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"Grid world not active. Cannot increment grid versions.");
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot increment grid versions.");
             return;
         }
 
@@ -579,7 +579,7 @@ public sealed class GridWorld : IDisposable
 
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"Grid world not active. Cannot resolve overlaps.");
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve overlaps.");
             return overlappingGrids;
         }
 
@@ -682,7 +682,7 @@ public sealed class GridWorld : IDisposable
         Fixed64 resolved = voxelSize ?? DefaultVoxelSize;
         if (resolved <= Fixed64.Zero)
         {
-            GridForgeLogger.Warn($"Voxel size must be greater than zero. Falling back to default size {DefaultVoxelSize}.");
+            GridForgeLogger.Channel.Warn($"Voxel size must be greater than zero. Falling back to default size {DefaultVoxelSize}.");
             return DefaultVoxelSize;
         }
 
@@ -693,7 +693,7 @@ public sealed class GridWorld : IDisposable
     {
         if (spatialGridCellSize <= 0)
         {
-            GridForgeLogger.Warn($"Spatial grid cell size must be greater than zero. Falling back to default size {DefaultSpatialGridCellSize}.");
+            GridForgeLogger.Channel.Warn($"Spatial grid cell size must be greater than zero. Falling back to default size {DefaultSpatialGridCellSize}.");
             return DefaultSpatialGridCellSize;
         }
 
@@ -720,7 +720,7 @@ public sealed class GridWorld : IDisposable
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] added notification error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Grid {eventInfo.GridIndex}] added notification error: {ex.Message}");
             }
         }
     }
@@ -740,7 +740,7 @@ public sealed class GridWorld : IDisposable
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] removed notification error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Grid {eventInfo.GridIndex}] removed notification error: {ex.Message}");
             }
         }
     }
@@ -760,7 +760,7 @@ public sealed class GridWorld : IDisposable
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Grid {eventInfo.GridIndex}] change notification error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Grid {eventInfo.GridIndex}] change notification error: {ex.Message}");
             }
         }
     }

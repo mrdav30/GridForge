@@ -130,7 +130,7 @@ GridForgeLogger.LogHandler = (level, message, source) =>
 };
 ```
 
-For diagnostics in library or tool code, use interpolated helper calls such as `GridForgeLogger.Warn($"...")`; disabled diagnostic levels skip formatted expression evaluation.
+For diagnostics in library or tool code, use interpolated helper calls such as `GridForgeLogger.Channel.Warn($"...")`; disabled diagnostic levels skip formatted expression evaluation.
 
 ## 6. Reset Or Dispose Explicitly
 

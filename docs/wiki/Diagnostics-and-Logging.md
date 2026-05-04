@@ -51,17 +51,17 @@ That source is generated automatically from caller information for the standard 
 
 The public entry points are intentionally minimal:
 
-- `GridForgeLogger.Info(...)`
-- `GridForgeLogger.Warn(...)`
-- `GridForgeLogger.Error(...)`
-- `GridForgeLogger.Write(DiagnosticLevel, ...)`
+- `GridForgeLogger.Channel.Info(...)`
+- `GridForgeLogger.Channel.Warn(...)`
+- `GridForgeLogger.Channel.Error(...)`
+- `GridForgeLogger.Channel.Log(DiagnosticLevel, ...)`
 
-`Info(...)`, `Warn(...)`, and `Error(...)` are fixed-level interpolated diagnostic helpers. `Write(DiagnosticLevel, ...)` is the matching generic primitive when the level is selected dynamically.
+`Info(...)`, `Warn(...)`, and `Error(...)` are fixed-level interpolated diagnostic helpers. `Log(DiagnosticLevel, ...)` is the matching generic primitive when the level is selected dynamically. These helpers are `DiagnosticChannel` extensions, so `GridForgeLogger.Channel` is the default GridForge channel, but the same no-work-when-disabled path can be reused with another diagnostic channel.
 
 All logger entry points use the SwiftCollections diagnostic string handler, so formatted expressions are not evaluated when the requested level is disabled. This means call sites should pass interpolated strings, even for literal messages:
 
 ```csharp
-GridForgeLogger.Warn($"Grid world not active. Cannot resolve grids.");
+GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve grids.");
 ```
 
 If you need exception details, include only the details you want in the interpolated message. They will still be skipped when the error level is disabled.
@@ -148,16 +148,16 @@ This is a good fit when you are tracing registration, blocker lifecycle, or occu
 For fixed-level diagnostics, use the matching helper:
 
 ```csharp
-GridForgeLogger.Warn(
+GridForgeLogger.Channel.Warn(
     $"Occupant {occupant.GlobalId} is not registered to voxel {voxel.WorldIndex}.");
 ```
 
 When `Warning` is disabled, the formatted values in that message are not evaluated and the final message string is not built.
 
-When the level is dynamic, use `Write(...)`:
+When the level is dynamic, use `Log(...)`:
 
 ```csharp
-GridForgeLogger.Write(level, $"Resolved {count} candidate voxels.");
+GridForgeLogger.Channel.Log(level, $"Resolved {count} candidate voxels.");
 ```
 
 ### During longer-running tools or simulations
@@ -193,7 +193,7 @@ GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
 
 - Adding direct console output in core code instead of routing through `GridForgeLogger`
 - Forgetting that info logs are filtered out by default
-- Passing plain strings such as `GridForgeLogger.Warn("message")`; use interpolated strings such as `GridForgeLogger.Warn($"message")` so the handler overload is selected
+- Passing plain strings such as `GridForgeLogger.Channel.Warn("message")`; use interpolated strings such as `GridForgeLogger.Channel.Warn($"message")` so the handler overload is selected
 - Treating logging as a control-flow mechanism instead of diagnostics
 - Assuming a failed log-file write will throw back into the caller
 - Forgetting to reset logger settings in tests after customizing them

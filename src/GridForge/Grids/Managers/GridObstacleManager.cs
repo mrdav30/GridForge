@@ -141,7 +141,7 @@ public static class GridObstacleManager
     {
         if (targetVoxel.ObstacleCount == 0)
         {
-            GridForgeLogger.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
+            GridForgeLogger.Channel.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
             return false;
         }
 
@@ -227,7 +227,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle add error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle add error: {ex.Message}");
                 }
             }
         }
@@ -261,7 +261,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle remove error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle remove error: {ex.Message}");
                 }
             }
         }
@@ -294,7 +294,7 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle clear error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle clear error: {ex.Message}");
                 }
             }
         }

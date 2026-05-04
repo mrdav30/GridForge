@@ -231,7 +231,7 @@ public class Voxel : IEquatable<Voxel>
                     }
                     catch (Exception ex)
                     {
-                        GridForgeLogger.Error(
+                        GridForgeLogger.Channel.Error(
                             $"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partition.GetType().Name}: {ex.Message}");
                     }
                 }
@@ -301,7 +301,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle add error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle add error: {ex.Message}");
             }
         }
     }
@@ -321,7 +321,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle remove error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle remove error: {ex.Message}");
             }
         }
     }
@@ -341,7 +341,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {WorldIndex}] Obstacle clear error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle clear error: {ex.Message}");
             }
         }
     }
@@ -361,7 +361,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {WorldIndex}] Occupant add error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Occupant add error: {ex.Message}");
             }
         }
     }
@@ -381,7 +381,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error($"[Voxel {WorldIndex}] Occupant remove error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Occupant remove error: {ex.Message}");
             }
         }
     }
@@ -418,7 +418,7 @@ public class Voxel : IEquatable<Voxel>
             lock (_partitionLock)
                 _partitionProvider.TryRemove(partitionType, out _);
 
-            GridForgeLogger.Error($"Error attempting to attach partition {partitionName}: {ex.Message}");
+            GridForgeLogger.Channel.Error($"Error attempting to attach partition {partitionName}: {ex.Message}");
             return false;
         }
     }
@@ -437,7 +437,7 @@ public class Voxel : IEquatable<Voxel>
 
         if (partition == null)
         {
-            GridForgeLogger.Warn($"Partition {partitionName} not found on this voxel.");
+            GridForgeLogger.Channel.Warn($"Partition {partitionName} not found on this voxel.");
             return false;
         }
 
@@ -447,7 +447,7 @@ public class Voxel : IEquatable<Voxel>
         }
         catch (Exception ex)
         {
-            GridForgeLogger.Error($"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partitionName}: {ex.Message}");
+            GridForgeLogger.Channel.Error($"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partitionName}: {ex.Message}");
         }
 
         return true;

@@ -161,7 +161,7 @@ public class VoxelGrid
     {
         if (IsActive)
         {
-            GridForgeLogger.Warn($"Grid at {nameof(gridIndex)} is already active.");
+            GridForgeLogger.Channel.Warn($"Grid at {nameof(gridIndex)} is already active.");
             return;
         }
 
@@ -343,7 +343,7 @@ public class VoxelGrid
 
 #if DEBUG
         long usedMem = GC.GetTotalMemory(true) - startMem;
-        GridForgeLogger.Info($"Grid generated using {usedMem} Bytes.");
+        GridForgeLogger.Channel.Info($"Grid generated using {usedMem} Bytes.");
 #endif
     }
 
@@ -419,7 +419,7 @@ public class VoxelGrid
 
         if (Neighbors[neighborIndex].Count == 0)
         {
-            GridForgeLogger.Info($"Releasing unused neighbor collection.");
+            GridForgeLogger.Channel.Info($"Releasing unused neighbor collection.");
             SwiftHashSetPool<int>.Shared.Release(Neighbors[neighborIndex]);
             Neighbors.Remove(neighborIndex);
         }
@@ -540,7 +540,7 @@ public class VoxelGrid
     {
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"This Grid is not currently active.");
+            GridForgeLogger.Channel.Warn($"This Grid is not currently active.");
             return false;
         }
 
@@ -549,7 +549,7 @@ public class VoxelGrid
                 && z >= 0 && z < Voxels!.Depth;
 
         if (!result)
-            GridForgeLogger.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
+            GridForgeLogger.Channel.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
 
         return result;
     }
@@ -580,13 +580,13 @@ public class VoxelGrid
 
         if (!IsActive)
         {
-            GridForgeLogger.Warn($"This Grid is not currently allocated.");
+            GridForgeLogger.Channel.Warn($"This Grid is not currently allocated.");
             return false;
         }
 
         if (!IsInBounds(position))
         {
-            GridForgeLogger.Warn($"Position does not fall in the bounds of this grid");
+            GridForgeLogger.Channel.Warn($"Position does not fall in the bounds of this grid");
             return false;
         }
 
@@ -620,7 +620,7 @@ public class VoxelGrid
 
         if (!IsVoxelAllocated(x, y, z))
         {
-            GridForgeLogger.Warn($"Voxel at coorinate {(x, y, z)} is has not been allocated to the grid.");
+            GridForgeLogger.Channel.Warn($"Voxel at coorinate {(x, y, z)} is has not been allocated to the grid.");
             return false;
         }
 
@@ -672,7 +672,7 @@ public class VoxelGrid
         int scanCellKey = GetScanCellKey(x, y, z);
         if (scanCellKey == -1)
         {
-            GridForgeLogger.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
+            GridForgeLogger.Channel.Warn($"Position {voxelIndex} is not in the bounds for this grids Scan Cell overlay.");
             return -1;
         }
 

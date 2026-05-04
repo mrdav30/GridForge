@@ -246,7 +246,7 @@ public abstract class Blocker : IBlocker
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error(
+                GridForgeLogger.Channel.Error(
                     $"Blockage apply notification: {ex.Message} | Bounds: {eventInfo.BoundsMin} -> {eventInfo.BoundsMax}");
             }
         }
@@ -270,7 +270,7 @@ public abstract class Blocker : IBlocker
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Error(
+                GridForgeLogger.Channel.Error(
                     $"Blockage remove notification: {ex.Message} | Bounds: {eventInfo.BoundsMin} -> {eventInfo.BoundsMax}");
             }
         }

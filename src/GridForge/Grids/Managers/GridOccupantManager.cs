@@ -323,7 +323,7 @@ public static class GridOccupantManager
 
         if (!TryGetOccupancyTicket(grid.World, occupant, targetVoxel.WorldIndex, out int ticket))
         {
-            GridForgeLogger.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.WorldIndex}.");
+            GridForgeLogger.Channel.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.WorldIndex}.");
             return false;
         }
 
@@ -345,7 +345,7 @@ public static class GridOccupantManager
                     grid.ActiveScanCells.Remove(targetVoxel.ScanCellKey);
                     if (!grid.IsOccupied)
                     {
-                        GridForgeLogger.Info($"Releasing unused active scan cells collection.");
+                        GridForgeLogger.Channel.Info($"Releasing unused active scan cells collection.");
                         SwiftHashSetPool<int>.Shared.Release(grid.ActiveScanCells);
                         grid.ActiveScanCells = null;
                     }
@@ -416,7 +416,7 @@ public static class GridOccupantManager
             {
                 if (!ReferenceEquals(record.Occupant, occupant))
                 {
-                    GridForgeLogger.Warn($"Occupant id collision detected for {occupant.GlobalId} in world {world.SpawnToken}.");
+                    GridForgeLogger.Channel.Warn($"Occupant id collision detected for {occupant.GlobalId} in world {world.SpawnToken}.");
                     return false;
                 }
             }
@@ -428,7 +428,7 @@ public static class GridOccupantManager
 
             if (record.Tickets.ContainsKey(index))
             {
-                GridForgeLogger.Warn($"Occupant {occupant.GlobalId} is already registered to voxel {index}.");
+                GridForgeLogger.Channel.Warn($"Occupant {occupant.GlobalId} is already registered to voxel {index}.");
                 return false;
             }
 
@@ -561,7 +561,7 @@ public static class GridOccupantManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant add error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant add error: {ex.Message}");
                 }
             }
         }
@@ -591,7 +591,7 @@ public static class GridOccupantManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant remove error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Occupant remove error: {ex.Message}");
                 }
             }
         }
