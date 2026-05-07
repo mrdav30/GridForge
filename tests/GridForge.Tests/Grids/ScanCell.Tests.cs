@@ -246,6 +246,93 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void ScanRadiusInto_ShouldClearAndFillCallerOwnedResults()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-20, 0, -20), new Vector3d(20, 0, 20)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Vector3d scanCenter = new(0, 0, 0);
+        Fixed64 scanRadius = (Fixed64)5;
+        var staleOccupant = new TestOccupant(new Vector3d(-10, 0, -10), 9);
+        var occupant1 = new TestOccupant(new Vector3d(1, 0, 1), 1);
+        var occupant2 = new TestOccupant(new Vector3d(3, 0, 3), 2);
+        var occupant3 = new TestOccupant(new Vector3d(9, 0, 9), 1);
+        SwiftList<IVoxelOccupant> results = new();
+        results.Add(staleOccupant);
+
+        grid.TryAddVoxelOccupant(occupant1);
+        grid.TryAddVoxelOccupant(occupant2);
+        grid.TryAddVoxelOccupant(occupant3);
+
+        GridScanManager.ScanRadiusInto(
+            _world,
+            scanCenter,
+            scanRadius,
+            results,
+            groupCondition: groupId => groupId == 1);
+
+        Assert.DoesNotContain(staleOccupant, results);
+        Assert.Contains(occupant1, results);
+        Assert.DoesNotContain(occupant2, results);
+        Assert.DoesNotContain(occupant3, results);
+    }
+
+    [Fact]
+    public void ScanRadiusInto_ShouldAvoidSteadyStateAllocation()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(31, 0, 31), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        for (int z = 0; z < 8; z++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                var occupant = new TestOccupant(new Vector3d(x, 0, z), (byte)((x + z) & 1));
+                grid.TryAddVoxelOccupant(occupant);
+            }
+        }
+
+        Vector3d scanCenter = new(4, 0, 4);
+        Fixed64 scanRadius = (Fixed64)7;
+        SwiftList<IVoxelOccupant> results = new();
+        GridScanScratch scratch = new();
+
+        GridScanManager.ScanRadiusInto(_world, scanCenter, scanRadius, results, scratch);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 256; i++)
+            GridScanManager.ScanRadiusInto(_world, scanCenter, scanRadius, results, scratch);
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(
+            allocated < 512,
+            $"Expected steady-state scan allocation below 512 bytes, but allocated {allocated} bytes.");
+    }
+
+    [Fact]
+    public void ScanRadiusIntoGeneric_ShouldFilterByTypeWithoutLinqAllocation()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-5, 0, -5), new Vector3d(5, 0, 5)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        var occupant = new TestOccupant(new Vector3d(1, 0, 1), 1);
+        SwiftList<TestOccupant> results = new();
+        GridScanScratch scratch = new();
+
+        grid.TryAddVoxelOccupant(occupant);
+        GridScanManager.ScanRadiusInto<TestOccupant>(_world, Vector3d.Zero, (Fixed64)3, results, scratch);
+
+        Assert.Single(results);
+        Assert.Same(occupant, results[0]);
+    }
+
+    [Fact]
     public void ScanCell_ShouldRemainEmptyUntilOccupied()
     {
         _world.TryAddGrid(

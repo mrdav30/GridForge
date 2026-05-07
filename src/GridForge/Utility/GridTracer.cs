@@ -93,6 +93,161 @@ public static class GridTracer
         return GetCoveredScanCellsIterator(world, boundsMin, boundsMax, padding);
     }
 
+    /// <summary>
+    /// Clears and fills caller-owned storage with scan cells covered by the supplied bounding area.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ScanCell> results,
+        Fixed64? padding = null)
+    {
+        if (results == null)
+            throw new System.ArgumentNullException(nameof(results));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddCoveredScanCellsTo(world, boundsMin, boundsMax, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ScanCell> results,
+        GridScanScratch scratch,
+        Fixed64? padding = null)
+    {
+        if (results == null)
+            throw new System.ArgumentNullException(nameof(results));
+
+        if (scratch == null)
+            throw new System.ArgumentNullException(nameof(scratch));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddCoveredScanCellsTo(world, boundsMin, boundsMax, results, scratch, padding);
+    }
+
+    /// <summary>
+    /// Appends covered scan cells without allocating an iterator for hot-path callers.
+    /// </summary>
+    internal static void AddCoveredScanCellsTo(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ScanCell> scanCells,
+        Fixed64? padding = null)
+    {
+        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
+        SwiftHashSet<ScanCell> voxelRedundancyCheck = SwiftHashSetPool<ScanCell>.Shared.Rent();
+
+        try
+        {
+            AddCoveredScanCellsCore(
+                world,
+                boundsMin,
+                boundsMax,
+                scanCells,
+                processedGrids,
+                voxelRedundancyCheck,
+                padding);
+        }
+        finally
+        {
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
+            SwiftHashSetPool<ScanCell>.Shared.Release(voxelRedundancyCheck);
+        }
+    }
+
+    /// <summary>
+    /// Appends covered scan cells using caller-owned scratch state for allocation-sensitive scans.
+    /// </summary>
+    internal static void AddCoveredScanCellsTo(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ScanCell> scanCells,
+        GridScanScratch scratch,
+        Fixed64? padding = null)
+    {
+        scratch.Clear();
+        AddCoveredScanCellsCore(
+            world,
+            boundsMin,
+            boundsMax,
+            scanCells,
+            scratch.ProcessedGrids,
+            scratch.ScanCellRedundancy,
+            padding);
+    }
+
+    private static void AddCoveredScanCellsCore(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ScanCell> scanCells,
+        SwiftHashSet<ushort> processedGrids,
+        SwiftHashSet<ScanCell> voxelRedundancyCheck,
+        Fixed64? padding = null)
+    {
+        (Vector3d snappedMin, Vector3d snappedMax) =
+            world.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(snappedMin, snappedMax);
+
+        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
+        {
+            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
+            {
+                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
+                {
+                    int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
+                    if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+                        continue;
+
+                    foreach (ushort gridIndex in gridList)
+                    {
+                        if (!world.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
+                            continue;
+
+                        VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
+
+                        (int xMin, int yMin, int zMin) = currentGrid.SnapToScanCell(snappedMin);
+                        (int xMax, int yMax, int zMax) = currentGrid.SnapToScanCell(snappedMax);
+
+                        for (int x = xMin; x <= xMax; x++)
+                        {
+                            for (int y = yMin; y <= yMax; y++)
+                            {
+                                for (int z = zMin; z <= zMax; z++)
+                                {
+                                    int scanCellKey = currentGrid.GetScanCellKey(x, y, z);
+                                    if (scanCellKey == -1
+                                        || !currentGrid.TryGetScanCell(scanCellKey, out ScanCell? scanCell)
+                                        || voxelRedundancyCheck.Add(scanCell!) != true)
+                                    {
+                                        continue;
+                                    }
+
+                                    scanCells.Add(scanCell!);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static IEnumerable<GridVoxelSet> TraceLineIterator(
         GridWorld world,
         Vector3d start,

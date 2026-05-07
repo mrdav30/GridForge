@@ -553,12 +553,7 @@ public sealed class GridWorld : IDisposable
     /// </summary>
     public IEnumerable<int> GetSpatialGridCells(Vector3d min, Vector3d max)
     {
-        (int xMin, int yMin, int zMin) = SnapToSpatialGrid(min);
-        (int xMax, int yMax, int zMax) = SnapToSpatialGrid(max);
-
-        (xMin, xMax) = xMin > xMax ? (xMax, xMin) : (xMin, xMax);
-        (yMin, yMax) = yMin > yMax ? (yMax, yMin) : (yMin, yMax);
-        (zMin, zMax) = zMin > zMax ? (zMax, zMin) : (zMin, zMax);
+        (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) = GetSpatialGridCellBounds(min, max);
 
         for (int z = zMin; z <= zMax; z++)
         {
@@ -568,6 +563,23 @@ public sealed class GridWorld : IDisposable
                     yield return SwiftHashTools.CombineHashCodes(x, y, z);
             }
         }
+    }
+
+    /// <summary>
+    /// Computes normalized spatial-hash cell bounds for the supplied world-space bounds.
+    /// </summary>
+    internal (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) GetSpatialGridCellBounds(
+        Vector3d min,
+        Vector3d max)
+    {
+        (int xMin, int yMin, int zMin) = SnapToSpatialGrid(min);
+        (int xMax, int yMax, int zMax) = SnapToSpatialGrid(max);
+
+        (xMin, xMax) = xMin > xMax ? (xMax, xMin) : (xMin, xMax);
+        (yMin, yMax) = yMin > yMax ? (yMax, yMin) : (yMin, yMax);
+        (zMin, zMax) = zMin > zMax ? (zMax, zMin) : (zMin, zMax);
+
+        return (xMin, yMin, zMin, xMax, yMax, zMax);
     }
 
     /// <summary>

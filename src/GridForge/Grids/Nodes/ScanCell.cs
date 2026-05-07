@@ -1,4 +1,5 @@
-﻿using GridForge.Spatial;
+﻿using FixedMathSharp;
+using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
@@ -196,6 +197,69 @@ public class ScanCell
                     continue;
 
                 yield return occupant;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Appends occupants within the squared radius to caller-owned storage without allocating an iterator.
+    /// </summary>
+    internal void AddOccupantsWithinRadiusTo(
+        SwiftList<IVoxelOccupant> results,
+        Vector3d position,
+        Fixed64 squaredRadius,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null)
+    {
+        if (_voxelOccupants == null)
+            return;
+
+        foreach (var kvp in _voxelOccupants)
+        {
+            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
+            foreach (IVoxelOccupant occupant in bucket)
+            {
+                if (occupantCondition != null && !occupantCondition(occupant))
+                    continue;
+
+                if (groupCondition != null && !groupCondition(occupant.OccupantGroupId))
+                    continue;
+
+                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
+                    results.Add(occupant);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Appends typed occupants within the squared radius to caller-owned storage without LINQ.
+    /// </summary>
+    internal void AddOccupantsWithinRadiusTo<T>(
+        SwiftList<T> results,
+        Vector3d position,
+        Fixed64 squaredRadius,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
+    {
+        if (_voxelOccupants == null)
+            return;
+
+        foreach (var kvp in _voxelOccupants)
+        {
+            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
+            foreach (IVoxelOccupant occupant in bucket)
+            {
+                if (occupantCondition != null && !occupantCondition(occupant))
+                    continue;
+
+                if (groupCondition != null && !groupCondition(occupant.OccupantGroupId))
+                    continue;
+
+                if (occupant is T typedOccupant
+                    && (occupant.Position - position).SqrMagnitude <= squaredRadius)
+                {
+                    results.Add(typedOccupant);
+                }
             }
         }
     }
