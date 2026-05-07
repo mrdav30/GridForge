@@ -55,7 +55,7 @@ jobs:
       run: |
         echo "Version: ${{ steps.gitversion.outputs.fullSemVer }}"
         echo "Assembly Version: ${{ steps.gitversion.outputs.assemblySemFileVer }}"
-        dotnet build --configuration Debug --no-restore
+        dotnet build --configuration Release --no-restore
 
     - name: Run Tests
-      run: dotnet test --configuration Debug --no-build --verbosity normal
+      run: dotnet test --configuration Release --no-build --verbosity normal

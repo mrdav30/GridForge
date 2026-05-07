@@ -234,7 +234,7 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(occupant3);
 
         // Act
-        var filteredResults = new SwiftList<IVoxelOccupant>(GridScanManager.ScanRadius(_world, 
+        var filteredResults = new SwiftList<IVoxelOccupant>(GridScanManager.ScanRadius(_world,
             scanCenter,
             scanRadius, groupCondition: groupId => groupId == 1 || groupId == 2));
 
@@ -277,6 +277,7 @@ public class ScanCellTests : IDisposable
         Assert.DoesNotContain(occupant3, results);
     }
 
+#if !DEBUG
     [Fact]
     public void ScanRadiusInto_ShouldAvoidSteadyStateAllocation()
     {
@@ -315,6 +316,7 @@ public class ScanCellTests : IDisposable
             allocated < 512,
             $"Expected steady-state scan allocation below 512 bytes, but allocated {allocated} bytes.");
     }
+#endif
 
     [Fact]
     public void ScanRadiusIntoGeneric_ShouldFilterByTypeWithoutLinqAllocation()
@@ -504,7 +506,7 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(rightCellOccupant);
         grid.TryAddVoxelOccupant(distantOccupant);
 
-        List<IVoxelOccupant> filteredResults = GridScanManager.ScanRadius(_world, 
+        List<IVoxelOccupant> filteredResults = GridScanManager.ScanRadius(_world,
             new Vector3d(7.5, 0, 7.5),
             (Fixed64)2,
             occupantCondition: occupant => occupant.Position.x >= (Fixed64)8)
