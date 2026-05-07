@@ -52,6 +52,27 @@ public class SpatialTypesTests
     }
 
     [Fact]
+    public void WorldVoxelIndex_GetHashCode_ShouldAvoidAllocation()
+    {
+        WorldVoxelIndex index = new(17, 2, 99, new VoxelIndex(1, 2, 3));
+
+        _ = index.GetHashCode();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        const int iterations = 256;
+        int hash = 17;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < iterations; i++)
+            hash = unchecked((hash * 31) + index.GetHashCode());
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.NotEqual(0, hash);
+        Assert.True(allocated < 64, $"Expected allocation-free hashing but allocated {allocated} bytes.");
+    }
+
+    [Fact]
     public void GridConfiguration_ShouldNormalizeOrderingAndFallbackToDefaultScanCellSize_WhenInputsAreInvalid()
     {
         GridConfiguration configuration = new(

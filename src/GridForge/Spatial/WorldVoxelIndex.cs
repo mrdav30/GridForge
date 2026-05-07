@@ -88,7 +88,7 @@ public struct WorldVoxelIndex : IEquatable<WorldVoxelIndex>
     /// Computes a hash code for uniquely identifying this world-scoped voxel identity.
     /// </summary>
     public override readonly int GetHashCode() =>
-        SwiftHashTools.CombineHashCodes(WorldSpawnToken, GridSpawnToken, GridIndex, VoxelIndex);
+        SwiftHashTools.CombineHashCodes(WorldSpawnToken, GridSpawnToken, GridIndex, VoxelIndex.GetHashCode());
 
     /// <inheritdoc/>
     public readonly bool Equals(WorldVoxelIndex other)
