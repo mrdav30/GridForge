@@ -60,7 +60,7 @@ public static class GridObstacleManager
 
     /// <summary>
     /// Attempts to add an obstacle at the given world-scoped voxel identity in the supplied world.
-     /// </summary>
+    /// </summary>
     public static bool TryAddObstacle(
         GridWorld world,
         WorldVoxelIndex index,

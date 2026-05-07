@@ -9,7 +9,7 @@
 		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
 		<Deterministic>true</Deterministic>
 	</PropertyGroup>
-	
+
 	<!-- Git Versioning -->
 	<PropertyGroup>
 		<SemVer Condition="'$(GitVersion_FullSemVer)' != ''">$(GitVersion_FullSemVer)</SemVer>
@@ -58,13 +58,13 @@
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 	</PropertyGroup>
-	
+
 	<!-- Configurations Properties -->
 
 	<PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
 		<DisableMemoryPack>true</DisableMemoryPack>
 	</PropertyGroup>
-	
+
 	<PropertyGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<DefineConstants>$(DefineConstants);GRIDFORGE_DISABLE_MEMORYPACK</DefineConstants>
 		<PackageId>GridForge.Lean</PackageId>
@@ -73,7 +73,7 @@
 	<PropertyGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageId>GridForge</PackageId>
 	</PropertyGroup>
-	
+
 	<PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<IncludeTransitiveProjectReferences>false</IncludeTransitiveProjectReferences>
@@ -94,14 +94,14 @@
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
 		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections" Version="4.0.2" />
+		<PackageReference Include="SwiftCollections" Version="4.0.3" />
 	</ItemGroup>
-	
+
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<PackageReference Include="FixedMathSharp.NoMemoryPack" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections.Lean" Version="4.0.2" />
+		<PackageReference Include="SwiftCollections.Lean" Version="4.0.3" />
 	</ItemGroup>
-	
+
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
 		<PackageReference Include="System.Text.Json" Version="10.0.7" />
 	</ItemGroup>
@@ -115,7 +115,7 @@
 		<None Include="..\..\icon.png" Pack="true" PackagePath="\" Visible="false" />
 		<None Remove=".gitignore" />
 	</ItemGroup>
-	
+
 	<!-- Ensure MemoryPack files are excluded when disabled -->
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<Compile Remove="**\*.MemoryPack.cs" />

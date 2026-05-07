@@ -1,41 +1,41 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <LangVersion>11.0</LangVersion>
-    <TargetFrameworks>net8.0</TargetFrameworks>
-    <ImplicitUsings>disable</ImplicitUsings>
-    <Nullable>disable</Nullable>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-	<ProjectGuid>{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}</ProjectGuid>
-	<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-	<Configurations>Debug;Release;ReleaseLean</Configurations>
-	<OutputType>Exe</OutputType>
-	<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
-  </PropertyGroup>
-  <ItemGroup>
-  	<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
-	  <Private>True</Private>
-	  <IncludeAssets>compile; build</IncludeAssets>
-	  <PrivateAssets>all</PrivateAssets>
-	</ProjectReference>
-    <PackageReference Include="coverlet.collector" Version="10.0.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-	<PackageReference Include="FixedMathSharp" Version="3.0.1" />
-	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-	<PackageReference Include="SwiftCollections" Version="4.0.2" />
-	<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-	  <PrivateAssets>all</PrivateAssets>
-	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	</PackageReference>
-	<PackageReference Include="xunit.v3" Version="3.2.2" />
-	<PackageReference Include="xunit.v3.runner.console" Version="3.2.2">
-	  <PrivateAssets>all</PrivateAssets>
-	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	</PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove=".gitignore" />
-  </ItemGroup>
+	<PropertyGroup>
+		<LangVersion>11.0</LangVersion>
+		<TargetFrameworks>net8.0</TargetFrameworks>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<ProjectGuid>{A0011AD0-FA30-4E6B-A842-CC62A1E6C343}</ProjectGuid>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<Configurations>Debug;Release;ReleaseLean</Configurations>
+		<OutputType>Exe</OutputType>
+		<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
+			<Private>True</Private>
+			<IncludeAssets>compile; build</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</ProjectReference>
+		<PackageReference Include="coverlet.collector" Version="10.0.0">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+		<PackageReference Include="SwiftCollections" Version="4.0.3" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="xunit.v3" Version="3.2.2" />
+		<PackageReference Include="xunit.v3.runner.console" Version="3.2.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+	<ItemGroup>
+		<None Remove=".gitignore" />
+	</ItemGroup>
 </Project>

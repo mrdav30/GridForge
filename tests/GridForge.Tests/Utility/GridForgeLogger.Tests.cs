@@ -454,4 +454,100 @@ public class GridForgeLoggerTests
             GridForgeLogger.MinimumLevel = originalMinimumLevel;
         }
     }
+
+    [Fact]
+    public void DebugChannel_ShouldNotEmit_WhenDebugLoggingIsDisabled()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+        bool originalEnableDebugLogging = GridForgeLogger.EnableDebugLogging;
+        int callCount = 0;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
+            GridForgeLogger.EnableDebugLogging = false;
+            GridForgeLogger.LogHandler = (level, message, source) =>
+            {
+                _ = level;
+                _ = message;
+                _ = source;
+                callCount++;
+            };
+
+            GridForgeLogger.DebugChannel.Info($"hidden");
+
+            Assert.Equal(0, callCount);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+            GridForgeLogger.EnableDebugLogging = originalEnableDebugLogging;
+        }
+    }
+
+    [Fact]
+    public void DebugChannel_ShouldEmitInfo_WhenDebugLoggingIsEnabled()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+        bool originalEnableDebugLogging = GridForgeLogger.EnableDebugLogging;
+        DiagnosticLevel? capturedLevel = null;
+        string capturedMessage = null;
+        string capturedSource = null;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
+            GridForgeLogger.EnableDebugLogging = true;
+            GridForgeLogger.LogHandler = (level, message, source) =>
+            {
+                capturedLevel = level;
+                capturedMessage = message;
+                capturedSource = source;
+            };
+
+            GridForgeLogger.DebugChannel.Info($"visible", method: "DebugMethod", filePath: "/tmp/GridDebug.cs");
+
+            Assert.Equal(DiagnosticLevel.Info, capturedLevel);
+            Assert.Equal("visible", capturedMessage);
+            Assert.Equal("GridDebug.DebugMethod", capturedSource);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+            GridForgeLogger.EnableDebugLogging = originalEnableDebugLogging;
+        }
+    }
+
+    [Fact]
+    public void DebugChannel_ShouldNotEvaluateFormattedExpressions_WhenDebugLoggingIsDisabled()
+    {
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+        bool originalEnableDebugLogging = GridForgeLogger.EnableDebugLogging;
+        int evaluationCount = 0;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
+            GridForgeLogger.EnableDebugLogging = false;
+
+            GridForgeLogger.DebugChannel.Info($"hidden {Evaluate()}");
+
+            Assert.Equal(0, evaluationCount);
+        }
+        finally
+        {
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+            GridForgeLogger.EnableDebugLogging = originalEnableDebugLogging;
+        }
+
+        string Evaluate()
+        {
+            evaluationCount++;
+            return "value";
+        }
+    }
 }
