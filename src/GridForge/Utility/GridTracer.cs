@@ -258,6 +258,41 @@ public static class GridTracer
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
 
+        try
+        {
+            AddTraceLineVoxelsToMapping(
+                world,
+                start,
+                end,
+                padding,
+                gridVoxelMapping,
+                voxelRedundancyCheck);
+
+            AddTraceLineEndVoxel(
+                world,
+                end,
+                includeEnd,
+                gridVoxelMapping,
+                voxelRedundancyCheck);
+
+            foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
+                yield return new GridVoxelSet(kvp.Key, kvp.Value);
+        }
+        finally
+        {
+            ReleaseTraceLineMapping(gridVoxelMapping);
+            SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
+        }
+    }
+
+    private static void AddTraceLineVoxelsToMapping(
+        GridWorld world,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
+        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
         (Vector3d snappedMin, Vector3d snappedMax) =
             world.SnapBoundsToVoxelSize(start, end, padding);
 
@@ -273,9 +308,7 @@ public static class GridTracer
 
         Vector3d diff = traceEnd - traceStart;
         Vector3d delta = Vector3d.Abs(diff);
-
         Fixed64 steps = FixedMath.Ceiling(FixedMath.Max(FixedMath.Max(delta.x, delta.y), delta.z));
-
         Fixed64 stepX = diff.x / (steps + Fixed64.One);
         Fixed64 stepY = diff.y / (steps + Fixed64.One);
         Fixed64 stepZ = diff.z / (steps + Fixed64.One);
@@ -285,49 +318,103 @@ public static class GridTracer
             if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                 continue;
 
-            foreach (ushort gridIndex in gridList)
-            {
-                if (!world.ActiveGrids.IsAllocated(gridIndex))
-                    continue;
-
-                VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
-                if (gridVoxelMapping.ContainsKey(currentGrid))
-                    continue;
-
-                SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
-                gridVoxelMapping.Add(currentGrid, voxelList);
-
-                for (Fixed64 i = Fixed64.Zero; i <= steps; i += Fixed64.One)
-                {
-                    Vector3d tracePos = world.FloorToVoxelSize(
-                        new Vector3d(
-                            traceStart.x + stepX * i,
-                            traceStart.y + stepY * i,
-                            traceStart.z + stepZ * i));
-
-                    if (!currentGrid.TryGetVoxel(tracePos, out Voxel? voxel) || voxelRedundancyCheck.Add(voxel!) != true)
-                        continue;
-
-                    voxelList.Add(voxel!);
-                }
-            }
+            AddTraceLineVoxelsForCell(
+                world,
+                gridList,
+                traceStart,
+                steps,
+                stepX,
+                stepY,
+                stepZ,
+                gridVoxelMapping,
+                voxelRedundancyCheck);
         }
+    }
 
-        if (includeEnd
-            && world.TryGetGridAndVoxel(end, out VoxelGrid? endGrid, out Voxel? endVoxel)
-            && gridVoxelMapping.TryGetValue(endGrid!, out SwiftList<Voxel> endVoxelList)
-            && voxelRedundancyCheck.Add(endVoxel!))
+    private static void AddTraceLineVoxelsForCell(
+        GridWorld world,
+        SwiftHashSet<ushort> gridList,
+        Vector3d traceStart,
+        Fixed64 steps,
+        Fixed64 stepX,
+        Fixed64 stepY,
+        Fixed64 stepZ,
+        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        foreach (ushort gridIndex in gridList)
         {
-            endVoxelList.Add(endVoxel!);
+            if (!world.ActiveGrids.IsAllocated(gridIndex))
+                continue;
+
+            VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
+            if (gridVoxelMapping.ContainsKey(currentGrid))
+                continue;
+
+            SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
+            gridVoxelMapping.Add(currentGrid, voxelList);
+
+            AddTraceLineGridVoxels(
+                world,
+                currentGrid,
+                traceStart,
+                steps,
+                stepX,
+                stepY,
+                stepZ,
+                voxelList,
+                voxelRedundancyCheck);
+        }
+    }
+
+    private static void AddTraceLineGridVoxels(
+        GridWorld world,
+        VoxelGrid currentGrid,
+        Vector3d traceStart,
+        Fixed64 steps,
+        Fixed64 stepX,
+        Fixed64 stepY,
+        Fixed64 stepZ,
+        SwiftList<Voxel> voxelList,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        for (Fixed64 i = Fixed64.Zero; i <= steps; i += Fixed64.One)
+        {
+            Vector3d tracePos = world.FloorToVoxelSize(
+                new Vector3d(
+                    traceStart.x + stepX * i,
+                    traceStart.y + stepY * i,
+                    traceStart.z + stepZ * i));
+
+            if (!currentGrid.TryGetVoxel(tracePos, out Voxel? voxel) || voxelRedundancyCheck.Add(voxel!) != true)
+                continue;
+
+            voxelList.Add(voxel!);
+        }
+    }
+
+    private static void AddTraceLineEndVoxel(
+        GridWorld world,
+        Vector3d end,
+        bool includeEnd,
+        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (!includeEnd
+            || !world.TryGetGridAndVoxel(end, out VoxelGrid? endGrid, out Voxel? endVoxel)
+            || !gridVoxelMapping.TryGetValue(endGrid!, out SwiftList<Voxel> endVoxelList)
+            || !voxelRedundancyCheck.Add(endVoxel!))
+        {
+            return;
         }
 
+        endVoxelList.Add(endVoxel!);
+    }
+
+    private static void ReleaseTraceLineMapping(SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping)
+    {
         foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
-        {
-            yield return new GridVoxelSet(kvp.Key, kvp.Value);
             SwiftListPool<Voxel>.Shared.Release(kvp.Value);
-        }
-
-        SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
     }
 
     private static IEnumerable<GridVoxelSet> GetCoveredVoxelsIterator(

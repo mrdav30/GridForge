@@ -350,6 +350,24 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void AddOccupantsWithinRadiusTo_ShouldNoOpForEmptyScanCell()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3), scanCellSize: 2),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetScanCell(new Vector3d(1, 0, 1), out ScanCell scanCell));
+        SwiftList<IVoxelOccupant> untypedResults = new();
+        SwiftList<TestOccupant> typedResults = new();
+
+        scanCell.AddOccupantsWithinRadiusTo(untypedResults, Vector3d.Zero, Fixed64.One);
+        scanCell.AddOccupantsWithinRadiusTo(typedResults, Vector3d.Zero, Fixed64.One);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+    }
+
+    [Fact]
     public void ScanCell_ShouldTrackHighOccupancyWithinSingleCell()
     {
         _world.TryAddGrid(

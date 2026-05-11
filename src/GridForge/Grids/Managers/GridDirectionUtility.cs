@@ -15,11 +15,13 @@ public static class GridDirectionUtility
     /// <returns>The corresponding <see cref="SpatialDirection"/>, or <see cref="SpatialDirection.None"/> if invalid.</returns>
     public static SpatialDirection GetNeighborDirectionFromOffset((int x, int y, int z) gridOffset)
     {
-        Debug.Assert(gridOffset.x >= -1 && gridOffset.x <= 1, "Invalid x offset.");
-        Debug.Assert(gridOffset.y >= -1 && gridOffset.y <= 1, "Invalid y offset.");
-        Debug.Assert(gridOffset.z >= -1 && gridOffset.z <= 1, "Invalid z offset.");
+        if(IsValidOffset(gridOffset) == false)
+        {
+            GridForgeLogger.DebugChannel.Info($"Invalid grid offset: {gridOffset}. Offsets must be in the range [-1, 1] for each axis.");
+            return SpatialDirection.None;
+        }
 
-        if (gridOffset == (0, 0, 0))
+        if (gridOffset == (0, 0, 0)) // The center voxel does not correspond to any direction.
             return SpatialDirection.None;
 
         for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
@@ -29,5 +31,12 @@ public static class GridDirectionUtility
         }
 
         return SpatialDirection.None;
+    }
+
+    private static bool IsValidOffset((int x, int y, int z) offset)
+    {
+        return offset.x >= -1 && offset.x <= 1 &&
+               offset.y >= -1 && offset.y <= 1 &&
+               offset.z >= -1 && offset.z <= 1;
     }
 }

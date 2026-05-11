@@ -189,6 +189,47 @@ public class GridForgeLoggerTests
     }
 
     [Fact]
+    public void StaticLoggerWrappers_ShouldDelegateToDefaultLogger()
+    {
+        Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;
+        Func<DiagnosticLevel, string, string, string> originalFormatter = GridForgeLogger.CustomFormatter;
+        string originalFilePath = GridForgeLogger.LogFilePath;
+        DiagnosticLevel originalMinimumLevel = GridForgeLogger.MinimumLevel;
+
+        try
+        {
+            GridForgeLogger.LogHandler = null;
+            GridForgeLogger.CustomFormatter = null;
+            GridForgeLogger.LogFilePath = null;
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
+
+            Assert.False(GridForgeLogger.IsEnabled(DiagnosticLevel.Info));
+            Assert.True(GridForgeLogger.IsEnabled(DiagnosticLevel.Error));
+
+            string formatted = GridForgeLogger.DefaultLogFormatter(
+                DiagnosticLevel.Error,
+                "direct format",
+                "Logger.Source");
+            Exception exception = Record.Exception(() => GridForgeLogger.DefaultLogHandler(
+                DiagnosticLevel.Warning,
+                "direct write",
+                "Logger.Source"));
+
+            Assert.Null(exception);
+            Assert.Contains("[ERROR]", formatted);
+            Assert.Contains("[Logger.Source]", formatted);
+            Assert.Contains("direct format", formatted);
+        }
+        finally
+        {
+            GridForgeLogger.LogHandler = originalHandler;
+            GridForgeLogger.CustomFormatter = originalFormatter;
+            GridForgeLogger.LogFilePath = originalFilePath;
+            GridForgeLogger.MinimumLevel = originalMinimumLevel;
+        }
+    }
+
+    [Fact]
     public void LogInterpolated_ShouldNotEvaluateFormattedExpressions_WhenLevelIsDisabled()
     {
         Action<DiagnosticLevel, string, string> originalHandler = GridForgeLogger.LogHandler;

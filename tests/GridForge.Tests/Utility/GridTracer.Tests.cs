@@ -3,6 +3,7 @@ using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Spatial;
 using GridForge.Utility;
+using SwiftCollections;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -226,6 +227,96 @@ public class GridTracerTests : IDisposable
         {
             ResetWorld();
         }
+    }
+
+    [Fact]
+    public void GridTracerPublicEntryPoints_ShouldReturnEmptyForNullOrInactiveWorld()
+    {
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+
+        Assert.Empty(GridTracer.TraceLine(null, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.TraceLine(inactiveWorld, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.GetCoveredVoxels(null, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.GetCoveredVoxels(inactiveWorld, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.GetCoveredScanCells(null, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.GetCoveredScanCells(inactiveWorld, Vector3d.Zero, Vector3d.Zero));
+    }
+
+    [Fact]
+    public void GetCoveredScanCellsInto_ShouldValidateClearAndFillCallerOwnedResults()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 0, 8), scanCellSize: 2),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell staleCell));
+        SwiftList<ScanCell> results = new();
+        GridScanScratch scratch = new();
+
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredScanCellsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            (SwiftList<ScanCell>)null));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredScanCellsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            (SwiftList<ScanCell>)null,
+            scratch));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredScanCellsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            (GridScanScratch)null));
+
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            new Vector3d(4, 0, 4),
+            new Vector3d(8, 0, 8),
+            results);
+
+        Assert.NotEmpty(results);
+        Assert.DoesNotContain(staleCell, results);
+
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            new Vector3d(4, 0, 4),
+            new Vector3d(8, 0, 8),
+            results,
+            scratch);
+
+        Assert.NotEmpty(results);
+        Assert.DoesNotContain(staleCell, results);
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            inactiveWorld,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results);
+
+        Assert.Empty(results);
+
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            inactiveWorld,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            scratch);
+
+        Assert.Empty(results);
     }
 
     [Fact]

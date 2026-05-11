@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Spatial;
+using SwiftCollections;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -427,6 +428,106 @@ public class ManagerCoverageTests : IDisposable
         Assert.Empty(grid.GetConditionalOccupants(new Vector3d(99, 0, 99)));
         Assert.Empty(grid.GetConditionalOccupants(new VoxelIndex(-1, 0, 0)));
         Assert.Empty(grid.GetConditionalOccupants((Voxel)null));
+    }
+
+    [Fact]
+    public void ScanRadiusIntoOverloads_ShouldValidateInputsAndUseScratchAndTypedPaths()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 0, 8), scanCellSize: 2),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant targetOccupant = new(new Vector3d(1, 0, 1), 1);
+        SharedIdOccupant alternateOccupant = new(Guid.NewGuid(), new Vector3d(1, 0, 1), 1);
+        TestOccupant filteredGroupOccupant = new(new Vector3d(2, 0, 2), 2);
+        TestOccupant outsideRadiusOccupant = new(new Vector3d(8, 0, 8), 1);
+        SwiftList<IVoxelOccupant> untypedResults = new();
+        SwiftList<TestOccupant> typedResults = new();
+        GridScanScratch scratch = new();
+
+        Assert.True(grid.TryAddVoxelOccupant(targetOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(alternateOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(filteredGroupOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(outsideRadiusOccupant));
+
+        Assert.Empty(GridScanManager.ScanRadius(null, Vector3d.Zero, Fixed64.One).ToArray());
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            (SwiftList<IVoxelOccupant>)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            (SwiftList<IVoxelOccupant>)null,
+            scratch));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            untypedResults,
+            (GridScanScratch)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            (SwiftList<TestOccupant>)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            (SwiftList<TestOccupant>)null,
+            scratch));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector3d.Zero,
+            Fixed64.One,
+            typedResults,
+            (GridScanScratch)null));
+
+        GridScanManager.ScanRadiusInto(
+            _world,
+            Vector3d.Zero,
+            (Fixed64)3,
+            untypedResults,
+            scratch,
+            occupantCondition: occupant => !ReferenceEquals(occupant, alternateOccupant),
+            groupCondition: groupId => groupId == 1);
+
+        Assert.Single(untypedResults);
+        Assert.Same(targetOccupant, untypedResults[0]);
+
+        GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector3d.Zero,
+            (Fixed64)3,
+            typedResults,
+            occupantCondition: occupant => !ReferenceEquals(occupant, filteredGroupOccupant),
+            groupCondition: groupId => groupId == 1);
+
+        Assert.Single(typedResults);
+        Assert.Same(targetOccupant, typedResults[0]);
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(inactiveWorld, Vector3d.Zero, Fixed64.One, untypedResults, scratch);
+        GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector3d.Zero, Fixed64.One, typedResults);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(inactiveWorld, Vector3d.Zero, Fixed64.One, untypedResults);
+        GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector3d.Zero, Fixed64.One, typedResults, scratch);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
     }
 
     [Fact]
