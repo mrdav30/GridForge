@@ -53,6 +53,7 @@ public readonly struct BoundsKey : IEquatable<BoundsKey>
         BoundsMin.Equals(other.BoundsMin) && BoundsMax.Equals(other.BoundsMax);
 
     /// <inheritdoc />
-    public override int GetHashCode() => SwiftHashTools.CombineHashCodes(BoundsMin, BoundsMax);
+    public override int GetHashCode() => 
+        SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
 }
 #endif

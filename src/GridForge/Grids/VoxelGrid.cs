@@ -778,7 +778,10 @@ public class VoxelGrid
 
     /// <inheritdoc/>
     public override int GetHashCode() =>
-        SwiftHashTools.CombineHashCodes(GridIndex, BoundsMin, BoundsMax);
+        SwiftHashTools.CombineHashCodes(
+            GridIndex.GetHashCode(), 
+            BoundsMin.GetHashCode(),
+            BoundsMax.GetHashCode());
 
     #endregion
 }
