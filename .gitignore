@@ -8,3 +8,5 @@
 TestResults/
 BenchmarkDotNet.Artifacts/
 artifacts/
+bin/
+obj/
