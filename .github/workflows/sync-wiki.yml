@@ -51,6 +51,13 @@ jobs:
 
         rsync -a --delete --exclude '.git/' "${SOURCE_DIR}/" "$wiki_dir/"
 
+        python3 .github/scripts/rewrite-wiki-links-for-github-wiki.py \
+          "$wiki_dir" \
+          "$REPOSITORY" \
+          "$SYNC_SHA" \
+          --source-dir "$SOURCE_DIR" \
+          --repo-root "$PWD"
+
         cd "$wiki_dir"
 
         git config user.name "github-actions[bot]"

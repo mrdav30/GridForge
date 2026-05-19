@@ -63,3 +63,15 @@ jobs:
 
     - name: Run Tests
       run: dotnet test GridForge.slnx --configuration ${{ matrix.configuration }} --no-build --verbosity normal
+  validate-wiki-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+
+    - name: Validate wiki link rewrite helper
+      run: PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py
