@@ -26,21 +26,21 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 
 | Page | Focus |
 | --- | --- |
-| [Getting Started](Getting-Started) | Installation, first world setup, basic queries, and logging setup |
-| [Core Concepts](Core-Concepts) | Worlds, grids, voxels, scan cells, occupants, blockers, partitions, and snapped bounds |
-| [Common Workflows](Common-Workflows) | Create a world, register a grid, resolve a voxel, scan nearby space, apply a blocker |
-| [Architecture Overview](Architecture-Overview) | How the major subsystems fit together and where responsibilities live |
-| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model) | Grid generation, voxel state, neighbor relationships, and cached data |
-| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow) | Scan-cell overlay structure, neighborhood lookups, and query performance |
-| [GridTracer and Coverage](GridTracer-and-Coverage) | Line and bounds tracing, covered voxel sets, and multi-grid implications |
-| [Blockers and Obstacles](Blockers-and-Obstacles) | `Blocker`, `BoundsBlocker`, obstacle propagation, stacked blockers, and removals |
-| [Occupants and Partitions](Occupants-and-Partitions) | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, and lifecycle rules |
-| [Diagnostics and Logging](Diagnostics-and-Logging) | `GridForgeLogger`, verbosity, tracing support, and safe debugging patterns |
-| [Repository Layout and Build](Repository-Layout-and-Build) | Solution structure, package generation, CI expectations, and release notes |
-| [Testing and Benchmarking](Testing-and-Benchmarking) | xUnit layout, explicit-world fixtures, benchmark usage, and validation strategy |
-| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling) | Core invariants that must remain true across framework targets |
-| [Recipes](Recipes) | End-to-end usage patterns for gameplay, simulation, and server-side systems |
-| [FAQ and Troubleshooting](FAQ-and-Troubleshooting) | Common mistakes, debugging checklists, and "why is this voxel result odd?" guidance |
+| [Getting Started](Getting-Started.md) | Installation, first world setup, basic queries, and logging setup |
+| [Core Concepts](Core-Concepts.md) | Worlds, grids, voxels, scan cells, occupants, blockers, partitions, and snapped bounds |
+| [Common Workflows](Common-Workflows.md) | Create a world, register a grid, resolve a voxel, scan nearby space, apply a blocker |
+| [Architecture Overview](Architecture-Overview.md) | How the major subsystems fit together and where responsibilities live |
+| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) | Grid generation, voxel state, neighbor relationships, and cached data |
+| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Scan-cell overlay structure, neighborhood lookups, and query performance |
+| [GridTracer and Coverage](GridTracer-and-Coverage.md) | Line and bounds tracing, covered voxel sets, and multi-grid implications |
+| [Blockers and Obstacles](Blockers-and-Obstacles.md) | `Blocker`, `BoundsBlocker`, obstacle propagation, stacked blockers, and removals |
+| [Occupants and Partitions](Occupants-and-Partitions.md) | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, and lifecycle rules |
+| [Diagnostics and Logging](Diagnostics-and-Logging.md) | `GridForgeLogger`, verbosity, tracing support, and safe debugging patterns |
+| [Repository Layout and Build](Repository-Layout-and-Build.md) | Solution structure, package generation, CI expectations, and release notes |
+| [Testing and Benchmarking](Testing-and-Benchmarking.md) | xUnit layout, explicit-world fixtures, benchmark usage, and validation strategy |
+| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Core invariants that must remain true across framework targets |
+| [Recipes](Recipes.md) | End-to-end usage patterns for gameplay, simulation, and server-side systems |
+| [FAQ and Troubleshooting](FAQ-and-Troubleshooting.md) | Common mistakes, debugging checklists, and "why is this voxel result odd?" guidance |
 
 ## Quick Technical Snapshot
 

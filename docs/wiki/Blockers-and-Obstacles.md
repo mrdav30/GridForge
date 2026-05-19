@@ -201,6 +201,6 @@ Use direct obstacle APIs when:
 
 ## Read This Next
 
-- [GridTracer and Coverage](GridTracer-and-Coverage) for how covered voxels are resolved
-- [Occupants and Partitions](Occupants-and-Partitions) for the other major mutation layer that sits on top of voxel state
-- [Diagnostics and Logging](Diagnostics-and-Logging) for how blocker and obstacle failures are surfaced safely
+- [GridTracer and Coverage](GridTracer-and-Coverage.md) for how covered voxels are resolved
+- [Occupants and Partitions](Occupants-and-Partitions.md) for the other major mutation layer that sits on top of voxel state
+- [Diagnostics and Logging](Diagnostics-and-Logging.md) for how blocker and obstacle failures are surfaced safely

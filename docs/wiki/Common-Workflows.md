@@ -1,6 +1,6 @@
 # Common Workflows
 
-This page is a task-oriented companion to [Getting Started](Getting-Started) and [Core Concepts](Core-Concepts). The examples here are intentionally small and practical.
+This page is a task-oriented companion to [Getting Started](Getting-Started.md) and [Core Concepts](Core-Concepts.md). The examples here are intentionally small and practical.
 
 Unless a snippet shows setup explicitly, assume you already have a valid `GridWorld world` and, where relevant, a `VoxelGrid grid` from that world.
 

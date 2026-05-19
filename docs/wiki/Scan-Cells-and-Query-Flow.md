@@ -189,6 +189,6 @@ No single type does all of it, and that separation is intentional.
 
 ## Read This Next
 
-- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model) for how scan cells relate back to voxels and grid-local keys
-- [GridTracer and Coverage](GridTracer-and-Coverage) for how region coverage finds candidate scan cells
-- [Common Workflows](Common-Workflows) for usage-oriented occupant and scan examples
+- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for how scan cells relate back to voxels and grid-local keys
+- [GridTracer and Coverage](GridTracer-and-Coverage.md) for how region coverage finds candidate scan cells
+- [Common Workflows](Common-Workflows.md) for usage-oriented occupant and scan examples

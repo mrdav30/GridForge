@@ -24,6 +24,6 @@ That means:
 
 ## Read This Next
 
-- [Architecture Overview](Architecture-Overview) for the real system map
-- [Getting Started](Getting-Started) for the recommended explicit-world entry path
-- [Core Concepts](Core-Concepts) for world-scoped identity and ownership
+- [Architecture Overview](Architecture-Overview.md) for the real system map
+- [Getting Started](Getting-Started.md) for the recommended explicit-world entry path
+- [Core Concepts](Core-Concepts.md) for world-scoped identity and ownership

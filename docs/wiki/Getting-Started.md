@@ -153,7 +153,7 @@ In most application code and tests, `using GridWorld world = new GridWorld();` i
 
 ## Where To Go Next
 
-- [Home](Home) for the project-wide mental model
-- [Core Concepts](Core-Concepts) for the vocabulary of worlds, grids, voxels, scan cells, blockers, occupants, and partitions
-- [Common Workflows](Common-Workflows) for task-oriented examples beyond the first grid
-- [Architecture Overview](Architecture-Overview) when you want to understand where behavior lives in the codebase
+- [Home](Home.md) for the project-wide mental model
+- [Core Concepts](Core-Concepts.md) for the vocabulary of worlds, grids, voxels, scan cells, blockers, occupants, and partitions
+- [Common Workflows](Common-Workflows.md) for task-oriented examples beyond the first grid
+- [Architecture Overview](Architecture-Overview.md) when you want to understand where behavior lives in the codebase

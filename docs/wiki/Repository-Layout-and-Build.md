@@ -166,6 +166,6 @@ That makes it the practical handoff script for release packaging, not just a con
 
 ## Read This Next
 
-- [Testing and Benchmarking](Testing-and-Benchmarking) for the validation workflow
-- [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling) for the invariants that build and tests are protecting
-- [Home](Home) for the broader architecture map and page roadmap
+- [Testing and Benchmarking](Testing-and-Benchmarking.md) for the validation workflow
+- [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) for the invariants that build and tests are protecting
+- [Home](Home.md) for the broader architecture map and page roadmap

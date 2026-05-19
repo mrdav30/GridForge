@@ -205,6 +205,6 @@ If you find yourself inventing a fake occupant just to tag a voxel with metadata
 
 ## Read This Next
 
-- [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow) for the query side of occupant storage
-- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model) for voxel-local state and lifecycle
-- [Diagnostics and Logging](Diagnostics-and-Logging) for how occupant and partition failures are surfaced
+- [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) for the query side of occupant storage
+- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for voxel-local state and lifecycle
+- [Diagnostics and Logging](Diagnostics-and-Logging.md) for how occupant and partition failures are surfaced

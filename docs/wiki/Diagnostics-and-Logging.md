@@ -200,6 +200,6 @@ GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
 
 ## Read This Next
 
-- [Common Workflows](Common-Workflows) for small examples that may benefit from temporary info-level logging
-- [Testing and Benchmarking](Testing-and-Benchmarking) once that page exists, for validation-focused diagnostics habits
-- [Home](Home) for the repo-wide invariant that logging should stay centralized
+- [Common Workflows](Common-Workflows.md) for small examples that may benefit from temporary info-level logging
+- [Testing and Benchmarking](Testing-and-Benchmarking.md) once that page exists, for validation-focused diagnostics habits
+- [Home](Home.md) for the repo-wide invariant that logging should stay centralized
