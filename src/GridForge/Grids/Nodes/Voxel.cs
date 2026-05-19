@@ -219,6 +219,14 @@ public class Voxel : IEquatable<Voxel>
         if (!IsAllocated)
             return;
 
+        RemovePartitions();
+        ReleaseNeighborCache();
+        ReleaseObstacleState(ownerGrid);
+        ClearRuntimeState();
+    }
+
+    private void RemovePartitions()
+    {
         if (!_partitionProvider.IsEmpty)
         {
             lock (_partitionLock)
@@ -239,32 +247,30 @@ public class Voxel : IEquatable<Voxel>
                 _partitionProvider.Clear();
             }
         }
+    }
 
+    private void ReleaseNeighborCache()
+    {
         if (_cachedNeighbors != null)
         {
             Pools.VoxelNeighborPool.Release(_cachedNeighbors);
             _cachedNeighbors = null;
         }
+    }
 
-        if (ObstacleTracker != null && ObstacleTracker.Count > 0)
-        {
-            if (ownerGrid == null)
-            {
-                if (ObstacleTracker != null)
-                {
-                    SwiftHashSetPool<BoundsKey>.Shared.Release(ObstacleTracker);
-                    ObstacleTracker = null;
-                }
-
-                ObstacleCount = 0;
-            }
-            else
-                ownerGrid?.ClearObstacles(this);
-        }
+    private void ReleaseObstacleState(VoxelGrid? ownerGrid)
+    {
+        if (ownerGrid != null && ObstacleCount > 0)
+            ownerGrid.ClearObstacles(this);
+        else if (ObstacleTracker != null)
+            SwiftHashSetPool<BoundsKey>.Shared.Release(ObstacleTracker);
 
         ObstacleTracker = null;
         ObstacleCount = 0;
+    }
 
+    private void ClearRuntimeState()
+    {
         _isNeighborCacheValid = false;
         IsBoundaryVoxel = false;
 
@@ -562,15 +568,8 @@ public class Voxel : IEquatable<Voxel>
         out Voxel? neighbor)
     {
         neighbor = null;
-        if (ownerGrid == null
-            || !ownerGrid.IsActive
-            || ownerGrid.GridIndex != WorldIndex.GridIndex
-            || ownerGrid.SpawnToken != WorldIndex.GridSpawnToken
-            || ownerGrid.World == null
-            || ownerGrid.World.SpawnToken != WorldIndex.WorldSpawnToken)
-        {
+        if (!IsValidOwnerGrid(ownerGrid))
             return false;
-        }
 
         VoxelIndex neighborCoords = new(
             Index.x + offset.x,
@@ -581,13 +580,28 @@ public class Voxel : IEquatable<Voxel>
         if (ownerGrid.TryGetVoxel(neighborCoords, out neighbor))
             return true;
 
-        Fixed64 voxelSize = ownerGrid.World.VoxelSize;
+        return ownerGrid.World!.TryGetVoxel(GetNeighborWorldPosition(ownerGrid, offset), out neighbor);
+    }
+
+    private bool IsValidOwnerGrid(VoxelGrid? ownerGrid)
+    {
+        return ownerGrid != null
+            && ownerGrid.IsActive
+            && ownerGrid.GridIndex == WorldIndex.GridIndex
+            && ownerGrid.SpawnToken == WorldIndex.GridSpawnToken
+            && ownerGrid.World != null
+            && ownerGrid.World.SpawnToken == WorldIndex.WorldSpawnToken;
+    }
+
+    private Vector3d GetNeighborWorldPosition(VoxelGrid ownerGrid, (int x, int y, int z) offset)
+    {
+        Fixed64 voxelSize = ownerGrid.World!.VoxelSize;
         Vector3d neighborPosition = new(
             WorldPosition.x + offset.x * voxelSize,
             WorldPosition.y + offset.y * voxelSize,
             WorldPosition.z + offset.z * voxelSize);
 
-        return ownerGrid.World.TryGetVoxel(neighborPosition, out neighbor);
+        return neighborPosition;
     }
 
     /// <summary>
