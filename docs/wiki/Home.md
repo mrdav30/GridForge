@@ -26,7 +26,6 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 
 | Page | Focus |
 | --- | --- |
-| [Home](Home) | Shared project context, architecture snapshot, invariants, and documentation roadmap |
 | [Getting Started](Getting-Started) | Installation, first world setup, basic queries, and logging setup |
 | [Core Concepts](Core-Concepts) | Worlds, grids, voxels, scan cells, occupants, blockers, partitions, and snapped bounds |
 | [Common Workflows](Common-Workflows) | Create a world, register a grid, resolve a voxel, scan nearby space, apply a blocker |

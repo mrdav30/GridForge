@@ -127,7 +127,7 @@ Because packaging is enabled on build, this also emits the package artifacts.
 
 ## CI Expectations
 
-The current CI workflow lives in `.github/workflows/dotnet.yml`.
+The current CI workflow lives in `.github/workflows/build-and-test.yml`.
 
 At a high level it:
 

@@ -28,7 +28,7 @@ The repository currently contains one library project and two validation project
 - **Benchmark framework:** BenchmarkDotNet
 - **Main dependencies:** `FixedMathSharp` `2.1.0`, `SwiftCollections` `2.0.0`
 - **Build behavior:** `dotnet build` on the library also produces NuGet packages because `GeneratePackageOnBuild` is enabled in `src/GridForge/GridForge.csproj`
-- **CI:** runs on Ubuntu and Windows via `.github/workflows/dotnet.yml`
+- **CI:** runs on Ubuntu and Windows via `.github/workflows/build-and-test.yml`
 - **Versioning:** CI uses GitVersion; local builds without GitVersion fall back to version `0.0.0`
 
 ## Repository Layout

@@ -93,13 +93,13 @@
 	<!-- Dependencies and Package References -->
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
-		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections" Version="4.0.4" />
+		<PackageReference Include="FixedMathSharp" Version="4.0.0" />
+		<PackageReference Include="SwiftCollections" Version="4.0.5" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
-		<PackageReference Include="FixedMathSharp.NoMemoryPack" Version="3.0.1" />
-		<PackageReference Include="SwiftCollections.Lean" Version="4.0.4" />
+		<PackageReference Include="FixedMathSharp.NoMemoryPack" Version="4.0.0" />
+		<PackageReference Include="SwiftCollections.Lean" Version="4.0.5" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">

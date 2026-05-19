@@ -12,19 +12,16 @@
 		<OutputType>Exe</OutputType>
 		<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
 	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
+		<DefineConstants>$(DefineConstants);GRIDFORGE_DISABLE_MEMORYPACK</DefineConstants>
+	</PropertyGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
-			<Private>True</Private>
-			<IncludeAssets>compile; build</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
-		</ProjectReference>
+		<ProjectReference Include="..\..\src\GridForge\GridForge.csproj" />
 		<PackageReference Include="coverlet.collector" Version="10.0.0">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="FixedMathSharp" Version="3.0.1" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-		<PackageReference Include="SwiftCollections" Version="4.0.4" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

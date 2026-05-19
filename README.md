@@ -2,7 +2,7 @@
 
 ![GridForge Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
 
-[![.NET CI](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/dotnet.yml)
+[![Build](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml)
 [![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmrdav30.github.io%2FGridForge%2FSummary.json&query=%24.summary.linecoverage&suffix=%25&label=coverage&color=brightgreen)](https://mrdav30.github.io/GridForge/)
 [![NuGet](https://img.shields.io/nuget/v/GridForge.svg)](https://www.nuget.org/packages/GridForge)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/GridForge.svg)](https://www.nuget.org/packages/GridForge)
