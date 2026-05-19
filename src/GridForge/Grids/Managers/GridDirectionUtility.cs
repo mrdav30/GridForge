@@ -1,5 +1,5 @@
 ﻿using GridForge.Spatial;
-using System.Diagnostics;
+using System;
 
 namespace GridForge.Grids;
 
@@ -8,6 +8,9 @@ namespace GridForge.Grids;
 /// </summary>
 public static class GridDirectionUtility
 {
+    private const int OffsetLookupSize = 27;
+    private static readonly SpatialDirection[] DirectionLookup = CreateDirectionLookup();
+
     /// <summary>
     /// Converts a 3D offset into a corresponding <see cref="SpatialDirection"/> in a 3x3x3 grid.
     /// </summary>
@@ -15,28 +18,42 @@ public static class GridDirectionUtility
     /// <returns>The corresponding <see cref="SpatialDirection"/>, or <see cref="SpatialDirection.None"/> if invalid.</returns>
     public static SpatialDirection GetNeighborDirectionFromOffset((int x, int y, int z) gridOffset)
     {
-        if(IsValidOffset(gridOffset) == false)
+        if (!TryGetOffsetLookupKey(gridOffset, out int lookupKey))
         {
             GridForgeLogger.DebugChannel.Info($"Invalid grid offset: {gridOffset}. Offsets must be in the range [-1, 1] for each axis.");
             return SpatialDirection.None;
         }
 
-        if (gridOffset == (0, 0, 0)) // The center voxel does not correspond to any direction.
-            return SpatialDirection.None;
+        return DirectionLookup[lookupKey];
+    }
+
+    private static SpatialDirection[] CreateDirectionLookup()
+    {
+        SpatialDirection[] lookup = new SpatialDirection[OffsetLookupSize];
+        Array.Fill(lookup, SpatialDirection.None);
 
         for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
         {
-            if (SpatialAwareness.DirectionOffsets[i] == gridOffset)
-                return (SpatialDirection)i;
+            if (TryGetOffsetLookupKey(SpatialAwareness.DirectionOffsets[i], out int lookupKey))
+                lookup[lookupKey] = (SpatialDirection)i;
         }
 
-        return SpatialDirection.None;
+        return lookup;
     }
 
-    private static bool IsValidOffset((int x, int y, int z) offset)
+    private static bool TryGetOffsetLookupKey((int x, int y, int z) offset, out int lookupKey)
     {
-        return offset.x >= -1 && offset.x <= 1 &&
-               offset.y >= -1 && offset.y <= 1 &&
-               offset.z >= -1 && offset.z <= 1;
+        int x = offset.x + 1;
+        int y = offset.y + 1;
+        int z = offset.z + 1;
+
+        if ((uint)x > 2u || (uint)y > 2u || (uint)z > 2u)
+        {
+            lookupKey = -1;
+            return false;
+        }
+
+        lookupKey = x * 9 + y * 3 + z;
+        return true;
     }
 }
