@@ -219,14 +219,11 @@ public class ScanCell
             SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
             foreach (IVoxelOccupant occupant in bucket)
             {
-                if (occupantCondition != null && !occupantCondition(occupant))
-                    continue;
-
-                if (groupCondition != null && !groupCondition(occupant.OccupantGroupId))
-                    continue;
-
-                if ((occupant.Position - position).SqrMagnitude <= squaredRadius)
+                if (OccupantPassesFilters(occupant, occupantCondition, groupCondition)
+                    && IsWithinSquaredRadius(occupant, position, squaredRadius))
+                {
                     results.Add(occupant);
+                }
             }
         }
     }
@@ -249,19 +246,44 @@ public class ScanCell
             SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
             foreach (IVoxelOccupant occupant in bucket)
             {
-                if (occupantCondition != null && !occupantCondition(occupant))
+                if (!OccupantPassesFilters(occupant, occupantCondition, groupCondition))
                     continue;
 
-                if (groupCondition != null && !groupCondition(occupant.OccupantGroupId))
-                    continue;
-
-                if (occupant is T typedOccupant
-                    && (occupant.Position - position).SqrMagnitude <= squaredRadius)
-                {
+                if (TryGetTypedOccupantWithinRadius(occupant, position, squaredRadius, out T typedOccupant))
                     results.Add(typedOccupant);
-                }
             }
         }
+    }
+
+    private static bool OccupantPassesFilters(
+        IVoxelOccupant occupant,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
+        return (occupantCondition == null || occupantCondition(occupant))
+            && (groupCondition == null || groupCondition(occupant.OccupantGroupId));
+    }
+
+    private static bool IsWithinSquaredRadius(
+        IVoxelOccupant occupant,
+        Vector3d position,
+        Fixed64 squaredRadius)
+    {
+        return (occupant.Position - position).SqrMagnitude <= squaredRadius;
+    }
+
+    private static bool TryGetTypedOccupantWithinRadius<T>(
+        IVoxelOccupant occupant,
+        Vector3d position,
+        Fixed64 squaredRadius,
+        out T typedOccupant) where T : IVoxelOccupant
+    {
+        typedOccupant = default!;
+        if (occupant is not T candidate || !IsWithinSquaredRadius(occupant, position, squaredRadius))
+            return false;
+
+        typedOccupant = candidate;
+        return true;
     }
 
     /// <summary>
