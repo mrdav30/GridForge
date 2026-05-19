@@ -126,39 +126,8 @@ public abstract class Blocker : IBlocker
         if (!IsActive || IsBlocking || !World.IsActive)
             return;
 
-        CacheMin = GetBoundsMin();
-        CacheMax = GetBoundsMax();
-        BlockageToken = new BoundsKey(CacheMin, CacheMax);
-
-        if (CacheCoveredVoxels)
-            _cachedCoveredVoxels ??= new SwiftList<WorldVoxelIndex>();
-
-        RegisterGridWatcher();
-        _cachedCoveredVoxels?.Clear();
-        _watchedGridIndices.Clear();
-
-        bool hasCoverage = true;
-        bool foundCoverage = false;
-        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
-        {
-            if (covered.Voxels.Count <= 0)
-                continue;
-
-            foundCoverage = true;
-            _watchedGridIndices.Add(covered.Grid.GridIndex);
-
-            foreach (Voxel voxel in covered.Voxels)
-            {
-                if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
-                {
-                    hasCoverage = false;
-                    continue;
-                }
-
-                if (CacheCoveredVoxels)
-                    _cachedCoveredVoxels!.Add(voxel.WorldIndex);
-            }
-        }
+        PrepareBlockageApplication();
+        bool foundCoverage = ApplyBlockageToCoveredVoxels(out bool hasCoverage);
 
         IsBlocking = foundCoverage && hasCoverage;
 
@@ -184,38 +153,105 @@ public abstract class Blocker : IBlocker
     {
         if (!IsBlocking)
         {
-            _cachedCoveredVoxels?.Clear();
-            _watchedGridIndices.Clear();
-            if (!keepWatching || !IsActive)
-                UnregisterGridWatcher();
+            ClearCoverageTracking();
+            UnregisterGridWatcherIfNeeded(keepWatching);
             return;
         }
 
         BlockageEventInfo removalEventInfo = CreateBlockageEventInfo();
 
-        if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
-        {
-            foreach (WorldVoxelIndex voxelIndex in _cachedCoveredVoxels)
-                GridObstacleManager.TryRemoveObstacle(World, voxelIndex, BlockageToken);
-        }
-        else
-        {
-            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
-            {
-                foreach (Voxel voxel in covered.Voxels)
-                    covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
-            }
-        }
+        RemoveAppliedBlockage();
 
         BlockageToken = default;
         IsBlocking = false;
-        _cachedCoveredVoxels?.Clear();
-        _watchedGridIndices.Clear();
-
-        if (!keepWatching || !IsActive)
-            UnregisterGridWatcher();
+        ClearCoverageTracking();
+        UnregisterGridWatcherIfNeeded(keepWatching);
 
         NotifyBlockageRemoved(removalEventInfo);
+    }
+
+    private void PrepareBlockageApplication()
+    {
+        CacheMin = GetBoundsMin();
+        CacheMax = GetBoundsMax();
+        BlockageToken = new BoundsKey(CacheMin, CacheMax);
+
+        if (CacheCoveredVoxels)
+            _cachedCoveredVoxels ??= new SwiftList<WorldVoxelIndex>();
+
+        RegisterGridWatcher();
+        ClearCoverageTracking();
+    }
+
+    private bool ApplyBlockageToCoveredVoxels(out bool hasCoverage)
+    {
+        hasCoverage = true;
+        bool foundCoverage = false;
+
+        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
+        {
+            if (covered.Voxels.Count <= 0)
+                continue;
+
+            foundCoverage = true;
+            _watchedGridIndices.Add(covered.Grid.GridIndex);
+            ApplyBlockageToVoxels(covered, ref hasCoverage);
+        }
+
+        return foundCoverage;
+    }
+
+    private void ApplyBlockageToVoxels(GridVoxelSet covered, ref bool hasCoverage)
+    {
+        foreach (Voxel voxel in covered.Voxels)
+        {
+            if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
+            {
+                hasCoverage = false;
+                continue;
+            }
+
+            if (CacheCoveredVoxels)
+                _cachedCoveredVoxels!.Add(voxel.WorldIndex);
+        }
+    }
+
+    private void RemoveAppliedBlockage()
+    {
+        if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
+        {
+            RemoveCachedBlockage();
+            return;
+        }
+
+        RemoveTracedBlockage();
+    }
+
+    private void RemoveCachedBlockage()
+    {
+        foreach (WorldVoxelIndex voxelIndex in _cachedCoveredVoxels!)
+            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, BlockageToken);
+    }
+
+    private void RemoveTracedBlockage()
+    {
+        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
+        {
+            foreach (Voxel voxel in covered.Voxels)
+                covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
+        }
+    }
+
+    private void ClearCoverageTracking()
+    {
+        _cachedCoveredVoxels?.Clear();
+        _watchedGridIndices.Clear();
+    }
+
+    private void UnregisterGridWatcherIfNeeded(bool keepWatching)
+    {
+        if (!keepWatching || !IsActive)
+            UnregisterGridWatcher();
     }
 
     /// <summary>
@@ -359,15 +395,23 @@ public abstract class Blocker : IBlocker
 
     private bool ShouldReactToGridAdded(GridEventInfo eventInfo)
     {
-        if (!IsActive)
-            return false;
+        return IsActive && BoundsOverlap(CacheMin, CacheMax, eventInfo.BoundsMin, eventInfo.BoundsMax);
+    }
 
-        return CacheMax.x >= eventInfo.BoundsMin.x
-            && CacheMin.x <= eventInfo.BoundsMax.x
-            && CacheMax.y >= eventInfo.BoundsMin.y
-            && CacheMin.y <= eventInfo.BoundsMax.y
-            && CacheMax.z >= eventInfo.BoundsMin.z
-            && CacheMin.z <= eventInfo.BoundsMax.z;
+    private static bool BoundsOverlap(
+        Vector3d firstMin,
+        Vector3d firstMax,
+        Vector3d secondMin,
+        Vector3d secondMax)
+    {
+        return AxisOverlaps(firstMin.x, firstMax.x, secondMin.x, secondMax.x)
+            && AxisOverlaps(firstMin.y, firstMax.y, secondMin.y, secondMax.y)
+            && AxisOverlaps(firstMin.z, firstMax.z, secondMin.z, secondMax.z);
+    }
+
+    private static bool AxisOverlaps(Fixed64 firstMin, Fixed64 firstMax, Fixed64 secondMin, Fixed64 secondMax)
+    {
+        return firstMax >= secondMin && firstMin <= secondMax;
     }
 
     private bool ShouldReactToGridRemoved(GridEventInfo eventInfo)
