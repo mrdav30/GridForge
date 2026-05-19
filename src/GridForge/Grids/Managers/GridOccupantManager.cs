@@ -193,10 +193,7 @@ public static class GridOccupantManager
         Voxel targetVoxel,
         IVoxelOccupant occupant)
     {
-        if (occupant == null || grid.World == null)
-            return false;
-
-        if (!targetVoxel.HasVacancy || !grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell))
+        if (!TryGetAddContext(grid, targetVoxel, occupant, out GridWorld? world, out ScanCell? scanCell))
             return false;
 
         int ticket;
@@ -205,15 +202,13 @@ public static class GridOccupantManager
         lock (grid.OccupantSyncRoot)
         {
             ticket = scanCell!.AddOccupant(targetVoxel.WorldIndex, occupant);
-            if (!TryTrackOccupancy(grid.World, occupant, targetVoxel.WorldIndex, ticket))
+            if (!TryTrackOccupancy(world!, occupant, targetVoxel.WorldIndex, ticket))
             {
                 scanCell.TryRemoveOccupant(targetVoxel.WorldIndex, ticket);
                 return false;
             }
 
-            grid.ActiveScanCells ??= SwiftHashSetPool<int>.Shared.Rent();
-            if (!grid.ActiveScanCells.Contains(targetVoxel.ScanCellKey))
-                grid.ActiveScanCells.Add(targetVoxel.ScanCellKey);
+            TrackActiveScanCell(grid, targetVoxel.ScanCellKey);
 
             targetVoxel.OccupantCount++;
             occupantCount = targetVoxel.OccupantCount;
@@ -271,30 +266,10 @@ public static class GridOccupantManager
         this VoxelGrid grid,
         IVoxelOccupant occupant)
     {
-        if (grid.World == null)
+        if (!TryGetGridOccupancies(grid, occupant, out TrackedOccupancy[] occupancies))
             return false;
 
-        TrackedOccupancy[] occupancies = GetTrackedOccupanciesSnapshot(grid.World, occupant, grid.GridIndex);
-        if (occupancies.Length == 0)
-            return false;
-
-        bool removedAny = false;
-
-        for (int i = 0; i < occupancies.Length; i++)
-        {
-            WorldVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
-            if (voxelIndex.WorldSpawnToken != grid.World.SpawnToken
-                || voxelIndex.GridSpawnToken != grid.SpawnToken
-                || !grid.TryGetVoxel(voxelIndex.VoxelIndex, out Voxel? voxel))
-            {
-                removedAny |= ForgetTrackedOccupancy(grid.World, occupant, voxelIndex);
-                continue;
-            }
-
-            removedAny |= TryRemoveVoxelOccupant(grid, voxel!, occupant);
-        }
-
-        return removedAny;
+        return RemoveTrackedOccupancies(grid, occupant, occupancies);
     }
 
     /// <summary>
@@ -318,16 +293,7 @@ public static class GridOccupantManager
         Voxel targetVoxel,
         IVoxelOccupant occupant)
     {
-        if (occupant == null || grid.World == null)
-            return false;
-
-        if (!TryGetOccupancyTicket(grid.World, occupant, targetVoxel.WorldIndex, out int ticket))
-        {
-            GridForgeLogger.Channel.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.WorldIndex}.");
-            return false;
-        }
-
-        if (!targetVoxel.IsOccupied || grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell) != true)
+        if (!TryGetRemovalContext(grid, targetVoxel, occupant, out ScanCell? scanCell, out int ticket))
             return false;
 
         bool success = false;
@@ -335,25 +301,13 @@ public static class GridOccupantManager
 
         lock (grid.OccupantSyncRoot)
         {
-            success = scanCell!.TryRemoveOccupant(targetVoxel.WorldIndex, ticket);
-            if (success)
-            {
-                ForgetTrackedOccupancy(grid.World, occupant, targetVoxel.WorldIndex);
-
-                if (!scanCell.IsOccupied && grid.ActiveScanCells != null)
-                {
-                    grid.ActiveScanCells.Remove(targetVoxel.ScanCellKey);
-                    if (!grid.IsOccupied)
-                    {
-                        GridForgeLogger.Channel.Info($"Releasing unused active scan cells collection.");
-                        SwiftHashSetPool<int>.Shared.Release(grid.ActiveScanCells);
-                        grid.ActiveScanCells = null;
-                    }
-                }
-
-                targetVoxel.OccupantCount--;
-                occupantCount = targetVoxel.OccupantCount;
-            }
+            success = TryRemoveOccupantFromScanCell(
+                grid,
+                targetVoxel,
+                occupant,
+                scanCell!,
+                ticket,
+                out occupantCount);
         }
 
         if (success)
@@ -400,6 +354,75 @@ public static class GridOccupantManager
 
     #region Private Methods
 
+    private static bool TryGetAddContext(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        IVoxelOccupant occupant,
+        out GridWorld? world,
+        out ScanCell? scanCell)
+    {
+        world = grid.World;
+        scanCell = null;
+        return occupant != null
+            && world != null
+            && targetVoxel.HasVacancy
+            && grid.TryGetScanCell(targetVoxel.ScanCellKey, out scanCell);
+    }
+
+    private static void TrackActiveScanCell(VoxelGrid grid, int scanCellKey)
+    {
+        grid.ActiveScanCells ??= SwiftHashSetPool<int>.Shared.Rent();
+        if (!grid.ActiveScanCells.Contains(scanCellKey))
+            grid.ActiveScanCells.Add(scanCellKey);
+    }
+
+    private static bool TryGetGridOccupancies(
+        VoxelGrid grid,
+        IVoxelOccupant occupant,
+        out TrackedOccupancy[] occupancies)
+    {
+        occupancies = Array.Empty<TrackedOccupancy>();
+        if (grid.World == null)
+            return false;
+
+        occupancies = GetTrackedOccupanciesSnapshot(grid.World, occupant, grid.GridIndex);
+        return occupancies.Length > 0;
+    }
+
+    private static bool RemoveTrackedOccupancies(
+        VoxelGrid grid,
+        IVoxelOccupant occupant,
+        TrackedOccupancy[] occupancies)
+    {
+        bool removedAny = false;
+
+        for (int i = 0; i < occupancies.Length; i++)
+        {
+            WorldVoxelIndex voxelIndex = occupancies[i].VoxelIndex;
+            if (!TryGetCurrentTrackedVoxel(grid, voxelIndex, out Voxel? voxel))
+            {
+                removedAny |= ForgetTrackedOccupancy(grid.World!, occupant, voxelIndex);
+                continue;
+            }
+
+            removedAny |= TryRemoveVoxelOccupant(grid, voxel!, occupant);
+        }
+
+        return removedAny;
+    }
+
+    private static bool TryGetCurrentTrackedVoxel(
+        VoxelGrid grid,
+        WorldVoxelIndex voxelIndex,
+        out Voxel? voxel)
+    {
+        voxel = null;
+        return grid.World != null
+            && voxelIndex.WorldSpawnToken == grid.World.SpawnToken
+            && voxelIndex.GridSpawnToken == grid.SpawnToken
+            && grid.TryGetVoxel(voxelIndex.VoxelIndex, out voxel);
+    }
+
     private static bool TryTrackOccupancy(
         GridWorld world,
         IVoxelOccupant occupant,
@@ -412,19 +435,8 @@ public static class GridOccupantManager
         WorldOccupancyRegistry registry = GetWorldRegistry(world);
         lock (registry.SyncRoot)
         {
-            if (registry.Records.TryGetValue(occupant.GlobalId, out OccupancyRecord record))
-            {
-                if (!ReferenceEquals(record.Occupant, occupant))
-                {
-                    GridForgeLogger.Channel.Warn($"Occupant id collision detected for {occupant.GlobalId} in world {world.SpawnToken}.");
-                    return false;
-                }
-            }
-            else
-            {
-                record = new OccupancyRecord(occupant);
-                registry.Records[occupant.GlobalId] = record;
-            }
+            if (!TryGetOrAddOccupancyRecord(registry, world, occupant, out OccupancyRecord record))
+                return false;
 
             if (record.Tickets.ContainsKey(index))
             {
@@ -446,16 +458,34 @@ public static class GridOccupantManager
             return false;
 
         lock (registry!.SyncRoot)
+            return ForgetTrackedOccupancyUnsafe(world, occupant, index, registry);
+    }
+
+    private static bool ForgetTrackedOccupancyUnsafe(
+        GridWorld world,
+        IVoxelOccupant occupant,
+        WorldVoxelIndex index,
+        WorldOccupancyRegistry registry)
+    {
+        if (!TryGetTrackedRecordUnsafe(world, occupant, out OccupancyRecord? record)
+            || !TryRemoveTrackedTicket(record!, index))
         {
-            if (!TryGetTrackedRecordUnsafe(world, occupant, out OccupancyRecord? record) || record!.Tickets.ContainsKey(index) != true)
-                return false;
-
-            record.Tickets.Remove(index);
-            if (record.Tickets.Count == 0)
-                registry.Records.Remove(occupant.GlobalId);
-
-            return true;
+            return false;
         }
+
+        if (record!.Tickets.Count == 0)
+            registry.Records.Remove(occupant.GlobalId);
+
+        return true;
+    }
+
+    private static bool TryRemoveTrackedTicket(OccupancyRecord record, WorldVoxelIndex index)
+    {
+        if (!record.Tickets.ContainsKey(index))
+            return false;
+
+        record.Tickets.Remove(index);
+        return true;
     }
 
     private static bool TryGetTrackedRecordUnsafe(
@@ -489,25 +519,122 @@ public static class GridOccupantManager
                 return Array.Empty<TrackedOccupancy>();
 
             TrackedOccupancy[] occupancies = new TrackedOccupancy[record.Tickets.Count];
-            int count = 0;
-
-            foreach (WorldVoxelIndex index in record.Tickets.Keys)
-            {
-                if (gridIndex.HasValue && index.GridIndex != gridIndex.Value)
-                    continue;
-
-                occupancies[count++] = new TrackedOccupancy(index, record.Tickets[index]);
-            }
-
-            if (count == 0)
-                return Array.Empty<TrackedOccupancy>();
-
-            if (count != occupancies.Length)
-                Array.Resize(ref occupancies, count);
-
-            Array.Sort(occupancies, CompareTrackedOccupancies);
-            return occupancies;
+            int count = CopyTrackedOccupancies(record, gridIndex, occupancies);
+            return FinalizeTrackedOccupancySnapshot(occupancies, count);
         }
+    }
+
+    private static bool TryGetRemovalContext(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        IVoxelOccupant occupant,
+        out ScanCell? scanCell,
+        out int ticket)
+    {
+        scanCell = null;
+        ticket = -1;
+
+        if (occupant == null || grid.World == null)
+            return false;
+
+        if (!TryGetOccupancyTicket(grid.World, occupant, targetVoxel.WorldIndex, out ticket))
+        {
+            GridForgeLogger.Channel.Warn($"Occupant {occupant.GlobalId} is not registered to voxel {targetVoxel.WorldIndex}.");
+            return false;
+        }
+
+        return targetVoxel.IsOccupied
+            && grid.TryGetScanCell(targetVoxel.ScanCellKey, out scanCell) == true;
+    }
+
+    private static bool TryRemoveOccupantFromScanCell(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        IVoxelOccupant occupant,
+        ScanCell scanCell,
+        int ticket,
+        out byte occupantCount)
+    {
+        occupantCount = targetVoxel.OccupantCount;
+
+        if (!scanCell.TryRemoveOccupant(targetVoxel.WorldIndex, ticket))
+            return false;
+
+        ForgetTrackedOccupancy(grid.World!, occupant, targetVoxel.WorldIndex);
+        ReleaseActiveScanCellIfEmpty(grid, targetVoxel, scanCell);
+
+        targetVoxel.OccupantCount--;
+        occupantCount = targetVoxel.OccupantCount;
+        return true;
+    }
+
+    private static void ReleaseActiveScanCellIfEmpty(
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        ScanCell scanCell)
+    {
+        if (scanCell.IsOccupied || grid.ActiveScanCells == null)
+            return;
+
+        grid.ActiveScanCells.Remove(targetVoxel.ScanCellKey);
+        if (grid.IsOccupied)
+            return;
+
+        GridForgeLogger.Channel.Info($"Releasing unused active scan cells collection.");
+        SwiftHashSetPool<int>.Shared.Release(grid.ActiveScanCells);
+        grid.ActiveScanCells = null;
+    }
+
+    private static bool TryGetOrAddOccupancyRecord(
+        WorldOccupancyRegistry registry,
+        GridWorld world,
+        IVoxelOccupant occupant,
+        out OccupancyRecord record)
+    {
+        if (registry.Records.TryGetValue(occupant.GlobalId, out record))
+        {
+            if (ReferenceEquals(record.Occupant, occupant))
+                return true;
+
+            GridForgeLogger.Channel.Warn($"Occupant id collision detected for {occupant.GlobalId} in world {world.SpawnToken}.");
+            return false;
+        }
+
+        record = new OccupancyRecord(occupant);
+        registry.Records[occupant.GlobalId] = record;
+        return true;
+    }
+
+    private static int CopyTrackedOccupancies(
+        OccupancyRecord record,
+        ushort? gridIndex,
+        TrackedOccupancy[] occupancies)
+    {
+        int count = 0;
+
+        foreach (WorldVoxelIndex index in record.Tickets.Keys)
+        {
+            if (gridIndex.HasValue && index.GridIndex != gridIndex.Value)
+                continue;
+
+            occupancies[count++] = new TrackedOccupancy(index, record.Tickets[index]);
+        }
+
+        return count;
+    }
+
+    private static TrackedOccupancy[] FinalizeTrackedOccupancySnapshot(
+        TrackedOccupancy[] occupancies,
+        int count)
+    {
+        if (count == 0)
+            return Array.Empty<TrackedOccupancy>();
+
+        if (count != occupancies.Length)
+            Array.Resize(ref occupancies, count);
+
+        Array.Sort(occupancies, CompareTrackedOccupancies);
+        return occupancies;
     }
 
     private static int CompareTrackedOccupancies(TrackedOccupancy left, TrackedOccupancy right)
