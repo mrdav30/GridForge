@@ -194,51 +194,14 @@ public class VoxelGrid
         if (!IsActive)
             return;
 
-        if (Voxels != null)
-        {
-            foreach (Voxel voxel in Voxels)
-            {
-                if (voxel == null)
-                    continue;
-                voxel.Reset(this);
-                Pools.VoxelPool.Release(voxel);
-            }
-            Voxels = null;
-        }
+        ReleaseVoxels();
 
-        // Just incase since voxels should have already cleared any registered obstacles
+        // Just in case since voxels should have already cleared any registered obstacles.
         ObstacleCount = 0;
 
-        if (ScanCells != null)
-        {
-            foreach (ScanCell cell in ScanCells.Values)
-            {
-                if (cell == null)
-                    continue;
-                Pools.ScanCellPool.Release(cell);
-            }
-
-            Pools.ScanCellMapPool.Release(ScanCells);
-            ScanCells = null;
-        }
-
-        if (ActiveScanCells != null)
-        {
-            SwiftHashSetPool<int>.Shared.Release(ActiveScanCells);
-            ActiveScanCells = null;
-        }
-
-        if (Neighbors != null)
-        {
-            foreach (SwiftHashSet<int> neighbors in Neighbors.Values)
-            {
-                if (neighbors == null)
-                    continue;
-                SwiftHashSetPool<int>.Shared.Release(neighbors);
-            }
-            Neighbors = null;
-            NeighborCount = 0;
-        }
+        ReleaseScanCells();
+        ReleaseActiveScanCells();
+        ReleaseNeighbors();
 
         Configuration = default;
         World = null;
@@ -248,6 +211,73 @@ public class VoxelGrid
 
         GridIndex = ushort.MaxValue;
 
+        ClearDimensions();
+
+        IsActive = false;
+    }
+
+    private void ReleaseVoxels()
+    {
+        if (Voxels == null)
+            return;
+
+        foreach (Voxel voxel in Voxels)
+        {
+            if (voxel == null)
+                continue;
+
+            voxel.Reset(this);
+            Pools.VoxelPool.Release(voxel);
+        }
+
+        Voxels = null;
+    }
+
+    private void ReleaseScanCells()
+    {
+        if (ScanCells == null)
+            return;
+
+        foreach (ScanCell cell in ScanCells.Values)
+        {
+            if (cell == null)
+                continue;
+
+            Pools.ScanCellPool.Release(cell);
+        }
+
+        Pools.ScanCellMapPool.Release(ScanCells);
+        ScanCells = null;
+    }
+
+    private void ReleaseActiveScanCells()
+    {
+        if (ActiveScanCells == null)
+            return;
+
+        SwiftHashSetPool<int>.Shared.Release(ActiveScanCells);
+        ActiveScanCells = null;
+    }
+
+    private void ReleaseNeighbors()
+    {
+        if (Neighbors == null)
+            return;
+
+        foreach (SwiftHashSet<int> neighbors in Neighbors.Values)
+        {
+            if (neighbors == null)
+                continue;
+
+            SwiftHashSetPool<int>.Shared.Release(neighbors);
+        }
+
+        Neighbors = null;
+        NeighborCount = 0;
+    }
+
+    private void ClearDimensions()
+    {
         Width = 0;
         Height = 0;
         Length = 0;
@@ -256,8 +286,6 @@ public class VoxelGrid
         _scanHeight = 0;
         _scanLength = 0;
         _scanLayerSize = 0;
-
-        IsActive = false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -406,23 +434,13 @@ public class VoxelGrid
     /// <param name="neighborGrid">The neighboring grid to remove.</param>
     internal bool TryRemoveGridNeighbor(VoxelGrid neighborGrid)
     {
-        if (!IsConjoined)
+        if (!TryGetGridNeighborSet(neighborGrid, out SpatialDirection neighborDirection, out int neighborIndex, out SwiftHashSet<int>? neighborSet))
             return false;
 
-        SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
-        var neighborIndex = (int)neighborDirection;
-        if (neighborIndex == -1 || !Neighbors!.TryGetValue(neighborIndex, out SwiftHashSet<int> neighborSet))
+        if (!neighborSet!.Remove(neighborGrid.GridIndex))
             return false;
 
-        if (!neighborSet.Remove(neighborGrid.GridIndex))
-            return false;
-
-        if (Neighbors[neighborIndex].Count == 0)
-        {
-            GridForgeLogger.Channel.Info($"Releasing unused neighbor collection.");
-            SwiftHashSetPool<int>.Shared.Release(Neighbors[neighborIndex]);
-            Neighbors.Remove(neighborIndex);
-        }
+        ReleaseNeighborSetIfEmpty(neighborIndex, neighborSet);
 
         if (--NeighborCount == 0)
             Neighbors = null;
@@ -432,6 +450,34 @@ public class VoxelGrid
         NotifyBoundaryChange(neighborDirection); // Notify voxels of the removed neighbor
 
         return true;
+    }
+
+    private bool TryGetGridNeighborSet(
+        VoxelGrid neighborGrid,
+        out SpatialDirection neighborDirection,
+        out int neighborIndex,
+        out SwiftHashSet<int>? neighborSet)
+    {
+        neighborSet = null;
+        neighborDirection = SpatialDirection.None;
+        neighborIndex = -1;
+
+        if (!IsConjoined)
+            return false;
+
+        neighborDirection = GetNeighborDirection(this, neighborGrid);
+        neighborIndex = (int)neighborDirection;
+        return neighborIndex != -1 && Neighbors!.TryGetValue(neighborIndex, out neighborSet);
+    }
+
+    private void ReleaseNeighborSetIfEmpty(int neighborIndex, SwiftHashSet<int> neighborSet)
+    {
+        if (neighborSet.Count > 0)
+            return;
+
+        GridForgeLogger.Channel.Info($"Releasing unused neighbor collection.");
+        SwiftHashSetPool<int>.Shared.Release(neighborSet);
+        Neighbors!.Remove(neighborIndex);
     }
 
     /// <summary>
@@ -453,12 +499,24 @@ public class VoxelGrid
         (int yStart, int yEnd) = SpatialAwareness.GetBoundaryRange(offset.y, Height);
         (int zStart, int zEnd) = SpatialAwareness.GetBoundaryRange(offset.z, Length);
 
+        InvalidateBoundaryVoxels(Voxels!, xStart, xEnd, yStart, yEnd, zStart, zEnd);
+    }
+
+    private void InvalidateBoundaryVoxels(
+        SwiftArray3D<Voxel> voxels,
+        int xStart,
+        int xEnd,
+        int yStart,
+        int yEnd,
+        int zStart,
+        int zEnd)
+    {
         for (int x = xStart; x <= xEnd; x++)
         {
             for (int y = yStart; y <= yEnd; y++)
             {
                 for (int z = zStart; z <= zEnd; z++)
-                    Voxels[x, y, z]?.InvalidateNeighborCache();
+                    voxels[x, y, z]?.InvalidateNeighborCache();
             }
         }
     }
@@ -500,12 +558,19 @@ public class VoxelGrid
     {
         tolerance = tolerance == default ? a.ActiveVoxelResolution : tolerance;
 
-        return a.BoundsMax.x >= b.BoundsMin.x - tolerance
-            && a.BoundsMin.x <= b.BoundsMax.x + tolerance
-            && a.BoundsMax.y >= b.BoundsMin.y - tolerance
-            && a.BoundsMin.y <= b.BoundsMax.y + tolerance
-            && a.BoundsMax.z >= b.BoundsMin.z - tolerance
-            && a.BoundsMin.z <= b.BoundsMax.z + tolerance;
+        return AxisOverlaps(a.BoundsMin.x, a.BoundsMax.x, b.BoundsMin.x, b.BoundsMax.x, tolerance)
+            && AxisOverlaps(a.BoundsMin.y, a.BoundsMax.y, b.BoundsMin.y, b.BoundsMax.y, tolerance)
+            && AxisOverlaps(a.BoundsMin.z, a.BoundsMax.z, b.BoundsMin.z, b.BoundsMax.z, tolerance);
+    }
+
+    private static bool AxisOverlaps(
+        Fixed64 firstMin,
+        Fixed64 firstMax,
+        Fixed64 secondMin,
+        Fixed64 secondMax,
+        Fixed64 tolerance)
+    {
+        return firstMax >= secondMin - tolerance && firstMin <= secondMax + tolerance;
     }
 
     /// <summary>
@@ -544,14 +609,20 @@ public class VoxelGrid
             return false;
         }
 
-        bool result = x >= 0 && x < Voxels!.Width
-                && y >= 0 && y < Voxels!.Height
-                && z >= 0 && z < Voxels!.Depth;
+        bool result = IsVoxelIndexInBounds(x, y, z);
 
         if (!result)
             GridForgeLogger.Channel.Info($"The coordinate {(x, y, z)} is not valid for this grid.");
 
         return result;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsVoxelIndexInBounds(int x, int y, int z)
+    {
+        return (uint)x < (uint)Voxels!.Width
+            && (uint)y < (uint)Voxels!.Height
+            && (uint)z < (uint)Voxels!.Depth;
     }
 
     /// <summary>
