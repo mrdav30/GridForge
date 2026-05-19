@@ -162,29 +162,8 @@ public sealed class GridWorld : IDisposable
             return;
         }
 
-        Action? resetHandlers = _onReset;
-        if (resetHandlers != null)
-        {
-            var handlerDelegates = resetHandlers.GetInvocationList();
-            for (int i = 0; i < handlerDelegates.Length; i++)
-            {
-                try
-                {
-                    ((Action)handlerDelegates[i])();
-                }
-                catch (Exception ex)
-                {
-                    GridForgeLogger.Channel.Error($"World reset notification error: {ex.Message}");
-                }
-            }
-        }
-
-        foreach (VoxelGrid grid in ActiveGrids)
-            Pools.GridPool.Release(grid);
-
-        ActiveGrids.Clear();
-        BoundsTracker.Clear();
-        SpatialGridHash.Clear();
+        NotifyResetHandlers();
+        ReleaseActiveGrids();
         GridOccupantManager.ClearTrackedOccupancies(this);
 
         if (!deactivate)
@@ -197,6 +176,36 @@ public sealed class GridWorld : IDisposable
         _onActiveGridRemoved = null;
         _onActiveGridChange = null;
         _onReset = null;
+    }
+
+    private void NotifyResetHandlers()
+    {
+        Action? resetHandlers = _onReset;
+        if (resetHandlers == null)
+            return;
+
+        var handlerDelegates = resetHandlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action)handlerDelegates[i])();
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Channel.Error($"World reset notification error: {ex.Message}");
+            }
+        }
+    }
+
+    private void ReleaseActiveGrids()
+    {
+        foreach (VoxelGrid grid in ActiveGrids)
+            Pools.GridPool.Release(grid);
+
+        ActiveGrids.Clear();
+        BoundsTracker.Clear();
+        SpatialGridHash.Clear();
     }
 
     /// <inheritdoc />
@@ -221,34 +230,14 @@ public sealed class GridWorld : IDisposable
     {
         allocatedIndex = ushort.MaxValue;
 
-        if (!IsActive)
-        {
-            GridForgeLogger.Channel.Error($"Grid world not active. Cannot add grids to an inactive world.");
+        if (!CanAddGrid())
             return false;
-        }
-
-        if ((uint)ActiveGrids.Count > MaxGrids)
-        {
-            GridForgeLogger.Channel.Warn($"No more grids can be added at this time.");
-            return false;
-        }
 
         GridConfiguration normalizedConfiguration = NormalizeConfiguration(configuration);
         BoundsKey boundsKey = normalizedConfiguration.ToBoundsKey();
 
-        _gridLock.EnterReadLock();
-        try
-        {
-            if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
-            {
-                GridForgeLogger.Channel.Warn($"A grid with these bounds has already been allocated.");
-                return false;
-            }
-        }
-        finally
-        {
-            _gridLock.ExitReadLock();
-        }
+        if (TryFindExistingGrid(boundsKey, out allocatedIndex))
+            return false;
 
         VoxelGrid newGrid = Pools.GridPool.Rent();
         GridEventInfo addedGridInfo = default;
@@ -260,26 +249,7 @@ public sealed class GridWorld : IDisposable
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
             newGrid.Initialize(this, allocatedIndex, normalizedConfiguration);
-            foreach (int cellIndex in GetSpatialGridCells(normalizedConfiguration.BoundsMin, normalizedConfiguration.BoundsMax))
-            {
-                if (!SpatialGridHash.ContainsKey(cellIndex))
-                    SpatialGridHash.Add(cellIndex, new SwiftHashSet<ushort>());
-
-                foreach (ushort neighborIndex in SpatialGridHash[cellIndex])
-                {
-                    if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
-                        continue;
-
-                    VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
-                    if (!VoxelGrid.IsGridOverlapValid(newGrid, neighborGrid))
-                        continue;
-
-                    newGrid.TryAddGridNeighbor(neighborGrid);
-                    neighborGrid.TryAddGridNeighbor(newGrid);
-                }
-
-                SpatialGridHash[cellIndex].Add(allocatedIndex);
-            }
+            RegisterGridSpatialCells(newGrid, allocatedIndex);
 
             Version++;
             addedGridInfo = CreateGridEventInfo(newGrid);
@@ -310,32 +280,7 @@ public sealed class GridWorld : IDisposable
         try
         {
             gridToRemove = ActiveGrids[removeIndex];
-            foreach (int cellIndex in GetSpatialGridCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
-            {
-                if (!SpatialGridHash.ContainsKey(cellIndex))
-                    continue;
-
-                SpatialGridHash[cellIndex].Remove(gridToRemove.GridIndex);
-
-                if (gridToRemove.IsConjoined)
-                {
-                    foreach (ushort neighborIndex in SpatialGridHash[cellIndex])
-                    {
-                        if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == removeIndex)
-                            continue;
-
-                        VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
-                        if (!VoxelGrid.IsGridOverlapValid(gridToRemove, neighborGrid))
-                            continue;
-
-                        neighborGrid.TryRemoveGridNeighbor(gridToRemove);
-                    }
-                }
-
-                if (SpatialGridHash[cellIndex].Count == 0)
-                    SpatialGridHash.Remove(cellIndex);
-            }
-
+            UnregisterGridSpatialCells(gridToRemove, removeIndex);
             BoundsTracker.Remove(gridToRemove.Configuration.ToBoundsKey());
             ActiveGrids.RemoveAt(removeIndex);
 
@@ -358,6 +303,110 @@ public sealed class GridWorld : IDisposable
 
     #endregion
 
+    private bool CanAddGrid()
+    {
+        if (!IsActive)
+        {
+            GridForgeLogger.Channel.Error($"Grid world not active. Cannot add grids to an inactive world.");
+            return false;
+        }
+
+        if ((uint)ActiveGrids.Count > MaxGrids)
+        {
+            GridForgeLogger.Channel.Warn($"No more grids can be added at this time.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TryFindExistingGrid(BoundsKey boundsKey, out ushort allocatedIndex)
+    {
+        _gridLock.EnterReadLock();
+        try
+        {
+            if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
+            {
+                GridForgeLogger.Channel.Warn($"A grid with these bounds has already been allocated.");
+                return true;
+            }
+        }
+        finally
+        {
+            _gridLock.ExitReadLock();
+        }
+
+        allocatedIndex = ushort.MaxValue;
+        return false;
+    }
+
+    private void RegisterGridSpatialCells(VoxelGrid newGrid, ushort allocatedIndex)
+    {
+        foreach (int cellIndex in GetSpatialGridCells(newGrid.BoundsMin, newGrid.BoundsMax))
+        {
+            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+            {
+                gridList = new SwiftHashSet<ushort>();
+                SpatialGridHash.Add(cellIndex, gridList);
+            }
+
+            LinkGridWithCellNeighbors(newGrid, allocatedIndex, gridList);
+            gridList.Add(allocatedIndex);
+        }
+    }
+
+    private void LinkGridWithCellNeighbors(
+        VoxelGrid newGrid,
+        ushort allocatedIndex,
+        SwiftHashSet<ushort> gridList)
+    {
+        foreach (ushort neighborIndex in gridList)
+        {
+            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
+                continue;
+
+            VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
+            if (!VoxelGrid.IsGridOverlapValid(newGrid, neighborGrid))
+                continue;
+
+            newGrid.TryAddGridNeighbor(neighborGrid);
+            neighborGrid.TryAddGridNeighbor(newGrid);
+        }
+    }
+
+    private void UnregisterGridSpatialCells(VoxelGrid gridToRemove, ushort removeIndex)
+    {
+        foreach (int cellIndex in GetSpatialGridCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
+        {
+            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+                continue;
+
+            gridList.Remove(gridToRemove.GridIndex);
+
+            if (gridToRemove.IsConjoined)
+                UnlinkGridCellNeighbors(gridToRemove, removeIndex, gridList);
+
+            if (gridList.Count == 0)
+                SpatialGridHash.Remove(cellIndex);
+        }
+    }
+
+    private void UnlinkGridCellNeighbors(
+        VoxelGrid gridToRemove,
+        ushort removeIndex,
+        SwiftHashSet<ushort> gridList)
+    {
+        foreach (ushort neighborIndex in gridList)
+        {
+            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == removeIndex)
+                continue;
+
+            VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
+            if (VoxelGrid.IsGridOverlapValid(gridToRemove, neighborGrid))
+                neighborGrid.TryRemoveGridNeighbor(gridToRemove);
+        }
+    }
+
     #region Lookup
 
     /// <summary>
@@ -369,23 +418,8 @@ public sealed class GridWorld : IDisposable
     public bool TryGetGrid(int index, out VoxelGrid? outGrid)
     {
         outGrid = null;
-        if (!IsActive)
-        {
-            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve grids.");
+        if (!CanResolveGrid(index))
             return false;
-        }
-
-        if ((uint)index > ActiveGrids.Count)
-        {
-            GridForgeLogger.Channel.Error($"GridIndex '{index}' is out-of-bounds for ActiveGrids.");
-            return false;
-        }
-
-        if (!ActiveGrids.IsAllocated(index))
-        {
-            GridForgeLogger.Channel.Error($"GridIndex '{index}' has not been allocated to ActiveGrids.");
-            return false;
-        }
 
         outGrid = ActiveGrids[index];
         return true;
@@ -400,27 +434,11 @@ public sealed class GridWorld : IDisposable
     public bool TryGetGrid(Vector3d position, out VoxelGrid? outGrid)
     {
         outGrid = null;
-        if (!IsActive)
-        {
-            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve positions.");
-            return false;
-        }
-
-        int cellIndex = GetSpatialGridKey(position);
-        if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+        if (!TryGetSpatialGridCandidates(position, out SwiftHashSet<ushort>? gridList))
             return false;
 
-        foreach (ushort candidateIndex in gridList)
-        {
-            if (!TryGetGrid(candidateIndex, out VoxelGrid? candidateGrid) || !ActiveGrids[candidateIndex].IsActive)
-                continue;
-
-            if (candidateGrid?.IsInBounds(position) == true)
-            {
-                outGrid = candidateGrid;
-                return true;
-            }
-        }
+        if (TryGetContainingGrid(position, gridList!, out outGrid))
+            return true;
 
         GridForgeLogger.Channel.Info($"No grid contains position {position}.");
         return false;
@@ -596,22 +614,117 @@ public sealed class GridWorld : IDisposable
         }
 
         foreach (int cellIndex in GetSpatialGridCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
+            AddOverlappingGridsFromCell(targetGrid, cellIndex, overlappingGrids);
+
+        return overlappingGrids;
+    }
+
+    private bool CanResolveGrid(int index)
+    {
+        if (!CanResolveActiveGrid())
+            return false;
+
+        if (!IsGridIndexInActiveRange(index))
         {
-            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-                continue;
+            GridForgeLogger.Channel.Error($"GridIndex '{index}' is out-of-bounds for ActiveGrids.");
+            return false;
+        }
 
-            foreach (ushort neighborIndex in gridList)
+        return IsGridIndexAllocated(index);
+    }
+
+    private bool CanResolveActiveGrid()
+    {
+        if (IsActive)
+            return true;
+
+        GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve grids.");
+        return false;
+    }
+
+    private bool IsGridIndexInActiveRange(int index)
+    {
+        return (uint)index <= ActiveGrids.Count;
+    }
+
+    private bool IsGridIndexAllocated(int index)
+    {
+        if (ActiveGrids.IsAllocated(index))
+            return true;
+
+        GridForgeLogger.Channel.Error($"GridIndex '{index}' has not been allocated to ActiveGrids.");
+        return false;
+    }
+
+    private bool TryGetSpatialGridCandidates(
+        Vector3d position,
+        out SwiftHashSet<ushort>? gridList)
+    {
+        gridList = null;
+        if (!IsActive)
+        {
+            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve positions.");
+            return false;
+        }
+
+        return SpatialGridHash.TryGetValue(GetSpatialGridKey(position), out gridList);
+    }
+
+    private bool TryGetContainingGrid(
+        Vector3d position,
+        SwiftHashSet<ushort> gridList,
+        out VoxelGrid? outGrid)
+    {
+        outGrid = null;
+
+        foreach (ushort candidateIndex in gridList)
+        {
+            if (TryGetActiveGridCandidate(candidateIndex, out VoxelGrid? candidateGrid)
+                && candidateGrid!.IsInBounds(position))
             {
-                if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == targetGrid.GridIndex)
-                    continue;
-
-                VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
-                if (VoxelGrid.IsGridOverlapValid(targetGrid, neighborGrid))
-                    overlappingGrids.Add(neighborGrid);
+                outGrid = candidateGrid;
+                return true;
             }
         }
 
-        return overlappingGrids;
+        return false;
+    }
+
+    private bool TryGetActiveGridCandidate(ushort gridIndex, out VoxelGrid? grid)
+    {
+        grid = null;
+        if (!ActiveGrids.IsAllocated(gridIndex))
+            return false;
+
+        grid = ActiveGrids[gridIndex];
+        return grid.IsActive;
+    }
+
+    private void AddOverlappingGridsFromCell(
+        VoxelGrid targetGrid,
+        int cellIndex,
+        SwiftHashSet<VoxelGrid> overlappingGrids)
+    {
+        if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+            return;
+
+        foreach (ushort neighborIndex in gridList)
+            TryAddOverlappingGrid(targetGrid, neighborIndex, overlappingGrids);
+    }
+
+    private void TryAddOverlappingGrid(
+        VoxelGrid targetGrid,
+        ushort neighborIndex,
+        SwiftHashSet<VoxelGrid> overlappingGrids)
+    {
+        if (neighborIndex == targetGrid.GridIndex
+            || !TryGetActiveGridCandidate(neighborIndex, out VoxelGrid? neighborGrid))
+        {
+            return;
+        }
+
+        if (VoxelGrid.IsGridOverlapValid(targetGrid, neighborGrid!))
+            overlappingGrids.Add(neighborGrid!);
     }
 
     /// <summary>
