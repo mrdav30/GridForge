@@ -184,6 +184,34 @@ public class SpatialTypesTests
     }
 
     [Fact]
+    public void PartitionProvider_ReAddAfterLastRemove_ShouldReuseBackingStorage()
+    {
+        PartitionProvider<object> provider = new();
+        Type entryType = typeof(ProviderEntryA);
+        ProviderEntryA entry = new();
+
+        Assert.True(provider.TryAdd(entryType, entry));
+        Assert.True(provider.TryRemove(entryType, out _));
+        Assert.True(provider.TryAdd(entryType, entry));
+        Assert.True(provider.TryRemove(entryType, out _));
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        const int iterations = 256;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < iterations; i++)
+        {
+            Assert.True(provider.TryAdd(entryType, entry));
+            Assert.True(provider.TryRemove(entryType, out _));
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(allocated < 64, $"Expected repeated partition re-adds to reuse storage but allocated {allocated} bytes.");
+    }
+
+    [Fact]
     public void EventInfoStructs_ShouldExposeStoredIndicesAndBounds()
     {
         GridConfiguration configuration = new(

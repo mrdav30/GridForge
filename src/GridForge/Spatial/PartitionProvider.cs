@@ -64,9 +64,6 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
 
         _partitions.Remove(partitionType);
 
-        if (_partitions.Count == 0)
-            _partitions = null; // Auto-clear empty
-
         return true;
     }
 
