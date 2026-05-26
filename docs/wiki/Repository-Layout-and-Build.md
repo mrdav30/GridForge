@@ -30,7 +30,7 @@ The root solution file is `GridForge.slnx`.
 | `tests/GridForge.Benchmarks` | Focused perf and allocation scenarios |
 | `.github/workflows` | CI automation |
 | `.assets/scripts` | Release-oriented PowerShell helpers |
-| `GridForge.wiki` | GitHub wiki content used as the deeper documentation companion |
+| `docs/wiki` | GitHub wiki source content used as the deeper documentation companion |
 
 The solution also exposes a small set of root-level "solution items" such as `.editorconfig`, `README.md`, `AGENTS.md`, `LICENSE`, and `coverlet.runsettings`.
 
@@ -41,21 +41,30 @@ The library project in `src/GridForge/GridForge.csproj` establishes a few import
 - language version is C# 11
 - target frameworks are `netstandard2.1` and `net8.0`
 - `ImplicitUsings` is disabled
-- `Nullable` is disabled
+- `Nullable` is enabled in the library project
 - XML documentation files are generated
 - deterministic and CI build flags are enabled
 - `GeneratePackageOnBuild` is enabled
+- the supported configurations are `Debug`, `Release`, and `ReleaseLean`
 
 That last item is easy to miss: building the library also produces NuGet artifacts.
 
 ## Package And Dependency Notes
 
-The main library currently depends on:
+The standard package currently depends on:
 
 - `FixedMathSharp`
 - `SwiftCollections`
 - `MemoryPack`
 - `System.Text.Json` for the `netstandard2.1` target only
+
+The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
+
+- `FixedMathSharp.Lean`
+- `SwiftCollections.Lean`
+- the `GRIDFORGE_DISABLE_MEMORYPACK` compilation symbol
+
+Both package variants expose the same core voxel-grid API.
 
 Packaging also includes the root `README.md`, `LICENSE`, `NOTICE`, `COPYRIGHT`, and `icon.png`.
 
@@ -89,6 +98,7 @@ The test project:
 - targets `net8.0`
 - is marked as a test project and not packable
 - references the main library project directly
+- supports `Debug`, `Release`, and `ReleaseLean`
 - uses xUnit v3 plus the Visual Studio runner and console runner
 - includes `coverlet.collector`
 - points to `coverlet.runsettings`
@@ -102,6 +112,7 @@ The benchmark project:
 - targets `net8.0`
 - is an executable
 - references the main library project directly
+- supports `Debug`, `Release`, and `ReleaseLean`
 - uses BenchmarkDotNet
 - is optimized for benchmark runs
 
@@ -133,12 +144,12 @@ At a high level it:
 
 - runs on `ubuntu-latest` and `windows-latest`
 - triggers on pushes except `dependabot/**`, `gh-pages`, and version tags like `v*`
-- triggers on pull requests targeting `main`
+- triggers on pull requests targeting `main` or `develop`
 - installs .NET 8
 - installs and executes GitVersion
 - restores dependencies
-- builds the solution in `Debug`
-- runs the test suite in `Debug`
+- builds the solution in both `Release` and `ReleaseLean`
+- runs the test suite in both `Release` and `ReleaseLean`
 
 This is a useful sanity check when deciding whether a change is likely to be cross-platform safe.
 
@@ -150,9 +161,9 @@ Its flow is:
 
 1. locate the solution root
 2. ensure GitVersion environment variables are present
-3. build the project in the requested configuration
-4. walk each Release target-framework output folder
-5. zip each framework output into a versioned archive
+3. build both `Release` and `ReleaseLean`
+4. walk each release target-framework output folder
+5. zip each framework output into a versioned archive under `artifacts/releases`
 
 That makes it the practical handoff script for release packaging, not just a convenience wrapper around `dotnet build`.
 

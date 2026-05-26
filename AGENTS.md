@@ -1,144 +1,241 @@
 # GridForge Agent Guide
 
-This document is for both human contributors and AI coding agents working in this repository. It is intentionally practical: it describes what the project is, how the codebase is organized, which invariants matter, and how to make changes without breaking deterministic grid behavior.
+## Purpose
 
-## Project Summary
+GridForge is a framework-agnostic deterministic voxel-grid library for games,
+simulations, tools, and server runtimes. It sits in the LSF stack after:
 
-GridForge is a deterministic voxel-grid library for spatial partitioning, simulation, and game-development use cases. The core library is framework-agnostic and centers on:
+1. `FixedMathSharp` - deterministic fixed-point math.
+2. `SwiftCollections` - low-allocation collections, pools, and query-friendly
+   containers.
+3. `GridForge` - explicit voxel worlds, conjoined grids, spatial queries,
+   blockers, occupants, and voxel-local partitions.
 
-- explicit `GridWorld` ownership and world-scoped grid registration
-- voxelized world-space bounds
-- scan-cell overlays for fast spatial queries
-- obstacle and occupant tracking
-- deterministic fixed-point math through `FixedMathSharp`
-- allocation-conscious collections and pools through `SwiftCollections`
+The core design goal is to make grid-backed spatial systems scalable without
+forcing every consumer to reinvent ownership, snapping, neighbor resolution,
+coverage queries, or occupant indexing.
 
-The repository currently contains one library project and two validation projects:
+Current priorities:
 
-- `src/GridForge` - main library
-- `tests/GridForge.Tests` - xUnit test suite
-- `tests/GridForge.Benchmarks` - BenchmarkDotNet performance and allocation benchmarks
+1. Preserve deterministic behavior across supported target frameworks.
+2. Keep runtime APIs anchored to explicit `GridWorld` ownership.
+3. Prefer optimized, low time-complexity code. No band-aid solutions.
+4. Keep hot paths allocation-conscious and pooling-safe.
+5. Keep the core library engine-agnostic. Unity integration belongs in the
+   separate `GridForge-Unity` repository.
+6. Keep README, wiki pages, tests, benchmarks, package metadata, and workflow
+   behavior aligned when architecture or public API changes.
 
-## Technology and Build Facts
+## Start Here
 
-- **Language:** C# 11
-- **Library target frameworks:** `netstandard2.1`, `net8.0`
-- **Validation target frameworks:** `net8.0`
-- **Test framework:** xUnit v3
-- **Benchmark framework:** BenchmarkDotNet
-- **Main dependencies:** `FixedMathSharp`, `SwiftCollections`
-- **Build behavior:** `dotnet build` on the library also produces NuGet packages because `GeneratePackageOnBuild` is enabled in `src/GridForge/GridForge.csproj`
-- **CI:** runs on Ubuntu and Windows via `.github/workflows/build-and-test.yml`
-- **Versioning:** CI uses GitVersion; local builds without GitVersion fall back to version `0.0.0`
+Read these in order before making non-trivial changes:
 
-## Repository Layout
+1. [`README.md`](README.md) for package orientation and the public-facing mental
+   model.
+2. [`docs/wiki/Home.md`](docs/wiki/Home.md), then the matching wiki page for the
+   area being changed.
+3. [`src/GridForge/GridForge.csproj`](src/GridForge/GridForge.csproj) for target
+   frameworks, package variants, dependencies, and build behavior.
+4. [`src/GridForge/Grids/Managers/GridWorld.cs`](src/GridForge/Grids/Managers/GridWorld.cs),
+   [`src/GridForge/Grids/VoxelGrid.cs`](src/GridForge/Grids/VoxelGrid.cs),
+   [`src/GridForge/Grids/Nodes/Voxel.cs`](src/GridForge/Grids/Nodes/Voxel.cs),
+   and [`src/GridForge/Utility/GridTracer.cs`](src/GridForge/Utility/GridTracer.cs).
+5. The relevant source folder under [`src/GridForge`](src/GridForge).
+6. The matching test folder under [`tests/GridForge.Tests`](tests/GridForge.Tests).
+7. [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) when changing
+   pooling, tracing, scanning, registration, or other performance-sensitive
+   behavior.
 
-- `README.md` - external-facing project overview and usage examples
-- `GridForge.slnx` - solution entry point
-- `src/GridForge/GridForge.csproj` - library project configuration and package metadata
-- `src/GridForge/Configuration` - grid configuration types and bounds identity
-- `src/GridForge/Grids` - core grid, voxel, scan-cell, manager, and pooling logic
-- `src/GridForge/Spatial` - occupant, partition, and index abstractions
-- `src/GridForge/Blockers` - area/blocking abstractions built on top of grid coverage
-- `src/GridForge/Utility` - tracing and logging helpers
-- `tests/GridForge.Tests` - unit tests organized by subsystem
-- `tests/GridForge.Benchmarks` - benchmark scenarios for pooling, tracing, caching, and registration performance
-- `.github/workflows` - CI and release automation
-- `.assets/scripts` - PowerShell helpers for versioned build and release packaging
+When sibling repositories are available, also check their AGENTS/README files
+when a change touches shared stack assumptions:
 
-Ignore these when reading or editing unless the task is specifically about build outputs or IDE state:
+- `../FixedMathSharp`
+- `../SwiftCollections`
+- `../GridForge-Unity`
 
-- `.vs`
-- `bin`
-- `obj`
-- `TestResults`
+## Source Of Truth
 
-## Architecture At A Glance
+When code, README, and wiki content disagree, prefer the code, project files,
+and tests. Then update the docs that drifted.
 
-### Core Types
+Keep these aligned whenever behavior, public API, package shape, or developer
+workflow changes:
 
-- **`GridWorld`:** primary runtime owner for one world's mutable state: setup values, active grids, spatial hash, world-space lookups, and world-level events.
-- **`VoxelGrid`:** represents a single configured grid with voxels, scan cells, neighbor relationships, occupancy state, and versioning.
-- **`Voxel`:** holds world position, grid indices, obstacle state, occupancy state, partition attachments, and cached neighbor data.
-- **`ScanCell`:** secondary overlay used to accelerate neighborhood and area queries over voxels.
-- **`GridTracer`:** converts lines and bounding regions into covered voxel sets inside an explicit `GridWorld`.
-- **`BoundsBlocker` and `Blocker`:** apply or remove obstacle state across covered voxels returned by tracing logic.
-- **`PartitionProvider`, `IVoxelPartition`, and `IVoxelOccupant`:** extension points for custom metadata and occupant systems.
+- [`README.md`](README.md)
+- [`docs/wiki`](docs/wiki), especially pages covering world ownership, tracing,
+  scan cells, blockers, occupants, partitions, determinism, testing, and build
+  workflow.
+- [`AGENTS.md`](AGENTS.md)
+- [`src/GridForge/GridForge.csproj`](src/GridForge/GridForge.csproj)
+- [`tests/GridForge.Tests`](tests/GridForge.Tests)
+- [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) when performance
+  claims or hot paths change.
+- Workflow files under [`.github/workflows`](.github/workflows), especially
+  `build-and-test.yml`, `coverage.yml`, `sync-wiki.yml`, and
+  `publish-nuget.yml`.
 
-### Important Design Characteristics
+`docs/wiki` is the source content for the GitHub wiki. Keep source Markdown
+repo-friendly and let the publish helper perform the narrow GitHub wiki link
+rewrite.
 
-- Deterministic math matters. The library uses `Fixed64`, `Vector2d`, and `Vector3d` from `FixedMathSharp`.
-- Grid state is world-scoped. Most runtime APIs should be anchored to an explicit `GridWorld`.
-- Bounds are snapped to voxel size. Many APIs normalize or snap incoming coordinates.
-- Object pooling is used heavily for grids, voxels, scan cells, arrays, and temporary collections.
-- Performance-sensitive code favors explicit control flow over abstraction-heavy patterns.
+## Repository Map
 
-## Critical Invariants
+| Path | Purpose | Notes |
+| --- | --- | --- |
+| [`src/GridForge`](src/GridForge) | Main library project | Multi-targets `netstandard2.1` and `net8.0`. |
+| [`src/GridForge/Configuration`](src/GridForge/Configuration) | Grid creation input and bounds identity | `GridConfiguration` is normalized by the owning world. |
+| [`src/GridForge/Grids`](src/GridForge/Grids) | Core world, grid, voxel, scan-cell, manager, and pool logic | Highest-risk runtime area. |
+| [`src/GridForge/Spatial`](src/GridForge/Spatial) | Shared coordinates, directions, occupants, partitions, and awareness abstractions | Keep engine-neutral and deterministic. |
+| [`src/GridForge/Blockers`](src/GridForge/Blockers) | Bounds-based obstacle application over tracer coverage | Test stacked, edge, removal, and multi-grid cases. |
+| [`src/GridForge/Support`](src/GridForge/Support) | Shared support types such as `BoundsKey` and `GridVoxelSet` | Watch pooled result lifetimes. |
+| [`src/GridForge/Utility`](src/GridForge/Utility) | `GridTracer` and `GridForgeLogger` | Tracing changes can affect many systems. |
+| [`tests/GridForge.Tests`](tests/GridForge.Tests) | xUnit v3 test project | Mirrors subsystem boundaries. |
+| [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) | BenchmarkDotNet project | Covers allocation and throughput-sensitive scenarios. |
+| [`docs/wiki`](docs/wiki) | Developer-facing usage and architecture documentation | Keep current with public API and workflow changes. |
+| [`.assets/scripts`](.assets/scripts) | Versioned build and release packaging helpers | Used for release archive generation. |
+| [`.github/workflows`](.github/workflows) | CI, coverage, wiki sync, release, and publish automation | Keep workflow names in sync across triggers. |
 
-Treat the following as core rules of the system:
+Ignore generated output when reviewing or editing unless the task is explicitly
+about build artifacts:
 
-- Create a `GridWorld` before using world-scoped grid APIs.
-- Dispose a `GridWorld` or call `Reset()` when a test or tool run needs a clean world state.
-- Use fixed-point types for grid math. Avoid introducing `float` or `double` into core simulation logic unless there is a clear boundary conversion reason.
-- Assume bounds and positions may be snapped to the configured voxel size. When debugging odd query results, check snapped values first.
-- Respect pooling. If a type or collection comes from a pool, verify whether it is safe to retain beyond the immediate operation.
-- Preserve deterministic behavior across target frameworks. If a change behaves differently between `netstandard2.1` and `net8.0`, treat that as a bug.
-- Maintain thread-safety assumptions where locking already exists. Do not remove synchronization from global or shared mutable state without a strong reason.
+- `.vs/`
+- `bin/`
+- `obj/`
+- `TestResults/`
+- `artifacts/`
+- `BenchmarkDotNet.Artifacts/`
 
-## Code Style and Conventions
+## Technology And Build Facts
 
-Match the surrounding code instead of imposing a new style on untouched files.
+- Language: C# 11
+- Library target frameworks: `netstandard2.1`, `net8.0`
+- Validation target framework: `net8.0`
+- Test framework: xUnit v3
+- Benchmark framework: BenchmarkDotNet
+- Main dependencies: `FixedMathSharp`, `SwiftCollections`, and optional
+  `MemoryPack`
+- Library nullable context: enabled
+- Test and benchmark nullable context: disabled
+- Implicit usings: disabled
+- XML documentation: generated for the library project
+- Package generation: `GeneratePackageOnBuild` is enabled
+- Configurations: `Debug`, `Release`, `ReleaseLean`
 
-- `ImplicitUsings` is disabled. Add explicit `using` directives.
-- `Nullable` is disabled. Be careful introducing nullable annotations or nullability-dependent patterns.
-- `.editorconfig` explicitly disables the implicit `new(...)` style. Prefer explicit type construction.
-- Public API surface is expected to have XML documentation. The build currently emits warnings when public members are undocumented.
-- Source files use a mix of block-scoped and file-scoped namespaces. Follow the local file style when editing an existing file.
-- Existing code uses `#region` blocks in many source files. Preserve them where already present.
-- Logging goes through `GridForgeLogger`, not ad hoc console output.
+Package variants:
 
-## Working In Specific Areas
+- `Release` builds the standard `GridForge` package with `MemoryPack`,
+  `FixedMathSharp`, and `SwiftCollections`.
+- `ReleaseLean` builds `GridForge.Lean` with `GRIDFORGE_DISABLE_MEMORYPACK`,
+  `FixedMathSharp.Lean`, and `SwiftCollections.Lean`.
 
-### `src/GridForge/Configuration`
+Versioning:
 
-- Holds configuration and identity types such as `GridConfiguration` and `BoundsKey`.
-- `GridConfiguration` normalizes bounds and derives center/scan-cell settings.
-- `BoundsKey` has framework-conditional implementations. Keep cross-target compatibility in mind when editing it.
+- CI and release workflows use GitVersion.
+- Local builds without GitVersion fall back to version `0.0.0`.
 
-### `src/GridForge/Grids`
+## Runtime Architecture Snapshot
 
-- This is the center of the library.
-- `GridWorld` owns grid registration, spatial hashing, setup/reset, and world-space lookup helpers.
-- `VoxelGrid` owns dimensions, scan-cell generation, voxel generation, and neighbor relationships.
-- `Voxel` owns obstacle/occupant/partition state and neighbor caching.
-- `Pools` defines reusable object and array pools. Changes here can have broad memory and lifetime effects.
-- `GridScanManager`, `GridOccupantManager`, and `GridObstacleManager` are behavior-heavy modules that should usually be covered by tests when changed.
+The runtime is built around explicit world ownership:
 
-### `src/GridForge/Spatial`
+- `GridWorld` owns one world's voxel size, spatial hash settings, active grid
+  bucket, bounds tracker, spatial hash, versioning, lifecycle, and world-level
+  events.
+- `VoxelGrid` owns one grid's snapped bounds, dimensions, voxel array,
+  scan-cell overlay, active scan-cell set, neighbor relationships, obstacle
+  count, occupancy summary, and grid version.
+- `Voxel` owns local and world-scoped identity, obstacle state, occupant count,
+  partitions, boundary awareness, world position, and cached neighbor data.
+- `ScanCell` stores occupant buckets grouped by `WorldVoxelIndex` and ticketed
+  occupant entries for efficient removal and exact lookup.
+- `GridTracer` converts lines and bounds into covered voxels or scan cells
+  across the active grids in one `GridWorld`.
+- `GridObstacleManager` mutates obstacle state and emits obstacle events.
+- `GridOccupantManager` owns world-scoped occupant registration tracking,
+  add/remove flows, ticket lookup, and occupant events.
+- `GridScanManager` performs radius and typed scans through the scan-cell
+  overlay.
+- `Blocker` and `BoundsBlocker` translate world-space bounds into obstacle
+  application and removal.
+- `PartitionProvider`, `IVoxelPartition`, and `IVoxelOccupant` are the primary
+  extension points for domain-specific behavior.
 
-- Contains extension interfaces and identity structs used across the grid system.
-- Keep interfaces small and deterministic.
-- Avoid leaking engine-specific concerns into this layer.
+The library supports a single grid, many conjoined grids, and dynamic
+load/unload patterns. Higher-level hierarchy should live above GridForge unless
+there is a concrete reason to add it to the core API.
 
-### `src/GridForge/Blockers`
+## Determinism Rules
 
-- Blockers translate world-space bounds into obstacle changes on covered voxels.
-- Any changes here should be checked against multi-grid coverage, stacked blockers, edge voxels, and removal behavior.
+Any change that affects snapping, lookup, iteration order, identity, tracing,
+neighbor resolution, blocker coverage, occupant registration, scan ordering, or
+pooled lifetime is high risk.
 
-### `src/GridForge/Utility`
+Always prefer:
 
-- `GridTracer` is a core query primitive. Small logic changes here can affect many systems.
-- `GridForgeLogger` is the central logging hook and is also touched by tests via verbosity settings.
+- `Fixed64`, `Vector2d`, and `Vector3d` over `float`, `double`, or
+  `System.Numerics` in deterministic runtime paths.
+- Stable ordering when traversing grids, voxels, scan cells, occupants,
+  blockers, partitions, or pooled collections.
+- Explicit `GridWorld` ownership over hidden process-global state.
+- `WorldVoxelIndex` for cross-system voxel identity.
+- Exact assertions in tests for snapped coordinates, identity, and event data.
+
+Avoid introducing:
+
+- wall-clock time, background scheduling, or nondeterministic random behavior in
+  runtime logic.
+- platform-specific hash-order dependencies.
+- floating-point conversions in core spatial math unless the boundary is
+  explicit and tested.
+- engine-specific assumptions in the core library.
+
+## Performance And Pooling Guidance
+
+Always prefer optimized, low time-complexity code. No band-aid solutions.
+
+Likely hotspots include:
+
+- `GridWorld.TryAddGrid`, `TryRemoveGrid`, lookup, spatial-hash registration,
+  and neighbor updates.
+- `VoxelGrid` generation, reset, neighbor cache invalidation, and scan-cell
+  generation.
+- `GridTracer` line, bounds, and scan-cell coverage.
+- `GridScanManager` radius scans and caller-owned result paths.
+- `GridOccupantManager` registration tracking, active scan-cell bookkeeping,
+  and remove flows.
+- `Blocker` apply/remove paths and covered voxel caching.
+
+Rules:
+
+- Choose data structures by access pattern and time complexity.
+- Use `SwiftCollections` and existing pools where the surrounding code already
+  does.
+- Release rented collections in `finally` blocks when enumeration or user code
+  can exit early.
+- Do not retain pooled arrays, lists, sets, scan cells, voxels, or `GridVoxelSet`
+  results beyond their documented lifetime.
+- Benchmark changes that touch pooling, tracing, scan flow, registration, or
+  other allocation-sensitive paths.
+- Avoid LINQ in hot paths unless the surrounding code already accepts the cost
+  and benchmarks support it.
+
+## Code Style And API Guidance
+
+Match the surrounding file style instead of imposing a new one.
+
+- Add explicit `using` directives. `ImplicitUsings` is disabled.
+- The library project has nullable enabled; tests and benchmarks currently have
+  nullable disabled. Follow the local project context.
+- `.editorconfig` disables implicit `new(...)`; prefer explicit construction.
+- Public API surface should have XML documentation.
+- Preserve existing `#region` organization in files that already use it.
+- Route diagnostics through `GridForgeLogger`, not ad hoc console output.
+- Keep interfaces small, deterministic, and engine-agnostic.
+- Do not add compatibility adapters or wrapper APIs just to avoid fixing a weak
+  design.
 
 ## Testing Expectations
 
-Run tests whenever behavior changes in the library:
-
-```bash
-dotnet test GridForge.slnx --configuration Debug
-```
-
-Useful local commands:
+Run tests whenever behavior changes:
 
 ```bash
 dotnet restore GridForge.slnx
@@ -146,95 +243,121 @@ dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
-Run benchmarks when changing pooling, tracing, registration, or other performance-sensitive paths:
+CI validates both `Release` and `ReleaseLean` on Ubuntu and Windows:
+
+```bash
+dotnet test GridForge.slnx --configuration Release --no-build
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+```
+
+Run benchmarks when changing pooling, tracing, scan cells, occupant
+registration, blocker application, grid registration, neighbor caching, or
+other performance-sensitive paths:
 
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
 ```
 
-Benchmark reports are emitted under `BenchmarkDotNet.Artifacts/results/`.
+Test guidance:
 
-Repo-specific testing guidance:
-
-- Use the existing xUnit suite in `tests/GridForge.Tests` as the reference for expected behavior.
-- Use `tests/GridForge.Benchmarks` to validate allocation-sensitive changes and pooling or caching regressions.
 - Prefer explicit `GridWorld` creation in new tests.
-- Many tests use `[Collection("GridForgeCollection")]` plus explicit setup/teardown to avoid leaked shared state.
-- Prefer deterministic coordinates and explicit assertions over fuzzy tolerances.
-- If you change behavior in tracing, blockers, occupancy, scan cells, or grid registration, update or add tests in the matching folder.
+- Use `GridWorldTestFactory` when it keeps setup clear and consistent.
+- Many tests use `[Collection("GridForgeCollection")]` to isolate shared logger
+  or compatibility state.
+- Prefer deterministic coordinates and exact assertions over fuzzy tolerances.
+- If you change tracing, blockers, occupancy, scan cells, grid registration,
+  neighbor handling, snapping, or identity behavior, update or add tests in the
+  closest matching folder.
 
-As of April 25, 2026, the library project builds successfully and the test suite passes locally with:
+## Documentation Expectations
 
-- 175 tests passed
+Update docs in the same change when user-facing behavior, public API, package
+shape, or workflow behavior changes.
+
+High-value pages:
+
+- [`docs/wiki/Home.md`](docs/wiki/Home.md)
+- [`docs/wiki/Getting-Started.md`](docs/wiki/Getting-Started.md)
+- [`docs/wiki/Core-Concepts.md`](docs/wiki/Core-Concepts.md)
+- [`docs/wiki/Architecture-Overview.md`](docs/wiki/Architecture-Overview.md)
+- [`docs/wiki/GridTracer-and-Coverage.md`](docs/wiki/GridTracer-and-Coverage.md)
+- [`docs/wiki/Scan-Cells-and-Query-Flow.md`](docs/wiki/Scan-Cells-and-Query-Flow.md)
+- [`docs/wiki/Blockers-and-Obstacles.md`](docs/wiki/Blockers-and-Obstacles.md)
+- [`docs/wiki/Occupants-and-Partitions.md`](docs/wiki/Occupants-and-Partitions.md)
+- [`docs/wiki/Repository-Layout-and-Build.md`](docs/wiki/Repository-Layout-and-Build.md)
+- [`docs/wiki/Testing-and-Benchmarking.md`](docs/wiki/Testing-and-Benchmarking.md)
+
+Keep README engaging and concise; push deep subsystem detail into the wiki.
+Keep wiki source links repo-relative and let the sync helper adapt copied pages
+for GitHub wiki publishing.
 
 ## Common Change Patterns
 
-### Adding a New Core Grid Behavior
+### Adding Core Grid Behavior
 
-- Start in `src/GridForge/Grids`
-- Identify whether the change belongs at world level, per-grid level, per-voxel level, or scan-cell/query level
-- Add or update tests under `tests/GridForge.Tests/Grids` or `tests/GridForge.Tests/Utility`
-- Check for interactions with pooling, versioning, and neighbor caches
+- Start in `src/GridForge/Grids`.
+- Decide whether the behavior belongs at world, grid, voxel, scan-cell, query,
+  or manager level.
+- Check interactions with snapping, spatial hashing, pooling, versioning,
+  events, neighbor caches, and identity tokens.
+- Add or update tests under `tests/GridForge.Tests/Grids` or
+  `tests/GridForge.Tests/Utility`.
 
-### Adding a New Blocking Rule
+### Adding Blocking Or Coverage Behavior
 
-- Start in `src/GridForge/Blockers`
-- Reuse `GridTracer.GetCoveredVoxels(...)` or existing blocker patterns where possible
-- Test single-grid, multi-grid, edge, stacked, and removal scenarios
+- Start in `src/GridForge/Blockers` or `src/GridForge/Utility/GridTracer.cs`.
+- Reuse existing tracer and blocker patterns where possible.
+- Test single-grid, multi-grid, edge, stacked, cached, uncached, apply, remove,
+  and reapply cases.
 
-### Adding a New Partition or Occupant Integration
+### Adding Occupant Or Partition Behavior
 
-- Start in `src/GridForge/Spatial`
-- Verify the change works with `Voxel` partition or occupancy lifecycles
-- Add tests around attach/remove behavior and grid mutation side effects
+- Start in `src/GridForge/Spatial`, `src/GridForge/Grids/Managers`, or
+  `src/GridForge/Grids/Nodes/Voxel.cs`, depending on the responsibility.
+- Verify registration, removal, scan-cell ticketing, active scan-cell tracking,
+  callback failure behavior, and blocked voxel behavior.
+- Add tests around attach/remove behavior and grid mutation side effects.
+
+## Release And Packaging Notes
+
+- `src/GridForge/GridForge.csproj` packages the library on build.
+- Build outputs include `.nupkg` and `.snupkg` under the configured output path.
+- `.assets/scripts/set-version-and-build.ps1` builds both `Release` and
+  `ReleaseLean` and writes release archives under `artifacts/releases`.
+- `.github/workflows/publish-nuget.yml` validates release tag version, builds
+  both package variants, checks for exactly four package artifacts, uploads the
+  package artifact, and publishes `.nupkg` files to NuGet.
+- `.github/workflows/coverage.yml` and `.github/workflows/sync-wiki.yml` depend
+  on the `build-and-test` workflow name. If the build workflow name changes,
+  update those triggers and README badges together.
 
 ## Pitfalls To Avoid
 
-- Do not assume process-wide mutable world state still exists. The target model is instance-based through `GridWorld`.
-- Do not edit build outputs under `bin`, `obj`, or `TestResults`.
-- Do not introduce engine-specific code or Unity-only assumptions into the core library.
-- Do not bypass snapping or fixed-point conversions in core spatial logic.
-- Do not retain pooled collections or arrays unless the code clearly establishes ownership and lifetime.
-- Do not add public APIs without XML documentation unless you are intentionally accepting documentation warnings.
-- Do not treat README examples as the full contract; verify behavior in source and tests.
+- Reintroducing hidden process-wide grid state.
+- Treating `GridIndex` alone as durable cross-system identity.
+- Assuming pooled collections or query results can be retained indefinitely.
+- Bypassing snapping or fixed-point conversions in core spatial logic.
+- Breaking `ReleaseLean` by referencing `MemoryPack` without a guarded path.
+- Adding Unity or engine-specific code to the core library.
+- Changing synchronization around shared mutable state without tests and a clear
+  reason.
+- Editing generated output under `bin`, `obj`, `TestResults`, `artifacts`, or
+  `BenchmarkDotNet.Artifacts`.
+- Updating README examples without checking source and tests.
 
-## Release and Packaging Notes
+## Recommended Workflow
 
-- `src/GridForge/GridForge.csproj` packages the library on build.
-- Debug or Release builds will emit `.nupkg` and `.snupkg` artifacts under `src/GridForge/bin/<Configuration>/`.
-- `.assets/scripts/set-version-and-build.ps1` is the repo helper for version-aware builds and zipped release artifacts.
-- CI uses GitVersion during build, but local builds fall back gracefully when GitVersion variables are absent.
-
-## Recommended Workflow For Agents
-
-When working on a task in this repository:
-
-1. Read `README.md`, the relevant project file, and the nearest source and test files first.
-2. Determine whether the change affects global state, deterministic math, or pooling lifetimes.
+1. Read the README, the relevant wiki page, the project file, and nearby source
+   and tests.
+2. Decide whether the change affects determinism, global state, identity,
+   pooling, package variants, or docs.
 3. Make the smallest coherent change that fits existing architecture.
-4. Update or add tests in the closest matching subsystem folder.
-5. Run `dotnet build` and `dotnet test` before finishing whenever behavior changed.
-6. Mention any warnings, global-state considerations, or untested edge cases in your handoff.
+4. Add or update focused tests for behavior changes.
+5. Run build and test commands appropriate to the risk.
+6. Run benchmarks for performance-sensitive changes.
+7. Mention any warnings, global-state considerations, package-variant risk, or
+   untested edge cases in the handoff.
 
-## Recommended Workflow For Human Contributors
-
-- Use `README.md` for the high-level external overview.
-- Use this file for repo-specific implementation guidance.
-- Start debugging behavioral issues from the smallest relevant layer in this order: configuration and bounds snapping, world lookup, voxel lookup, tracer or scan logic, then blocker, occupant, or partition mutation.
-- If a bug looks spatial, log or inspect snapped positions and grid bounds before changing algorithms.
-
-## If You Need More Context
-
-The most useful files to read first are usually:
-
-- `README.md`
-- `src/GridForge/GridForge.csproj`
-- `src/GridForge/Grids/Managers/GridWorld.cs`
-- `src/GridForge/Grids/VoxelGrid.cs`
-- `src/GridForge/Grids/Voxel.cs`
-- `src/GridForge/Utility/GridTracer.cs`
-- `tests/GridForge.Tests/Grids/GridWorld.Tests.cs`
-- `tests/GridForge.Tests/Blockers/BlockerTests.cs`
-
-Keep this document current when the solution layout, build flow, or core architecture changes.
+Keep this document current when solution layout, build flow, package variants,
+wiki publishing, or core architecture changes.

@@ -112,8 +112,9 @@ That is why the occupant system is tightly coupled to scan-cell activation state
 
 ## Common Occupant Entry Points
 
-Use `GridOccupantManager.TryRegister(occupant)` when:
+Use `GridOccupantManager.TryRegister(world, occupant)` when:
 
+- you have the owning `GridWorld`
 - the occupant already knows its world-space `Position`
 - you want the manager to resolve the correct grid and voxel automatically
 
@@ -123,13 +124,14 @@ Use `grid.TryAddVoxelOccupant(...)` overloads when:
 - you already know the target `Voxel` or `VoxelIndex`
 - you want to avoid repeating global lookup
 
-Use `TryDeregister(...)` or `TryRemoveVoxelOccupant(...)` when:
+Use `GridOccupantManager.TryDeregister(world, occupant)` or `TryRemoveVoxelOccupant(...)` when:
 
+- you have the owning `GridWorld`
 - cleaning up an entity
 - moving an occupant from one voxel to another
 - unloading game state tied to a grid
 
-`TryDeregister(...)` is especially useful when an occupant has already moved in world space. GridForge removes the occupant from the voxel registrations it is actually tracking rather than relying on the occupant's current `Position`.
+`TryDeregister(world, occupant)` is especially useful when an occupant has already moved in world space. GridForge removes the occupant from the voxel registrations it is actually tracking rather than relying on the occupant's current `Position`.
 
 ## The Partition Contract
 

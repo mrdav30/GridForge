@@ -3,7 +3,7 @@ name: Sync Wiki
 on:
   workflow_run:
     workflows:
-      - .NET CI
+      - build-and-test
     types:
       - completed
     branches:

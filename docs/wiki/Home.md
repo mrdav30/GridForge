@@ -15,6 +15,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Obstacle, blocker, occupant, and partition workflows
 - Allocation-conscious internals backed by pooling and `SwiftCollections`
 - Cross-target support for `netstandard2.1` and `net8.0`
+- Standard and lean package variants for `MemoryPack` and no-`MemoryPack` dependency profiles
 
 ## Who This Wiki Is For
 
@@ -51,7 +52,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Target frameworks: `netstandard2.1`, `net8.0`
 - Test framework: xUnit v3
 - Benchmark framework: BenchmarkDotNet
-- Key packages: `FixedMathSharp`, `SwiftCollections`, `MemoryPack`
+- Key packages: `FixedMathSharp`, `SwiftCollections`, and optional `MemoryPack`
 - Packaging note: `GeneratePackageOnBuild` is enabled, so library builds also emit NuGet packages
 
 ## The Core Mental Model
@@ -69,6 +70,8 @@ The library is easiest to reason about in this order:
 The most important architectural reality is that GridForge is world-scoped. If something feels "global," that is usually either:
 
 - state owned by one explicit `GridWorld`
+- a static manager API that still requires a `GridWorld` argument
+- a convenience layer over world-owned grids, voxels, scan cells, blockers, or occupants
 
 ## Architecture At A Glance
 
