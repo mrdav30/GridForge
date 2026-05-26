@@ -52,10 +52,10 @@ That last item is easy to miss: building the library also produces NuGet artifac
 
 The main library currently depends on:
 
-- `FixedMathSharp` `2.1.1`
-- `SwiftCollections` `3.0.0`
-- `MemoryPack` `1.21.4`
-- `System.Text.Json` `10.0.5` for the `netstandard2.1` target only
+- `FixedMathSharp`
+- `SwiftCollections`
+- `MemoryPack`
+- `System.Text.Json` for the `netstandard2.1` target only
 
 Packaging also includes the root `README.md`, `LICENSE`, `NOTICE`, `COPYRIGHT`, and `icon.png`.
 
