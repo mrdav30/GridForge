@@ -46,6 +46,20 @@ Choose the lookup based on what you need:
 - `world.TryGetVoxel(...)`
 - `world.TryGetGridAndVoxel(...)`
 
+For flat XZ simulations, these lookup helpers also accept `Vector2d` positions.
+`Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and `layerY`
+selects the world Y layer. Omitting `layerY` resolves on world Y `0`.
+
+```csharp
+Vector2d flatPosition = new Vector2d(2, -3);
+
+if (world.TryGetGridAndVoxel(flatPosition, (Fixed64)1, out VoxelGrid flatGrid, out Voxel flatVoxel))
+{
+    Console.WriteLine($"Grid: {flatGrid.GridIndex}");
+    Console.WriteLine($"Voxel: {flatVoxel.Index}");
+}
+```
+
 ## Workflow 3: Move Between World Space And Grid-Local Coordinates
 
 ```csharp

@@ -99,6 +99,10 @@ Use these helpers based on what you need:
 - `world.TryGetVoxel(...)` when you only need the voxel
 - `world.TryGetGridAndVoxel(...)` when you need both in one lookup
 
+Each lookup also has `Vector2d` overloads for flat XZ workflows. `Vector2d.X`
+maps to world X, `Vector2d.Y` maps to world Z, and the optional `layerY`
+parameter selects world Y. If omitted, `layerY` is `0`.
+
 ## 4. Customize Voxel And Scan Granularity
 
 When you need finer spatial resolution, configure the world up front and then create grids against that setup.

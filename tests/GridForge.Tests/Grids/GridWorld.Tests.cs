@@ -93,6 +93,49 @@ public class GridWorldTests
     }
 
     [Fact]
+    public void TryGetGridAndVoxel_WithVector2d_ShouldUseDefaultLayerZero()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(
+            world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(2, 2, 2));
+        Vector2d position = new(1, 1);
+
+        Assert.True(world.TryGetGrid(position, out VoxelGrid resolvedGrid));
+        Assert.Same(grid, resolvedGrid);
+        Assert.True(world.TryGetVoxel(position, out Voxel resolvedVoxel));
+        Assert.Equal(new VoxelIndex(1, 0, 1), resolvedVoxel.Index);
+        Assert.True(world.TryGetGridAndVoxel(position, out VoxelGrid resolvedGridAndVoxel, out Voxel resolvedPairVoxel));
+        Assert.Same(grid, resolvedGridAndVoxel);
+        Assert.Same(resolvedVoxel, resolvedPairVoxel);
+    }
+
+    [Fact]
+    public void TryGetGridAndVoxel_WithVector2d_ShouldUseExplicitLayerAndRejectOutsideBounds()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(
+            world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(2, 2, 2));
+        Vector2d position = new(1, 1);
+        Fixed64 layerY = (Fixed64)2;
+
+        Assert.True(world.TryGetGrid(position, layerY, out VoxelGrid resolvedGrid));
+        Assert.Same(grid, resolvedGrid);
+        Assert.True(world.TryGetGridAndVoxel(position, layerY, out VoxelGrid resolvedGridAndVoxel, out Voxel resolvedVoxel));
+        Assert.Same(grid, resolvedGridAndVoxel);
+        Assert.Equal(new VoxelIndex(1, 2, 1), resolvedVoxel.Index);
+        Assert.True(world.TryGetVoxel(position, layerY, out Voxel directVoxel));
+        Assert.Same(resolvedVoxel, directVoxel);
+
+        Assert.False(world.TryGetGrid(position, (Fixed64)3, out _));
+        Assert.False(world.TryGetGridAndVoxel(new Vector2d(3, 1), layerY, out _, out _));
+        Assert.False(world.TryGetVoxel(new Vector2d(1, 3), layerY, out _));
+    }
+
+    [Fact]
     public void ResetAndRemoveGrid_ShouldHandleInactiveMissingAndPartiallyMissingSpatialState()
     {
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();

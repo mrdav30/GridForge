@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Mostly additive. The only likely correction is documentation or signature cleanup around the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` overload.
 - Backwards compatibility: Existing `Vector3d` workflows must remain equivalent. Existing `GridTracer.TraceLine(Vector2d, Vector2d, padding, includeEnd)` call sites should not silently change the meaning of positional arguments.
-- Current state: Planning.
+- Current state: Phase 0-1 complete; Phase 2 is next.
 
 ## Locked Decisions
 
@@ -219,18 +219,18 @@ Likely files:
 
 Checklist:
 
-- [ ] Decide final projection helper name. Recommended: `GridPlane2d`.
-- [ ] Decide final layer parameter name. Recommended: `layerY`.
-- [ ] Confirm whether `GridTracer.TraceLine(Vector2d, Vector2d, ...)` changes its signature by appending `layerY` at the end, or whether an additional named method is preferred.
-- [ ] Confirm paired overload style for `out`-heavy APIs.
-- [ ] Confirm `Vector2d` always means XZ projection in GridForge docs and XML comments.
-- [ ] Record these decisions in this plan before implementation starts.
+- [x] Decide final projection helper name: `GridPlane2d`.
+- [x] Decide final layer parameter name: `layerY`.
+- [x] Confirm `GridTracer.TraceLine(Vector2d, Vector2d, ...)` will append `layerY` at the end in Phase 2, preserving existing positional `padding` and `includeEnd` call-site behavior.
+- [x] Confirm paired overload style for `out`-heavy APIs: default-layer overloads delegate to explicit `layerY` overloads.
+- [x] Confirm `Vector2d` always means XZ projection in GridForge docs and XML comments: `Vector2d.X` maps to world X and `Vector2d.Y` maps to world Z.
+- [x] Record these decisions in this plan before implementation starts.
 
 Exit criteria:
 
-- [ ] There is one agreed meaning for `Vector2d` in GridForge.
-- [ ] Existing `Vector2d` tracer call sites keep their padding/include-end behavior.
-- [ ] There is no unresolved overload ambiguity.
+- [x] There is one agreed meaning for `Vector2d` in GridForge.
+- [x] Existing `Vector2d` tracer call sites keep their padding/include-end behavior.
+- [x] There is no unresolved overload ambiguity.
 
 ## Phase 1: Add Projection Helper And Lookup Overloads
 
@@ -247,19 +247,19 @@ Likely files:
 
 Checklist:
 
-- [ ] Add `GridPlane2d.ToWorld(...)`, `FromWorld(...)`, `ToWorldBounds(...)`, and XZ squared-distance helpers.
-- [ ] Add exact tests proving `Vector2d(3, 5)` maps to `Vector3d(3, layerY, 5)`.
-- [ ] Add default-layer tests proving omitted `layerY` maps to zero.
-- [ ] Add `GridWorld.TryGetGrid(...)`, `TryGetGridAndVoxel(...)`, and `TryGetVoxel(...)` overloads for `Vector2d`.
-- [ ] Add `VoxelGrid.TryGetVoxelIndex(...)` and `TryGetVoxel(...)` overloads for `Vector2d`.
-- [ ] Ensure all overloads delegate through the projection helper and existing `Vector3d` lookup paths.
-- [ ] Add tests for default layer, explicit nonzero layer, outside bounds, and exact boundary positions.
+- [x] Add `GridPlane2d.ToWorld(...)`, `FromWorld(...)`, `ToWorldBounds(...)`, and XZ squared-distance helpers.
+- [x] Add exact tests proving `Vector2d(3, 5)` maps to `Vector3d(3, layerY, 5)`.
+- [x] Add default-layer tests proving omitted `layerY` maps to zero.
+- [x] Add `GridWorld.TryGetGrid(...)`, `TryGetGridAndVoxel(...)`, and `TryGetVoxel(...)` overloads for `Vector2d`.
+- [x] Add `VoxelGrid.TryGetVoxelIndex(...)` and `TryGetVoxel(...)` overloads for `Vector2d`.
+- [x] Ensure all overloads delegate through the projection helper and existing `Vector3d` lookup paths.
+- [x] Add tests for default layer, explicit nonzero layer, outside bounds, and exact boundary positions.
 
 Exit criteria:
 
-- [ ] 2D lookup APIs work for flat XZ grids and vertical Y layers.
-- [ ] Existing 3D lookup behavior is unchanged.
-- [ ] Projection helper has exact deterministic tests.
+- [x] 2D lookup APIs work for flat XZ grids and vertical Y layers.
+- [x] Existing 3D lookup behavior is unchanged.
+- [x] Projection helper has exact deterministic tests.
 
 Validation:
 
@@ -268,6 +268,13 @@ dotnet restore GridForge.slnx
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridPlane2d|GridWorld|VoxelGrid"
 ```
+
+Phase 1 validation on 2026-06-11:
+
+- `dotnet restore GridForge.slnx` passed.
+- `dotnet build GridForge.slnx --configuration Debug` passed with 0 warnings.
+- `dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridPlane2d|GridWorld|VoxelGrid"` passed: 77 tests.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` passed: 211 tests.
 
 ## Phase 2: Extend Tracing And Coverage APIs
 
@@ -498,4 +505,3 @@ Minimum 2D API coverage before release:
 5. Implement Phase 4 obstacle and blocker conveniences.
 6. Complete Phase 5 docs.
 7. Run Phase 6 performance checks if scan or trace internals changed materially.
-

@@ -214,4 +214,3 @@ PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_
 ```
 
 Run BenchmarkDotNet when the slice touches storage, topology conversion, tracing, scan cells, blockers, occupant registration, or radius scans.
-

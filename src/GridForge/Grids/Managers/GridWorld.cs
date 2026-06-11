@@ -446,6 +446,29 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
+    /// Retrieves the grid containing a 2D XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="outGrid">The resolved grid, if found.</param>
+    /// <returns>True if a containing grid was found; otherwise false.</returns>
+    public bool TryGetGrid(Vector2d position, out VoxelGrid? outGrid)
+    {
+        return TryGetGrid(position, default, out outGrid);
+    }
+
+    /// <summary>
+    /// Retrieves the grid containing a 2D XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="outGrid">The resolved grid, if found.</param>
+    /// <returns>True if a containing grid was found; otherwise false.</returns>
+    public bool TryGetGrid(Vector2d position, Fixed64 layerY, out VoxelGrid? outGrid)
+    {
+        return TryGetGrid(GridPlane2d.ToWorld(position, layerY), out outGrid);
+    }
+
+    /// <summary>
     /// Retrieves a grid by a world-scoped voxel identity.
     /// </summary>
     /// <param name="worldVoxelIndex">The voxel identity whose grid should be resolved.</param>
@@ -483,6 +506,38 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
+    /// Retrieves the grid and voxel containing a 2D XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="outGrid">The resolved grid, if found.</param>
+    /// <param name="outVoxel">The resolved voxel, if found.</param>
+    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
+    public bool TryGetGridAndVoxel(
+        Vector2d position,
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel)
+    {
+        return TryGetGridAndVoxel(position, default, out outGrid, out outVoxel);
+    }
+
+    /// <summary>
+    /// Retrieves the grid and voxel containing a 2D XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="outGrid">The resolved grid, if found.</param>
+    /// <param name="outVoxel">The resolved voxel, if found.</param>
+    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
+    public bool TryGetGridAndVoxel(
+        Vector2d position,
+        Fixed64 layerY,
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel)
+    {
+        return TryGetGridAndVoxel(GridPlane2d.ToWorld(position, layerY), out outGrid, out outVoxel);
+    }
+
+    /// <summary>
     /// Retrieves the grid and voxel for a given voxel identity.
     /// </summary>
     /// <param name="worldVoxelIndex">The voxel identity to resolve.</param>
@@ -512,6 +567,34 @@ public sealed class GridWorld : IDisposable
         result = null;
         return TryGetGrid(position, out VoxelGrid? grid)
             && grid?.TryGetVoxel(position, out result) == true;
+    }
+
+    /// <summary>
+    /// Retrieves a voxel from a 2D XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="result">The resolved voxel, if found.</param>
+    /// <returns>True if the voxel was resolved; otherwise false.</returns>
+    public bool TryGetVoxel(
+        Vector2d position,
+        out Voxel? result)
+    {
+        return TryGetVoxel(position, default, out result);
+    }
+
+    /// <summary>
+    /// Retrieves a voxel from a 2D XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="result">The resolved voxel, if found.</param>
+    /// <returns>True if the voxel was resolved; otherwise false.</returns>
+    public bool TryGetVoxel(
+        Vector2d position,
+        Fixed64 layerY,
+        out Voxel? result)
+    {
+        return TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
     }
 
     /// <summary>

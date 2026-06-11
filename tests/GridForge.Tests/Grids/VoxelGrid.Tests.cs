@@ -233,6 +233,44 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void TryGetVoxel_WithVector2d_ShouldUseDefaultAndExplicitLayers()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
+            out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+        Vector2d position = new(1, 1);
+
+        Assert.True(grid.TryGetVoxelIndex(position, out VoxelIndex defaultIndex));
+        Assert.Equal(new VoxelIndex(1, 0, 1), defaultIndex);
+        Assert.True(grid.TryGetVoxel(position, out Voxel defaultVoxel));
+        Assert.Equal(defaultIndex, defaultVoxel.Index);
+
+        Assert.True(grid.TryGetVoxelIndex(position, (Fixed64)2, out VoxelIndex layeredIndex));
+        Assert.Equal(new VoxelIndex(1, 2, 1), layeredIndex);
+        Assert.True(grid.TryGetVoxel(position, (Fixed64)2, out Voxel layeredVoxel));
+        Assert.Equal(layeredIndex, layeredVoxel.Index);
+    }
+
+    [Fact]
+    public void TryGetVoxel_WithVector2d_ShouldIncludeExactBoundsMaxAndRejectOutsidePositions()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
+            out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        Assert.True(grid.TryGetVoxelIndex(new Vector2d(2, 2), (Fixed64)2, out VoxelIndex maxIndex));
+        Assert.Equal(new VoxelIndex(2, 2, 2), maxIndex);
+        Assert.True(grid.TryGetVoxel(new Vector2d(2, 2), (Fixed64)2, out Voxel maxVoxel));
+        Assert.Equal(maxIndex, maxVoxel.Index);
+
+        Assert.False(grid.TryGetVoxelIndex(Vector2d.FromDouble(2.01, 1), (Fixed64)2, out _));
+        Assert.False(grid.TryGetVoxelIndex(new Vector2d(1, 1), (Fixed64)3, out _));
+        Assert.False(grid.TryGetVoxel(Vector2d.FromDouble(1, 2.01), (Fixed64)2, out _));
+    }
+
+    [Fact]
     public void ScanCellQueries_ShouldReturnGracefulDefaultsForInvalidKeysAndIndices()
     {
         Assert.True(_world.TryAddGrid(

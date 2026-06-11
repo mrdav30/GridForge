@@ -32,8 +32,14 @@ GridForge constantly moves between three different coordinate views:
 | Coordinate View | What It Represents | Common Type |
 | --- | --- | --- |
 | World space | Absolute positions in your simulation or game world | `Vector3d` |
+| 2D XZ-plane query input | Flat query coordinates projected to world X/Z with an explicit world Y layer | `Vector2d` + `layerY` |
 | Grid-local space | Integer voxel coordinates inside one grid | `VoxelIndex` |
 | World-scoped voxel identity | A voxel coordinate plus its owning world and grid instance | `WorldVoxelIndex` |
+
+For 2D-friendly lookup APIs, GridForge treats `Vector2d(x, z)` as a convenience
+projection over the same 3D runtime model: `Vector2d.X` maps to world X,
+`Vector2d.Y` maps to world Z, and `layerY` maps to world Y. `IVoxelOccupant`
+positions remain `Vector3d`.
 
 Snapping is a core behavior:
 

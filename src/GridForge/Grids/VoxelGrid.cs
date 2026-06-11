@@ -678,6 +678,29 @@ public class VoxelGrid
     }
 
     /// <summary>
+    /// Converts a 2D XZ-plane world position on the default world Y layer to a voxel index within the grid.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="result">The resolved voxel index, if found.</param>
+    /// <returns>True if the position resolved to an allocated voxel index; otherwise false.</returns>
+    public bool TryGetVoxelIndex(Vector2d position, out VoxelIndex result)
+    {
+        return TryGetVoxelIndex(position, default, out result);
+    }
+
+    /// <summary>
+    /// Converts a 2D XZ-plane world position on the supplied world Y layer to a voxel index within the grid.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="result">The resolved voxel index, if found.</param>
+    /// <returns>True if the position resolved to an allocated voxel index; otherwise false.</returns>
+    public bool TryGetVoxelIndex(Vector2d position, Fixed64 layerY, out VoxelIndex result)
+    {
+        return TryGetVoxelIndex(GridPlane2d.ToWorld(position, layerY), out result);
+    }
+
+    /// <summary>
     /// Checks if a voxel at the given coordinates is allocated within the grid.
     /// </summary>
     public bool IsVoxelAllocated(int x, int y, int z) =>
@@ -717,6 +740,29 @@ public class VoxelGrid
         result = null;
         return TryGetVoxelIndex(position, out VoxelIndex coordinate)
             && TryGetVoxel(coordinate.x, coordinate.y, coordinate.z, out result);
+    }
+
+    /// <summary>
+    /// Retrieves a <see cref="Voxel"/> from a 2D XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="result">The resolved voxel, if found.</param>
+    /// <returns>True if the voxel was resolved; otherwise false.</returns>
+    public bool TryGetVoxel(Vector2d position, out Voxel? result)
+    {
+        return TryGetVoxel(position, default, out result);
+    }
+
+    /// <summary>
+    /// Retrieves a <see cref="Voxel"/> from a 2D XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="result">The resolved voxel, if found.</param>
+    /// <returns>True if the voxel was resolved; otherwise false.</returns>
+    public bool TryGetVoxel(Vector2d position, Fixed64 layerY, out Voxel? result)
+    {
+        return TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
     }
 
     /// <summary>
@@ -851,7 +897,7 @@ public class VoxelGrid
     /// <inheritdoc/>
     public override int GetHashCode() =>
         SwiftHashTools.CombineHashCodes(
-            GridIndex.GetHashCode(), 
+            GridIndex.GetHashCode(),
             BoundsMin.GetHashCode(),
             BoundsMax.GetHashCode());
 
