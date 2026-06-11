@@ -1,5 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Grids;
@@ -11,7 +12,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class BlockerMemoryBenchmarks
 {
-    private BoundingArea[] _areas;
+    private FixedBoundArea[] _areas;
     private BoundsBlocker[] _blockers;
     private GridWorld _world;
 
@@ -80,9 +81,9 @@ public class BlockerMemoryBenchmarks
             _blockers[i] = new BoundsBlocker(_world, _areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
     }
 
-    private BoundingArea[] BuildAreas()
+    private FixedBoundArea[] BuildAreas()
     {
-        BoundingArea[] areas = new BoundingArea[BlockerCount];
+        FixedBoundArea[] areas = new FixedBoundArea[BlockerCount];
 
         const int columns = 8;
         const int stride = 20;
@@ -95,7 +96,7 @@ public class BlockerMemoryBenchmarks
 
             Vector3d min = new(x, 0, z);
             Vector3d max = new(x + BlockSpan, 0, z + BlockSpan);
-            areas[i] = new BoundingArea(min, max);
+            areas[i] = new FixedBoundArea(min, max);
         }
 
         return areas;

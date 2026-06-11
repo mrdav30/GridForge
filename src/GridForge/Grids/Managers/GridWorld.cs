@@ -2,6 +2,7 @@
 using GridForge.Configuration;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -733,9 +734,9 @@ public sealed class GridWorld : IDisposable
     public int GetSpatialGridKey(Vector3d position)
     {
         (int x, int y, int z) = (
-            position.x.FloorToInt() / SpatialGridCellSize,
-            position.y.FloorToInt() / SpatialGridCellSize,
-            position.z.FloorToInt() / SpatialGridCellSize
+            position.X.FloorToInt() / SpatialGridCellSize,
+            position.Y.FloorToInt() / SpatialGridCellSize,
+            position.Z.FloorToInt() / SpatialGridCellSize
         );
 
         return SwiftHashTools.CombineHashCodes(x, y, z);
@@ -747,9 +748,9 @@ public sealed class GridWorld : IDisposable
     public Vector3d CeilToVoxelSize(Vector3d position)
     {
         return new Vector3d(
-            (position.x.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.x.Sign(),
-            (position.y.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.y.Sign(),
-            (position.z.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.z.Sign()
+            (position.X.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.X.Sign(),
+            (position.Y.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.Y.Sign(),
+            (position.Z.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.Z.Sign()
         );
     }
 
@@ -759,9 +760,9 @@ public sealed class GridWorld : IDisposable
     public Vector3d FloorToVoxelSize(Vector3d position)
     {
         return new Vector3d(
-            (position.x.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.x.Sign(),
-            (position.y.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.y.Sign(),
-            (position.z.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.z.Sign()
+            (position.X.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.X.Sign(),
+            (position.Y.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.Y.Sign(),
+            (position.Z.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.Z.Sign()
         );
     }
 
@@ -783,9 +784,9 @@ public sealed class GridWorld : IDisposable
         Vector3d snapMin = FloorToVoxelSize(min);
         Vector3d snapMax = CeilToVoxelSize(max);
 
-        (snapMin.x, snapMax.x) = snapMin.x > snapMax.x ? (snapMax.x, snapMin.x) : (snapMin.x, snapMax.x);
-        (snapMin.y, snapMax.y) = snapMin.y > snapMax.y ? (snapMax.y, snapMin.y) : (snapMin.y, snapMax.y);
-        (snapMin.z, snapMax.z) = snapMin.z > snapMax.z ? (snapMax.z, snapMin.z) : (snapMin.z, snapMax.z);
+        (snapMin.X, snapMax.X) = snapMin.X > snapMax.X ? (snapMax.X, snapMin.X) : (snapMin.X, snapMax.X);
+        (snapMin.Y, snapMax.Y) = snapMin.Y > snapMax.Y ? (snapMax.Y, snapMin.Y) : (snapMin.Y, snapMax.Y);
+        (snapMin.Z, snapMax.Z) = snapMin.Z > snapMax.Z ? (snapMax.Z, snapMin.Z) : (snapMin.Z, snapMax.Z);
 
         return (snapMin, snapMax);
     }
@@ -893,9 +894,9 @@ public sealed class GridWorld : IDisposable
     private (int xMin, int yMin, int zMin) SnapToSpatialGrid(Vector3d position)
     {
         return (
-            (position.x.Abs() / SpatialGridCellSize).FloorToInt() * position.x.Sign(),
-            (position.y.Abs() / SpatialGridCellSize).FloorToInt() * position.y.Sign(),
-            (position.z.Abs() / SpatialGridCellSize).FloorToInt() * position.z.Sign()
+            (position.X.Abs() / SpatialGridCellSize).FloorToInt() * position.X.Sign(),
+            (position.Y.Abs() / SpatialGridCellSize).FloorToInt() * position.Y.Sign(),
+            (position.Z.Abs() / SpatialGridCellSize).FloorToInt() * position.Z.Sign()
         );
     }
 

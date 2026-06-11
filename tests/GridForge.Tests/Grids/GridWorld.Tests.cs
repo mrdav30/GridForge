@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Spatial;
@@ -16,12 +17,12 @@ public class GridWorldTests
     public void TryAddGrid_ShouldNormalizeBoundsUsingOwningWorldVoxelSize()
     {
         GridConfiguration rawConfiguration = new(
-            new Vector3d(-1.25, 0, -1.25),
-            new Vector3d(1.25, 0, 1.25),
+            Vector3d.FromDouble(-1.25, 0, -1.25),
+            Vector3d.FromDouble(1.25, 0, 1.25),
             scanCellSize: 4);
 
-        Assert.Equal(new Vector3d(-1.25, 0, -1.25), rawConfiguration.BoundsMin);
-        Assert.Equal(new Vector3d(1.25, 0, 1.25), rawConfiguration.BoundsMax);
+        Assert.Equal(Vector3d.FromDouble(-1.25, 0, -1.25), rawConfiguration.BoundsMin);
+        Assert.Equal(Vector3d.FromDouble(1.25, 0, 1.25), rawConfiguration.BoundsMax);
 
         using GridWorld world = GridWorldTestFactory.CreateWorld((Fixed64)0.5, spatialGridCellSize: 32);
 
@@ -29,7 +30,7 @@ public class GridWorldTests
 
         VoxelGrid grid = world.ActiveGrids[gridIndex];
         Assert.Equal(new Vector3d(-1, 0, -1), grid.BoundsMin);
-        Assert.Equal(new Vector3d(1.5, 0, 1.5), grid.BoundsMax);
+        Assert.Equal(Vector3d.FromDouble(1.5, 0, 1.5), grid.BoundsMax);
         Assert.Equal(rawConfiguration.ScanCellSize, grid.Configuration.ScanCellSize);
     }
 
@@ -324,7 +325,7 @@ public class GridWorldTests
     {
         using GridWorld blockerWorld = GridWorldTestFactory.CreateWorld();
         using GridWorld otherWorld = GridWorldTestFactory.CreateWorld();
-        BoundingArea area = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        FixedBoundArea area = new(Vector3d.FromDouble(0, 0, 0), Vector3d.FromDouble(0, 0, 0));
         BoundsBlocker blocker = new(blockerWorld, area, cacheCoveredVoxels: true);
 
         blocker.ApplyBlockage();

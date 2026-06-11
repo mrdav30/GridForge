@@ -92,7 +92,8 @@ public abstract class Blocker : IBlocker
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels that are blocked.</param>
     protected Blocker(GridWorld world, bool active = true, bool cacheCoveredVoxels = false)
     {
-        World = world ?? throw new ArgumentNullException(nameof(world));
+        SwiftThrowHelper.ThrowIfNull(world, nameof(world));
+        World = world;
         IsActive = active;
         CacheCoveredVoxels = cacheCoveredVoxels;
     }
@@ -404,9 +405,9 @@ public abstract class Blocker : IBlocker
         Vector3d secondMin,
         Vector3d secondMax)
     {
-        return AxisOverlaps(firstMin.x, firstMax.x, secondMin.x, secondMax.x)
-            && AxisOverlaps(firstMin.y, firstMax.y, secondMin.y, secondMax.y)
-            && AxisOverlaps(firstMin.z, firstMax.z, secondMin.z, secondMax.z);
+        return AxisOverlaps(firstMin.X, firstMax.X, secondMin.X, secondMax.X)
+            && AxisOverlaps(firstMin.Y, firstMax.Y, secondMin.Y, secondMax.Y)
+            && AxisOverlaps(firstMin.Z, firstMax.Z, secondMin.Z, secondMax.Z);
     }
 
     private static bool AxisOverlaps(Fixed64 firstMin, Fixed64 firstMax, Fixed64 secondMin, Fixed64 secondMax)

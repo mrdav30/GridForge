@@ -40,13 +40,13 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore GridForge.slnx --property:Configuration=Release
 
     - name: Build tests
       run: dotnet build tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --no-restore
 
     - name: Run tests with coverage
-      run: dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory artifacts/coverage
+      run: dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
 
     - name: Install ReportGenerator
       run: dotnet tool install --global dotnet-reportgenerator-globaltool
@@ -59,7 +59,8 @@ jobs:
         reportgenerator \
           "-reports:artifacts/coverage/**/coverage.cobertura.xml" \
           "-targetdir:artifacts/coverage-report" \
-          "-reporttypes:Html;MarkdownSummaryGithub;Badges;JsonSummary"
+          "-reporttypes:Html;MarkdownSummaryGithub;Badges;JsonSummary" \
+          "-filefilters:-**/MemoryPack.Generator/**;-**/*.g.cs;-**/obj/**"
 
     - name: Add coverage summary to job
       run: cat artifacts/coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"

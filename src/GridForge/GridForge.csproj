@@ -93,17 +93,17 @@
 	<!-- Dependencies and Package References -->
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
-		<PackageReference Include="FixedMathSharp" Version="4.0.0" />
-		<PackageReference Include="SwiftCollections" Version="4.1.1" />
+		<PackageReference Include="FixedMathSharp" Version="5.0.0" />
+		<PackageReference Include="SwiftCollections" Version="5.0.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
-		<PackageReference Include="FixedMathSharp.Lean" Version="4.0.0" />
-		<PackageReference Include="SwiftCollections.Lean" Version="4.1.1" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="5.0.0" />
+		<PackageReference Include="SwiftCollections.Lean" Version="5.0.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-		<PackageReference Include="System.Text.Json" Version="10.0.7" />
+		<PackageReference Include="System.Text.Json" Version="10.0.9" />
 	</ItemGroup>
 
 	<!-- Ensure LICENSE, README, & icon files are included in the NuGet package -->
@@ -120,4 +120,5 @@
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<Compile Remove="**\*.MemoryPack.cs" />
 	</ItemGroup>
+	
 </Project>

@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Tests;
@@ -39,7 +40,7 @@ public class BlockerTests : IDisposable
         Assert.NotNull(voxel);
         Assert.False(voxel.IsBlocked); // Ensure voxel is initially unblocked
 
-        BoundingArea boundingArea = new(new Vector3d(32, 0, 32), new Vector3d(34, 0, 34));
+        FixedBoundArea boundingArea = new(new Vector3d(32, 0, 32), new Vector3d(34, 0, 34));
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
@@ -52,11 +53,11 @@ public class BlockerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d position = new(-35.5, 0, -35.5);
+        Vector3d position = Vector3d.FromDouble(-35.5, 0, -35.5);
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;
         Assert.NotNull(voxel);
 
-        BoundingArea boundingArea = new(new Vector3d(-36, 0, -36), new Vector3d(-35, 0, -35));
+        FixedBoundArea boundingArea = new(new Vector3d(-36, 0, -36), new Vector3d(-35, 0, -35));
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
         Assert.True(voxel.IsBlocked);
@@ -73,17 +74,17 @@ public class BlockerTests : IDisposable
 
         var voxelSize = (float)_world.VoxelSize;
 
-        Vector3d position = new(-39 + voxelSize, 0, -39 + voxelSize);
+        Vector3d position = Vector3d.FromDouble(-39 + voxelSize, 0, -39 + voxelSize);
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;
         Assert.NotNull(voxel);
 
-        BoundingArea boundingArea1 = new(
+        FixedBoundArea boundingArea1 = new(
                 new Vector3d(-40, 0, -40),
-                new Vector3d(-39 + voxelSize, 0, -39 + voxelSize)
+                Vector3d.FromDouble(-39 + voxelSize, 0, -39 + voxelSize)
             );
         var blocker1 = new BoundsBlocker(_world, boundingArea1);
-        BoundingArea boundingArea2 = new(
-                new Vector3d(-39 + voxelSize, 0, -39 + voxelSize),
+        FixedBoundArea boundingArea2 = new(
+                Vector3d.FromDouble(-39 + voxelSize, 0, -39 + voxelSize),
                 new Vector3d(-39, 0, -39)
             );
         var blocker2 = new BoundsBlocker(_world, boundingArea2);
@@ -103,12 +104,12 @@ public class BlockerTests : IDisposable
             new Vector3d(-30, 0, -30)),
             out ushort gridIndex);
 
-        BoundingArea boundingArea1 = new(
+        FixedBoundArea boundingArea1 = new(
             new Vector3d(-39, 0, -39),
             new Vector3d(-40, 0, -40));
-        BoundingArea boundingArea2 = new(
-            new Vector3d(-38.5, 0, -38.5),
-            new Vector3d(-39.5, 0, -39.5));
+        FixedBoundArea boundingArea2 = new(
+            Vector3d.FromDouble(-38.5, 0, -38.5),
+            Vector3d.FromDouble(-39.5, 0, -39.5));
 
         var blocker1 = new BoundsBlocker(_world, boundingArea1);
         var blocker2 = new BoundsBlocker(_world, boundingArea2);
@@ -118,14 +119,14 @@ public class BlockerTests : IDisposable
 
         blocker1.RemoveBlockage();
 
-        Vector3d position = new(-39.4, 0, -39.4);
+        Vector3d position = Vector3d.FromDouble(-39.4, 0, -39.4);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;
 
         Assert.False(voxel.IsBlocked); // Should still be blocked because of blocker2
         Assert.False(voxel.ObstacleCount > 0);
 
-        Vector3d position2 = new(-38.4, 0, -38.4);
+        Vector3d position2 = Vector3d.FromDouble(-38.4, 0, -38.4);
         Voxel voxel2 = grid.TryGetVoxel(position2, out Voxel n2) ? n2 : null;
 
         Assert.True(voxel2.IsBlocked); // Should still be blocked because of blocker2
@@ -141,11 +142,11 @@ public class BlockerTests : IDisposable
             out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d position = new(-60.5, 0, -60.5);
+        Vector3d position = Vector3d.FromDouble(-60.5, 0, -60.5);
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;
         Assert.NotNull(voxel);
 
-        BoundingArea boundingArea = new(new Vector3d(-61, 0, -61), new Vector3d(-60, 0, -60));
+        FixedBoundArea boundingArea = new(new Vector3d(-61, 0, -61), new Vector3d(-60, 0, -60));
         var blocker = new BoundsBlocker(_world, boundingArea, false);
         blocker.ApplyBlockage();
 
@@ -158,7 +159,7 @@ public class BlockerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        var blockArea = new BoundingArea(new Vector3d(-40, 0, -40), new Vector3d(-39, 0, -39));
+        var blockArea = new FixedBoundArea(new Vector3d(-40, 0, -40), new Vector3d(-39, 0, -39));
         var boundsBlocker = new BoundsBlocker(_world, blockArea);
         boundsBlocker.ApplyBlockage();
 
@@ -178,7 +179,7 @@ public class BlockerTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         // Blocker placed at the grid's edge
-        BoundingArea boundingArea = new(new Vector3d(-30, 0, -30), new Vector3d(-29.5, 0, -29.5));
+        FixedBoundArea boundingArea = new(new Vector3d(-30, 0, -30), Vector3d.FromDouble(-29.5, 0, -29.5));
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
@@ -202,7 +203,7 @@ public class BlockerTests : IDisposable
             new Vector3d(-20, 0, -20)),
             out ushort grid2);
 
-        BoundingArea boundingArea = new(new Vector3d(-31, 0, -31), new Vector3d(-29, 0, -29));
+        FixedBoundArea boundingArea = new(new Vector3d(-31, 0, -31), new Vector3d(-29, 0, -29));
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
@@ -228,7 +229,7 @@ public class BlockerTests : IDisposable
         {
             Vector3d min = new(100 + i, 0, 100 + i);
             Vector3d max = new(101 + i, 0, 101 + i);
-            var blocker = new BoundsBlocker(_world, new BoundingArea(min, max));
+            var blocker = new BoundsBlocker(_world, new FixedBoundArea(min, max));
             blockers.Add(blocker);
             blocker.ApplyBlockage(); // Modify the explicit local test world
         }
@@ -246,7 +247,7 @@ public class BlockerTests : IDisposable
         {
             Vector3d min = new(-200 + i, 0, -200 + i);
             Vector3d max = new(-199 + i, 0, -199 + i);
-            var blocker = new BoundsBlocker(_world, new BoundingArea(min, max));
+            var blocker = new BoundsBlocker(_world, new FixedBoundArea(min, max));
             blocker.ApplyBlockage();
         });
 
@@ -266,7 +267,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(3, 0, 3)),
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(3, 0, 3)),
             cacheCoveredVoxels: true);
 
         blocker.ApplyBlockage();
@@ -293,7 +294,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(3, 0, 3)),
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(3, 0, 3)),
             isActive: false);
 
         blocker.ToggleStatus(true);
@@ -316,7 +317,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
             cacheCoveredVoxels: false);
 
         blocker.SetCacheCoveredVoxels(true);
@@ -353,7 +354,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
 
         blocker.ApplyBlockage();
         Assert.True(blocker.IsBlocking);
@@ -379,7 +380,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
         List<BoundsKey> notifications = new();
 
         void ThrowingApplyHandler(BlockageEventInfo eventInfo)
@@ -428,7 +429,7 @@ public class BlockerTests : IDisposable
     public void Blocker_ShouldReapplyWhenCoveredGridIsRemovedAndReadded()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        BoundingArea area = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        FixedBoundArea area = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         BoundsBlocker blocker = new(_world, area, cacheCoveredVoxels: true);
 
         Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
@@ -457,7 +458,7 @@ public class BlockerTests : IDisposable
     {
         GridConfiguration firstConfig = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         GridConfiguration secondConfig = new(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
-        BoundingArea area = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
+        FixedBoundArea area = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
         BoundsBlocker blocker = new(_world, area);
 
         Assert.True(_world.TryAddGrid(firstConfig, out ushort firstIndex));
@@ -486,7 +487,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(40, 0, 40), new Vector3d(41, 0, 41)));
+            new FixedBoundArea(new Vector3d(40, 0, 40), new Vector3d(41, 0, 41)));
 
         blocker.ApplyBlockage();
 
@@ -518,7 +519,7 @@ public class BlockerTests : IDisposable
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
         Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
 
-        BoundsBlocker blocker = new(_world, new BoundingArea(position, position));
+        BoundsBlocker blocker = new(_world, new FixedBoundArea(position, position));
         blocker.ApplyBlockage();
 
         Assert.False(blocker.IsBlocking);
@@ -531,7 +532,7 @@ public class BlockerTests : IDisposable
     {
         GridConfiguration watchedGrid = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         GridConfiguration unrelatedGrid = new(new Vector3d(10, 0, 10), new Vector3d(10, 0, 10));
-        BoundsBlocker blocker = new(_world, new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)));
+        BoundsBlocker blocker = new(_world, new FixedBoundArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)));
 
         Assert.True(_world.TryAddGrid(watchedGrid, out ushort watchedIndex));
         VoxelGrid watched = _world.ActiveGrids[watchedIndex];
@@ -554,7 +555,7 @@ public class BlockerTests : IDisposable
     {
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
             isActive: false,
             cacheCoveredVoxels: false);
         GridEventInfo overlappingEvent = new(
@@ -590,7 +591,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            new FixedBoundArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
             cacheCoveredVoxels: true);
 
         blocker.ApplyBlockage();
@@ -622,7 +623,7 @@ public class BlockerTests : IDisposable
 
         BoundsBlocker blocker = new(
             _world,
-            new BoundingArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            new FixedBoundArea(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
             cacheCoveredVoxels: true);
 
         blocker.ApplyBlockage();

@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using MemoryPack;
 using SwiftCollections;
+using SwiftCollections.Utility;
 using System;
 using System.Text.Json.Serialization;
 
@@ -71,13 +72,13 @@ public readonly partial struct GridConfiguration
             GridForgeLogger.Channel.Warn($"GridMin was greater than GridMax, auto-correcting values.");
 
         BoundsMin = new Vector3d(
-            FixedMath.Min(boundsMin.x, boundsMax.x),
-            FixedMath.Min(boundsMin.y, boundsMax.y),
-            FixedMath.Min(boundsMin.z, boundsMax.z));
+            FixedMath.Min(boundsMin.X, boundsMax.X),
+            FixedMath.Min(boundsMin.Y, boundsMax.Y),
+            FixedMath.Min(boundsMin.Z, boundsMax.Z));
         BoundsMax = new Vector3d(
-            FixedMath.Max(boundsMin.x, boundsMax.x),
-            FixedMath.Max(boundsMin.y, boundsMax.y),
-            FixedMath.Max(boundsMin.z, boundsMax.z));
+            FixedMath.Max(boundsMin.X, boundsMax.X),
+            FixedMath.Max(boundsMin.Y, boundsMax.Y),
+            FixedMath.Max(boundsMin.Z, boundsMax.Z));
 
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
     }

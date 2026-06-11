@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Grids;
 
 namespace GridForge.Blockers;
@@ -8,7 +9,7 @@ namespace GridForge.Blockers;
 /// </summary>
 public class BoundsBlocker : Blocker
 {
-    private BoundingArea _blockArea;
+    private FixedBoundArea _blockArea;
 
     /// <summary>
     /// Initializes a new bounds blocker bound to the supplied world.
@@ -19,7 +20,7 @@ public class BoundsBlocker : Blocker
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
     public BoundsBlocker(
         GridWorld world,
-        BoundingArea blockArea,
+        FixedBoundArea blockArea,
         bool isActive = true,
         bool cacheCoveredVoxels = false) : base(world, isActive, cacheCoveredVoxels)
     {

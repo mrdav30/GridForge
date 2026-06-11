@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Spatial;
@@ -33,8 +34,8 @@ public class GridTracerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-50, -1, -50), new Vector3d(50, 1, 50)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d start = new(5, 0.5, 5);
-        Vector3d end = new(45.28, 1, 18.31);
+        Vector3d start = Vector3d.FromDouble(5, 0.5, 5);
+        Vector3d end = Vector3d.FromDouble(45.28, 1, 18.31);
 
         List<Voxel> tracedVoxels = new();
 
@@ -134,8 +135,8 @@ public class GridTracerTests : IDisposable
 
         Vector3d[] firstTrace = GridTracer.TraceLine(
                 _world,
-                new Vector3d(1.01, 0, 1.01),
-                new Vector3d(5.01, 0, 5.01),
+                Vector3d.FromDouble(1.01, 0, 1.01),
+                Vector3d.FromDouble(5.01, 0, 5.01),
                 includeEnd: true)
             .SelectMany(set => set.Voxels)
             .Select(voxel => voxel.WorldPosition)
@@ -143,8 +144,8 @@ public class GridTracerTests : IDisposable
 
         Vector3d[] secondTrace = GridTracer.TraceLine(
                 _world,
-                new Vector3d(1.99, 0, 1.99),
-                new Vector3d(5.49, 0, 5.49),
+                Vector3d.FromDouble(1.99, 0, 1.99),
+                Vector3d.FromDouble(5.49, 0, 5.49),
                 includeEnd: true)
             .SelectMany(set => set.Voxels)
             .Select(voxel => voxel.WorldPosition)
@@ -161,8 +162,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d start = new(5.8, 0, 5.8);
-        Vector3d end = new(-5.2, 0, -5.2);
+        Vector3d start = Vector3d.FromDouble(5.8, 0, 5.8);
+        Vector3d end = Vector3d.FromDouble(-5.2, 0, -5.2);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
@@ -183,7 +184,7 @@ public class GridTracerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        BoundingArea boundingArea = new(new Vector3d(-5.3, 0, -5.3), new Vector3d(5.8, 0, 5.8));
+        FixedBoundArea boundingArea = new(Vector3d.FromDouble(-5.3, 0, -5.3), Vector3d.FromDouble(5.8, 0, 5.8));
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
@@ -194,12 +195,12 @@ public class GridTracerTests : IDisposable
         {
             foreach (var voxel in coveredVoxels.Voxels)
             {
-                Assert.True(voxel.WorldPosition.x >= snappedMin.x
-                    && voxel.WorldPosition.x <= snappedMax.x, "Voxel X coordinate is out of bounds");
-                Assert.True(voxel.WorldPosition.y >= snappedMin.y
-                    && voxel.WorldPosition.y <= snappedMax.y, "Voxel Y coordinate is out of bounds");
-                Assert.True(voxel.WorldPosition.z >= snappedMin.z
-                    && voxel.WorldPosition.z <= snappedMax.z, "Voxel Z coordinate is out of bounds");
+                Assert.True(voxel.WorldPosition.X >= snappedMin.X
+                    && voxel.WorldPosition.X <= snappedMax.X, "Voxel X coordinate is out of bounds");
+                Assert.True(voxel.WorldPosition.Y >= snappedMin.Y
+                    && voxel.WorldPosition.Y <= snappedMax.Y, "Voxel Y coordinate is out of bounds");
+                Assert.True(voxel.WorldPosition.Z >= snappedMin.Z
+                    && voxel.WorldPosition.Z <= snappedMax.Z, "Voxel Z coordinate is out of bounds");
             }
         }
     }
@@ -217,8 +218,8 @@ public class GridTracerTests : IDisposable
 
             ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
                 _world,
-                new Vector3d(9.6, 0, 0),
-                new Vector3d(9.6, 0, 0),
+                Vector3d.FromDouble(9.6, 0, 0),
+                Vector3d.FromDouble(9.6, 0, 0),
                 padding: Fixed64.One).ToArray();
 
             Assert.NotEmpty(coveredScanCells);
@@ -367,8 +368,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d start = new(5.8, 0, 5.8);
-        Vector3d end = new(1.2, 2, 1.2);
+        Vector3d start = Vector3d.FromDouble(5.8, 0, 5.8);
+        Vector3d end = Vector3d.FromDouble(1.2, 2, 1.2);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)
@@ -391,8 +392,8 @@ public class GridTracerTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d start = new(1.2, 2, 1.2);
-        Vector3d end = new(5.8, 0, 5.8);
+        Vector3d start = Vector3d.FromDouble(1.2, 2, 1.2);
+        Vector3d end = Vector3d.FromDouble(5.8, 0, 5.8);
 
         Vector3d[] tracedPositions = GridTracer.TraceLine(_world, start, end, includeEnd: true)
             .SelectMany(set => set.Voxels)

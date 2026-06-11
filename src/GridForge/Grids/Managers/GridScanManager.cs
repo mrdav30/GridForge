@@ -57,8 +57,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        if (results == null)
-            throw new ArgumentNullException(nameof(results));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -79,11 +78,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        if (results == null)
-            throw new ArgumentNullException(nameof(results));
-
-        if (scratch == null)
-            throw new ArgumentNullException(nameof(scratch));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -103,8 +99,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        if (results == null)
-            throw new ArgumentNullException(nameof(results));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -125,11 +120,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        if (results == null)
-            throw new ArgumentNullException(nameof(results));
-
-        if (scratch == null)
-            throw new ArgumentNullException(nameof(scratch));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)

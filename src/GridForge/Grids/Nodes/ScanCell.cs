@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 
@@ -269,7 +270,7 @@ public class ScanCell
         Vector3d position,
         Fixed64 squaredRadius)
     {
-        return (occupant.Position - position).SqrMagnitude <= squaredRadius;
+        return (occupant.Position - position).MagnitudeSquared <= squaredRadius;
     }
 
     private static bool TryGetTypedOccupantWithinRadius<T>(

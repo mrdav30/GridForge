@@ -1,4 +1,6 @@
-﻿using System;
+﻿global using SwiftCollections.Diagnostics;
+
+using System;
 using System.IO;
 
 namespace GridForge;

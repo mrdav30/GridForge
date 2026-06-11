@@ -4,6 +4,7 @@ using SwiftCollections;
 #endif
 
 using FixedMathSharp;
+using SwiftCollections.Utility;
 
 namespace GridForge;
 

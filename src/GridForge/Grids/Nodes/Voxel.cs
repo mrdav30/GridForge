@@ -597,9 +597,9 @@ public class Voxel : IEquatable<Voxel>
     {
         Fixed64 voxelSize = ownerGrid.World!.VoxelSize;
         Vector3d neighborPosition = new(
-            WorldPosition.x + offset.x * voxelSize,
-            WorldPosition.y + offset.y * voxelSize,
-            WorldPosition.z + offset.z * voxelSize);
+            WorldPosition.X + offset.x * voxelSize,
+            WorldPosition.Y + offset.y * voxelSize,
+            WorldPosition.Z + offset.z * voxelSize);
 
         return neighborPosition;
     }

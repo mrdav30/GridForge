@@ -4,6 +4,7 @@ using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Dimensions;
 using SwiftCollections.Pool;
+using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -175,9 +176,9 @@ public class VoxelGrid
         SpawnToken = GetHashCode();
 
         // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid
-        Width = ((BoundsMax.x - BoundsMin.x) / ActiveVoxelSize).FloorToInt() + 1;
-        Height = ((BoundsMax.y - BoundsMin.y) / ActiveVoxelSize).FloorToInt() + 1;
-        Length = ((BoundsMax.z - BoundsMin.z) / ActiveVoxelSize).FloorToInt() + 1;
+        Width = ((BoundsMax.X - BoundsMin.X) / ActiveVoxelSize).FloorToInt() + 1;
+        Height = ((BoundsMax.Y - BoundsMin.Y) / ActiveVoxelSize).FloorToInt() + 1;
+        Length = ((BoundsMax.Z - BoundsMin.Z) / ActiveVoxelSize).FloorToInt() + 1;
         Size = Width * Height * Length;
 
         GenerateScanCells();
@@ -345,9 +346,9 @@ public class VoxelGrid
                 for (int z = 0; z < Length; z++)
                 {
                     Vector3d position = new(
-                            BoundsMin.x + x * ActiveVoxelSize,
-                            BoundsMin.y + y * ActiveVoxelSize,
-                            BoundsMin.z + z * ActiveVoxelSize
+                            BoundsMin.X + x * ActiveVoxelSize,
+                            BoundsMin.Y + y * ActiveVoxelSize,
+                            BoundsMin.Z + z * ActiveVoxelSize
                         );
 
                     // Rent a voxel from the object pool and initialize it
@@ -389,9 +390,9 @@ public class VoxelGrid
     {
         Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
         (int x, int y, int z) gridOffset = (
-                centerDifference.x.Sign(),
-                centerDifference.y.Sign(),
-                centerDifference.z.Sign()
+                centerDifference.X.Sign(),
+                centerDifference.Y.Sign(),
+                centerDifference.Z.Sign()
             );
         return GridDirectionUtility.GetNeighborDirectionFromOffset(gridOffset);
     }
@@ -541,9 +542,9 @@ public class VoxelGrid
     /// </summary>
     public bool IsInBounds(Vector3d target)
     {
-        return BoundsMin.x <= target.x && target.x <= BoundsMax.x
-            && BoundsMin.y <= target.y && target.y <= BoundsMax.y
-            && BoundsMin.z <= target.z && target.z <= BoundsMax.z;
+        return BoundsMin.X <= target.X && target.X <= BoundsMax.X
+            && BoundsMin.Y <= target.Y && target.Y <= BoundsMax.Y
+            && BoundsMin.Z <= target.Z && target.Z <= BoundsMax.Z;
     }
 
     /// <summary>
@@ -554,13 +555,13 @@ public class VoxelGrid
     /// <param name="b">The second grid.</param>
     /// <param name="tolerance">Optional tolerance to account for minor floating-point errors.</param>
     /// <returns>True if the grids overlap within the tolerance, otherwise false.</returns>
-    public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64 tolerance = default)
+    public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64? tolerance = null)
     {
-        tolerance = tolerance == default ? a.ActiveVoxelResolution : tolerance;
+        Fixed64 toleranceValue = tolerance ?? a.ActiveVoxelResolution;
 
-        return AxisOverlaps(a.BoundsMin.x, a.BoundsMax.x, b.BoundsMin.x, b.BoundsMax.x, tolerance)
-            && AxisOverlaps(a.BoundsMin.y, a.BoundsMax.y, b.BoundsMin.y, b.BoundsMax.y, tolerance)
-            && AxisOverlaps(a.BoundsMin.z, a.BoundsMax.z, b.BoundsMin.z, b.BoundsMax.z, tolerance);
+        return AxisOverlaps(a.BoundsMin.X, a.BoundsMax.X, b.BoundsMin.X, b.BoundsMax.X, toleranceValue)
+            && AxisOverlaps(a.BoundsMin.Y, a.BoundsMax.Y, b.BoundsMin.Y, b.BoundsMax.Y, toleranceValue)
+            && AxisOverlaps(a.BoundsMin.Z, a.BoundsMax.Z, b.BoundsMin.Z, b.BoundsMax.Z, toleranceValue);
     }
 
     private static bool AxisOverlaps(
@@ -664,9 +665,9 @@ public class VoxelGrid
         // Convert world position to grid indices by subtracting the minimum bound
         // and dividing by the voxel size to get a zero-based index
         (int x, int y, int z) = (
-            ((position.x - BoundsMin.x) / ActiveVoxelSize).FloorToInt(),
-            ((position.y - BoundsMin.y) / ActiveVoxelSize).FloorToInt(),
-            ((position.z - BoundsMin.z) / ActiveVoxelSize).FloorToInt()
+            ((position.X - BoundsMin.X) / ActiveVoxelSize).FloorToInt(),
+            ((position.Y - BoundsMin.Y) / ActiveVoxelSize).FloorToInt(),
+            ((position.Z - BoundsMin.Z) / ActiveVoxelSize).FloorToInt()
         );
 
         if (!IsValidVoxelIndex(x, y, z))
@@ -816,9 +817,9 @@ public class VoxelGrid
     {
         Fixed64 voxelSize = ActiveVoxelSize;
         return new Vector3d(
-            FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).CeilToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
-            FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).CeilToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
-            FixedMath.Clamp(((position.z - BoundsMin.z) / voxelSize).CeilToInt() * voxelSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
+            FixedMath.Clamp(((position.X - BoundsMin.X) / voxelSize).CeilToInt() * voxelSize + BoundsMin.X, BoundsMin.X, BoundsMax.X),
+            FixedMath.Clamp(((position.Y - BoundsMin.Y) / voxelSize).CeilToInt() * voxelSize + BoundsMin.Y, BoundsMin.Y, BoundsMax.Y),
+            FixedMath.Clamp(((position.Z - BoundsMin.Z) / voxelSize).CeilToInt() * voxelSize + BoundsMin.Z, BoundsMin.Z, BoundsMax.Z)
         );
     }
 
@@ -829,9 +830,9 @@ public class VoxelGrid
     {
         Fixed64 voxelSize = ActiveVoxelSize;
         return new Vector3d(
-            FixedMath.Clamp(((position.x - BoundsMin.x) / voxelSize).FloorToInt() * voxelSize + BoundsMin.x, BoundsMin.x, BoundsMax.x),
-            FixedMath.Clamp(((position.y - BoundsMin.y) / voxelSize).FloorToInt() * voxelSize + BoundsMin.y, BoundsMin.y, BoundsMax.y),
-            FixedMath.Clamp(((position.z - BoundsMin.z) / voxelSize).FloorToInt() * voxelSize + BoundsMin.z, BoundsMin.z, BoundsMax.z)
+            FixedMath.Clamp(((position.X - BoundsMin.X) / voxelSize).FloorToInt() * voxelSize + BoundsMin.X, BoundsMin.X, BoundsMax.X),
+            FixedMath.Clamp(((position.Y - BoundsMin.Y) / voxelSize).FloorToInt() * voxelSize + BoundsMin.Y, BoundsMin.Y, BoundsMax.Y),
+            FixedMath.Clamp(((position.Z - BoundsMin.Z) / voxelSize).FloorToInt() * voxelSize + BoundsMin.Z, BoundsMin.Z, BoundsMax.Z)
         );
     }
 
@@ -841,9 +842,9 @@ public class VoxelGrid
     public (int x, int y, int z) SnapToScanCell(Vector3d position)
     {
         return (
-                (int)((position.x - BoundsMin.x) / ActiveVoxelSize) / ScanCellSize,
-                (int)((position.y - BoundsMin.y) / ActiveVoxelSize) / ScanCellSize,
-                (int)((position.z - BoundsMin.z) / ActiveVoxelSize) / ScanCellSize
+                (int)((position.X - BoundsMin.X) / ActiveVoxelSize) / ScanCellSize,
+                (int)((position.Y - BoundsMin.Y) / ActiveVoxelSize) / ScanCellSize,
+                (int)((position.Z - BoundsMin.Z) / ActiveVoxelSize) / ScanCellSize
             );
     }
 

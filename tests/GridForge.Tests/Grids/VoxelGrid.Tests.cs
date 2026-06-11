@@ -35,9 +35,9 @@ public class VoxelGridTests : IDisposable
         _world.TryAddGrid(config, out ushort index);
         VoxelGrid grid = _world.ActiveGrids[index];
 
-        int width = ((end.x - start.x) / _world.VoxelSize).FloorToInt() + 1;
-        int height = ((end.y - start.y) / _world.VoxelSize).FloorToInt() + 1;
-        int length = ((end.z - start.z) / _world.VoxelSize).FloorToInt() + 1;
+        int width = ((end.X - start.X) / _world.VoxelSize).FloorToInt() + 1;
+        int height = ((end.Y - start.Y) / _world.VoxelSize).FloorToInt() + 1;
+        int length = ((end.Z - start.Z) / _world.VoxelSize).FloorToInt() + 1;
 
         Assert.Equal(width, grid.Width);
         Assert.Equal(height, grid.Height);
@@ -170,21 +170,21 @@ public class VoxelGridTests : IDisposable
 
         try
         {
-            var config = new GridConfiguration(new Vector3d(-1.5, 0, -1.5), new Vector3d(1.5, 0, 1.5));
+            var config = new GridConfiguration(Vector3d.FromDouble(-1.5, 0, -1.5), Vector3d.FromDouble(1.5, 0, 1.5));
 
             Assert.True(_world.TryAddGrid(config, out ushort index));
 
             VoxelGrid grid = _world.ActiveGrids[index];
 
-            Assert.True(grid.TryGetVoxelIndex(new Vector3d(-1.25, 0, -0.75), out VoxelIndex negativeIndex));
+            Assert.True(grid.TryGetVoxelIndex(Vector3d.FromDouble(-1.25, 0, -0.75), out VoxelIndex negativeIndex));
             Assert.Equal(new VoxelIndex(0, 0, 1), negativeIndex);
 
             Assert.Equal(
-                new Vector3d(-1.5, 0, -1.0),
-                grid.FloorToGrid(new Vector3d(-1.26, 0, -0.74)));
+                Vector3d.FromDouble(-1.5, 0, -1.0),
+                grid.FloorToGrid(Vector3d.FromDouble(-1.26, 0, -0.74)));
             Assert.Equal(
-                new Vector3d(-1.0, 0, -0.5),
-                grid.CeilToGrid(new Vector3d(-1.26, 0, -0.74)));
+                Vector3d.FromDouble(-1.0, 0, -0.5),
+                grid.CeilToGrid(Vector3d.FromDouble(-1.26, 0, -0.74)));
         }
         finally
         {
@@ -203,7 +203,7 @@ public class VoxelGridTests : IDisposable
         Assert.True(_world.TryAddGrid(config, out ushort index));
 
         VoxelGrid grid = _world.ActiveGrids[index];
-        Vector3d beforeBoundary = new(3.9, 0, 3.9);
+        Vector3d beforeBoundary = Vector3d.FromDouble(3.9, 0, 3.9);
         Vector3d atBoundary = new(4, 0, 4);
 
         int firstCellKey = grid.GetScanCellKey(beforeBoundary);
@@ -226,8 +226,8 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(new VoxelIndex(2, 0, 2), maxIndex);
         Assert.True(grid.IsVoxelAllocated(maxIndex.x, maxIndex.y, maxIndex.z));
 
-        Assert.False(grid.TryGetVoxelIndex(new Vector3d(2.01, 0, 2), out _));
-        Assert.False(grid.TryGetVoxelIndex(new Vector3d(2, 0, 2.01), out _));
+        Assert.False(grid.TryGetVoxelIndex(Vector3d.FromDouble(2.01, 0, 2), out _));
+        Assert.False(grid.TryGetVoxelIndex(Vector3d.FromDouble(2, 0, 2.01), out _));
         Assert.False(grid.IsVoxelAllocated(3, 0, 2));
         Assert.False(grid.TryGetVoxel(new VoxelIndex(3, 0, 2), out _));
     }

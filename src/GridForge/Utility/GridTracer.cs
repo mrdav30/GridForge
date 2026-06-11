@@ -2,6 +2,7 @@
 using GridForge.Grids;
 using SwiftCollections;
 using SwiftCollections.Pool;
+using SwiftCollections.Utility;
 using System.Collections.Generic;
 
 namespace GridForge.Utility;
@@ -132,8 +133,7 @@ public static class GridTracer
         SwiftList<ScanCell> results,
         Fixed64? padding = null)
     {
-        if (results == null)
-            throw new System.ArgumentNullException(nameof(results));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -153,11 +153,8 @@ public static class GridTracer
         GridScanScratch scratch,
         Fixed64? padding = null)
     {
-        if (results == null)
-            throw new System.ArgumentNullException(nameof(results));
-
-        if (scratch == null)
-            throw new System.ArgumentNullException(nameof(scratch));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -419,16 +416,16 @@ public static class GridTracer
 
         Vector3d diff = traceEnd - traceStart;
         Vector3d delta = Vector3d.Abs(diff);
-        Fixed64 steps = FixedMath.Ceiling(FixedMath.Max(FixedMath.Max(delta.x, delta.y), delta.z));
+        Fixed64 steps = FixedMath.Ceil(FixedMath.Max(FixedMath.Max(delta.X, delta.Y), delta.Z));
 
         return new TraceLinePlan(
             snappedMin,
             snappedMax,
             traceStart,
             steps,
-            diff.x / (steps + Fixed64.One),
-            diff.y / (steps + Fixed64.One),
-            diff.z / (steps + Fixed64.One));
+            diff.X / (steps + Fixed64.One),
+            diff.Y / (steps + Fixed64.One),
+            diff.Z / (steps + Fixed64.One));
     }
 
     private static Vector3d CreateTraceEndpoint(
@@ -440,9 +437,9 @@ public static class GridTracer
     {
         // Preserve the caller's trace direction while still using snapped bounds for coverage lookup.
         return new Vector3d(
-            SelectTraceCoordinate(start.x, end.x, snappedMin.x, snappedMax.x, useMinWhenIncreasing),
-            SelectTraceCoordinate(start.y, end.y, snappedMin.y, snappedMax.y, useMinWhenIncreasing),
-            SelectTraceCoordinate(start.z, end.z, snappedMin.z, snappedMax.z, useMinWhenIncreasing));
+            SelectTraceCoordinate(start.X, end.X, snappedMin.X, snappedMax.X, useMinWhenIncreasing),
+            SelectTraceCoordinate(start.Y, end.Y, snappedMin.Y, snappedMax.Y, useMinWhenIncreasing),
+            SelectTraceCoordinate(start.Z, end.Z, snappedMin.Z, snappedMax.Z, useMinWhenIncreasing));
     }
 
     private static Fixed64 SelectTraceCoordinate(
@@ -494,9 +491,9 @@ public static class GridTracer
         {
             Vector3d tracePos = world.FloorToVoxelSize(
                 new Vector3d(
-                    plan.TraceStart.x + plan.StepX * i,
-                    plan.TraceStart.y + plan.StepY * i,
-                    plan.TraceStart.z + plan.StepZ * i));
+                    plan.TraceStart.X + plan.StepX * i,
+                    plan.TraceStart.Y + plan.StepY * i,
+                    plan.TraceStart.Z + plan.StepZ * i));
 
             if (!currentGrid.TryGetVoxel(tracePos, out Voxel? voxel) || voxelRedundancyCheck.Add(voxel!) != true)
                 continue;
@@ -608,11 +605,11 @@ public static class GridTracer
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
         Fixed64 resolution = world.VoxelSize;
-        for (Fixed64 x = snappedMin.x; x <= snappedMax.x; x += resolution)
+        for (Fixed64 x = snappedMin.X; x <= snappedMax.X; x += resolution)
         {
-            for (Fixed64 y = snappedMin.y; y <= snappedMax.y; y += resolution)
+            for (Fixed64 y = snappedMin.Y; y <= snappedMax.Y; y += resolution)
             {
-                for (Fixed64 z = snappedMin.z; z <= snappedMax.z; z += resolution)
+                for (Fixed64 z = snappedMin.Z; z <= snappedMax.Z; z += resolution)
                     TryAddCoveredVoxel(currentGrid, new Vector3d(x, y, z), voxelList, voxelRedundancyCheck);
             }
         }

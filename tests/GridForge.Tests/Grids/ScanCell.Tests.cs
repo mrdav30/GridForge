@@ -163,7 +163,7 @@ public class ScanCellTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(9, 9, 9), new Vector3d(10, 10, 10)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Vector3d position = new(9.5, 9.5, 9.5);
+        Vector3d position = Vector3d.FromDouble(9.5, 9.5, 9.5);
 
         var occupant1 = new TestOccupant(position, 1);
         var occupant2 = new TestOccupant(position, 2);
@@ -525,9 +525,9 @@ public class ScanCellTests : IDisposable
         grid.TryAddVoxelOccupant(distantOccupant);
 
         List<IVoxelOccupant> filteredResults = GridScanManager.ScanRadius(_world,
-            new Vector3d(7.5, 0, 7.5),
+            Vector3d.FromDouble(7.5, 0, 7.5),
             (Fixed64)2,
-            occupantCondition: occupant => occupant.Position.x >= (Fixed64)8)
+            occupantCondition: occupant => occupant.Position.X >= (Fixed64)8)
             .ToList();
 
         Assert.DoesNotContain(leftCellOccupant, filteredResults);

@@ -1,5 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Grids;
@@ -11,7 +12,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class BlockerApplyVsRemoveBenchmarks
 {
-    private BoundingArea[] _areas;
+    private FixedBoundArea[] _areas;
     private BoundsBlocker[] _blockers;
     private GridWorld _world;
 
