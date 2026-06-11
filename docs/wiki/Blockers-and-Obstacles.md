@@ -66,7 +66,11 @@ It owns:
 - the logic for applying, removing, and reapplying coverage
 - static blocker-level events for apply and remove notifications
 
-`BoundsBlocker` is the concrete world-space implementation currently in the repo. It wraps a `BoundingArea` and supplies the min and max bounds that the base class needs.
+`BoundsBlocker` is the concrete world-space implementation currently in the
+repo. It wraps a `FixedBoundArea` and supplies the min and max bounds that the
+base class needs. For flat XZ callers, it also accepts `Vector2d` bounds plus an
+optional `layerY`; those inputs are projected to layer-locked `Vector3d` bounds
+before the existing blocker flow runs.
 
 ## Apply Flow
 
@@ -190,6 +194,10 @@ Use direct obstacle APIs when:
 - you already know the exact target voxel
 - the mutation is truly voxel-local
 - you do not need blocker lifecycle behavior or bounds tracing
+
+The direct obstacle APIs also accept `Vector2d` positions. `Vector2d.X` maps to
+world X, `Vector2d.Y` maps to world Z, and `layerY` selects the world Y layer to
+mutate.
 
 ## Common Pitfalls
 

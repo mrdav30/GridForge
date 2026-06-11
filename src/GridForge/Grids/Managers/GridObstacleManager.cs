@@ -81,6 +81,31 @@ public static class GridObstacleManager
     }
 
     /// <summary>
+    /// Attempts to add an obstacle at the given XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="grid">The grid to mutate.</param>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="obstacleSpawnToken">The obstacle token to attach to the resolved voxel.</param>
+    /// <returns>True if an obstacle was added to the resolved voxel; otherwise false.</returns>
+    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, BoundsKey obstacleSpawnToken)
+    {
+        return grid.TryAddObstacle(position, default, obstacleSpawnToken);
+    }
+
+    /// <summary>
+    /// Attempts to add an obstacle at the given XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="grid">The grid to mutate.</param>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve.</param>
+    /// <param name="obstacleSpawnToken">The obstacle token to attach to the resolved voxel.</param>
+    /// <returns>True if an obstacle was added to the resolved voxel; otherwise false.</returns>
+    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, BoundsKey obstacleSpawnToken)
+    {
+        return grid.TryAddObstacle(GridPlane2d.ToWorld(position, layerY), obstacleSpawnToken);
+    }
+
+    /// <summary>
     /// Adds an obstacle to this voxel.
     /// </summary>
     /// <param name="grid"></param>
@@ -132,6 +157,31 @@ public static class GridObstacleManager
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
             && grid.TryRemoveObstacle(voxel!, obstacleSpawnToken);
+    }
+
+    /// <summary>
+    /// Attempts to remove an obstacle from the given XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="grid">The grid to mutate.</param>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="obstacleSpawnToken">The obstacle token to remove from the resolved voxel.</param>
+    /// <returns>True if the obstacle was removed from the resolved voxel; otherwise false.</returns>
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, BoundsKey obstacleSpawnToken)
+    {
+        return grid.TryRemoveObstacle(position, default, obstacleSpawnToken);
+    }
+
+    /// <summary>
+    /// Attempts to remove an obstacle from the given XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="grid">The grid to mutate.</param>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve.</param>
+    /// <param name="obstacleSpawnToken">The obstacle token to remove from the resolved voxel.</param>
+    /// <returns>True if the obstacle was removed from the resolved voxel; otherwise false.</returns>
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, BoundsKey obstacleSpawnToken)
+    {
+        return grid.TryRemoveObstacle(GridPlane2d.ToWorld(position, layerY), obstacleSpawnToken);
     }
 
     /// <summary>

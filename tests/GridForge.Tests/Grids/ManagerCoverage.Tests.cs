@@ -46,6 +46,36 @@ public class ManagerCoverageTests : IDisposable
     }
 
     [Fact]
+    public void ObstacleManager_ShouldSupportVector2dPositionOverloads()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 2, 3)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector2d position = new(1, 1);
+        BoundsKey defaultLayerToken = new(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
+        BoundsKey explicitLayerToken = new(new Vector3d(1, 2, 1), new Vector3d(1, 2, 1));
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel defaultLayerVoxel));
+        Assert.True(grid.TryGetVoxel(position, (Fixed64)2, out Voxel explicitLayerVoxel));
+        Assert.NotEqual(defaultLayerVoxel.WorldIndex, explicitLayerVoxel.WorldIndex);
+
+        Assert.True(grid.TryAddObstacle(position, defaultLayerToken));
+        Assert.True(grid.TryAddObstacle(position, (Fixed64)2, explicitLayerToken));
+
+        Assert.True(defaultLayerVoxel.IsBlocked);
+        Assert.True(explicitLayerVoxel.IsBlocked);
+        Assert.Equal(1, defaultLayerVoxel.ObstacleCount);
+        Assert.Equal(1, explicitLayerVoxel.ObstacleCount);
+
+        Assert.True(grid.TryRemoveObstacle(position, defaultLayerToken));
+        Assert.True(grid.TryRemoveObstacle(position, (Fixed64)2, explicitLayerToken));
+
+        Assert.False(defaultLayerVoxel.IsBlocked);
+        Assert.False(explicitLayerVoxel.IsBlocked);
+        Assert.False(grid.TryAddObstacle(new Vector2d(99, 99), defaultLayerToken));
+        Assert.False(grid.TryRemoveObstacle(position, (Fixed64)2, explicitLayerToken));
+    }
+
+    [Fact]
     public void OccupantManagerAndScanManager_ShouldSupportWrapperOverloads()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)), out ushort gridIndex);

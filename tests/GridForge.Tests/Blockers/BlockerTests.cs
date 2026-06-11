@@ -173,6 +173,123 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
+    public void BoundsBlocker_WithVector2dBounds_ShouldUseDefaultAndExplicitLayers()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 2, 3)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector2d position = new(1, 1);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel defaultLayerVoxel));
+        Assert.True(grid.TryGetVoxel(position, (Fixed64)2, out Voxel explicitLayerVoxel));
+
+        BoundsBlocker defaultLayerBlocker = new(_world, position, position);
+        BoundsBlocker explicitLayerBlocker = new(_world, position, position, layerY: (Fixed64)2);
+        BlockageEventInfo appliedEvent = default;
+        BlockageEventInfo removedEvent = default;
+
+        void HandleApplied(BlockageEventInfo eventInfo) => appliedEvent = eventInfo;
+        void HandleRemoved(BlockageEventInfo eventInfo) => removedEvent = eventInfo;
+
+        Blocker.OnBlockageApplied += HandleApplied;
+        Blocker.OnBlockageRemoved += HandleRemoved;
+
+        try
+        {
+            defaultLayerBlocker.ApplyBlockage();
+
+            Assert.True(defaultLayerVoxel.IsBlocked);
+            Assert.False(explicitLayerVoxel.IsBlocked);
+            Assert.Equal(new Vector3d(1, 0, 1), appliedEvent.BoundsMin);
+            Assert.Equal(new Vector3d(1, 0, 1), appliedEvent.BoundsMax);
+
+            explicitLayerBlocker.ApplyBlockage();
+
+            Assert.True(defaultLayerVoxel.IsBlocked);
+            Assert.True(explicitLayerVoxel.IsBlocked);
+            Assert.Equal(new Vector3d(1, 2, 1), appliedEvent.BoundsMin);
+            Assert.Equal(new Vector3d(1, 2, 1), appliedEvent.BoundsMax);
+
+            defaultLayerBlocker.RemoveBlockage();
+
+            Assert.False(defaultLayerVoxel.IsBlocked);
+            Assert.True(explicitLayerVoxel.IsBlocked);
+            Assert.Equal(new Vector3d(1, 0, 1), removedEvent.BoundsMin);
+            Assert.Equal(new Vector3d(1, 0, 1), removedEvent.BoundsMax);
+
+            explicitLayerBlocker.RemoveBlockage();
+        }
+        finally
+        {
+            Blocker.OnBlockageApplied -= HandleApplied;
+            Blocker.OnBlockageRemoved -= HandleRemoved;
+        }
+
+        Assert.False(defaultLayerVoxel.IsBlocked);
+        Assert.False(explicitLayerVoxel.IsBlocked);
+        Assert.Equal(new Vector3d(1, 2, 1), removedEvent.BoundsMin);
+        Assert.Equal(new Vector3d(1, 2, 1), removedEvent.BoundsMax);
+    }
+
+    [Fact]
+    public void BoundsBlocker_WithVector2dBounds_ShouldStackAndRemoveIndependently()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector2d position = new(1, 1);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+
+        BoundsBlocker firstBlocker = new(_world, position, position);
+        BoundsBlocker secondBlocker = new(_world, position, new Vector2d(2, 1));
+
+        firstBlocker.ApplyBlockage();
+        secondBlocker.ApplyBlockage();
+
+        Assert.True(voxel.IsBlocked);
+        Assert.Equal(2, voxel.ObstacleCount);
+
+        firstBlocker.RemoveBlockage();
+
+        Assert.True(voxel.IsBlocked);
+        Assert.Equal(1, voxel.ObstacleCount);
+
+        secondBlocker.RemoveBlockage();
+
+        Assert.False(voxel.IsBlocked);
+        Assert.Equal(0, voxel.ObstacleCount);
+    }
+
+    [Fact]
+    public void BoundsBlocker_WithVector2dBounds_ShouldApplyAcrossMultipleGridsAndRemoveCachedBlockage()
+    {
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(-2, 0, -2), new Vector3d(0, 0, 0)), out ushort firstGridIndex);
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2)), out ushort secondGridIndex);
+        VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
+
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(-1, 0, -1), out Voxel firstVoxel));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel secondVoxel));
+
+        BoundsBlocker blocker = new(
+            _world,
+            new Vector2d(-1, -1),
+            new Vector2d(1, 1),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(firstVoxel.IsBlocked);
+        Assert.True(secondVoxel.IsBlocked);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(firstVoxel.IsBlocked);
+        Assert.False(secondVoxel.IsBlocked);
+    }
+
+    [Fact]
     public void Blocker_ShouldCorrectlyAffectEdgeVoxels()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);

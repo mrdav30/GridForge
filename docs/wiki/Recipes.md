@@ -39,9 +39,10 @@ IVoxelOccupant[] enemiesInRange = GridScanManager.ScanRadius(
 
 ```csharp
 using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 
-BoundingArea footprint = new BoundingArea(
+FixedBoundArea footprint = new FixedBoundArea(
     new Vector3d(40, 0, 40),
     new Vector3d(48, 0, 48));
 
@@ -52,6 +53,17 @@ BoundsBlocker structureBlocker = new BoundsBlocker(
 
 structureBlocker.ApplyBlockage();
 structureBlocker.RemoveBlockage();
+```
+
+For an XZ-plane footprint, use `Vector2d` bounds and `layerY`:
+
+```csharp
+BoundsBlocker flatStructureBlocker = new BoundsBlocker(
+    world,
+    new Vector2d(40, 40),
+    new Vector2d(48, 48),
+    layerY: Fixed64.Zero,
+    cacheCoveredVoxels: true);
 ```
 
 ## Recipe 3: Paint Terrain Metadata Across A Region

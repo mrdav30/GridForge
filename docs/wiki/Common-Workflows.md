@@ -122,9 +122,10 @@ foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector
 
 ```csharp
 using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 
-BoundingArea blockedArea = new BoundingArea(
+FixedBoundArea blockedArea = new FixedBoundArea(
     new Vector3d(1, 0, 1),
     new Vector3d(3, 0, 3));
 
@@ -132,6 +133,20 @@ BoundsBlocker blocker = new BoundsBlocker(world, blockedArea);
 
 blocker.ApplyBlockage();
 blocker.RemoveBlockage();
+```
+
+For flat XZ blockers, pass `Vector2d` bounds and optional `layerY`:
+
+```csharp
+BoundsBlocker flatBlocker = new BoundsBlocker(
+    world,
+    new Vector2d(1, 1),
+    new Vector2d(3, 3),
+    layerY: Fixed64.Zero,
+    cacheCoveredVoxels: true);
+
+flatBlocker.ApplyBlockage();
+flatBlocker.RemoveBlockage();
 ```
 
 ## Workflow 6: Trace Covered Voxels For Custom Processing

@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Mostly additive. The only likely correction is documentation or signature cleanup around the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` overload.
 - Backwards compatibility: Existing `Vector3d` workflows must remain equivalent. Existing `GridTracer.TraceLine(Vector2d, Vector2d, padding, includeEnd)` call sites should not silently change the meaning of positional arguments.
-- Current state: Phase 0-3 complete; Phase 4 is next.
+- Current state: Phase 0-4 complete; Phase 5 is next.
 
 ## Locked Decisions
 
@@ -377,17 +377,17 @@ Likely files:
 
 Checklist:
 
-- [ ] Add `GridObstacleManager.TryAddObstacle(...)` overloads for `Vector2d` positions.
-- [ ] Add `GridObstacleManager.TryRemoveObstacle(...)` overloads for `Vector2d` positions.
-- [ ] Add `BoundsBlocker` 2D constructor or static factory that creates a layer-locked `FixedBoundArea`.
-- [ ] Ensure blocker apply/remove behavior matches equivalent explicit `Vector3d` bounds.
-- [ ] Add tests for default layer, explicit layer, stacked blockers, cached blocker removal, and multi-grid coverage.
-- [ ] Confirm blocker events still report `Vector3d` bounds because runtime event payloads remain 3D.
+- [x] Add `GridObstacleManager.TryAddObstacle(...)` overloads for `Vector2d` positions.
+- [x] Add `GridObstacleManager.TryRemoveObstacle(...)` overloads for `Vector2d` positions.
+- [x] Add `BoundsBlocker` 2D constructor or static factory that creates a layer-locked `FixedBoundArea`.
+- [x] Ensure blocker apply/remove behavior matches equivalent explicit `Vector3d` bounds.
+- [x] Add tests for default layer, explicit layer, stacked blockers, cached blocker removal, and multi-grid coverage.
+- [x] Confirm blocker events still report `Vector3d` bounds because runtime event payloads remain 3D.
 
 Exit criteria:
 
-- [ ] 2D obstacle/blocker helpers are convenience-only and reuse existing blocker token and event behavior.
-- [ ] Existing blocker behavior remains unchanged.
+- [x] 2D obstacle/blocker helpers are convenience-only and reuse existing blocker token and event behavior.
+- [x] Existing blocker behavior remains unchanged.
 
 Validation:
 
@@ -395,6 +395,17 @@ Validation:
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "Blocker|Obstacle|ManagerCoverage"
 ```
+
+2026-06-11 validation:
+
+- `dotnet restore GridForge.slnx` - pass; all projects up-to-date.
+- `dotnet build GridForge.slnx --configuration Debug` - pass; 0 warnings, 0 errors.
+- `dotnet test GridForge.slnx --configuration Debug --no-build --filter "Blocker|Obstacle|ManagerCoverage"` - pass; 51 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` - pass; 222 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration Release` - pass; 224 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration ReleaseLean` - pass; 224 passed, 0 failed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` - pass; 4 tests.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list` - pass; benchmark catalog resolved, including blocker selections.
 
 ## Phase 5: Documentation And Examples
 
