@@ -230,6 +230,37 @@ public class ScanCell
     }
 
     /// <summary>
+    /// Appends occupants within the XZ squared radius on the selected local Y voxel layer.
+    /// </summary>
+    internal void AddOccupantsWithinRadius2dTo(
+        SwiftList<IVoxelOccupant> results,
+        Vector3d position,
+        int localLayerY,
+        Fixed64 squaredRadius,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null)
+    {
+        if (_voxelOccupants == null)
+            return;
+
+        foreach (var kvp in _voxelOccupants)
+        {
+            if (kvp.Key.VoxelIndex.y != localLayerY)
+                continue;
+
+            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
+            foreach (IVoxelOccupant occupant in bucket)
+            {
+                if (OccupantPassesFilters(occupant, occupantCondition, groupCondition)
+                    && GridPlane2d.DistanceSquaredXZ(occupant.Position, position) <= squaredRadius)
+                {
+                    results.Add(occupant);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Appends typed occupants within the squared radius to caller-owned storage without LINQ.
     /// </summary>
     internal void AddOccupantsWithinRadiusTo<T>(
@@ -252,6 +283,40 @@ public class ScanCell
 
                 if (TryGetTypedOccupantWithinRadius(occupant, position, squaredRadius, out T typedOccupant))
                     results.Add(typedOccupant);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Appends typed occupants within the XZ squared radius on the selected local Y voxel layer.
+    /// </summary>
+    internal void AddOccupantsWithinRadius2dTo<T>(
+        SwiftList<T> results,
+        Vector3d position,
+        int localLayerY,
+        Fixed64 squaredRadius,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
+    {
+        if (_voxelOccupants == null)
+            return;
+
+        foreach (var kvp in _voxelOccupants)
+        {
+            if (kvp.Key.VoxelIndex.y != localLayerY)
+                continue;
+
+            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
+            foreach (IVoxelOccupant occupant in bucket)
+            {
+                if (!OccupantPassesFilters(occupant, occupantCondition, groupCondition))
+                    continue;
+
+                if (occupant is T typedOccupant
+                    && GridPlane2d.DistanceSquaredXZ(occupant.Position, position) <= squaredRadius)
+                {
+                    results.Add(typedOccupant);
+                }
             }
         }
     }

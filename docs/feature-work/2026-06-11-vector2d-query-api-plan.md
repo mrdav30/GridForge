@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Mostly additive. The only likely correction is documentation or signature cleanup around the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` overload.
 - Backwards compatibility: Existing `Vector3d` workflows must remain equivalent. Existing `GridTracer.TraceLine(Vector2d, Vector2d, padding, includeEnd)` call sites should not silently change the meaning of positional arguments.
-- Current state: Phase 0-2 complete; Phase 3 is next.
+- Current state: Phase 0-3 complete; Phase 4 is next.
 
 ## Locked Decisions
 
@@ -329,21 +329,21 @@ Likely files:
 
 Checklist:
 
-- [ ] Add untyped `ScanRadius(...)` and `ScanRadiusInto(...)` overloads for `Vector2d`.
-- [ ] Add typed `ScanRadius<T>(...)` and `ScanRadiusInto<T>(...)` overloads for `Vector2d`.
-- [ ] Add scratch overloads for caller-owned scan-cell storage.
-- [ ] Implement internal 2D scan append methods that enumerate candidate scan cells on the selected layer.
-- [ ] Add exact filtering that rejects occupants from different resolved Y layers.
-- [ ] Add XZ squared-distance filtering that ignores vertical offset after the layer check.
-- [ ] Add tests with occupants inside radius on the same layer, outside radius on the same layer, and inside XZ radius on a different Y layer.
-- [ ] Add tests proving 2D scans and 3D scans intentionally differ when vertical offset is present.
-- [ ] Add allocation-focused tests for caller-owned result paths if the existing scan allocation tests can be extended cleanly.
+- [x] Add untyped `ScanRadius(...)` and `ScanRadiusInto(...)` overloads for `Vector2d`.
+- [x] Add typed `ScanRadius<T>(...)` and `ScanRadiusInto<T>(...)` overloads for `Vector2d`.
+- [x] Add scratch overloads for caller-owned scan-cell storage.
+- [x] Implement internal 2D scan append methods that enumerate candidate scan cells on the selected layer.
+- [x] Add exact filtering that rejects occupants from different resolved Y layers.
+- [x] Add XZ squared-distance filtering that ignores vertical offset after the layer check.
+- [x] Add tests with occupants inside radius on the same layer, outside radius on the same layer, and inside XZ radius on a different Y layer.
+- [x] Add tests proving 2D scans and 3D scans intentionally differ when vertical offset is present.
+- [x] Add allocation-focused tests for caller-owned result paths if the existing scan allocation tests can be extended cleanly.
 
 Exit criteria:
 
-- [ ] `ScanRadius(Vector2d, ...)` behaves like a layer-locked 2D circle query.
-- [ ] It does not return occupants from other Y layers, even when scan cells span multiple vertical voxels.
-- [ ] Typed, untyped, scratch, and non-scratch scan paths share the same semantics.
+- [x] `ScanRadius(Vector2d, ...)` behaves like a layer-locked 2D circle query.
+- [x] It does not return occupants from other Y layers, even when scan cells span multiple vertical voxels.
+- [x] Typed, untyped, scratch, and non-scratch scan paths share the same semantics.
 
 Validation:
 
@@ -351,6 +351,18 @@ Validation:
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "ScanRadius|ScanCell|ManagerCoverage"
 ```
+
+2026-06-11 validation:
+
+- `dotnet restore GridForge.slnx` - pass; all projects up-to-date.
+- `dotnet build GridForge.slnx --configuration Debug` - pass; 0 warnings, 0 errors.
+- `dotnet test GridForge.slnx --configuration Debug --no-build --filter "ScanRadius|ScanCell|ManagerCoverage"` - pass; 53 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` - pass; 218 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration Release` - pass; 220 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration ReleaseLean` - pass; 220 passed, 0 failed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` - pass; 4 tests.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list` - pass; confirmed `scan-radius-memory` selection.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- scan-radius-memory --filter '*' --job short` - pass; warm pool allocation stayed low (`320 B` default toolchain, `1616 B` in-process). BenchmarkDotNet reported the expected short-run minimum-iteration-time warning.
 
 ## Phase 4: Add 2D Obstacle And Blocker Conveniences
 

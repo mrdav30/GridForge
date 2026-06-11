@@ -108,6 +108,16 @@ foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector
 }
 ```
 
+For flat XZ scans, pass a `Vector2d` center and optional `layerY`. The scan
+uses XZ distance and rejects occupants on other Y layers.
+
+```csharp
+foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector2d(0, 0), (Fixed64)5, layerY: Fixed64.Zero))
+{
+    Console.WriteLine(occupant.Position);
+}
+```
+
 ## Workflow 5: Apply And Remove A Bounds-Based Blocker
 
 ```csharp

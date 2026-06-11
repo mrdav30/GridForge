@@ -84,6 +84,20 @@ At a high level it does this:
 5. apply optional occupant and group filters
 6. apply the final squared-distance check
 
+`Vector2d` scan overloads use the same overlay, but they are layer-locked XZ
+circle queries:
+
+- `Vector2d.X` maps to world X
+- `Vector2d.Y` maps to world Z
+- `layerY` maps to world Y and defaults to `0`
+- candidate bounds expand on X and Z only
+- occupants from other resolved Y voxel layers are rejected before XZ distance
+  checks
+
+That means `ScanRadius(world, new Vector2d(...), radius, layerY: ...)` can
+intentionally differ from a 3D sphere scan when an occupant is vertically close
+but not on the selected layer.
+
 So the query gets cheaper in layers:
 
 - coarse world-space region

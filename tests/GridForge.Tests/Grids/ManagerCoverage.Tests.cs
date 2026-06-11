@@ -434,13 +434,14 @@ public class ManagerCoverageTests : IDisposable
     public void ScanRadiusIntoOverloads_ShouldValidateInputsAndUseScratchAndTypedPaths()
     {
         _world.TryAddGrid(
-            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 0, 8), scanCellSize: 2),
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8), scanCellSize: 2),
             out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         TestOccupant targetOccupant = new(new Vector3d(1, 0, 1), 1);
         SharedIdOccupant alternateOccupant = new(Guid.NewGuid(), new Vector3d(1, 0, 1), 1);
         TestOccupant filteredGroupOccupant = new(new Vector3d(2, 0, 2), 2);
         TestOccupant outsideRadiusOccupant = new(new Vector3d(8, 0, 8), 1);
+        TestOccupant otherLayerOccupant = new(new Vector3d(1, 1, 1), 1);
         SwiftList<IVoxelOccupant> untypedResults = new();
         SwiftList<TestOccupant> typedResults = new();
         GridScanScratch scratch = new();
@@ -451,6 +452,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(outsideRadiusOccupant));
 
         Assert.Empty(GridScanManager.ScanRadius(null, Vector3d.Zero, Fixed64.One).ToArray());
+        Assert.Empty(GridScanManager.ScanRadius(null, Vector2d.Zero, Fixed64.One).ToArray());
         Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
             _world,
             Vector3d.Zero,
@@ -468,6 +470,17 @@ public class ManagerCoverageTests : IDisposable
             Fixed64.One,
             untypedResults,
             (GridScanScratch)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector2d.Zero,
+            Fixed64.One,
+            (SwiftList<IVoxelOccupant>)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
+            _world,
+            Vector2d.Zero,
+            Fixed64.One,
+            untypedResults,
+            (GridScanScratch)null));
         Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto<TestOccupant>(
             _world,
             Vector3d.Zero,
@@ -482,6 +495,17 @@ public class ManagerCoverageTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto(
             _world,
             Vector3d.Zero,
+            Fixed64.One,
+            typedResults,
+            (GridScanScratch)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector2d.Zero,
+            Fixed64.One,
+            (SwiftList<TestOccupant>)null));
+        Assert.Throws<ArgumentNullException>(() => GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector2d.Zero,
             Fixed64.One,
             typedResults,
             (GridScanScratch)null));
@@ -509,6 +533,56 @@ public class ManagerCoverageTests : IDisposable
         Assert.Single(typedResults);
         Assert.Same(targetOccupant, typedResults[0]);
 
+        Assert.True(grid.TryAddVoxelOccupant(otherLayerOccupant));
+
+        GridScanManager.ScanRadiusInto(
+            _world,
+            Vector2d.Zero,
+            (Fixed64)3,
+            untypedResults,
+            scratch,
+            occupantCondition: occupant => !ReferenceEquals(occupant, alternateOccupant),
+            groupCondition: groupId => groupId == 1);
+
+        Assert.Single(untypedResults);
+        Assert.Same(targetOccupant, untypedResults[0]);
+
+        TestOccupant[] typedEnumerable = GridScanManager.ScanRadius<TestOccupant>(
+                _world,
+                Vector2d.Zero,
+                (Fixed64)3,
+                occupantCondition: occupant => !ReferenceEquals(occupant, filteredGroupOccupant),
+                groupCondition: groupId => groupId == 1)
+            .ToArray();
+
+        Assert.Single(typedEnumerable);
+        Assert.Same(targetOccupant, typedEnumerable[0]);
+
+        GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector2d.Zero,
+            (Fixed64)3,
+            typedResults,
+            layerY: Fixed64.Zero,
+            occupantCondition: occupant => !ReferenceEquals(occupant, filteredGroupOccupant),
+            groupCondition: groupId => groupId == 1);
+
+        Assert.Single(typedResults);
+        Assert.Same(targetOccupant, typedResults[0]);
+
+        GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector2d.Zero,
+            (Fixed64)3,
+            typedResults,
+            scratch,
+            layerY: Fixed64.Zero,
+            occupantCondition: occupant => !ReferenceEquals(occupant, filteredGroupOccupant),
+            groupCondition: groupId => groupId == 1);
+
+        Assert.Single(typedResults);
+        Assert.Same(targetOccupant, typedResults[0]);
+
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
         inactiveWorld.Dispose();
         untypedResults.Add(targetOccupant);
@@ -525,6 +599,15 @@ public class ManagerCoverageTests : IDisposable
 
         GridScanManager.ScanRadiusInto(inactiveWorld, Vector3d.Zero, Fixed64.One, untypedResults);
         GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector3d.Zero, Fixed64.One, typedResults, scratch);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(inactiveWorld, Vector2d.Zero, Fixed64.One, untypedResults);
+        GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector2d.Zero, Fixed64.One, typedResults, scratch);
 
         Assert.Empty(untypedResults);
         Assert.Empty(typedResults);

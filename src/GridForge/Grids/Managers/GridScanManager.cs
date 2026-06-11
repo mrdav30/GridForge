@@ -34,6 +34,23 @@ public static class GridScanManager
     }
 
     /// <summary>
+    /// Scans for occupants within a 2D XZ radius on the supplied world Y layer.
+    /// </summary>
+    public static IEnumerable<IVoxelOccupant> ScanRadius(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null)
+    {
+        if (world == null || !world.IsActive)
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        return ScanRadius2dIterator(world, position, radius, layerY, occupantCondition, groupCondition);
+    }
+
+    /// <summary>
     /// Scans for occupants of a specific type within a given radius in the supplied world.
     /// </summary>
     public static IEnumerable<T> ScanRadius<T>(
@@ -44,6 +61,20 @@ public static class GridScanManager
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
         return ScanRadius(world, position, radius, occupantCondition, groupCondition).OfType<T>();
+    }
+
+    /// <summary>
+    /// Scans for occupants of a specific type within a 2D XZ radius on the supplied world Y layer.
+    /// </summary>
+    public static IEnumerable<T> ScanRadius<T>(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
+    {
+        return ScanRadius(world, position, radius, layerY, occupantCondition, groupCondition).OfType<T>();
     }
 
     /// <summary>
@@ -64,6 +95,27 @@ public static class GridScanManager
             return;
 
         AddRadiusOccupantsTo(world, position, radius, results, occupantCondition, groupCondition);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with occupants within a 2D XZ radius on the supplied world Y layer.
+    /// </summary>
+    public static void ScanRadiusInto(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        SwiftList<IVoxelOccupant> results,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddRadiusOccupants2dTo(world, position, radius, layerY, results, occupantCondition, groupCondition);
     }
 
     /// <summary>
@@ -89,6 +141,29 @@ public static class GridScanManager
     }
 
     /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections for a 2D XZ radius.
+    /// </summary>
+    public static void ScanRadiusInto(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        SwiftList<IVoxelOccupant> results,
+        GridScanScratch scratch,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddRadiusOccupants2dTo(world, position, radius, layerY, results, scratch, occupantCondition, groupCondition);
+    }
+
+    /// <summary>
     /// Clears and fills caller-owned storage with typed occupants within the supplied radius.
     /// </summary>
     public static void ScanRadiusInto<T>(
@@ -106,6 +181,27 @@ public static class GridScanManager
             return;
 
         AddRadiusOccupantsTo(world, position, radius, results, occupantCondition, groupCondition);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned typed storage with occupants within a 2D XZ radius on the supplied world Y layer.
+    /// </summary>
+    public static void ScanRadiusInto<T>(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        SwiftList<T> results,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddRadiusOccupants2dTo(world, position, radius, layerY, results, occupantCondition, groupCondition);
     }
 
     /// <summary>
@@ -128,6 +224,29 @@ public static class GridScanManager
             return;
 
         AddRadiusOccupantsTo(world, position, radius, results, scratch, occupantCondition, groupCondition);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned typed storage using caller-owned scratch collections for a 2D XZ radius.
+    /// </summary>
+    public static void ScanRadiusInto<T>(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        SwiftList<T> results,
+        GridScanScratch scratch,
+        Fixed64 layerY = default,
+        Func<IVoxelOccupant, bool>? occupantCondition = null,
+        Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddRadiusOccupants2dTo(world, position, radius, layerY, results, scratch, occupantCondition, groupCondition);
     }
 
     #endregion
@@ -362,6 +481,31 @@ public static class GridScanManager
         }
     }
 
+    private static IEnumerable<IVoxelOccupant> ScanRadius2dIterator(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
+        SwiftList<IVoxelOccupant> results = SwiftListPool<IVoxelOccupant>.Shared.Rent();
+
+        try
+        {
+            ScanRadiusInto(world, position, radius, results, layerY, occupantCondition, groupCondition);
+
+            foreach (IVoxelOccupant result in results)
+            {
+                yield return result;
+            }
+        }
+        finally
+        {
+            SwiftListPool<IVoxelOccupant>.Shared.Release(results);
+        }
+    }
+
     private static void AddRadiusOccupantsTo(
         GridWorld world,
         Vector3d position,
@@ -392,6 +536,38 @@ public static class GridScanManager
         }
     }
 
+    private static void AddRadiusOccupants2dTo(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY,
+        SwiftList<IVoxelOccupant> results,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
+        Fixed64 squaredRadius = radius * radius;
+        Vector3d center = GridPlane2d.ToWorld(position, layerY);
+        Vector3d boundsMin = new(center.X - radius, center.Y, center.Z - radius);
+        Vector3d boundsMax = new(center.X + radius, center.Y, center.Z + radius);
+        SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
+
+        try
+        {
+            GridTracer.AddCoveredScanCellsTo(world, boundsMin, boundsMax, scanCells);
+
+            for (int i = 0; i < scanCells.Count; i++)
+            {
+                ScanCell scanCell = scanCells[i];
+                if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
+                    scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+            }
+        }
+        finally
+        {
+            SwiftListPool<ScanCell>.Shared.Release(scanCells);
+        }
+    }
+
     private static void AddRadiusOccupantsTo(
         GridWorld world,
         Vector3d position,
@@ -412,6 +588,31 @@ public static class GridScanManager
             ScanCell scanCell = scratch.ScanCells[i];
             if (scanCell.IsOccupied)
                 scanCell.AddOccupantsWithinRadiusTo(results, position, squaredRadius, occupantCondition, groupCondition);
+        }
+    }
+
+    private static void AddRadiusOccupants2dTo(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY,
+        SwiftList<IVoxelOccupant> results,
+        GridScanScratch scratch,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
+        Fixed64 squaredRadius = radius * radius;
+        Vector3d center = GridPlane2d.ToWorld(position, layerY);
+        Vector3d boundsMin = new(center.X - radius, center.Y, center.Z - radius);
+        Vector3d boundsMax = new(center.X + radius, center.Y, center.Z + radius);
+
+        GridTracer.AddCoveredScanCellsTo(world, boundsMin, boundsMax, scratch.ScanCells, scratch);
+
+        for (int i = 0; i < scratch.ScanCells.Count; i++)
+        {
+            ScanCell scanCell = scratch.ScanCells[i];
+            if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
+                scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
         }
     }
 
@@ -445,6 +646,38 @@ public static class GridScanManager
         }
     }
 
+    private static void AddRadiusOccupants2dTo<T>(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY,
+        SwiftList<T> results,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition) where T : IVoxelOccupant
+    {
+        Fixed64 squaredRadius = radius * radius;
+        Vector3d center = GridPlane2d.ToWorld(position, layerY);
+        Vector3d boundsMin = new(center.X - radius, center.Y, center.Z - radius);
+        Vector3d boundsMax = new(center.X + radius, center.Y, center.Z + radius);
+        SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
+
+        try
+        {
+            GridTracer.AddCoveredScanCellsTo(world, boundsMin, boundsMax, scanCells);
+
+            for (int i = 0; i < scanCells.Count; i++)
+            {
+                ScanCell scanCell = scanCells[i];
+                if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
+                    scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+            }
+        }
+        finally
+        {
+            SwiftListPool<ScanCell>.Shared.Release(scanCells);
+        }
+    }
+
     private static void AddRadiusOccupantsTo<T>(
         GridWorld world,
         Vector3d position,
@@ -466,6 +699,45 @@ public static class GridScanManager
             if (scanCell.IsOccupied)
                 scanCell.AddOccupantsWithinRadiusTo(results, position, squaredRadius, occupantCondition, groupCondition);
         }
+    }
+
+    private static void AddRadiusOccupants2dTo<T>(
+        GridWorld world,
+        Vector2d position,
+        Fixed64 radius,
+        Fixed64 layerY,
+        SwiftList<T> results,
+        GridScanScratch scratch,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition) where T : IVoxelOccupant
+    {
+        Fixed64 squaredRadius = radius * radius;
+        Vector3d center = GridPlane2d.ToWorld(position, layerY);
+        Vector3d boundsMin = new(center.X - radius, center.Y, center.Z - radius);
+        Vector3d boundsMax = new(center.X + radius, center.Y, center.Z + radius);
+
+        GridTracer.AddCoveredScanCellsTo(world, boundsMin, boundsMax, scratch.ScanCells, scratch);
+
+        for (int i = 0; i < scratch.ScanCells.Count; i++)
+        {
+            ScanCell scanCell = scratch.ScanCells[i];
+            if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
+                scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+        }
+    }
+
+    private static bool TryGetScanCellLocalLayerY(
+        GridWorld world,
+        ScanCell scanCell,
+        Fixed64 layerY,
+        out int localLayerY)
+    {
+        localLayerY = -1;
+        if (!world.TryGetGrid(scanCell.GridIndex, out VoxelGrid? grid))
+            return false;
+
+        localLayerY = ((layerY - grid!.BoundsMin.Y) / world.VoxelSize).FloorToInt();
+        return (uint)localLayerY < (uint)grid.Height;
     }
 
     #endregion

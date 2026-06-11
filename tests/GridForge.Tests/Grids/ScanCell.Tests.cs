@@ -216,6 +216,51 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void ScanRadius2D_ShouldLockToSelectedLayerAndUseXzDistance()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(5, 3, 5), scanCellSize: 4),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector2d scanCenter = new(0, 0);
+        Fixed64 scanRadius = (Fixed64)2;
+        TestOccupant sameLayerInside = new(new Vector3d(1, 0, 1), 1);
+        TestOccupant sameLayerOutside = new(new Vector3d(4, 0, 4), 1);
+        TestOccupant otherLayerInsideXz = new(new Vector3d(1, 1, 1), 1);
+
+        Assert.True(grid.TryAddVoxelOccupant(sameLayerInside));
+        Assert.True(grid.TryAddVoxelOccupant(sameLayerOutside));
+        Assert.True(grid.TryAddVoxelOccupant(otherLayerInsideXz));
+
+        IVoxelOccupant[] results = GridScanManager.ScanRadius(_world, scanCenter, scanRadius).ToArray();
+
+        Assert.Contains(sameLayerInside, results);
+        Assert.DoesNotContain(sameLayerOutside, results);
+        Assert.DoesNotContain(otherLayerInsideXz, results);
+    }
+
+    [Fact]
+    public void ScanRadius2D_ShouldDifferFrom3DScanWhenVerticalOffsetIsInsideSphere()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(5, 3, 5), scanCellSize: 4),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector2d scanCenter2D = new(0, 0);
+        Vector3d scanCenter3D = GridPlane2d.ToWorld(scanCenter2D);
+        Fixed64 scanRadius = (Fixed64)2;
+        TestOccupant otherLayerInside3dRadius = new(new Vector3d(1, 1, 1), 1);
+
+        Assert.True(grid.TryAddVoxelOccupant(otherLayerInside3dRadius));
+
+        IVoxelOccupant[] twoDimensionalResults = GridScanManager.ScanRadius(_world, scanCenter2D, scanRadius).ToArray();
+        IVoxelOccupant[] threeDimensionalResults = GridScanManager.ScanRadius(_world, scanCenter3D, scanRadius).ToArray();
+
+        Assert.DoesNotContain(otherLayerInside3dRadius, twoDimensionalResults);
+        Assert.Contains(otherLayerInside3dRadius, threeDimensionalResults);
+    }
+
+    [Fact]
     public void ScanRadius_ShouldFilterByGroupCondition()
     {
         // Arrange
@@ -315,6 +360,45 @@ public class ScanCellTests : IDisposable
         Assert.True(
             allocated < 512,
             $"Expected steady-state scan allocation below 512 bytes, but allocated {allocated} bytes.");
+    }
+
+    [Fact]
+    public void ScanRadiusInto2D_ShouldAvoidSteadyStateAllocation()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(31, 1, 31), scanCellSize: 8),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        for (int z = 0; z < 8; z++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                var occupant = new TestOccupant(new Vector3d(x, 0, z), (byte)((x + z) & 1));
+                grid.TryAddVoxelOccupant(occupant);
+            }
+        }
+
+        Vector2d scanCenter = new(4, 4);
+        Fixed64 scanRadius = (Fixed64)7;
+        SwiftList<IVoxelOccupant> results = new();
+        GridScanScratch scratch = new();
+
+        GridScanManager.ScanRadiusInto(_world, scanCenter, scanRadius, results, scratch);
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 256; i++)
+            GridScanManager.ScanRadiusInto(_world, scanCenter, scanRadius, results, scratch);
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(
+            allocated < 512,
+            $"Expected steady-state 2D scan allocation below 512 bytes, but allocated {allocated} bytes.");
     }
 #endif
 
