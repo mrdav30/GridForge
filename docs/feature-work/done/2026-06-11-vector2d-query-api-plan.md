@@ -13,9 +13,11 @@
 ## Status
 
 - Started: 2026-06-11
+- Completed: 2026-06-11
 - Release posture: Mostly additive. The only likely correction is documentation or signature cleanup around the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` overload.
 - Backwards compatibility: Existing `Vector3d` workflows must remain equivalent. Existing `GridTracer.TraceLine(Vector2d, Vector2d, padding, includeEnd)` call sites should not silently change the meaning of positional arguments.
-- Current state: Phase 0-4 complete; Phase 5 is next.
+- Current state: Phase 0-6 complete; ready to archive under `docs/feature-work/done`.
+- Follow-up plan: Not needed; no remaining scoped work was identified.
 
 ## Locked Decisions
 
@@ -26,7 +28,7 @@
 - `layerY` maps to world `Vector3d.Y` and defaults to `default(Fixed64)`, which is zero.
 - 2D radius scans are layer-locked XZ scans. They must not behave like 3D sphere scans centered at the lifted position.
 - 2D scan filtering must require the occupant to be on the same resolved Y layer before applying XZ squared-distance checks.
-- `IVoxelOccupant.Position` remains `Vector3d` in the first release.
+- `IVoxelOccupant.Position` is the world-space `Vector3d` bridge GridForge consumes; flat simulations can store `Vector2d` position plus `Fixed64` height and compute `Position` from those values.
 - Query APIs should feel seamless: a caller should not care whether they supplied `Vector2d` or `Vector3d` except for explicit 2D layer semantics.
 - Keep the core library engine-agnostic. Unity integration belongs outside this repository.
 
@@ -188,7 +190,7 @@ Candidate additions:
 - `GridObstacleManager.TryRemoveObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, BoundsKey token)`
 - `BoundsBlocker` constructor or static factory accepting 2D bounds plus `layerY`
 
-Do not add a world-level occupant registration overload that accepts `Vector2d` in the first release because `IVoxelOccupant.Position` is currently the source of truth and remains `Vector3d`.
+Do not add a world-level occupant registration overload that accepts `Vector2d` in the first release. GridForge registers occupants from the projected world-space `IVoxelOccupant.Position`; flat consumers can own split `Vector2d` plus height state and compute that projection at the interface boundary.
 
 ## Behavior Matrix
 
@@ -427,18 +429,18 @@ Likely files:
 
 Checklist:
 
-- [ ] Add a concise README note that 2D simulations use XZ coordinates with `layerY` defaulting to zero.
-- [ ] Add wiki examples for `TryGetVoxel(Vector2d)`, `TraceLine(Vector2d)`, `ScanRadius(Vector2d)`, and a 2D `BoundsBlocker`.
-- [ ] Document that `IVoxelOccupant.Position` remains `Vector3d`.
-- [ ] Document that 2D scans are layer-locked and use XZ distance.
-- [ ] Document the difference between 2D convenience APIs and future topology support.
-- [ ] Update XML docs for every new public API.
-- [ ] Run wiki link rewrite tests if links change.
+- [x] Add a concise README note that 2D simulations use XZ coordinates with `layerY` defaulting to zero.
+- [x] Add wiki examples for `TryGetVoxel(Vector2d)`, `TraceLine(Vector2d)`, `ScanRadius(Vector2d)`, and a 2D `BoundsBlocker`.
+- [x] Document flat occupant storage as `Vector2d` position plus `Fixed64` height, with `IVoxelOccupant.Position` as the projected world-space bridge.
+- [x] Document that 2D scans are layer-locked and use XZ distance.
+- [x] Document the difference between 2D convenience APIs and future topology support.
+- [x] Update XML docs for every new public API.
+- [x] Run wiki link rewrite tests if links change.
 
 Exit criteria:
 
-- [ ] README, wiki, XML docs, and tests tell the same 2D projection story.
-- [ ] Users can write flat 2D simulation code without repeated `new Vector3d(x, 0, z)` conversions.
+- [x] README, wiki, XML docs, and tests tell the same 2D projection story.
+- [x] Users can write flat 2D simulation code without repeated `new Vector3d(x, 0, z)` conversions.
 
 Validation:
 
@@ -448,6 +450,13 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py
 git diff --check
 ```
+
+2026-06-11 validation:
+
+- `dotnet build GridForge.slnx --configuration Debug` - pass; 0 warnings, 0 errors.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` - pass; 222 passed, 0 failed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` - pass; 4 tests.
+- `git diff --check` - pass.
 
 ## Phase 6: Performance Check
 
@@ -468,22 +477,40 @@ Benchmark scenarios:
 
 Checklist:
 
-- [ ] Run existing tests and allocation-focused scan tests first.
-- [ ] Add benchmarks only if the implementation adds new hot-path loops or measurable filtering overhead.
-- [ ] Confirm 2D scan layer filtering avoids avoidable allocations.
-- [ ] Confirm helper methods are inline-friendly and do not use LINQ in hot paths.
+- [x] Run existing tests and allocation-focused scan tests first.
+- [x] Add benchmarks only if the implementation adds new hot-path loops or measurable filtering overhead.
+- [x] Confirm 2D scan layer filtering avoids avoidable allocations.
+- [x] Confirm helper methods are inline-friendly and do not use LINQ in hot paths.
 
 Exit criteria:
 
-- [ ] 2D helpers are allocation-conscious.
-- [ ] Any added scan overhead is documented and justified by correct layer-locked semantics.
+- [x] 2D helpers are allocation-conscious.
+- [x] Any added scan overhead is documented and justified by correct layer-locked semantics.
 
 Validation:
 
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*Scan*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- vector2d-lookup --filter '*'
 ```
+
+2026-06-11 validation:
+
+- `dotnet test GridForge.slnx --configuration Release --filter "ScanRadius|ScanCell|ManagerCoverage"` - pass; 56 passed, 0 failed, including non-Debug allocation-focused scan tests.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list` - pass; benchmark catalog resolved, including `vector2d-lookup`.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*Scan*'` - pass; 6 scan benchmarks executed after adding Vector2d scan coverage.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- grid-tracer --filter '*'` - pass; 8 tracer benchmarks executed with paired Vector3d and Vector2d coverage/trace paths.
+- `dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- vector2d-lookup --filter '*'` - pass; paired TryGetVoxel Vector3d and Vector2d lookup benchmarks executed.
+
+Benchmark notes:
+
+- 2D scan benchmarks include neighboring-layer occupants so the resolved-layer rejection path is exercised.
+- Warm `ScanRadius(Vector2d)` measured `1280 B` allocated in the short run, matching the existing warm enumerable scan allocation profile.
+- Warm caller-owned `ScanRadiusInto(Vector2d, ..., GridScanScratch)` measured `960 B` allocated after priming caller-owned storage.
+- Warm Vector2d coverage and trace benchmarks matched the existing warm allocation profile (`1.8 KB` for coverage, `1.81 KB` for line tracing).
+- Vector2d lookup measured `903.8 us` for 1024 lookups with no measured allocation, versus `880.0 us` and `960 B` for equivalent Vector3d lookup in the short run.
+- BenchmarkDotNet reported the expected short-run minimum-iteration-time warnings; these results are smoke/performance guardrails, not long-run statistical baselines.
 
 ## Test Matrix
 
@@ -513,6 +540,26 @@ Minimum 2D API coverage before release:
 - cached 2D blocker removal
 - multi-grid 2D coverage
 - Release and ReleaseLean build and test coverage
+
+## Archive Validation
+
+Final verification before moving this plan to `docs/feature-work/done`:
+
+- `dotnet build GridForge.slnx --configuration Debug` - pass; 0 warnings, 0 errors.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` - pass; 222 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration Release` - pass; 224 passed, 0 failed.
+- `dotnet test GridForge.slnx --configuration ReleaseLean` - pass; 224 passed, 0 failed.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` - pass; 4 tests.
+- `git diff --check` - pass.
+- `rg -n "[ \t]+$" ...` across touched docs and benchmark files - pass; no trailing whitespace matches.
+
+Post-review documentation revision:
+
+- Replaced legacy occupant wording with the split-storage guidance: flat consumers may store `Vector2d` position plus `Fixed64` height and compute `IVoxelOccupant.Position` at the GridForge boundary.
+- `dotnet build GridForge.slnx --configuration Debug` - pass; 0 warnings, 0 errors.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` - pass; 4 tests.
+- `git diff --check` - pass.
+- `rg -n "[ \t]+$" ...` across revised docs - pass; no trailing whitespace matches.
 
 ## Risk Register
 

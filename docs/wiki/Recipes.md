@@ -64,6 +64,9 @@ BoundsBlocker flatStructureBlocker = new BoundsBlocker(
     new Vector2d(48, 48),
     layerY: Fixed64.Zero,
     cacheCoveredVoxels: true);
+
+flatStructureBlocker.ApplyBlockage();
+flatStructureBlocker.RemoveBlockage();
 ```
 
 ## Recipe 3: Paint Terrain Metadata Across A Region

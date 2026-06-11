@@ -12,6 +12,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Explicit world-scoped registration and lookup through `GridWorld`
 - Snapped world-space bounds through `GridConfiguration` normalization at registration time
 - Fast proximity and coverage queries via voxels and scan cells
+- 2D-friendly XZ projection helpers for flat simulations without a separate runtime model
 - Obstacle, blocker, occupant, and partition workflows
 - Allocation-conscious internals backed by pooling and `SwiftCollections`
 - Cross-target support for `netstandard2.1` and `net8.0`
@@ -72,6 +73,10 @@ The most important architectural reality is that GridForge is world-scoped. If s
 - state owned by one explicit `GridWorld`
 - a static manager API that still requires a `GridWorld` argument
 - a convenience layer over world-owned grids, voxels, scan cells, blockers, or occupants
+
+For flat 2D simulations, `Vector2d` APIs are a convenience projection over this
+same 3D runtime. `Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and
+`layerY` selects world Y with a default of `0`.
 
 ## Architecture At A Glance
 

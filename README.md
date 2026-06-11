@@ -101,11 +101,12 @@ if (world.TryGetGridAndVoxel(position, out VoxelGrid resolvedGrid, out Voxel vox
 }
 ```
 
-For flat XZ workflows, lookup APIs also accept `Vector2d` positions. In
+For flat XZ simulations, lookup APIs also accept `Vector2d` positions. In
 GridForge, `Vector2d(x, z)` maps to world `Vector3d(x, layerY, z)`, with
-`layerY` defaulting to `0`. Tracing and coverage helpers use the same XZ-plane
-projection; 2D radius scans, obstacle helpers, and bounds blockers stay locked
-to the selected layer.
+`layerY` defaulting to `0`. Tracing, coverage, radius scans, obstacle helpers,
+and bounds blockers use the same XZ-plane projection and stay locked to the
+selected layer. This is a convenience layer over the 3D voxel runtime, not a
+separate 2D grid type.
 
 The key mental model is:
 

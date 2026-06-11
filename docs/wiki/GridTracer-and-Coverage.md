@@ -40,6 +40,17 @@ The `Vector2d` overloads are convenience APIs over the same 3D world model:
 and `includeEnd` argument order. Supply `layerY` by name when using the 2D trace
 overload with nonzero layers.
 
+```csharp
+Vector2d start = new Vector2d(-2, -2);
+Vector2d end = new Vector2d(2, 2);
+
+foreach (GridVoxelSet covered in GridTracer.TraceLine(world, start, end, layerY: Fixed64.Zero))
+{
+    foreach (Voxel voxel in covered.Voxels)
+        Console.WriteLine(voxel.WorldPosition);
+}
+```
+
 ## Why Coverage Is Grouped By Grid
 
 Coverage often crosses more than one grid. Returning grouped results preserves that reality.

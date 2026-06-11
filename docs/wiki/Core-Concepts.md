@@ -39,8 +39,10 @@ GridForge constantly moves between three different coordinate views:
 For 2D-friendly lookup APIs, GridForge treats `Vector2d(x, z)` as a convenience
 projection over the same 3D runtime model: `Vector2d.X` maps to world X,
 `Vector2d.Y` maps to world Z, and `layerY` maps to world Y. 2D radius scans use
-XZ distance and reject occupants from other resolved Y layers. `IVoxelOccupant`
-positions remain `Vector3d`.
+XZ distance and reject occupants from other resolved Y layers. Flat simulation
+occupants can store `Vector2d` position plus `Fixed64` height and expose
+`IVoxelOccupant.Position` as the world-space projection GridForge consumes.
+These overloads are intentionally not a separate 2D topology or grid type.
 
 Snapping is a core behavior:
 

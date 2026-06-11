@@ -15,6 +15,8 @@ Keep these rules in mind before writing any code:
 - `GridWorld` is the runtime owner of grid state.
 - `GridConfiguration` is input data. Bounds are snapped when a world normalizes and registers the grid.
 - Core grid math uses `FixedMathSharp` types such as `Fixed64` and `Vector3d`.
+- Flat XZ convenience APIs use `Vector2d` plus an optional `layerY`, but the
+  runtime model remains the same 3D voxel world.
 - Dispose or reset a world explicitly when you need a clean boundary.
 
 ## Install The Package
@@ -102,6 +104,15 @@ Use these helpers based on what you need:
 Each lookup also has `Vector2d` overloads for flat XZ workflows. `Vector2d.X`
 maps to world X, `Vector2d.Y` maps to world Z, and the optional `layerY`
 parameter selects world Y. If omitted, `layerY` is `0`.
+
+```csharp
+Vector2d flatPosition = new Vector2d(2, -3);
+
+if (world.TryGetVoxel(flatPosition, out Voxel flatVoxel))
+{
+    Console.WriteLine($"Flat voxel: {flatVoxel.Index}");
+}
+```
 
 ## 4. Customize Voxel And Scan Granularity
 

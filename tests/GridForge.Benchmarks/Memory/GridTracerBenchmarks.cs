@@ -16,6 +16,10 @@ public class GridTracerBenchmarks
     private Vector3d _coverageMax;
     private Vector3d _lineStart;
     private Vector3d _lineEnd;
+    private Vector2d _coverageMin2d;
+    private Vector2d _coverageMax2d;
+    private Vector2d _lineStart2d;
+    private Vector2d _lineEnd2d;
 
     [IterationSetup(Target = nameof(GetCoveredVoxels_ColdPools))]
     public void SetupCoverageColdIteration()
@@ -29,6 +33,18 @@ public class GridTracerBenchmarks
         InitializeScenario(clearAllPools: false);
     }
 
+    [IterationSetup(Target = nameof(GetCoveredVoxels2D_ColdPools))]
+    public void SetupCoverage2DColdIteration()
+    {
+        InitializeScenario(clearAllPools: true);
+    }
+
+    [IterationSetup(Target = nameof(GetCoveredVoxels2D_WarmPools))]
+    public void SetupCoverage2DWarmIteration()
+    {
+        InitializeScenario(clearAllPools: false);
+    }
+
     [IterationSetup(Target = nameof(TraceLine_ColdPools))]
     public void SetupTraceColdIteration()
     {
@@ -37,6 +53,18 @@ public class GridTracerBenchmarks
 
     [IterationSetup(Target = nameof(TraceLine_WarmPools))]
     public void SetupTraceWarmIteration()
+    {
+        InitializeScenario(clearAllPools: false);
+    }
+
+    [IterationSetup(Target = nameof(TraceLine2D_ColdPools))]
+    public void SetupTrace2DColdIteration()
+    {
+        InitializeScenario(clearAllPools: true);
+    }
+
+    [IterationSetup(Target = nameof(TraceLine2D_WarmPools))]
+    public void SetupTrace2DWarmIteration()
     {
         InitializeScenario(clearAllPools: false);
     }
@@ -61,6 +89,20 @@ public class GridTracerBenchmarks
         return ExecuteCoveredVoxelTrace();
     }
 
+    [Benchmark(Description = "GetCoveredVoxels Vector2d with cold pools")]
+    [BenchmarkCategory("Memory", "Pooling", "GridTracerCoverage", "Vector2d")]
+    public int GetCoveredVoxels2D_ColdPools()
+    {
+        return ExecuteCoveredVoxelTrace2D();
+    }
+
+    [Benchmark(Description = "GetCoveredVoxels Vector2d with warm pools")]
+    [BenchmarkCategory("Memory", "Pooling", "GridTracerCoverage", "Vector2d")]
+    public int GetCoveredVoxels2D_WarmPools()
+    {
+        return ExecuteCoveredVoxelTrace2D();
+    }
+
     [Benchmark(Description = "TraceLine with cold pools")]
     [BenchmarkCategory("Memory", "Pooling", "GridTracerLine")]
     public int TraceLine_ColdPools()
@@ -73,6 +115,20 @@ public class GridTracerBenchmarks
     public int TraceLine_WarmPools()
     {
         return ExecuteLineTrace();
+    }
+
+    [Benchmark(Description = "TraceLine Vector2d with cold pools")]
+    [BenchmarkCategory("Memory", "Pooling", "GridTracerLine", "Vector2d")]
+    public int TraceLine2D_ColdPools()
+    {
+        return ExecuteLineTrace2D();
+    }
+
+    [Benchmark(Description = "TraceLine Vector2d with warm pools")]
+    [BenchmarkCategory("Memory", "Pooling", "GridTracerLine", "Vector2d")]
+    public int TraceLine2D_WarmPools()
+    {
+        return ExecuteLineTrace2D();
     }
 
     private void InitializeScenario(bool clearAllPools)
@@ -95,6 +151,10 @@ public class GridTracerBenchmarks
         _coverageMax = new Vector3d(104, 0, 104);
         _lineStart = new Vector3d(8, 0, 8);
         _lineEnd = new Vector3d(120, 0, 120);
+        _coverageMin2d = new Vector2d(24, 24);
+        _coverageMax2d = new Vector2d(104, 104);
+        _lineStart2d = new Vector2d(8, 8);
+        _lineEnd2d = new Vector2d(120, 120);
     }
 
     private int ExecuteCoveredVoxelTrace()
@@ -107,12 +167,45 @@ public class GridTracerBenchmarks
         return voxelCount;
     }
 
+    private int ExecuteCoveredVoxelTrace2D()
+    {
+        int voxelCount = 0;
+
+        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(
+            _world,
+            _coverageMin2d,
+            _coverageMax2d,
+            layerY: Fixed64.Zero))
+        {
+            voxelCount += covered.Voxels.Count;
+        }
+
+        return voxelCount;
+    }
+
     private int ExecuteLineTrace()
     {
         int voxelCount = 0;
 
         foreach (GridVoxelSet traced in GridTracer.TraceLine(_world, _lineStart, _lineEnd, includeEnd: true))
             voxelCount += traced.Voxels.Count;
+
+        return voxelCount;
+    }
+
+    private int ExecuteLineTrace2D()
+    {
+        int voxelCount = 0;
+
+        foreach (GridVoxelSet traced in GridTracer.TraceLine(
+            _world,
+            _lineStart2d,
+            _lineEnd2d,
+            includeEnd: true,
+            layerY: Fixed64.Zero))
+        {
+            voxelCount += traced.Voxels.Count;
+        }
 
         return voxelCount;
     }

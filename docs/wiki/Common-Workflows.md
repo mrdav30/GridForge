@@ -53,6 +53,11 @@ selects the world Y layer. Omitting `layerY` resolves on world Y `0`.
 ```csharp
 Vector2d flatPosition = new Vector2d(2, -3);
 
+if (world.TryGetVoxel(flatPosition, out Voxel defaultLayerVoxel))
+{
+    Console.WriteLine($"Default-layer voxel: {defaultLayerVoxel.Index}");
+}
+
 if (world.TryGetGridAndVoxel(flatPosition, (Fixed64)1, out VoxelGrid flatGrid, out Voxel flatVoxel))
 {
     Console.WriteLine($"Grid: {flatGrid.GridIndex}");
@@ -85,19 +90,44 @@ using GridForge.Spatial;
 
 public sealed class UnitOccupant : IVoxelOccupant
 {
+    private Vector2d _position2d;
+    private Fixed64 _height;
+
     public Guid GlobalId { get; } = Guid.NewGuid();
-    public Vector3d Position { get; set; }
     public byte OccupantGroupId { get; }
 
-    public UnitOccupant(Vector3d position, byte occupantGroupId)
+    public Vector2d Position2d
     {
-        Position = position;
+        get => _position2d;
+        set => _position2d = value;
+    }
+
+    public Fixed64 Height
+    {
+        get => _height;
+        set => _height = value;
+    }
+
+    public Vector3d Position
+    {
+        get => _position2d.ToVector3d(_height);
+        set
+        {
+            _position2d = new Vector2d(value.X, value.Z);
+            _height = value.Y;
+        }
+    }
+
+    public UnitOccupant(Vector2d position2d, Fixed64 height, byte occupantGroupId)
+    {
+        _position2d = position2d;
+        _height = height;
         OccupantGroupId = occupantGroupId;
     }
 }
 
-UnitOccupant ally = new UnitOccupant(new Vector3d(1, 0, 1), 1);
-UnitOccupant enemy = new UnitOccupant(new Vector3d(3, 0, 3), 2);
+UnitOccupant ally = new UnitOccupant(new Vector2d(1, 1), Fixed64.Zero, 1);
+UnitOccupant enemy = new UnitOccupant(new Vector2d(3, 3), Fixed64.Zero, 2);
 
 GridOccupantManager.TryRegister(world, ally);
 GridOccupantManager.TryRegister(world, enemy);
@@ -117,6 +147,10 @@ foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector
     Console.WriteLine(occupant.Position);
 }
 ```
+
+For flat simulations, an occupant can store its native state as
+`Vector2d Position2d` plus `Fixed64 Height` and expose `Position` as the
+world-space projection that GridForge uses for registration and scan filtering.
 
 ## Workflow 5: Apply And Remove A Bounds-Based Blocker
 

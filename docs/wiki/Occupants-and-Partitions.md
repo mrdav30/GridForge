@@ -28,8 +28,13 @@ They are built for durable voxel-local extensions such as terrain tags, domain-s
 It requires:
 
 - `GlobalId` for stable identity
-- `Position` for world-space resolution
+- `Position` as the world-space projection GridForge uses for resolution
 - `OccupantGroupId` for grouped query filtering
+
+For flat simulations, an occupant can store its native state as `Vector2d`
+position plus `Fixed64` height, then compute `Position` from those values. The
+2D APIs project query input onto the XZ plane with `layerY`, and GridForge uses
+the projected world-space `Position` for registration and exact scan filtering.
 
 GridForge owns occupancy bookkeeping internally. If you need to inspect what GridForge is currently tracking for an occupant, use:
 
