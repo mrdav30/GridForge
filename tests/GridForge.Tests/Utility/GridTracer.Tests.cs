@@ -110,6 +110,64 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void TraceLine2D_ShouldMatchEquivalentVector3dTraceOnExplicitLayer()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8)),
+            out _));
+        Vector2d start = Vector2d.FromDouble(1.2, 1.2);
+        Vector2d end = Vector2d.FromDouble(6.8, 4.8);
+        Fixed64 layerY = (Fixed64)2;
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            GridPlane2d.ToWorld(start, layerY),
+            GridPlane2d.ToWorld(end, layerY),
+            includeEnd: true));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            start,
+            end,
+            includeEnd: true,
+            layerY: layerY));
+
+        Assert.Equal(expected, actual);
+        Assert.All(actual, index => Assert.Equal(2, index.VoxelIndex.y));
+    }
+
+    [Fact]
+    public void TraceLine2D_ShouldPreservePositionalPaddingAndIncludeEndMeaning()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 0, 8)),
+            out _));
+        Vector2d start = new(1, 1);
+        Vector2d end = new(5, 1);
+        Fixed64 padding = Fixed64.One;
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            GridPlane2d.ToWorld(start),
+            GridPlane2d.ToWorld(end),
+            padding,
+            includeEnd: false));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            start,
+            end,
+            padding,
+            includeEnd: false));
+        WorldVoxelIndex[] unpadded = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            GridPlane2d.ToWorld(start),
+            GridPlane2d.ToWorld(end),
+            includeEnd: false));
+
+        Assert.Equal(expected, actual);
+        Assert.NotEqual(unpadded, actual);
+    }
+
+    [Fact]
     public void TraceLine_ShouldFullyCoverAllVoxelsBetweenTwoPoints()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10)), out ushort gridIndex);
@@ -206,6 +264,68 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void GetCoveredVoxels2D_ShouldMatchEquivalentVector3dBounds()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(6, 2, 6)),
+            out _));
+        Vector2d boundsMin = new(1, 1);
+        Vector2d boundsMax = new(3, 4);
+        Fixed64 layerY = (Fixed64)2;
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            GridPlane2d.ToWorld(boundsMin, layerY),
+            GridPlane2d.ToWorld(boundsMax, layerY)));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            boundsMin,
+            boundsMax,
+            layerY));
+
+        Assert.Equal(expected, actual);
+        Assert.All(actual, index => Assert.Equal(2, index.VoxelIndex.y));
+    }
+
+    [Fact]
+    public void GetCoveredVoxels2D_ShouldHandleDescendingBoundsPaddingAndMultiGridCoverage()
+    {
+        ResetWorld(spatialGridCellSize: 4);
+
+        try
+        {
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)),
+                out ushort firstGridIndex));
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(new Vector3d(4, 0, 0), new Vector3d(7, 0, 3)),
+                out ushort secondGridIndex));
+            Vector2d boundsMin = Vector2d.FromDouble(4.2, 2.2);
+            Vector2d boundsMax = Vector2d.FromDouble(2.8, 0.8);
+            Fixed64 padding = Fixed64.One;
+
+            WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+                _world,
+                GridPlane2d.ToWorld(boundsMin),
+                GridPlane2d.ToWorld(boundsMax),
+                padding));
+            WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+                _world,
+                boundsMin,
+                boundsMax,
+                padding: padding));
+
+            Assert.Equal(expected, actual);
+            Assert.Contains(actual, index => index.GridIndex == firstGridIndex);
+            Assert.Contains(actual, index => index.GridIndex == secondGridIndex);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
     public void GetCoveredScanCells_ShouldUsePaddedSnappedBoundsForSpatialHashLookup()
     {
         ResetWorld(spatialGridCellSize: 10);
@@ -228,6 +348,43 @@ public class GridTracerTests : IDisposable
         {
             ResetWorld();
         }
+    }
+
+    [Fact]
+    public void GetCoveredScanCells2D_ShouldMatchEnumerableAndCallerOwnedVector3dPaths()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8), scanCellSize: 2),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell staleCell));
+        Vector2d boundsMin = new(1, 1);
+        Vector2d boundsMax = new(5, 5);
+        Fixed64 layerY = (Fixed64)2;
+        SwiftList<ScanCell> results = new();
+        GridScanScratch scratch = new();
+
+        (ushort GridIndex, int CellKey)[] expected = CopyCoveredScanCells(GridTracer.GetCoveredScanCells(
+            _world,
+            GridPlane2d.ToWorld(boundsMin, layerY),
+            GridPlane2d.ToWorld(boundsMax, layerY)));
+        (ushort GridIndex, int CellKey)[] actual = CopyCoveredScanCells(GridTracer.GetCoveredScanCells(
+            _world,
+            boundsMin,
+            boundsMax,
+            layerY));
+
+        Assert.Equal(expected, actual);
+
+        results.Add(staleCell);
+        GridTracer.GetCoveredScanCellsInto(_world, boundsMin, boundsMax, results, layerY);
+        Assert.Equal(expected, CopyCoveredScanCells(results));
+        Assert.DoesNotContain(staleCell, results);
+
+        results.Add(staleCell);
+        GridTracer.GetCoveredScanCellsInto(_world, boundsMin, boundsMax, results, scratch, layerY);
+        Assert.Equal(expected, CopyCoveredScanCells(results));
+        Assert.DoesNotContain(staleCell, results);
     }
 
     [Fact]
@@ -484,5 +641,28 @@ public class GridTracerTests : IDisposable
     {
         _world.Dispose();
         _world = GridWorldTestFactory.CreateWorld(voxelSize, spatialGridCellSize);
+    }
+
+    private static WorldVoxelIndex[] CopyCoveredVoxelIndices(IEnumerable<GridVoxelSet> coveredSets)
+    {
+        List<WorldVoxelIndex> indices = new();
+
+        foreach (GridVoxelSet coveredSet in coveredSets)
+        {
+            foreach (Voxel voxel in coveredSet.Voxels)
+                indices.Add(voxel.WorldIndex);
+        }
+
+        return indices.ToArray();
+    }
+
+    private static (ushort GridIndex, int CellKey)[] CopyCoveredScanCells(IEnumerable<ScanCell> scanCells)
+    {
+        List<(ushort GridIndex, int CellKey)> cells = new();
+
+        foreach (ScanCell scanCell in scanCells)
+            cells.Add((scanCell.GridIndex, scanCell.CellKey));
+
+        return cells.ToArray();
     }
 }

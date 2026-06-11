@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Grids;
+using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
 using SwiftCollections.Utility;
@@ -70,20 +71,29 @@ public static class GridTracer
     }
 
     /// <summary>
-    /// Traces a 2D line between two points in the supplied world, snapping them to grid coordinates.
+    /// Traces a 2D XZ-plane line between two points in the supplied world, snapping them to grid coordinates.
     /// </summary>
     /// <remarks>
-    /// This method projects the 2D line onto the X-Y plane and follows the closest grid-aligned path.
+    /// This method maps <see cref="Vector2d.X"/> to world X, <see cref="Vector2d.Y"/> to world Z,
+    /// and <paramref name="layerY"/> to world Y. The default layer is world Y = 0.
     /// </remarks>
+    /// <param name="world">The world whose grids should be traced.</param>
+    /// <param name="start">Starting XZ-plane position in world space.</param>
+    /// <param name="end">Ending XZ-plane position in world space.</param>
+    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
+    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the traced path.</returns>
     public static IEnumerable<GridVoxelSet> TraceLine(
         GridWorld world,
         Vector2d start,
         Vector2d end,
         Fixed64? padding = null,
-        bool includeEnd = true)
+        bool includeEnd = true,
+        Fixed64 layerY = default)
     {
-        Vector3d start3D = start.ToVector3d(Fixed64.Zero);
-        Vector3d end3D = end.ToVector3d(Fixed64.Zero);
+        Vector3d start3D = GridPlane2d.ToWorld(start, layerY);
+        Vector3d end3D = GridPlane2d.ToWorld(end, layerY);
 
         return TraceLine(world, start3D, end3D, padding, includeEnd);
     }
@@ -101,6 +111,26 @@ public static class GridTracer
             return System.Array.Empty<GridVoxelSet>();
 
         return GetCoveredVoxelsIterator(world, boundsMin, boundsMax, padding);
+    }
+
+    /// <summary>
+    /// Retrieves all grid voxels covered by the given XZ-plane bounding area on the supplied world Y layer.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the covered voxels.</returns>
+    public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        return GetCoveredVoxels(world, min, max, padding);
     }
 
     /// <summary>
@@ -124,6 +154,26 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Retrieves all scan cells within the given XZ-plane bounding area on the supplied world Y layer.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
+    public static IEnumerable<ScanCell> GetCoveredScanCells(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        return GetCoveredScanCells(world, min, max, padding);
+    }
+
+    /// <summary>
     /// Clears and fills caller-owned storage with scan cells covered by the supplied bounding area.
     /// </summary>
     public static void GetCoveredScanCellsInto(
@@ -140,6 +190,21 @@ public static class GridTracer
             return;
 
         AddCoveredScanCellsTo(world, boundsMin, boundsMax, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with scan cells covered by the supplied XZ-plane bounding area.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        SwiftList<ScanCell> results,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        GetCoveredScanCellsInto(world, min, max, results, padding);
     }
 
     /// <summary>
@@ -161,6 +226,22 @@ public static class GridTracer
             return;
 
         AddCoveredScanCellsTo(world, boundsMin, boundsMax, results, scratch, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane bounding area.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        SwiftList<ScanCell> results,
+        GridScanScratch scratch,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        GetCoveredScanCellsInto(world, min, max, results, scratch, padding);
     }
 
     /// <summary>

@@ -11,9 +11,12 @@ Several higher-level systems depend on the same answer:
 `GridTracer` exposes world-scoped entry points such as:
 
 - `TraceLine(GridWorld world, Vector3d start, Vector3d end, ...)`
-- `TraceLine(GridWorld world, Vector2d start, Vector2d end, ...)`
+- `TraceLine(GridWorld world, Vector2d start, Vector2d end, ..., layerY: ...)`
 - `GetCoveredVoxels(GridWorld world, Vector3d boundsMin, Vector3d boundsMax, ...)`
+- `GetCoveredVoxels(GridWorld world, Vector2d boundsMin, Vector2d boundsMax, layerY: ...)`
 - `GetCoveredScanCells(GridWorld world, Vector3d boundsMin, Vector3d boundsMax, ...)`
+- `GetCoveredScanCells(GridWorld world, Vector2d boundsMin, Vector2d boundsMax, layerY: ...)`
+- `GetCoveredScanCellsInto(...)` for caller-owned scan-cell result storage
 
 ## The Common Coverage Pipeline
 
@@ -24,6 +27,18 @@ world-space input
   -> enumerate covered voxels or scan cells
   -> group or yield results
 ```
+
+## 2D XZ Projection
+
+The `Vector2d` overloads are convenience APIs over the same 3D world model:
+
+- `Vector2d.X` maps to world X
+- `Vector2d.Y` maps to world Z
+- `layerY` maps to world Y and defaults to `0`
+
+`TraceLine(Vector2d, Vector2d, ...)` keeps the existing positional `padding`
+and `includeEnd` argument order. Supply `layerY` by name when using the 2D trace
+overload with nonzero layers.
 
 ## Why Coverage Is Grouped By Grid
 

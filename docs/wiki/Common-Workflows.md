@@ -141,6 +141,19 @@ foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(world, areaMin, are
 }
 ```
 
+For flat XZ workflows, pass `Vector2d` bounds and an optional `layerY`:
+
+```csharp
+Vector2d flatMin = new Vector2d(-2, -2);
+Vector2d flatMax = new Vector2d(2, 2);
+
+foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(world, flatMin, flatMax, layerY: Fixed64.Zero))
+{
+    foreach (Voxel voxel in covered.Voxels)
+        Console.WriteLine(voxel.WorldPosition);
+}
+```
+
 Consume each `GridVoxelSet` immediately inside the enumeration. The `Voxels` list is backed by pooled storage and should be treated as transient query data.
 
 ## Workflow 7: Reset Or Tear Down A World Between Scenarios

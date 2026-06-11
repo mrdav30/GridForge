@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Mostly additive. The only likely correction is documentation or signature cleanup around the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` overload.
 - Backwards compatibility: Existing `Vector3d` workflows must remain equivalent. Existing `GridTracer.TraceLine(Vector2d, Vector2d, padding, includeEnd)` call sites should not silently change the meaning of positional arguments.
-- Current state: Phase 0-1 complete; Phase 2 is next.
+- Current state: Phase 0-2 complete; Phase 3 is next.
 
 ## Locked Decisions
 
@@ -287,19 +287,19 @@ Likely files:
 
 Checklist:
 
-- [ ] Correct the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` XML docs so they say XZ plane with `layerY`, not X-Y plane.
-- [ ] Preserve existing `padding` and `includeEnd` call-site behavior.
-- [ ] Add explicit-layer support for `TraceLine(Vector2d, Vector2d, ...)` without ambiguous overloads.
-- [ ] Add `GetCoveredVoxels(...)` overloads accepting `Vector2d` bounds and `layerY`.
-- [ ] Add `GetCoveredScanCells(...)` overloads accepting `Vector2d` bounds and `layerY`.
-- [ ] Add caller-owned `GetCoveredScanCellsInto(...)` overloads for 2D bounds.
-- [ ] Add tests for default layer, explicit layer, descending bounds, padding, include-end behavior, and multi-grid coverage.
+- [x] Correct the existing `GridTracer.TraceLine(Vector2d, Vector2d, ...)` XML docs so they say XZ plane with `layerY`, not X-Y plane.
+- [x] Preserve existing `padding` and `includeEnd` call-site behavior.
+- [x] Add explicit-layer support for `TraceLine(Vector2d, Vector2d, ...)` without ambiguous overloads.
+- [x] Add `GetCoveredVoxels(...)` overloads accepting `Vector2d` bounds and `layerY`.
+- [x] Add `GetCoveredScanCells(...)` overloads accepting `Vector2d` bounds and `layerY`.
+- [x] Add caller-owned `GetCoveredScanCellsInto(...)` overloads for 2D bounds.
+- [x] Add tests for default layer, explicit layer, descending bounds, padding, include-end behavior, and multi-grid coverage.
 
 Exit criteria:
 
-- [ ] 2D tracing and coverage produce the same voxels as equivalent explicit `Vector3d` calls on the selected layer.
-- [ ] Existing 2D trace tests remain meaningful and documentation matches behavior.
-- [ ] Caller-owned scan-cell paths support 2D inputs without extra steady-state allocations.
+- [x] 2D tracing and coverage produce the same voxels as equivalent explicit `Vector3d` calls on the selected layer.
+- [x] Existing 2D trace tests remain meaningful and documentation matches behavior.
+- [x] Caller-owned scan-cell paths support 2D inputs without extra steady-state allocations.
 
 Validation:
 
@@ -307,6 +307,14 @@ Validation:
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridTracer"
 ```
+
+Phase 2 validation on 2026-06-11:
+
+- `dotnet restore GridForge.slnx` passed.
+- `dotnet build GridForge.slnx --configuration Debug` passed with 0 warnings.
+- `dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridTracer"` passed: 20 tests.
+- `dotnet test GridForge.slnx --configuration Debug --no-build` passed: 216 tests.
+- `PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py` passed: 4 tests.
 
 ## Phase 3: Add Layer-Locked 2D Radius Scans
 
