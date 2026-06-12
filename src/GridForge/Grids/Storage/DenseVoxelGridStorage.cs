@@ -87,6 +87,62 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         }
     }
 
+    public void AddVoxelsInIndexRange(
+        VoxelIndex min,
+        VoxelIndex max,
+        SwiftList<Voxel> results,
+        SwiftHashSet<Voxel> redundancy)
+    {
+        if (Voxels == null)
+            return;
+
+        for (int x = min.x; x <= max.x; x++)
+        {
+            for (int y = min.y; y <= max.y; y++)
+            {
+                for (int z = min.z; z <= max.z; z++)
+                {
+                    Voxel voxel = Voxels[x, y, z];
+                    if (voxel != null && redundancy.Add(voxel))
+                        results.Add(voxel);
+                }
+            }
+        }
+    }
+
+    public void AddScanCellsInRange(
+        VoxelGrid grid,
+        int xMin,
+        int yMin,
+        int zMin,
+        int xMax,
+        int yMax,
+        int zMax,
+        SwiftList<ScanCell> results,
+        SwiftHashSet<ScanCell> redundancy)
+    {
+        if (ScanCells == null)
+            return;
+
+        for (int x = xMin; x <= xMax; x++)
+        {
+            for (int y = yMin; y <= yMax; y++)
+            {
+                for (int z = zMin; z <= zMax; z++)
+                {
+                    int scanCellKey = grid.GetScanCellKey(x, y, z);
+                    if (scanCellKey >= 0
+                        && ScanCells.TryGetValue(scanCellKey, out ScanCell? scanCell)
+                        && scanCell != null
+                        && redundancy.Add(scanCell))
+                    {
+                        results.Add(scanCell);
+                    }
+                }
+            }
+        }
+    }
+
     public void InvalidateBoundaryVoxels(
         int xStart,
         int xEnd,

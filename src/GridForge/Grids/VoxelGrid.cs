@@ -673,6 +673,14 @@ public class VoxelGrid
     public IEnumerable<Voxel> EnumerateVoxels() =>
         _storage?.EnumerateVoxels() ?? Array.Empty<Voxel>();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void AddVoxelsInIndexRange(
+        VoxelIndex min,
+        VoxelIndex max,
+        SwiftList<Voxel> results,
+        SwiftHashSet<Voxel> redundancy) =>
+        _storage?.AddVoxelsInIndexRange(min, max, results, redundancy);
+
     /// <summary>
     /// Retrieves a grid voxel from a given coordinate.
     /// </summary>
@@ -791,6 +799,27 @@ public class VoxelGrid
         return TryGetVoxel(voxelIndex, out Voxel? voxel)
             && TryGetScanCell(voxel!.ScanCellKey, out outScanCell);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void AddScanCellsInRange(
+        int xMin,
+        int yMin,
+        int zMin,
+        int xMax,
+        int yMax,
+        int zMax,
+        SwiftList<ScanCell> results,
+        SwiftHashSet<ScanCell> redundancy) =>
+        _storage?.AddScanCellsInRange(
+            this,
+            xMin,
+            yMin,
+            zMin,
+            xMax,
+            yMax,
+            zMax,
+            results,
+            redundancy);
 
     /// <summary>
     /// Enumerates all currently active scan cells within the grid.

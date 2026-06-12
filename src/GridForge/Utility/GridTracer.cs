@@ -369,12 +369,21 @@ public static class GridTracer
         SwiftList<ScanCell> scanCells,
         SwiftHashSet<ScanCell> voxelRedundancyCheck)
     {
-        (Vector3d snappedMin, Vector3d snappedMax) = currentGrid.NormalizeBounds(queryMin, queryMax);
-        (int xMin, int yMin, int zMin) = currentGrid.SnapToScanCell(snappedMin);
-        (int xMax, int yMax, int zMax) = currentGrid.SnapToScanCell(snappedMax);
-
-        AddScanCellsInRange(
+        if (!TryGetCoveredScanCellRange(
             currentGrid,
+            queryMin,
+            queryMax,
+            out int xMin,
+            out int yMin,
+            out int zMin,
+            out int xMax,
+            out int yMax,
+            out int zMax))
+        {
+            return;
+        }
+
+        currentGrid.AddScanCellsInRange(
             xMin,
             yMin,
             zMin,
@@ -383,47 +392,6 @@ public static class GridTracer
             zMax,
             scanCells,
             voxelRedundancyCheck);
-    }
-
-    private static void AddScanCellsInRange(
-        VoxelGrid currentGrid,
-        int xMin,
-        int yMin,
-        int zMin,
-        int xMax,
-        int yMax,
-        int zMax,
-        SwiftList<ScanCell> scanCells,
-        SwiftHashSet<ScanCell> voxelRedundancyCheck)
-    {
-        for (int x = xMin; x <= xMax; x++)
-        {
-            for (int y = yMin; y <= yMax; y++)
-            {
-                for (int z = zMin; z <= zMax; z++)
-                    TryAddScanCell(currentGrid, x, y, z, scanCells, voxelRedundancyCheck);
-            }
-        }
-    }
-
-    private static bool TryAddScanCell(
-        VoxelGrid currentGrid,
-        int x,
-        int y,
-        int z,
-        SwiftList<ScanCell> scanCells,
-        SwiftHashSet<ScanCell> voxelRedundancyCheck)
-    {
-        int scanCellKey = currentGrid.GetScanCellKey(x, y, z);
-        if (scanCellKey == -1
-            || !currentGrid.TryGetScanCell(scanCellKey, out ScanCell? scanCell)
-            || voxelRedundancyCheck.Add(scanCell!) != true)
-        {
-            return false;
-        }
-
-        scanCells.Add(scanCell!);
-        return true;
     }
 
     private static IEnumerable<GridVoxelSet> TraceLineIterator(
@@ -435,6 +403,7 @@ public static class GridTracer
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
+        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
 
         try
         {
@@ -444,7 +413,8 @@ public static class GridTracer
                 end,
                 padding,
                 gridVoxelMapping,
-                voxelRedundancyCheck);
+                voxelRedundancyCheck,
+                processedGrids);
 
             AddTraceLineEndVoxel(
                 world,
@@ -460,6 +430,7 @@ public static class GridTracer
         {
             ReleaseGridVoxelMapping(gridVoxelMapping);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
         }
     }
 
@@ -469,7 +440,8 @@ public static class GridTracer
         Vector3d end,
         Fixed64? padding,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
-        SwiftHashSet<Voxel> voxelRedundancyCheck)
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
     {
         (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding);
         (Vector3d candidateMin, Vector3d candidateMax) =
@@ -487,7 +459,8 @@ public static class GridTracer
                 end,
                 padding,
                 gridVoxelMapping,
-                voxelRedundancyCheck);
+                voxelRedundancyCheck,
+                processedGrids);
         }
     }
 
@@ -579,6 +552,108 @@ public static class GridTracer
             new Vector3d(max.X + expansion, max.Y + expansion, max.Z + expansion));
     }
 
+    private static bool TryGetCoveredVoxelIndexRange(
+        VoxelGrid grid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        out VoxelIndex minIndex,
+        out VoxelIndex maxIndex)
+    {
+        minIndex = default;
+        maxIndex = default;
+
+        (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(queryMin, queryMax);
+        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax)
+            || !grid.TryGetVoxelIndex(clippedMin, out minIndex)
+            || !grid.TryGetVoxelIndex(clippedMax, out maxIndex))
+        {
+            return false;
+        }
+
+        OrderVoxelIndexRange(ref minIndex, ref maxIndex);
+        return true;
+    }
+
+    private static bool TryGetCoveredScanCellRange(
+        VoxelGrid grid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        out int xMin,
+        out int yMin,
+        out int zMin,
+        out int xMax,
+        out int yMax,
+        out int zMax)
+    {
+        xMin = 0;
+        yMin = 0;
+        zMin = 0;
+        xMax = 0;
+        yMax = 0;
+        zMax = 0;
+
+        (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(queryMin, queryMax);
+        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax))
+            return false;
+
+        (xMin, yMin, zMin) = grid.SnapToScanCell(clippedMin);
+        (xMax, yMax, zMax) = grid.SnapToScanCell(clippedMax);
+        OrderScanCellRange(ref xMin, ref yMin, ref zMin, ref xMax, ref yMax, ref zMax);
+        return true;
+    }
+
+    private static bool TryClipBoundsToGrid(
+        VoxelGrid grid,
+        Vector3d min,
+        Vector3d max,
+        out Vector3d clippedMin,
+        out Vector3d clippedMax)
+    {
+        Fixed64 xMin = FixedMath.Max(min.X, grid.BoundsMin.X);
+        Fixed64 yMin = FixedMath.Max(min.Y, grid.BoundsMin.Y);
+        Fixed64 zMin = FixedMath.Max(min.Z, grid.BoundsMin.Z);
+        Fixed64 xMax = FixedMath.Min(max.X, grid.BoundsMax.X);
+        Fixed64 yMax = FixedMath.Min(max.Y, grid.BoundsMax.Y);
+        Fixed64 zMax = FixedMath.Min(max.Z, grid.BoundsMax.Z);
+
+        if (xMin > xMax || yMin > yMax || zMin > zMax)
+        {
+            clippedMin = default;
+            clippedMax = default;
+            return false;
+        }
+
+        clippedMin = new Vector3d(xMin, yMin, zMin);
+        clippedMax = new Vector3d(xMax, yMax, zMax);
+        return true;
+    }
+
+    private static void OrderVoxelIndexRange(ref VoxelIndex min, ref VoxelIndex max)
+    {
+        if (min.x > max.x)
+            (min.x, max.x) = (max.x, min.x);
+        if (min.y > max.y)
+            (min.y, max.y) = (max.y, min.y);
+        if (min.z > max.z)
+            (min.z, max.z) = (max.z, min.z);
+    }
+
+    private static void OrderScanCellRange(
+        ref int xMin,
+        ref int yMin,
+        ref int zMin,
+        ref int xMax,
+        ref int yMax,
+        ref int zMax)
+    {
+        if (xMin > xMax)
+            (xMin, xMax) = (xMax, xMin);
+        if (yMin > yMax)
+            (yMin, yMax) = (yMax, yMin);
+        if (zMin > zMax)
+            (zMin, zMax) = (zMax, zMin);
+    }
+
     private static void AddTraceLineVoxelsForCell(
         GridWorld world,
         SwiftHashSet<ushort> gridList,
@@ -586,19 +661,16 @@ public static class GridTracer
         Vector3d end,
         Fixed64? padding,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
-        SwiftHashSet<Voxel> voxelRedundancyCheck)
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
     {
         foreach (ushort gridIndex in gridList)
         {
-            if (!world.ActiveGrids.IsAllocated(gridIndex))
+            if (!world.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
                 continue;
 
             VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
-            if (gridVoxelMapping.ContainsKey(currentGrid))
-                continue;
-
             SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
-            gridVoxelMapping.Add(currentGrid, voxelList);
 
             AddTraceLineGridVoxels(
                 currentGrid,
@@ -607,6 +679,11 @@ public static class GridTracer
                 padding,
                 voxelList,
                 voxelRedundancyCheck);
+
+            if (voxelList.Count > 0)
+                gridVoxelMapping.Add(currentGrid, voxelList);
+            else
+                SwiftListPool<Voxel>.Shared.Release(voxelList);
         }
     }
 
@@ -644,10 +721,15 @@ public static class GridTracer
     {
         if (!includeEnd
             || !world.TryGetGridAndVoxel(end, out VoxelGrid? endGrid, out Voxel? endVoxel)
-            || !gridVoxelMapping.TryGetValue(endGrid!, out SwiftList<Voxel> endVoxelList)
             || !voxelRedundancyCheck.Add(endVoxel!))
         {
             return;
+        }
+
+        if (!gridVoxelMapping.TryGetValue(endGrid!, out SwiftList<Voxel> endVoxelList))
+        {
+            endVoxelList = SwiftListPool<Voxel>.Shared.Rent();
+            gridVoxelMapping.Add(endGrid!, endVoxelList);
         }
 
         endVoxelList.Add(endVoxel!);
@@ -667,6 +749,7 @@ public static class GridTracer
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
+        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
 
         try
         {
@@ -676,7 +759,8 @@ public static class GridTracer
                 boundsMax,
                 padding,
                 gridVoxelMapping,
-                voxelRedundancyCheck);
+                voxelRedundancyCheck,
+                processedGrids);
 
             foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
                 yield return new GridVoxelSet(kvp.Key, kvp.Value);
@@ -685,6 +769,7 @@ public static class GridTracer
         {
             ReleaseGridVoxelMapping(gridVoxelMapping);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
         }
     }
 
@@ -694,7 +779,8 @@ public static class GridTracer
         Vector3d boundsMax,
         Fixed64? padding,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
-        SwiftHashSet<Voxel> voxelRedundancyCheck)
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
     {
         (Vector3d queryMin, Vector3d queryMax) =
             CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
@@ -704,7 +790,16 @@ public static class GridTracer
         foreach (int cellIndex in world.GetSpatialGridCells(candidateMin, candidateMax))
         {
             if (world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-                AddCoveredVoxelsForCell(world, gridList, queryMin, queryMax, gridVoxelMapping, voxelRedundancyCheck);
+            {
+                AddCoveredVoxelsForCell(
+                    world,
+                    gridList,
+                    queryMin,
+                    queryMax,
+                    gridVoxelMapping,
+                    voxelRedundancyCheck,
+                    processedGrids);
+            }
         }
     }
 
@@ -714,20 +809,22 @@ public static class GridTracer
         Vector3d queryMin,
         Vector3d queryMax,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
-        SwiftHashSet<Voxel> voxelRedundancyCheck)
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
     {
         foreach (ushort gridIndex in gridList)
         {
-            if (!world.ActiveGrids.IsAllocated(gridIndex))
+            if (!world.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
                 continue;
 
             VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
-            if (gridVoxelMapping.ContainsKey(currentGrid))
-                continue;
-
             SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
-            gridVoxelMapping.Add(currentGrid, voxelList);
             AddCoveredGridVoxels(currentGrid, queryMin, queryMax, voxelList, voxelRedundancyCheck);
+
+            if (voxelList.Count > 0)
+                gridVoxelMapping.Add(currentGrid, voxelList);
+            else
+                SwiftListPool<Voxel>.Shared.Release(voxelList);
         }
     }
 
@@ -738,35 +835,17 @@ public static class GridTracer
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        (Vector3d snappedMin, Vector3d snappedMax) = currentGrid.NormalizeBounds(queryMin, queryMax);
-        Fixed64 cellWidth = currentGrid.Topology.Metrics.CellWidth;
-        Fixed64 layerHeight = currentGrid.Topology.Metrics.LayerHeight;
-        Fixed64 cellLength = currentGrid.Topology.Metrics.CellLength;
-
-        for (Fixed64 x = snappedMin.X; x <= snappedMax.X; x += cellWidth)
+        if (!TryGetCoveredVoxelIndexRange(
+            currentGrid,
+            queryMin,
+            queryMax,
+            out VoxelIndex minIndex,
+            out VoxelIndex maxIndex))
         {
-            for (Fixed64 y = snappedMin.Y; y <= snappedMax.Y; y += layerHeight)
-            {
-                for (Fixed64 z = snappedMin.Z; z <= snappedMax.Z; z += cellLength)
-                    TryAddCoveredVoxel(currentGrid, new Vector3d(x, y, z), voxelList, voxelRedundancyCheck);
-            }
-        }
-    }
-
-    private static bool TryAddCoveredVoxel(
-        VoxelGrid currentGrid,
-        Vector3d position,
-        SwiftList<Voxel> voxelList,
-        SwiftHashSet<Voxel> voxelRedundancyCheck)
-    {
-        if (!currentGrid.TryGetVoxel(position, out Voxel? voxel)
-            || voxelRedundancyCheck.Add(voxel!) != true)
-        {
-            return false;
+            return;
         }
 
-        voxelList.Add(voxel!);
-        return true;
+        currentGrid.AddVoxelsInIndexRange(minIndex, maxIndex, voxelList, voxelRedundancyCheck);
     }
 
     private static IEnumerable<ScanCell> GetCoveredScanCellsIterator(

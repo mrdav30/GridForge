@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using System;
 using System.Linq;
@@ -148,6 +149,25 @@ public class VoxelTests : IDisposable
 
         voxel.TryRemovePartition<TestPartition>();
         Assert.False(voxel.TryGetPartition<TestPartition>(out _));
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldAllowPartitionsOnlyOnConfiguredVoxels()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
+        VoxelIndex[] configuredVoxels = { new(1, 0, 1) };
+
+        Assert.True(_world.TryAddGrid(config, configuredVoxels, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.False(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out _));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 1), out Voxel voxel));
+
+        TestPartition partition = new();
+
+        Assert.True(voxel.TryAddPartition(partition));
+        Assert.True(voxel.TryGetPartition<TestPartition>(out TestPartition storedPartition));
+        Assert.Same(partition, storedPartition);
+        Assert.Equal(voxel.WorldIndex, partition.WorldIndex);
     }
 
     [Fact]
@@ -544,6 +564,41 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void SparseNeighborLookup_ShouldTreatMissingDenseToSparseNeighborAsAbsent()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort denseGridIndex));
+        GridConfiguration sparseConfig = CreateSparseConfig(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0));
+        VoxelIndex[] configuredVoxels = { new(0, 0, 0) };
+
+        Assert.True(_world.TryAddGrid(sparseConfig, configuredVoxels, out _));
+        VoxelGrid denseGrid = _world.ActiveGrids[denseGridIndex];
+        Assert.True(denseGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
+
+        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(denseGrid, SpatialDirection.East, out _));
+    }
+
+    [Fact]
+    public void SparseNeighborLookup_ShouldResolveConfiguredSparseToSparseNeighbor()
+    {
+        GridConfiguration firstConfig = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
+        GridConfiguration secondConfig = CreateSparseConfig(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0));
+        VoxelIndex[] firstConfiguredVoxels = { new(1, 0, 0) };
+        VoxelIndex[] secondConfiguredVoxels = { new(1, 0, 0) };
+
+        Assert.True(_world.TryAddGrid(firstConfig, firstConfiguredVoxels, out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(secondConfig, secondConfiguredVoxels, out ushort secondGridIndex));
+        VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
+        Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(2, 0, 0), out Voxel expectedNeighbor));
+
+        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out Voxel neighbor));
+        Assert.Same(expectedNeighbor, neighbor);
+    }
+
+    [Fact]
     public void TryGetNeighborFromDirection_ShouldHandleInvalidDirectionsGracefully()
     {
         Voxel detachedVoxel = new();
@@ -671,4 +726,6 @@ public class VoxelTests : IDisposable
         resetMethod.Invoke(voxel, new object[] { null });
     }
 
+    private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max) =>
+        new(min, max, storageKind: GridStorageKind.Sparse);
 }

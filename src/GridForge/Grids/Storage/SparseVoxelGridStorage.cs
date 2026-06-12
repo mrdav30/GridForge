@@ -116,6 +116,69 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             yield return _voxels[i];
     }
 
+    public void AddVoxelsInIndexRange(
+        VoxelIndex min,
+        VoxelIndex max,
+        SwiftList<Voxel> results,
+        SwiftHashSet<Voxel> redundancy)
+    {
+        if (_blocks == null || _scanCellSize <= 0)
+            return;
+
+        int scanXMin = min.x / _scanCellSize;
+        int scanYMin = min.y / _scanCellSize;
+        int scanZMin = min.z / _scanCellSize;
+        int scanXMax = max.x / _scanCellSize;
+        int scanYMax = max.y / _scanCellSize;
+        int scanZMax = max.z / _scanCellSize;
+
+        for (int scanX = scanXMin; scanX <= scanXMax; scanX++)
+        {
+            for (int scanY = scanYMin; scanY <= scanYMax; scanY++)
+            {
+                for (int scanZ = scanZMin; scanZ <= scanZMax; scanZ++)
+                {
+                    int cellKey = GetScanCellKeyFromScanCoordinates(scanX, scanY, scanZ);
+                    if (cellKey >= 0 && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block))
+                        block.AddVoxelsInIndexRange(min, max, results, redundancy);
+                }
+            }
+        }
+    }
+
+    public void AddScanCellsInRange(
+        VoxelGrid _,
+        int xMin,
+        int yMin,
+        int zMin,
+        int xMax,
+        int yMax,
+        int zMax,
+        SwiftList<ScanCell> results,
+        SwiftHashSet<ScanCell> redundancy)
+    {
+        if (_blocks == null)
+            return;
+
+        for (int x = xMin; x <= xMax; x++)
+        {
+            for (int y = yMin; y <= yMax; y++)
+            {
+                for (int z = zMin; z <= zMax; z++)
+                {
+                    int cellKey = GetScanCellKeyFromScanCoordinates(x, y, z);
+                    if (cellKey >= 0
+                        && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
+                        && block.ScanCell != null
+                        && redundancy.Add(block.ScanCell))
+                    {
+                        results.Add(block.ScanCell);
+                    }
+                }
+            }
+        }
+    }
+
     public void InvalidateBoundaryVoxels(
         int xStart,
         int xEnd,
@@ -163,6 +226,12 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         int scanY = y / _scanCellSize;
         int scanZ = z / _scanCellSize;
 
+        return GetScanCellKeyFromScanCoordinates(scanX, scanY, scanZ);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int GetScanCellKeyFromScanCoordinates(int scanX, int scanY, int scanZ)
+    {
         if ((uint)scanX >= (uint)_scanWidth
             || (uint)scanY >= (uint)_scanHeight
             || (uint)scanZ >= (uint)_scanLength)

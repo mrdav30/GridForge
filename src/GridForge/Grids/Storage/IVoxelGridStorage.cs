@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using GridForge.Spatial;
 using SwiftCollections;
 using System.Collections.Generic;
 
@@ -25,6 +26,23 @@ internal interface IVoxelGridStorage
     bool TryGetScanCell(int key, out ScanCell? result);
 
     IEnumerable<Voxel> EnumerateVoxels();
+
+    void AddVoxelsInIndexRange(
+        VoxelIndex min,
+        VoxelIndex max,
+        SwiftList<Voxel> results,
+        SwiftHashSet<Voxel> redundancy);
+
+    void AddScanCellsInRange(
+        VoxelGrid grid,
+        int xMin,
+        int yMin,
+        int zMin,
+        int xMax,
+        int yMax,
+        int zMax,
+        SwiftList<ScanCell> results,
+        SwiftHashSet<ScanCell> redundancy);
 
     void InvalidateBoundaryVoxels(
         int xStart,

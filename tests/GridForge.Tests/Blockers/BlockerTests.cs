@@ -2,7 +2,9 @@
 using FixedMathSharp.Bounds;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Tests;
+using GridForge.Spatial;
 using GridForge.Utility;
 using System;
 using System.Collections.Generic;
@@ -45,6 +47,69 @@ public class BlockerTests : IDisposable
         blocker.ApplyBlockage();
 
         Assert.True(voxel.IsBlocked); // Voxel should now be blocked
+    }
+
+    [Fact]
+    public void BoundsBlocker_ShouldAffectConfiguredSparseVoxelsOnly()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));
+        VoxelIndex[] configuredVoxels =
+        {
+            new(1, 0, 1),
+            new(3, 0, 3),
+        };
+
+        Assert.True(_world.TryAddGrid(config, configuredVoxels, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 1), out Voxel firstVoxel));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(3, 0, 3), out Voxel secondVoxel));
+        Assert.False(grid.TryGetVoxel(new VoxelIndex(2, 0, 2), out _));
+
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(firstVoxel.IsBlocked);
+        Assert.True(secondVoxel.IsBlocked);
+        Assert.Equal(2, grid.ObstacleCount);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(firstVoxel.IsBlocked);
+        Assert.False(secondVoxel.IsBlocked);
+        Assert.Equal(0, grid.ObstacleCount);
+    }
+
+    [Fact]
+    public void BoundsBlocker_ShouldReapplyCachedSparseCoverageAfterGridReload()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        FixedBoundArea bounds = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        VoxelIndex[] configuredVoxels = { new(1, 0, 1) };
+
+        Assert.True(_world.TryAddGrid(config, configuredVoxels, out ushort firstGridIndex));
+        VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
+        Assert.True(firstGrid.TryGetVoxel(new VoxelIndex(1, 0, 1), out Voxel firstVoxel));
+
+        BoundsBlocker blocker = new(_world, bounds, cacheCoveredVoxels: true);
+        blocker.ApplyBlockage();
+
+        Assert.True(firstVoxel.IsBlocked);
+        Assert.True(_world.TryRemoveGrid(firstGridIndex));
+        Assert.False(firstVoxel.IsAllocated);
+
+        Assert.True(_world.TryAddGrid(config, configuredVoxels, out ushort secondGridIndex));
+        VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
+        Assert.True(secondGrid.TryGetVoxel(new VoxelIndex(1, 0, 1), out Voxel secondVoxel));
+
+        Assert.True(secondVoxel.IsBlocked);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(secondVoxel.IsBlocked);
     }
 
     [Fact]
@@ -765,4 +830,7 @@ public class BlockerTests : IDisposable
 
         return method.Invoke(blocker, arguments);
     }
+
+    private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max) =>
+        new(min, max, storageKind: GridStorageKind.Sparse);
 }

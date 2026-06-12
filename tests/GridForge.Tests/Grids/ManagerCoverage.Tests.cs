@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
@@ -100,6 +101,44 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(GridOccupantManager.TryRemoveVoxelOccupant(_world, voxel.WorldIndex, occupant));
         Assert.True(grid.TryRemoveVoxelOccupant(voxel.Index, secondOccupant));
         Assert.False(scanCell.IsOccupied);
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldRejectMissingOccupantRegistrationAndScanConfiguredCellsOnly()
+    {
+        GridConfiguration config = CreateSparseConfig(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            scanCellSize: 2);
+        VoxelIndex[] configuredVoxels =
+        {
+            new(1, 0, 1),
+            new(4, 0, 4),
+        };
+
+        Assert.True(_world.TryAddGrid(config, configuredVoxels, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant missingOccupant = new(new Vector3d(2, 0, 2), 1);
+        TestOccupant configuredOccupant = new(new Vector3d(1, 0, 1), 2);
+
+        Assert.False(GridOccupantManager.TryRegister(_world, missingOccupant));
+        Assert.True(GridOccupantManager.TryRegister(_world, configuredOccupant));
+        Assert.True(grid.TryGetVoxel(configuredOccupant.Position, out Voxel configuredVoxel));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            configuredOccupant,
+            configuredVoxel.WorldIndex,
+            out _));
+
+        IVoxelOccupant[] results = GridScanManager.ScanRadius(
+            _world,
+            new Vector3d(2, 0, 2),
+            (Fixed64)4)
+            .ToArray();
+
+        Assert.Single(results);
+        Assert.Same(configuredOccupant, results[0]);
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(_world, missingOccupant));
     }
 
     [Fact]
@@ -901,6 +940,9 @@ public class ManagerCoverageTests : IDisposable
 
         return (int)compareMethod.Invoke(null, new[] { left, right });
     }
+
+    private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max, int scanCellSize) =>
+        new(min, max, scanCellSize, storageKind: GridStorageKind.Sparse);
 
     private sealed class SharedIdOccupant : IVoxelOccupant
     {

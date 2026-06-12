@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Phase 2 complete; ready for storage-neutral coverage, blocker, occupant, and partition compatibility.
+- Current state: Phase 3 complete; ready for runtime sparse voxel mutation design and implementation.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
@@ -318,27 +318,42 @@ Likely files:
 
 Checklist:
 
-- [ ] Route `GridTracer` covered-voxel enumeration through storage-aware append methods instead of assuming dense coordinate coverage.
-- [ ] Route covered scan-cell enumeration through storage-aware append methods.
-- [ ] Confirm blocker apply/remove affects only covered configured sparse voxels.
-- [ ] Confirm cached blocker removal using `WorldVoxelIndex` works after sparse grid removal and re-add.
-- [ ] Confirm occupant registration fails cleanly for missing sparse voxels.
-- [ ] Confirm occupant scans only inspect sparse scan cells that exist and are covered.
-- [ ] Confirm partition APIs work on configured sparse voxels and fail naturally when lookup fails for missing sparse coordinates.
-- [ ] Confirm sparse neighbor lookup treats missing local or cross-grid voxels as absent.
-- [ ] Add conjoined dense-to-sparse and sparse-to-sparse neighbor tests.
+- [x] Route `GridTracer` covered-voxel enumeration through storage-aware append methods instead of assuming dense coordinate coverage.
+- [x] Route covered scan-cell enumeration through storage-aware append methods.
+- [x] Confirm blocker apply/remove affects only covered configured sparse voxels.
+- [x] Confirm cached blocker removal using `WorldVoxelIndex` works after sparse grid removal and re-add.
+- [x] Confirm occupant registration fails cleanly for missing sparse voxels.
+- [x] Confirm occupant scans only inspect sparse scan cells that exist and are covered.
+- [x] Confirm partition APIs work on configured sparse voxels and fail naturally when lookup fails for missing sparse coordinates.
+- [x] Confirm sparse neighbor lookup treats missing local or cross-grid voxels as absent.
+- [x] Add conjoined dense-to-sparse and sparse-to-sparse neighbor tests.
 
 Exit criteria:
 
-- [ ] Public query and mutation workflows do not branch in user code based on grid storage kind.
-- [ ] Blockers, occupants, partitions, tracing, and neighbor traversal have explicit sparse regression coverage.
-- [ ] Sparse blocker behavior is documented in tests and comments where needed.
+- [x] Public query and mutation workflows do not branch in user code based on grid storage kind.
+- [x] Blockers, occupants, partitions, tracing, and neighbor traversal have explicit sparse regression coverage.
+- [x] Sparse blocker behavior is documented in tests and comments where needed.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
+```
+
+Phase 3 validation:
+
+```bash
+dotnet test GridForge.slnx --configuration Debug --filter "FullyQualifiedName~GridTracerTests|FullyQualifiedName~BlockerTests|FullyQualifiedName~ManagerCoverageTests|FullyQualifiedName~VoxelTests"
+# Passed: 105/105
+dotnet build GridForge.slnx --configuration Debug
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration Debug --no-build
+# Passed: 247/247
+dotnet build GridForge.slnx --configuration ReleaseLean
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+# Passed: 249/249
 ```
 
 ## Phase 4: Runtime Sparse Voxel Mutation

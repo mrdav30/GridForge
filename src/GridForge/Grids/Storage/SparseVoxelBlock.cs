@@ -6,6 +6,7 @@
 //=======================================================================
 
 using GridForge.Spatial;
+using SwiftCollections;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -86,6 +87,24 @@ internal sealed class SparseVoxelBlock
             yield return _voxels[i];
     }
 
+    public void AddVoxelsInIndexRange(
+        VoxelIndex min,
+        VoxelIndex max,
+        SwiftList<Voxel> results,
+        SwiftHashSet<Voxel> redundancy)
+    {
+        if (_voxels == null)
+            return;
+
+        for (int i = 0; i < _count; i++)
+        {
+            Voxel voxel = _voxels[i];
+            VoxelIndex index = voxel.Index;
+            if (IsIndexInRange(index, min, max) && redundancy.Add(voxel))
+                results.Add(voxel);
+        }
+    }
+
     public void InvalidateBoundaryVoxels(
         int xStart,
         int xEnd,
@@ -148,4 +167,10 @@ internal sealed class SparseVoxelBlock
         result = left.y.CompareTo(right.y);
         return result != 0 ? result : left.z.CompareTo(right.z);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsIndexInRange(VoxelIndex index, VoxelIndex min, VoxelIndex max) =>
+        index.x >= min.x && index.x <= max.x
+        && index.y >= min.y && index.y <= max.y
+        && index.z >= min.z && index.z <= max.z;
 }

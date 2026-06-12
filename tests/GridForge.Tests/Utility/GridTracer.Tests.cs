@@ -2,6 +2,7 @@
 using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
@@ -53,6 +54,100 @@ public class GridTracerTests : IDisposable
         // Ensure that the first and last voxel correspond to the start and end positions
         Assert.Equal(startVoxel.WorldIndex, tracedVoxels.First().WorldIndex);
         Assert.Equal(endVoxel.WorldIndex, tracedVoxels.Last().WorldIndex);
+    }
+
+    [Fact]
+    public void TraceLine_ShouldNotReturnEmptySetsForMissingSparseVoxels()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));
+
+        Assert.True(_world.TryAddGrid(config, new[] { new VoxelIndex(4, 0, 4) }, out _));
+
+        GridVoxelSet[] coveredSets = GridTracer.TraceLine(
+            _world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(2, 0, 2),
+            includeEnd: true).ToArray();
+
+        Assert.Empty(coveredSets);
+    }
+
+    [Fact]
+    public void TraceLine_ShouldIncludeConfiguredSparseEndpointWhenIntermediateVoxelsAreMissing()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));
+        VoxelIndex endpointIndex = new(4, 0, 4);
+
+        Assert.True(_world.TryAddGrid(config, new[] { endpointIndex }, out _));
+
+        VoxelIndex[] tracedIndices = GridTracer.TraceLine(
+                _world,
+                new Vector3d(0, 0, 0),
+                new Vector3d(4, 0, 4),
+                includeEnd: true)
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.Index)
+            .ToArray();
+
+        Assert.Equal(new[] { endpointIndex }, tracedIndices);
+    }
+
+    [Fact]
+    public void GetCoveredVoxels_ShouldReturnConfiguredSparseVoxelsOnly()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));
+        VoxelIndex[] configured =
+        {
+            new(1, 0, 1),
+            new(3, 0, 3)
+        };
+
+        Assert.True(_world.TryAddGrid(config, configured, out _));
+
+        GridVoxelSet[] missingSets = GridTracer.GetCoveredVoxels(
+            _world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(0, 0, 0)).ToArray();
+        VoxelIndex[] coveredIndices = GridTracer.GetCoveredVoxels(
+                _world,
+                new Vector3d(0, 0, 0),
+                new Vector3d(4, 0, 4))
+            .SelectMany(set => set.Voxels)
+            .Select(voxel => voxel.Index)
+            .ToArray();
+
+        Assert.Empty(missingSets);
+        Assert.Equal(configured, coveredIndices);
+    }
+
+    [Fact]
+    public void GetCoveredScanCells_ShouldReturnSparseScanCellsForConfiguredBlocksOnly()
+    {
+        GridConfiguration config = CreateSparseConfig(
+            new Vector3d(0, 0, 0),
+            new Vector3d(5, 0, 5),
+            scanCellSize: 2);
+
+        Assert.True(_world.TryAddGrid(
+            config,
+            new[] { new VoxelIndex(0, 0, 0), new VoxelIndex(4, 0, 4) },
+            out _));
+
+        int[] missingCellKeys = GridTracer.GetCoveredScanCells(
+                _world,
+                new Vector3d(2, 0, 2),
+                new Vector3d(3, 0, 3))
+            .Select(cell => cell.CellKey)
+            .ToArray();
+        int[] coveredCellKeys = GridTracer.GetCoveredScanCells(
+                _world,
+                new Vector3d(0, 0, 0),
+                new Vector3d(5, 0, 5))
+            .Select(cell => cell.CellKey)
+            .ToArray();
+
+        Assert.Empty(missingCellKeys);
+        Assert.Equal(new[] { 0, 8 }, coveredCellKeys);
     }
 
     [Fact]
@@ -662,5 +757,17 @@ public class GridTracerTests : IDisposable
             cells.Add((scanCell.GridIndex, scanCell.CellKey));
 
         return cells.ToArray();
+    }
+
+    private static GridConfiguration CreateSparseConfig(
+        Vector3d min,
+        Vector3d max,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        return new GridConfiguration(
+            min,
+            max,
+            scanCellSize,
+            storageKind: GridStorageKind.Sparse);
     }
 }
