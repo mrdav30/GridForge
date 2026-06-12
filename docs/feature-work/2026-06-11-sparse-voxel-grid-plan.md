@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Phase 1 complete; ready for sparse construction and lookup.
+- Current state: Phase 2 complete; ready for storage-neutral coverage, blocker, occupant, and partition compatibility.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
@@ -126,6 +126,7 @@ Candidate public additions:
 - `GridStorageKind` enum with `Dense` and `Sparse`
 - `GridConfiguration.StorageKind`, defaulting to `Dense`
 - `GridWorld.TryAddGrid(GridConfiguration configuration, IEnumerable<VoxelIndex> configuredVoxels, out ushort allocatedIndex)` for sparse setup
+- `GridWorld.TryAddGrid(GridConfiguration configuration, bool[,,] configuredVoxels, out ushort allocatedIndex)` as a mask convenience for rectangular local dimensions
 - `VoxelGrid.ConfiguredVoxelCount`
 - `VoxelGrid.StorageKind`
 - `VoxelGrid.EnumerateVoxels()` or equivalent storage-neutral deterministic physical-voxel enumeration
@@ -134,6 +135,7 @@ Design rule:
 
 - dense construction may ignore configured voxel input and generate all voxels
 - sparse construction must validate, de-duplicate, and sort configured indices before storage initialization
+- sparse mask construction must validate exact `[x, y, z]` dimensions against the normalized grid dimensions, then flow through the same configured-voxel initialization path
 - configured indices outside the normalized grid bounds must fail the grid add operation, not be silently ignored
 
 Large address-space support is deferred. The current grid exposes `Width`, `Height`, `Length`, and `Size` as `int`, and the initial sparse phase stays within that dimension envelope. Construction must validate overflow before storage initialization. A later phase can introduce `long AddressableVoxelCount` or a breaking replacement for `Size` if sparse grids need address spaces larger than `int.MaxValue` cells.
@@ -244,27 +246,56 @@ Likely files:
 
 Checklist:
 
-- [ ] Add sparse grid configuration or sparse `TryAddGrid` overloads.
-- [ ] Validate sparse configured indices against normalized bounds and dimensions.
-- [ ] De-duplicate sparse configured indices deterministically.
-- [ ] Initialize configured sparse voxels with correct `WorldVoxelIndex`, world position, scan-cell key, boundary state, and grid version.
-- [ ] Allocate sparse scan-cell blocks only for scan cells that contain configured voxels.
-- [ ] Make `TryGetVoxel(...)` return `false` for missing in-bounds sparse coordinates.
-- [ ] Make `TryGetGridAndVoxel(...)` return `false` for missing in-bounds sparse coordinates while `TryGetGrid(...)` still resolves the grid.
-- [ ] Ensure reset releases every configured voxel, sparse block, scan cell, neighbor cache, obstacle tracker, and pooled collection.
-- [ ] Add tests for empty sparse grids, invalid configured indices, duplicate configured indices, exact-bound configured voxels, missing in-bounds voxels, and pooled grid reuse.
+- [x] Add sparse grid configuration or sparse `TryAddGrid` overloads.
+- [x] Validate sparse configured indices against normalized bounds and dimensions.
+- [x] De-duplicate sparse configured indices deterministically.
+- [x] Initialize configured sparse voxels with correct `WorldVoxelIndex`, world position, scan-cell key, boundary state, and grid version.
+- [x] Allocate sparse scan-cell blocks only for scan cells that contain configured voxels.
+- [x] Make `TryGetVoxel(...)` return `false` for missing in-bounds sparse coordinates.
+- [x] Make `TryGetGridAndVoxel(...)` return `false` for missing in-bounds sparse coordinates while `TryGetGrid(...)` still resolves the grid.
+- [x] Ensure reset releases every configured voxel, sparse block, scan cell, neighbor cache, obstacle tracker, and pooled collection.
+- [x] Add tests for empty sparse grids, invalid configured indices, duplicate configured indices, exact-bound configured voxels, missing in-bounds voxels, and pooled grid reuse.
 
 Exit criteria:
 
-- [ ] Sparse grids can be created and queried.
-- [ ] Missing sparse voxels do not allocate, mutate, or appear in query results.
-- [ ] Dense-grid behavior remains unchanged.
+- [x] Sparse grids can be created and queried.
+- [x] Missing sparse voxels do not allocate, mutate, or appear in query results.
+- [x] Dense-grid behavior remains unchanged.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "SparseVoxelGrid|VoxelGrid|GridWorld"
+```
+
+Completed validation:
+
+```bash
+dotnet test GridForge.slnx --configuration Debug --filter "SparseVoxelGrid"
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build --filter "SparseVoxelGrid|VoxelGrid|GridWorld"
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build --filter "SparseVoxelGrid|VoxelGrid|GridWorld"
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- --filter '*VoxelGridMemoryBenchmarks*'
+```
+
+Fast follow-up completed on 2026-06-12:
+
+- Removed the unused internal dense initializer overload from `VoxelGrid`.
+- Removed storage construction from `IVoxelGridStorage`; dense and sparse now initialize through concrete storage paths before assigning the active storage reference.
+- Replaced the sparse block-capacity `System.Collections.Generic.Dictionary` with a pooled `SwiftDictionary<int, int>`.
+
+Fast follow-up validation:
+
+```bash
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build --filter "SparseVoxelGrid|VoxelGrid|GridWorld"
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build --filter "SparseVoxelGrid|VoxelGrid|GridWorld"
 ```
 
 ## Phase 3: Make Coverage, Blockers, Occupants, And Partitions Storage-Neutral

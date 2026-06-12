@@ -6,6 +6,7 @@
 //=======================================================================
 
 using FixedMathSharp;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using MemoryPack;
 using SwiftCollections.Utility;
@@ -66,6 +67,13 @@ public readonly partial struct GridConfiguration
     public readonly GridTopologyMetrics TopologyMetrics;
 
     /// <summary>
+    /// The physical voxel storage used by this grid.
+    /// </summary>
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly GridStorageKind StorageKind;
+
+    /// <summary>
     /// The center point of the grid's bounding volume.
     /// </summary>
     [JsonIgnore]
@@ -85,13 +93,15 @@ public readonly partial struct GridConfiguration
     /// <param name="scanCellSize">The size of scan cells within the grid. Default is 8.</param>
     /// <param name="topologyKind">The topology kind used by the grid. Defaults to rectangular-prism.</param>
     /// <param name="topologyMetrics">Deterministic topology metrics. Defaults to 1x1x1 rectangular-prism cells.</param>
+    /// <param name="storageKind">The physical voxel storage kind. Defaults to dense storage.</param>
     [JsonConstructor]
     public GridConfiguration(
         Vector3d boundsMin,
         Vector3d boundsMax,
         int scanCellSize = DefaultScanCellSize,
         GridTopologyKind topologyKind = GridTopologyKind.RectangularPrism,
-        GridTopologyMetrics topologyMetrics = default)
+        GridTopologyMetrics topologyMetrics = default,
+        GridStorageKind storageKind = GridStorageKind.Dense)
     {
         if (boundsMin > boundsMax)
             GridForgeLogger.Channel.Warn($"GridMin was greater than GridMax, auto-correcting values.");
@@ -110,6 +120,7 @@ public readonly partial struct GridConfiguration
         TopologyMetrics = GridTopologyMetrics.Normalize(
             topologyKind,
             topologyMetrics);
+        StorageKind = storageKind;
     }
 
     #endregion

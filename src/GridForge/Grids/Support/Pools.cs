@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
@@ -35,6 +36,18 @@ internal static class Pools
         createFunc: () => new SwiftSparseMap<ScanCell>(),
         actionOnRelease: map => map.Clear()
     );
+
+    public static readonly SwiftObjectPool<SwiftSparseMap<SparseVoxelBlock>> SparseVoxelBlockMapPool = new(
+        createFunc: () => new SwiftSparseMap<SparseVoxelBlock>(),
+        actionOnRelease: map => map.Clear()
+    );
+
+    public static readonly SwiftObjectPool<SparseVoxelBlock> SparseVoxelBlockPool = new(
+        createFunc: () => new SparseVoxelBlock(),
+        actionOnRelease: block => block.Clear()
+    );
+
+    public static readonly SwiftDictionaryPool<int, int> SparseVoxelBlockCapacityPool = new();
 
     /// <summary>
     /// Object pool for reusing <see cref="ScanCell"/> instances.
@@ -67,6 +80,9 @@ internal static class Pools
         GridPool.Clear();
         VoxelPool.Clear();
         ScanCellMapPool.Clear();
+        SparseVoxelBlockMapPool.Clear();
+        SparseVoxelBlockPool.Clear();
+        SparseVoxelBlockCapacityPool.Clear();
         ScanCellPool.Clear();
         VoxelNeighborPool.Clear();
         VoxelOccupantDictionaryPool.Clear();

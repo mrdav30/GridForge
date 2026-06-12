@@ -754,11 +754,11 @@ public class VoxelGridTests : IDisposable
             "Initialize",
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
-            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration) },
+            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration), typeof(VoxelIndex[]) },
             null);
 
         Assert.NotNull(initializeMethod);
-        initializeMethod.Invoke(grid, new object[] { world, globalIndex, configuration });
+        initializeMethod.Invoke(grid, new object[] { world, globalIndex, configuration, Array.Empty<VoxelIndex>() });
     }
 
     private static void InvokeGridReset(VoxelGrid grid)

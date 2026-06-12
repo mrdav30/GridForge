@@ -183,6 +183,7 @@ public class VoxelGrid
     private IGridTopology? _topology;
     private IVoxelGridStorage? _storage;
     private readonly DenseVoxelGridStorage _denseStorage = new();
+    private readonly SparseVoxelGridStorage _sparseStorage = new();
 
     internal IGridTopology Topology => _topology!;
 
@@ -209,12 +210,17 @@ public class VoxelGrid
     #region Initialization & Reset
 
     /// <summary>
-    /// Initializes the grid with an explicit owning world.
+    /// Initializes the grid with an explicit owning world and configured sparse voxel set.
     /// </summary>
     /// <param name="world">The world that will own this grid.</param>
     /// <param name="gridIndex">The unique index of this grid in the world.</param>
     /// <param name="configuration">The normalized configuration settings for the grid.</param>
-    internal void Initialize(GridWorld world, ushort gridIndex, GridConfiguration configuration)
+    /// <param name="configuredVoxels">The validated sparse voxel indices to materialize.</param>
+    internal void Initialize(
+        GridWorld world,
+        ushort gridIndex,
+        GridConfiguration configuration,
+        VoxelIndex[] configuredVoxels)
     {
         if (IsActive)
         {
@@ -249,8 +255,16 @@ public class VoxelGrid
         Size = Width * Height * Length;
 
         ConfigureScanDimensions();
-        _storage = _denseStorage;
-        _storage.Initialize(this);
+        if (configuration.StorageKind == GridStorageKind.Sparse)
+        {
+            _sparseStorage.Initialize(this, configuredVoxels);
+            _storage = _sparseStorage;
+        }
+        else
+        {
+            _denseStorage.Initialize(this);
+            _storage = _denseStorage;
+        }
 
         IsActive = true;
     }

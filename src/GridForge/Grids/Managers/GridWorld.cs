@@ -7,6 +7,7 @@
 
 using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
@@ -225,15 +226,67 @@ public sealed class GridWorld : IDisposable
     /// <param name="configuration">The grid configuration to normalize and register.</param>
     /// <param name="allocatedIndex">The allocated world-local grid slot on success.</param>
     /// <returns>True if the grid was added; otherwise false.</returns>
-    public bool TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryAddGrid(GridConfiguration configuration, out ushort allocatedIndex) =>
+        TryAddGridCore(configuration, null, null, out allocatedIndex);
+
+    /// <summary>
+    /// Adds a new grid to this world and materializes the supplied sparse voxel indices when sparse storage is configured.
+    /// </summary>
+    /// <param name="configuration">The grid configuration to normalize and register.</param>
+    /// <param name="configuredVoxels">Grid-local voxel indices to materialize for sparse storage.</param>
+    /// <param name="allocatedIndex">The allocated world-local grid slot on success.</param>
+    /// <returns>True if the grid was added; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryAddGrid(
+        GridConfiguration configuration,
+        IEnumerable<VoxelIndex>? configuredVoxels,
+        out ushort allocatedIndex) =>
+        TryAddGridCore(configuration, configuredVoxels, null, out allocatedIndex);
+
+    /// <summary>
+    /// Adds a new grid to this world and materializes true cells from the supplied sparse voxel mask when sparse storage is configured.
+    /// </summary>
+    /// <param name="configuration">The grid configuration to normalize and register.</param>
+    /// <param name="configuredVoxels">A [x, y, z] mask whose true values identify sparse voxels to materialize.</param>
+    /// <param name="allocatedIndex">The allocated world-local grid slot on success.</param>
+    /// <returns>True if the grid was added; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryAddGrid(
+        GridConfiguration configuration,
+        bool[,,]? configuredVoxels,
+        out ushort allocatedIndex) =>
+        TryAddGridCore(configuration, null, configuredVoxels, out allocatedIndex);
+
+    private bool TryAddGridCore(
+        GridConfiguration configuration,
+        IEnumerable<VoxelIndex>? configuredVoxels,
+        bool[,,]? configuredVoxelMask,
+        out ushort allocatedIndex)
     {
         allocatedIndex = ushort.MaxValue;
 
         if (!CanAddGrid())
             return false;
 
-        if (!GridWorld.TryNormalizeConfiguration(configuration, out GridConfiguration normalizedConfiguration))
+        if (!TryNormalizeConfiguration(configuration, out GridConfiguration normalizedConfiguration))
             return false;
+
+        if (!TryGetConfigurationDimensions(normalizedConfiguration, out GridDimensions dimensions)
+            || !TryValidateGridDimensions(dimensions))
+        {
+            return false;
+        }
+
+        if (!TryPrepareConfiguredVoxels(
+            normalizedConfiguration,
+            dimensions,
+            configuredVoxels,
+            configuredVoxelMask,
+            out VoxelIndex[] preparedVoxels))
+        {
+            return false;
+        }
 
         GridConfigurationKey boundsKey = normalizedConfiguration.ToGridKey();
 
@@ -249,7 +302,7 @@ public sealed class GridWorld : IDisposable
             allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
-            newGrid.Initialize(this, allocatedIndex, normalizedConfiguration);
+            newGrid.Initialize(this, allocatedIndex, normalizedConfiguration, preparedVoxels);
             UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
             RegisterGridSpatialCells(newGrid, allocatedIndex);
 
@@ -322,6 +375,159 @@ public sealed class GridWorld : IDisposable
         }
 
         return true;
+    }
+
+    private static bool TryPrepareConfiguredVoxels(
+        GridConfiguration configuration,
+        GridDimensions dimensions,
+        IEnumerable<VoxelIndex>? configuredVoxels,
+        bool[,,]? configuredVoxelMask,
+        out VoxelIndex[] preparedVoxels)
+    {
+        preparedVoxels = Array.Empty<VoxelIndex>();
+        if (configuration.StorageKind != GridStorageKind.Sparse)
+            return true;
+
+        if (configuredVoxelMask != null)
+            return TryPrepareConfiguredVoxelMask(configuredVoxelMask, dimensions, out preparedVoxels);
+
+        return TryPrepareConfiguredVoxelIndices(configuredVoxels, dimensions, out preparedVoxels);
+    }
+
+    private static bool TryGetConfigurationDimensions(GridConfiguration configuration, out GridDimensions dimensions)
+    {
+        dimensions = default;
+        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
+            return false;
+
+        dimensions = topology!.CalculateDimensions(configuration.BoundsMin, configuration.BoundsMax);
+        return true;
+    }
+
+    private static bool TryValidateGridDimensions(GridDimensions dimensions)
+    {
+        if (dimensions.Width <= 0 || dimensions.Height <= 0 || dimensions.Length <= 0)
+        {
+            GridForgeLogger.Channel.Warn($"Grid dimensions must be positive.");
+            return false;
+        }
+
+        long layerSize = (long)dimensions.Width * dimensions.Height;
+        if (layerSize > int.MaxValue || layerSize * dimensions.Length > int.MaxValue)
+        {
+            GridForgeLogger.Channel.Warn($"Grid dimensions exceed the supported int voxel address space.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryPrepareConfiguredVoxelMask(
+        bool[,,] configuredVoxelMask,
+        GridDimensions dimensions,
+        out VoxelIndex[] preparedVoxels)
+    {
+        preparedVoxels = Array.Empty<VoxelIndex>();
+
+        if (configuredVoxelMask.GetLength(0) != dimensions.Width
+            || configuredVoxelMask.GetLength(1) != dimensions.Height
+            || configuredVoxelMask.GetLength(2) != dimensions.Length)
+        {
+            GridForgeLogger.Channel.Warn($"Sparse voxel mask dimensions must match normalized grid dimensions.");
+            return false;
+        }
+
+        int configuredCount = 0;
+        for (int x = 0; x < dimensions.Width; x++)
+        {
+            for (int y = 0; y < dimensions.Height; y++)
+            {
+                for (int z = 0; z < dimensions.Length; z++)
+                {
+                    if (configuredVoxelMask[x, y, z])
+                        configuredCount++;
+                }
+            }
+        }
+
+        if (configuredCount == 0)
+            return true;
+
+        preparedVoxels = new VoxelIndex[configuredCount];
+        int index = 0;
+        for (int x = 0; x < dimensions.Width; x++)
+        {
+            for (int y = 0; y < dimensions.Height; y++)
+            {
+                for (int z = 0; z < dimensions.Length; z++)
+                {
+                    if (configuredVoxelMask[x, y, z])
+                        preparedVoxels[index++] = new VoxelIndex(x, y, z);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryPrepareConfiguredVoxelIndices(
+        IEnumerable<VoxelIndex>? configuredVoxels,
+        GridDimensions dimensions,
+        out VoxelIndex[] preparedVoxels)
+    {
+        preparedVoxels = Array.Empty<VoxelIndex>();
+        if (configuredVoxels == null)
+            return true;
+
+        SwiftList<VoxelIndex> indices = configuredVoxels is ICollection<VoxelIndex> collection
+            ? new SwiftList<VoxelIndex>(collection.Count)
+            : new SwiftList<VoxelIndex>();
+
+        foreach (VoxelIndex configuredVoxel in configuredVoxels)
+        {
+            if (!IsConfiguredVoxelInBounds(configuredVoxel, dimensions))
+            {
+                GridForgeLogger.Channel.Warn($"Sparse voxel index {configuredVoxel} is outside normalized grid dimensions.");
+                return false;
+            }
+
+            indices.Add(configuredVoxel);
+        }
+
+        if (indices.Count == 0)
+            return true;
+
+        preparedVoxels = indices.ToArray();
+        Array.Sort(preparedVoxels, VoxelIndexComparer.Instance);
+        CompactPreparedVoxels(ref preparedVoxels);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsConfiguredVoxelInBounds(VoxelIndex voxelIndex, GridDimensions dimensions) =>
+        (uint)voxelIndex.x < (uint)dimensions.Width
+        && (uint)voxelIndex.y < (uint)dimensions.Height
+        && (uint)voxelIndex.z < (uint)dimensions.Length;
+
+    private static void CompactPreparedVoxels(ref VoxelIndex[] preparedVoxels)
+    {
+        if (preparedVoxels.Length < 2)
+            return;
+
+        int writeIndex = 1;
+        VoxelIndex previous = preparedVoxels[0];
+        for (int readIndex = 1; readIndex < preparedVoxels.Length; readIndex++)
+        {
+            VoxelIndex current = preparedVoxels[readIndex];
+            if (current == previous)
+                continue;
+
+            preparedVoxels[writeIndex++] = current;
+            previous = current;
+        }
+
+        if (writeIndex != preparedVoxels.Length)
+            Array.Resize(ref preparedVoxels, writeIndex);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -651,7 +857,8 @@ public sealed class GridWorld : IDisposable
             boundsMax,
             configuration.ScanCellSize,
             configuration.TopologyKind,
-            configuration.TopologyMetrics);
+            configuration.TopologyMetrics,
+            configuration.StorageKind);
         return true;
     }
 
@@ -955,6 +1162,22 @@ public sealed class GridWorld : IDisposable
             (position.Y.Abs() / SpatialGridCellSize).FloorToInt() * position.Y.Sign(),
             (position.Z.Abs() / SpatialGridCellSize).FloorToInt() * position.Z.Sign()
         );
+    }
+
+    private sealed class VoxelIndexComparer : IComparer<VoxelIndex>
+    {
+        public static readonly VoxelIndexComparer Instance = new();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Compare(VoxelIndex left, VoxelIndex right)
+        {
+            int result = left.x.CompareTo(right.x);
+            if (result != 0)
+                return result;
+
+            result = left.y.CompareTo(right.y);
+            return result != 0 ? result : left.z.CompareTo(right.z);
+        }
     }
 
     #endregion

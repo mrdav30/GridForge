@@ -113,6 +113,10 @@ Target outcome:
 
 Implement sparse construction, lookup, and query/mutation compatibility for configured voxels.
 
+Status: Phase 2 construction and lookup completed on 2026-06-12. Next step is
+storage-neutral coverage, blockers, occupants, partitions, scans, and neighbor
+compatibility.
+
 Why:
 
 - Sparse storage has clear value once topology math has an explicit owner.

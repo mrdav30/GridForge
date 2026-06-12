@@ -18,8 +18,6 @@ internal interface IVoxelGridStorage
 
     SwiftSparseMap<ScanCell>? ScanCells { get; }
 
-    void Initialize(VoxelGrid grid);
-
     void Reset(VoxelGrid grid);
 
     bool TryGetVoxel(int x, int y, int z, out Voxel? result);
