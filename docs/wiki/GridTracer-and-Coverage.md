@@ -71,6 +71,22 @@ blocker bounds
   -> obstacle mutation on each covered voxel
 ```
 
+## Sparse Coverage
+
+Sparse grids use their bounds as an address space, but coverage results only
+include configured physical voxels.
+
+That means:
+
+- `GetCoveredVoxels(...)` skips missing sparse voxels instead of materializing
+  them.
+- `GetCoveredScanCells(...)` returns only scan cells that exist for configured
+  sparse blocks.
+- Empty sparse regions are cheap to cover because absent sparse blocks are
+  skipped by scan-cell key.
+
+This behavior is the same for 3D coverage and layer-locked `Vector2d` coverage.
+
 ## Result Lifetime And Pooling
 
 This is one of the most important practical details:

@@ -67,7 +67,8 @@ public readonly partial struct GridConfiguration
     public readonly GridTopologyMetrics TopologyMetrics;
 
     /// <summary>
-    /// The physical voxel storage used by this grid.
+    /// The physical voxel storage used by this grid. Dense storage materializes every in-bounds voxel;
+    /// sparse storage materializes only explicitly configured voxels.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]

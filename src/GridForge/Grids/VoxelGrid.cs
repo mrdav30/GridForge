@@ -87,12 +87,13 @@ public class VoxelGrid
     public int Length { get; private set; }
 
     /// <summary>
-    /// Total number of voxels within the grid.
+    /// Total addressable voxel count within the grid bounds.
     /// </summary>
     public int Size { get; private set; }
 
     /// <summary>
     /// The number of physical voxels configured in the grid storage.
+    /// Dense grids report <see cref="Size"/>; sparse grids report configured voxels only.
     /// </summary>
     public int ConfiguredVoxelCount
     {
@@ -661,7 +662,8 @@ public class VoxelGrid
         IsVoxelAllocated(voxelIndex.x, voxelIndex.y, voxelIndex.z);
 
     /// <summary>
-    /// Configures a sparse voxel at runtime.
+    /// Configures a sparse voxel at runtime. Dense grids, invalid indices, and already-configured
+    /// sparse voxels return false.
     /// </summary>
     /// <param name="voxelIndex">The grid-local voxel index to configure.</param>
     /// <param name="voxel">The configured voxel when the operation succeeds.</param>
@@ -684,6 +686,8 @@ public class VoxelGrid
 
     /// <summary>
     /// Removes a configured sparse voxel at runtime when it has no unsafe runtime state.
+    /// Dense grids, missing voxels, occupied voxels, voxels with obstacle tokens, partitioned voxels,
+    /// and voxels with active event subscribers return false.
     /// </summary>
     /// <param name="voxelIndex">The grid-local voxel index to remove.</param>
     /// <returns>True when the sparse voxel was removed; otherwise false.</returns>
@@ -944,14 +948,14 @@ public class VoxelGrid
     }
 
     /// <summary>
-    /// Helper function to ceil snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
+    /// Helper function to ceil snap a <see cref="Vector3d"/> through this grid's topology, ensuring it stays within grid bounds.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d CeilToGrid(Vector3d position) =>
          Topology.CeilToGrid(BoundsMin, BoundsMax, position);
 
     /// <summary>
-    /// Helper function to floor snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
+    /// Helper function to floor snap a <see cref="Vector3d"/> through this grid's topology, ensuring it stays within grid bounds.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d FloorToGrid(Vector3d position) =>

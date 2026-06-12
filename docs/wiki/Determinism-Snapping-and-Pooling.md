@@ -33,17 +33,20 @@ That snapped result affects:
 - blocker coverage
 - local voxel index resolution
 
-## Voxel Size Is A World-Level Assumption
+## Cell Metrics Are A Grid-Level Assumption
 
-`GridWorld` establishes voxel size for that world instance.
+`GridConfiguration.TopologyMetrics` establishes deterministic cell geometry for
+the grid being registered.
 
 That means:
 
-- all later grid configuration snapping in that world depends on that value
-- all later voxel index math in that world depends on that value
-- changing voxel size is a world-level choice, not a local tweak
+- grid configuration snapping depends on the normalized topology metrics
+- voxel index math for that grid depends on those metrics
+- changing cell geometry is a grid-configuration choice, not a hidden world-wide
+  scalar
 
-When tests or tools need a different voxel size, create a separate world or reset and recreate the current one.
+When tests or tools need different cell geometry, create the grid with explicit
+topology metrics and keep expectations local to that grid.
 
 ## Pooling Is A First-Class Constraint
 
@@ -62,7 +65,7 @@ Every new mutable field introduced into a pooled type needs a matching reset sto
 
 ## Practical Debugging Checklist
 
-1. Was the current `GridWorld` created with the voxel size you think it was?
+1. Was the grid created with the topology metrics you think it was?
 2. What are the snapped bounds after normalization?
 3. Is the queried world-space position exactly on a boundary?
 4. Are you looking at a pooled object or temporary collection after its intended lifetime?

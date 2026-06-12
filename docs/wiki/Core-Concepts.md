@@ -7,8 +7,8 @@ This page defines the vocabulary of GridForge.
 GridForge is easiest to reason about as a stack of layers:
 
 1. `GridWorld` owns world lifecycle, registration, lookup, and world-scoped identity.
-2. `GridConfiguration` defines input bounds and scan-cell size for a grid.
-3. `VoxelGrid` owns one grid's voxels, scan cells, neighbors, and versioned state.
+2. `GridConfiguration` defines input bounds, topology metrics, storage kind, and scan-cell size for a grid.
+3. `VoxelGrid` owns one grid's physical voxels, scan cells, neighbors, and versioned state.
 4. `Voxel` is the per-cell unit of occupancy, obstacles, partitions, and adjacency.
 5. `ScanCell` is the query-oriented overlay used to accelerate occupant scans.
 6. Managers and utilities such as `GridScanManager`, `GridObstacleManager`, `GridOccupantManager`, and `GridTracer` mutate or query those structures.
@@ -61,11 +61,14 @@ It defines:
 - `ScanCellSize`
 - `TopologyKind`
 - `TopologyMetrics`
+- `StorageKind`
 
 Important details:
 
 - bounds are ordered during construction, but not snapped until a world registers the grid
 - `ScanCellSize` is expressed in voxels, not world units
+- `StorageKind.Dense` allocates every in-bounds topology-local voxel
+- `StorageKind.Sparse` allocates only explicitly configured topology-local voxels
 - `ToBoundsKey()` creates the exact identity key used after normalization
 
 ## `VoxelGrid`
@@ -77,6 +80,11 @@ Useful mental model:
 - `GridWorld` answers "which grid?"
 - `VoxelGrid` answers "which cell inside that grid?"
 - `VoxelGrid.EnumerateVoxels()` iterates the physical voxels configured in the grid without exposing storage layout.
+
+Dense grids configure every voxel in the normalized address space. Sparse grids
+use the same bounds as an address space but only configured voxels physically
+exist. Missing sparse voxels are intentional absence for lookup, tracing,
+blockers, occupants, partitions, scan cells, and neighbor resolution.
 
 ## `Voxel`
 

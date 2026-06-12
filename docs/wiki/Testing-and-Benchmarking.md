@@ -40,6 +40,14 @@ Phase 4 also added explicit isolation coverage for:
 - stale identity rejection after world teardown
 - blockers, occupants, tracing, and scans staying inside their owning world
 
+Sparse storage coverage includes:
+
+- dense storage behavior after storage extraction
+- sparse construction from configured indices and masks
+- missing in-bounds sparse voxel lookup
+- storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor lookup
+- explicit runtime sparse voxel add/remove safety rules
+
 ## Standard Test Commands
 
 ```bash
@@ -68,7 +76,12 @@ Good GridForge tests usually:
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
 ```
+
+The `sparse-voxel-grid` alias covers sparse construction density, configured and
+missing lookup, empty and clustered coverage, blocker apply/remove, occupant
+registration, radius scans, neighbor lookup, and dense comparison scenarios.
 
 ## Benchmark Environment Behavior
 

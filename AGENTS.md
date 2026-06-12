@@ -23,7 +23,10 @@ Current priorities:
 4. Keep hot paths allocation-conscious and pooling-safe.
 5. Keep the core library engine-agnostic. Unity integration belongs in the
    separate `GridForge-Unity` repository.
-6. Keep README, wiki pages, tests, benchmarks, package metadata, and workflow
+6. Prefer proven lower-stack primitives from `FixedMathSharp` and
+   `SwiftCollections` before adding local math, collection, pool, or helper
+   implementations.
+7. Keep README, wiki pages, tests, benchmarks, package metadata, and workflow
    behavior aligned when architecture or public API changes.
 
 ## Start Here
@@ -84,7 +87,9 @@ rewrite.
 | --- | --- | --- |
 | [`src/GridForge`](src/GridForge) | Main library project | Multi-targets `netstandard2.1` and `net8.0`. |
 | [`src/GridForge/Configuration`](src/GridForge/Configuration) | Grid creation input and bounds identity | `GridConfiguration` is normalized by the owning world. |
-| [`src/GridForge/Grids`](src/GridForge/Grids) | Core world, grid, voxel, scan-cell, manager, and pool logic | Highest-risk runtime area. |
+| [`src/GridForge/Grids`](src/GridForge/Grids) | Core world, grid, voxel, scan-cell, manager, storage, topology, and pool logic | Highest-risk runtime area. |
+| [`src/GridForge/Grids/Storage`](src/GridForge/Grids/Storage) | Dense and sparse physical voxel storage | Keep storage-specific layout behind `VoxelGrid`. |
+| [`src/GridForge/Grids/Topology`](src/GridForge/Grids/Topology) | Topology metrics, snapping, dimensions, and world/index projection | Keep coordinate math deterministic and storage-neutral. |
 | [`src/GridForge/Spatial`](src/GridForge/Spatial) | Shared coordinates, directions, occupants, partitions, and awareness abstractions | Keep engine-neutral and deterministic. |
 | [`src/GridForge/Blockers`](src/GridForge/Blockers) | Bounds-based obstacle application over tracer coverage | Test stacked, edge, removal, and multi-grid cases. |
 | [`src/GridForge/Support`](src/GridForge/Support) | Shared support types such as `BoundsKey` and `GridVoxelSet` | Watch pooled result lifetimes. |
@@ -137,12 +142,18 @@ Versioning:
 
 The runtime is built around explicit world ownership:
 
-- `GridWorld` owns one world's voxel size, spatial hash settings, active grid
-  bucket, bounds tracker, spatial hash, versioning, lifecycle, and world-level
-  events.
-- `VoxelGrid` owns one grid's snapped bounds, dimensions, voxel array,
-  scan-cell overlay, active scan-cell set, neighbor relationships, obstacle
-  count, occupancy summary, and grid version.
+- `GridWorld` owns one world's spatial hash settings, active grid bucket,
+  bounds tracker, spatial hash, maximum topology cell edge, versioning,
+  lifecycle, and world-level events.
+- `GridConfiguration` carries per-grid storage and topology intent through
+  `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics`.
+- `VoxelGrid` owns one grid's snapped bounds, dimensions, topology instance,
+  dense or sparse physical voxel storage, scan-cell overlay, active scan-cell
+  set, neighbor relationships, obstacle count, occupancy summary, and grid
+  version.
+- Dense storage materializes every in-bounds topology-local voxel. Sparse
+  storage uses bounds as an address space and materializes only configured
+  voxels; missing sparse voxels are intentional absence.
 - `Voxel` owns local and world-scoped identity, obstacle state, occupant count,
   partitions, boundary awareness, world position, and cached neighbor data.
 - `ScanCell` stores occupant buckets grouped by `WorldVoxelIndex` and ticketed
@@ -166,13 +177,16 @@ there is a concrete reason to add it to the core API.
 ## Determinism Rules
 
 Any change that affects snapping, lookup, iteration order, identity, tracing,
-neighbor resolution, blocker coverage, occupant registration, scan ordering, or
-pooled lifetime is high risk.
+storage layout, topology projection, sparse mutation, neighbor resolution,
+blocker coverage, occupant registration, scan ordering, or pooled lifetime is
+high risk.
 
 Always prefer:
 
 - `Fixed64`, `Vector2d`, and `Vector3d` over `float`, `double`, or
   `System.Numerics` in deterministic runtime paths.
+- Existing `FixedMathSharp` helpers for deterministic math and conversions
+  before adding local equivalents.
 - Stable ordering when traversing grids, voxels, scan cells, occupants,
   blockers, partitions, or pooled collections.
 - Explicit `GridWorld` ownership over hidden process-global state.
@@ -198,6 +212,9 @@ Likely hotspots include:
   and neighbor updates.
 - `VoxelGrid` generation, reset, neighbor cache invalidation, and scan-cell
   generation.
+- Dense and sparse voxel storage construction, lookup, enumeration, and runtime
+  sparse add/remove.
+- Topology normalization, world/index conversion, and coverage math.
 - `GridTracer` line, bounds, and scan-cell coverage.
 - `GridScanManager` radius scans and caller-owned result paths.
 - `GridOccupantManager` registration tracking, active scan-cell bookkeeping,
@@ -207,8 +224,17 @@ Likely hotspots include:
 Rules:
 
 - Choose data structures by access pattern and time complexity.
-- Use `SwiftCollections` and existing pools where the surrounding code already
-  does.
+- Prefer `SwiftCollections` concrete collections over `System.Collections`
+  concrete collections in runtime code and tests that mirror runtime hot paths.
+  Arrays are still appropriate for fixed-size or contiguous indexed storage.
+- Use existing pools where the surrounding code already does.
+- Check `FixedMathSharp` and `SwiftCollections` for existing primitives before
+  writing custom math, collection, pooling, sorting, hashing, or capacity
+  helpers.
+- Use bit flags or bit masking for compact combinable state when it improves
+  performance or clarity; avoid binary enums that cannot grow or compose.
+- Apply `[MethodImpl(MethodImplOptions.AggressiveInlining)]` to tiny hot-path
+  helpers, properties, and forwarding methods when it matches surrounding code.
 - Release rented collections in `finally` blocks when enumeration or user code
   can exit early.
 - Do not retain pooled arrays, lists, sets, scan cells, voxels, or `GridVoxelSet`
@@ -257,6 +283,7 @@ other performance-sensitive paths:
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
 ```
 
 Test guidance:
@@ -267,8 +294,8 @@ Test guidance:
   or compatibility state.
 - Prefer deterministic coordinates and exact assertions over fuzzy tolerances.
 - If you change tracing, blockers, occupancy, scan cells, grid registration,
-  neighbor handling, snapping, or identity behavior, update or add tests in the
-  closest matching folder.
+  neighbor handling, snapping, storage, topology, sparse mutation, or identity
+  behavior, update or add tests in the closest matching folder.
 
 ## Documentation Expectations
 
@@ -281,6 +308,7 @@ High-value pages:
 - [`docs/wiki/Getting-Started.md`](docs/wiki/Getting-Started.md)
 - [`docs/wiki/Core-Concepts.md`](docs/wiki/Core-Concepts.md)
 - [`docs/wiki/Architecture-Overview.md`](docs/wiki/Architecture-Overview.md)
+- [`docs/wiki/Sparse-Grid-Storage.md`](docs/wiki/Sparse-Grid-Storage.md)
 - [`docs/wiki/GridTracer-and-Coverage.md`](docs/wiki/GridTracer-and-Coverage.md)
 - [`docs/wiki/Scan-Cells-and-Query-Flow.md`](docs/wiki/Scan-Cells-and-Query-Flow.md)
 - [`docs/wiki/Blockers-and-Obstacles.md`](docs/wiki/Blockers-and-Obstacles.md)
@@ -298,9 +326,9 @@ for GitHub wiki publishing.
 
 - Start in `src/GridForge/Grids`.
 - Decide whether the behavior belongs at world, grid, voxel, scan-cell, query,
-  or manager level.
+  storage, topology, or manager level.
 - Check interactions with snapping, spatial hashing, pooling, versioning,
-  events, neighbor caches, and identity tokens.
+  events, neighbor caches, storage kind, topology metrics, and identity tokens.
 - Add or update tests under `tests/GridForge.Tests/Grids` or
   `tests/GridForge.Tests/Utility`.
 
@@ -309,7 +337,8 @@ for GitHub wiki publishing.
 - Start in `src/GridForge/Blockers` or `src/GridForge/Utility/GridTracer.cs`.
 - Reuse existing tracer and blocker patterns where possible.
 - Test single-grid, multi-grid, edge, stacked, cached, uncached, apply, remove,
-  and reapply cases.
+  sparse configured-only coverage, runtime sparse add reconciliation, and
+  reapply cases.
 
 ### Adding Occupant Or Partition Behavior
 
@@ -338,6 +367,10 @@ for GitHub wiki publishing.
 - Treating `GridIndex` alone as durable cross-system identity.
 - Assuming pooled collections or query results can be retained indefinitely.
 - Bypassing snapping or fixed-point conversions in core spatial logic.
+- Reintroducing world-level cell geometry instead of per-grid topology metrics.
+- Assuming `VoxelGrid` storage is always dense or that `VoxelGrid.Voxels` is a
+  public storage-neutral surface.
+- Treating missing sparse voxels as empty dense voxels.
 - Breaking `ReleaseLean` by referencing `MemoryPack` without a guarded path.
 - Adding Unity or engine-specific code to the core library.
 - Changing synchronization around shared mutable state without tests and a clear
@@ -351,13 +384,15 @@ for GitHub wiki publishing.
 1. Read the README, the relevant wiki page, the project file, and nearby source
    and tests.
 2. Decide whether the change affects determinism, global state, identity,
-   pooling, package variants, or docs.
+   pooling, storage, topology, package variants, or docs.
 3. Make the smallest coherent change that fits existing architecture.
-4. Add or update focused tests for behavior changes.
-5. Run build and test commands appropriate to the risk.
-6. Run benchmarks for performance-sensitive changes.
-7. Mention any warnings, global-state considerations, package-variant risk, or
+4. Check lower-stack libraries for existing primitives before adding local
+   helpers.
+5. Add or update focused tests for behavior changes.
+6. Run build and test commands appropriate to the risk.
+7. Run benchmarks for performance-sensitive changes.
+8. Mention any warnings, global-state considerations, package-variant risk, or
    untested edge cases in the handoff.
 
 Keep this document current when solution layout, build flow, package variants,
-wiki publishing, or core architecture changes.
+wiki publishing, storage/topology boundaries, or core architecture changes.

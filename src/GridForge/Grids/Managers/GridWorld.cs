@@ -232,6 +232,7 @@ public sealed class GridWorld : IDisposable
 
     /// <summary>
     /// Adds a new grid to this world and materializes the supplied sparse voxel indices when sparse storage is configured.
+    /// Dense grids ignore the configured voxel input and materialize every in-bounds voxel.
     /// </summary>
     /// <param name="configuration">The grid configuration to normalize and register.</param>
     /// <param name="configuredVoxels">Grid-local voxel indices to materialize for sparse storage.</param>
@@ -246,9 +247,10 @@ public sealed class GridWorld : IDisposable
 
     /// <summary>
     /// Adds a new grid to this world and materializes true cells from the supplied sparse voxel mask when sparse storage is configured.
+    /// Dense grids ignore the configured voxel input and materialize every in-bounds voxel.
     /// </summary>
     /// <param name="configuration">The grid configuration to normalize and register.</param>
-    /// <param name="configuredVoxels">A [x, y, z] mask whose true values identify sparse voxels to materialize.</param>
+    /// <param name="configuredVoxels">A [x, y, z] mask whose true values identify sparse voxels to materialize. Sparse masks must match the normalized grid dimensions.</param>
     /// <param name="allocatedIndex">The allocated world-local grid slot on success.</param>
     /// <returns>True if the grid was added; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

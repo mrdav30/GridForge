@@ -28,10 +28,32 @@ When a grid is initialized, `VoxelGrid.Initialize(...)`:
 2. computes dimensions from snapped bounds and per-grid topology metrics
 3. initializes the grid's voxel storage and scan-cell overlay
 
-Dense rectangular grids configure every voxel in the grid address space. Use
-`VoxelGrid.EnumerateVoxels()` when code needs to iterate physical voxels without
-depending on a dense array layout, and use `ConfiguredVoxelCount` when code needs
-the physical-cell count.
+Dense rectangular grids configure every voxel in the grid address space. Sparse
+grids use the same bounds as an address space and configure only the explicitly
+provided physical voxels. Reads never materialize missing sparse voxels.
+
+Use `VoxelGrid.EnumerateVoxels()` when code needs to iterate physical voxels
+without depending on a dense array layout, and use `ConfiguredVoxelCount` when
+code needs the physical-cell count. Dense grids report `Size`; sparse grids
+report the configured voxel count.
+
+## Dense And Sparse Storage
+
+`VoxelGrid.StorageKind` identifies whether the grid is dense or sparse.
+
+Sparse grids preserve the same public grid model as dense grids:
+
+- `TryGetGrid(...)` can resolve the grid bounds even when the addressed sparse
+  voxel is missing.
+- `TryGetVoxel(...)` and `TryGetGridAndVoxel(...)` require a configured
+  physical voxel.
+- `ContainsVoxel(...)` checks whether a physical voxel exists at a local index.
+- `TryAddVoxel(...)` and `TryRemoveVoxel(...)` are explicit sparse-only runtime
+  mutation APIs.
+
+Runtime sparse removal is intentionally conservative. It rejects voxels with
+occupants, obstacle tokens, partitions, or active voxel event subscribers so
+state is not silently discarded.
 
 ## What A `Voxel` Owns
 
@@ -57,6 +79,10 @@ Neighbor handling spans both `VoxelGrid` and `Voxel`.
 - `Voxel` exposes directional neighbor lookup through `TryGetNeighborFromDirection(...)` and `GetNeighbors(...)`
 
 If a local voxel lookup fails at the edge of a grid, the voxel resolves the matching world-space neighbor through its owning world.
+
+For sparse grids, missing local neighbors are absent even when their indices are
+inside the grid bounds. Boundary neighbor lookup can still cross into
+configured voxels on neighboring grids.
 
 ## Reset And Reuse
 

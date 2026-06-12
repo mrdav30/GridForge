@@ -14,7 +14,7 @@ GridForge is organized as a small set of cooperating layers:
 | --- | --- | --- |
 | World coordination | `GridWorld` | World lifecycle, registration, spatial hashing, top-level lookup, world events |
 | Configuration and identity | `GridConfiguration`, `BoundsKey`, `VoxelIndex`, `WorldVoxelIndex` | Stable input, snapped bounds, and cross-system identity |
-| Per-grid storage | `VoxelGrid`, `Voxel`, `ScanCell` | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state |
+| Per-grid storage | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state |
 | Mutation services | `GridObstacleManager`, `GridOccupantManager`, `Blocker` | Safe state changes, events, and higher-level world-space mutations |
 | Query services | `GridScanManager`, `GridTracer` | Radius scans, filtered retrieval, line tracing, coverage enumeration |
 | Extension and diagnostics | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, `GridForgeLogger` | Domain integration, metadata hooks, logging and debugging |
@@ -26,6 +26,8 @@ GridForge is organized as a small set of cooperating layers:
 | `src/GridForge/Configuration` | Grid creation inputs and bounds identity |
 | `src/GridForge/Grids/Managers` | World orchestration and mutation/query manager APIs |
 | `src/GridForge/Grids/Nodes` | Concrete runtime storage types: `Voxel` and `ScanCell` |
+| `src/GridForge/Grids/Storage` | Dense and sparse physical voxel storage strategies |
+| `src/GridForge/Grids/Topology` | Per-grid topology metrics, snapping, dimensions, and world/index projection |
 | `src/GridForge/Grids/Support` | Pooled resources and event payload types |
 | `src/GridForge/Spatial` | Shared coordinate, direction, occupant, and partition abstractions |
 | `src/GridForge/Blockers` | World-space obstacle application on top of tracer coverage |
@@ -60,7 +62,7 @@ world-space input
 
 - one grid's snapped bounds and dimensions
 - its per-grid topology metrics
-- its physical voxel storage
+- its dense or sparse physical voxel storage
 - its scan-cell overlay for configured voxels
 - the set of active scan cells
 - neighboring grid relationships
@@ -103,8 +105,8 @@ GridConfiguration
   -> pooled VoxelGrid rent
   -> VoxelGrid.Initialize(...)
       -> dimension calculation
-      -> scan-cell generation
-      -> voxel generation
+      -> dense or sparse physical voxel storage initialization
+      -> scan-cell storage for configured voxels
   -> spatial hash registration
   -> neighbor linking
   -> world add notification

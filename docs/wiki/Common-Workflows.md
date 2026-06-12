@@ -25,7 +25,39 @@ if (!world.TryAddGrid(config, out ushort gridIndex))
 VoxelGrid grid = world.ActiveGrids[gridIndex];
 ```
 
-## Workflow 2: Resolve World Space Into A Grid And Voxel
+## Workflow 2: Create A Sparse Grid
+
+```csharp
+using FixedMathSharp;
+using GridForge.Configuration;
+using GridForge.Grids;
+using GridForge.Grids.Storage;
+using GridForge.Spatial;
+
+GridConfiguration sparseConfig = new GridConfiguration(
+    new Vector3d(0, 0, 0),
+    new Vector3d(7, 0, 7),
+    storageKind: GridStorageKind.Sparse);
+
+VoxelIndex[] configured =
+{
+    new VoxelIndex(0, 0, 0),
+    new VoxelIndex(2, 0, 2),
+    new VoxelIndex(7, 0, 7)
+};
+
+if (!world.TryAddGrid(sparseConfig, configured, out ushort sparseGridIndex))
+    throw new InvalidOperationException("Could not add sparse grid.");
+
+VoxelGrid sparseGrid = world.ActiveGrids[sparseGridIndex];
+```
+
+Sparse grid bounds still participate in world-level grid lookup, but only
+configured voxels exist. `world.TryGetGrid(...)` can resolve an in-bounds sparse
+position while `world.TryGetGridAndVoxel(...)` fails when the local sparse
+voxel is missing.
+
+## Workflow 3: Resolve World Space Into A Grid And Voxel
 
 ```csharp
 using FixedMathSharp;
@@ -65,7 +97,7 @@ if (world.TryGetGridAndVoxel(flatPosition, (Fixed64)1, out VoxelGrid flatGrid, o
 }
 ```
 
-## Workflow 3: Move Between World Space And Grid-Local Coordinates
+## Workflow 4: Move Between World Space And Grid-Local Coordinates
 
 ```csharp
 using FixedMathSharp;
@@ -80,7 +112,7 @@ if (grid.TryGetVoxelIndex(worldPosition, out VoxelIndex index))
 }
 ```
 
-## Workflow 4: Register Occupants And Scan For Nearby Results
+## Workflow 5: Register Occupants And Scan For Nearby Results
 
 ```csharp
 using System;
@@ -152,7 +184,7 @@ For flat simulations, an occupant can store its native state as
 `Vector2d Position2d` plus `Fixed64 Height` and expose `Position` as the
 world-space projection that GridForge uses for registration and scan filtering.
 
-## Workflow 5: Apply And Remove A Bounds-Based Blocker
+## Workflow 6: Apply And Remove A Bounds-Based Blocker
 
 ```csharp
 using FixedMathSharp;
@@ -183,7 +215,7 @@ flatBlocker.ApplyBlockage();
 flatBlocker.RemoveBlockage();
 ```
 
-## Workflow 6: Trace Covered Voxels For Custom Processing
+## Workflow 7: Trace Covered Voxels For Custom Processing
 
 ```csharp
 using FixedMathSharp;
@@ -215,7 +247,7 @@ foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(world, flatMin, fla
 
 Consume each `GridVoxelSet` immediately inside the enumeration. The `Voxels` list is backed by pooled storage and should be treated as transient query data.
 
-## Workflow 7: Reset Or Tear Down A World Between Scenarios
+## Workflow 8: Reset Or Tear Down A World Between Scenarios
 
 ```csharp
 using GridForge.Grids;

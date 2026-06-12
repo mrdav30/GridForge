@@ -42,7 +42,7 @@ using SwiftCollections.Diagnostics;
 
 ## 1. Create A World
 
-`GridWorld` owns voxel size, spatial hashing, active grids, and top-level world-space lookup for one isolated world.
+`GridWorld` owns spatial hashing, active grids, and top-level world-space lookup for one isolated world.
 
 ```csharp
 using GridWorld world = new GridWorld();
@@ -50,7 +50,7 @@ using GridWorld world = new GridWorld();
 
 This uses the library defaults:
 
-- Voxel size: `1`
+- Rectangular topology metrics: `1 x 1 x 1`
 - Spatial hash cell size: `50`
 
 ## 2. Create Your First Grid
@@ -74,9 +74,9 @@ Console.WriteLine($"Dimensions: {grid.Width} x {grid.Height} x {grid.Length}");
 
 Notes:
 
-- Bounds are inclusive. With a voxel size of `1`, a grid from `-10` to `10` spans `21` voxels on that axis.
+- Bounds are inclusive. With default `1 x 1 x 1` rectangular metrics, a grid from `-10` to `10` spans `21` voxels on that axis.
 - The default `scanCellSize` is `8`, and it is measured in voxels, not world units.
-- The world normalizes and snaps bounds during registration using that world's voxel size.
+- The world normalizes and snaps bounds during registration using the grid's topology metrics.
 
 ## 3. Resolve A Grid And Voxel From World Space
 
@@ -135,7 +135,35 @@ Practical rule of thumb:
 - Rectangular topology metrics control world-space cell precision.
 - Scan cell size controls how many voxels are grouped together for scan queries.
 
-## 5. Configure Logging When You Need Visibility
+## 5. Choose Dense Or Sparse Storage
+
+Dense storage is the default: every in-bounds topology-local voxel exists.
+Sparse storage uses the same bounds as an address space, but only explicitly
+configured voxels exist.
+
+```csharp
+using GridForge.Grids.Storage;
+using GridForge.Spatial;
+
+GridConfiguration sparseGrid = new GridConfiguration(
+    new Vector3d(0, 0, 0),
+    new Vector3d(7, 0, 7),
+    storageKind: GridStorageKind.Sparse);
+
+VoxelIndex[] configured =
+{
+    new VoxelIndex(0, 0, 0),
+    new VoxelIndex(7, 0, 7)
+};
+
+world.TryAddGrid(sparseGrid, configured, out ushort sparseGridIndex);
+```
+
+`TryGetGrid(...)` can resolve a sparse grid by bounds, while
+`TryGetGridAndVoxel(...)` returns `false` for missing sparse voxels. Missing
+sparse voxels are intentional absence, not default empty cells.
+
+## 6. Configure Logging When You Need Visibility
 
 GridForge logging is routed through `GridForgeLogger`. By default, the library emits `Warning` and `Error` level messages.
 
@@ -150,7 +178,7 @@ GridForgeLogger.LogHandler = (level, message, source) =>
 
 For diagnostics in library or tool code, use interpolated helper calls such as `GridForgeLogger.Channel.Warn($"...")`; disabled diagnostic levels skip formatted expression evaluation.
 
-## 6. Reset Or Dispose Explicitly
+## 7. Reset Or Dispose Explicitly
 
 Because a `GridWorld` owns mutable runtime state, cleanup should be deliberate.
 
@@ -164,7 +192,7 @@ In most application code and tests, `using GridWorld world = new GridWorld();` i
 ## Common Early Mistakes
 
 - Reusing one world across unrelated scenarios without a matching reset or disposal
-- Forgetting that bounds are snapped to the world's voxel size
+- Forgetting that bounds are snapped through the grid's topology metrics
 - Treating `scanCellSize` as a world-unit measurement instead of a voxel count
 - Using `TryGetGrid(...)` when you actually need `TryGetGridAndVoxel(...)`
 - Holding onto pooled query results longer than the immediate operation

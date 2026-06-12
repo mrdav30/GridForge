@@ -13,9 +13,10 @@
 ## Status
 
 - Started: 2026-06-11
-- Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
+- Completed: 2026-06-12
+- Release posture: Additive within the current `int` dimension limits. Large sparse address spaces remain outside this release.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Phase 4 complete; ready for performance hardening and benchmark coverage.
+- Current state: Complete. Sparse construction, lookup, storage-neutral query flows, runtime sparse mutation, performance hardening, documentation, XML docs, and release metadata alignment are finished.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
@@ -26,7 +27,7 @@
 - `GridTracer.GetCoveredVoxels(...)` returns only configured voxels for sparse grids.
 - `BoundsBlocker` and other blocker workflows apply obstacle state only to configured sparse voxels covered by the blocker bounds.
 - Reads must not allocate or configure sparse voxels. Configuration happens through explicit construction or explicit mutation APIs.
-- The first sparse release is static: sparse voxels are configured at grid creation time. Runtime sparse add/remove is deferred to the runtime sparse mutation roadmap slice.
+- Sparse voxels can be configured at grid creation time and through explicit runtime sparse mutation APIs. Runtime removal rejects unsafe voxel state, and runtime add reconciles active blocker coverage.
 - `GridConfiguration` directly carries storage intent through `GridStorageKind`; do not introduce a separate sparse configuration wrapper in the first release.
 - Initial sparse support stays within the current `int` dimension envelope. Construction must validate `Width`, `Height`, `Length`, and `Size` overflow before storage initialization.
 - `ConfiguredVoxelCount` is the public physical-cell count. Dense grids report `Size`; sparse grids report the de-duplicated configured voxel count.
@@ -60,7 +61,7 @@ The same world-level pipeline should still hold:
 
 ```text
 world-space input
-  -> snap or normalize against a GridWorld
+  -> snap or normalize through the owning grid topology
   -> world-level candidate grid lookup
   -> per-grid storage lookup
   -> query or mutation
@@ -160,7 +161,7 @@ Intent: prevent ambiguous sparse behavior from leaking into implementation.
 
 Likely files:
 
-- `docs/feature-work/2026-06-11-sparse-voxel-grid-plan.md`
+- `docs/feature-work/done/2026-06-11-sparse-voxel-grid-plan.md`
 - `docs/wiki/VoxelGrid-and-Voxel-Model.md`
 - `docs/wiki/GridTracer-and-Coverage.md`
 - `docs/wiki/Blockers-and-Obstacles.md`
@@ -169,7 +170,7 @@ Likely files:
 
 Checklist:
 
-- [x] Lock first-release sparse grids as creation-time configured only; defer runtime `TryAddVoxel` and `TryRemoveVoxel`.
+- [x] Lock first-release sparse grids as configured voxels only; runtime `TryAddVoxel` and `TryRemoveVoxel` are explicit sparse-only APIs.
 - [x] Use `GridConfiguration.StorageKind`; do not add a separate `SparseGridConfiguration` wrapper.
 - [x] Keep initial sparse support within current `int` dimension limits.
 - [x] Use `ConfiguredVoxelCount` as the public physical voxel count.
@@ -178,12 +179,13 @@ Checklist:
 
 Decision record:
 
-- Sparse grids are creation-time configured only in the first sparse release. Runtime `TryAddVoxel` and `TryRemoveVoxel` remain deferred to roadmap item 6.
+- Sparse grids are configured-voxel only. They support creation-time configured indices or masks plus explicit runtime `TryAddVoxel` and `TryRemoveVoxel` APIs.
 - `GridConfiguration` directly carries `GridStorageKind StorageKind`, defaulting to `Dense`; sparse setup supplies configured indices through an explicit `GridWorld.TryAddGrid(...)` overload.
 - Sparse grids stay within current `int` dimensions and `Size` semantics initially. Overflow or invalid address-space dimensions must fail construction.
 - `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the sorted, de-duplicated configured voxel count.
 - `VoxelGrid.Voxels` should not remain the storage-neutral public surface. Add a deterministic physical-voxel enumeration API and keep dense-array access internal to dense storage.
 - Missing sparse voxels are intentional absence for lookup, tracing, blockers, occupants, partitions, and neighbors. Reads must not materialize them.
+- Runtime sparse removal is conservative: voxels with occupants, obstacle tokens, partitions, or active event subscribers are not removed. Runtime sparse add publishes grid-change notifications so active blocker coverage can be reconciled.
 
 Exit criteria:
 
@@ -387,7 +389,7 @@ Checklist:
 
 Exit criteria:
 
-- [x] Runtime sparse mutation is either implemented and tested or explicitly deferred.
+- [x] Runtime sparse mutation is implemented and tested.
 - [x] Active blocker reconciliation is not ambiguous.
 - [x] Sparse add/remove paths remain pooling-safe.
 
@@ -484,19 +486,26 @@ Likely files:
 
 Checklist:
 
-- [ ] Explain dense versus sparse grid semantics in the README without crowding the front door.
-- [ ] Add a sparse grid wiki section or page that states: missing sparse voxels are intentional absence, not default voxels.
-- [ ] Document blocker behavior over sparse grids: blockers apply to covered configured voxels only.
-- [ ] Document occupant behavior over sparse grids: occupants can register only into configured voxels.
-- [ ] Document neighbor behavior over sparse grids: missing neighbors are absent.
-- [ ] Document result-lifetime and pooling expectations for sparse coverage results.
-- [ ] Update XML docs for new public APIs.
-- [ ] Run wiki link rewrite tests if links change.
+- [x] Explain dense versus sparse grid semantics in the README without crowding the front door.
+- [x] Add a sparse grid wiki section or page that states: missing sparse voxels are intentional absence, not default voxels.
+- [x] Document blocker behavior over sparse grids: blockers apply to covered configured voxels only.
+- [x] Document occupant behavior over sparse grids: occupants can register only into configured voxels.
+- [x] Document neighbor behavior over sparse grids: missing neighbors are absent.
+- [x] Document result-lifetime and pooling expectations for sparse coverage results.
+- [x] Update XML docs for new public APIs.
+- [x] Run wiki link rewrite tests if links change.
 
 Exit criteria:
 
-- [ ] README, wiki, XML docs, tests, and package metadata tell the same sparse-grid story.
-- [ ] Users can understand when to choose dense versus sparse without reading implementation code.
+- [x] README, wiki, XML docs, tests, and package metadata tell the same sparse-grid story.
+- [x] Users can understand when to choose dense versus sparse without reading implementation code.
+
+Completed notes:
+
+- Added `docs/wiki/Sparse-Grid-Storage.md` as the detailed sparse storage page.
+- Updated README, wiki pages, XML docs, benchmark docs, and package tags to align on dense versus sparse semantics.
+- Removed stale world-voxel-size wording from current docs touched by sparse release alignment.
+- No fast-follow plan is needed from this phase. Large address-space support and adaptive sparse block layouts remain intentional future work, not unfinished sparse release requirements.
 
 Validation:
 
@@ -505,6 +514,29 @@ dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py
 git diff --check
+```
+
+Final validation:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py
+# Passed: 4/4
+dotnet build GridForge.slnx --configuration Debug
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration Debug --no-build
+# Passed: 253/253
+dotnet build GridForge.slnx --configuration Release
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration Release --no-build
+# Passed: 255/255
+dotnet build GridForge.slnx --configuration ReleaseLean
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+# Passed: 255/255
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+# sparse-voxel-grid alias present
+git diff --check
+# Clean
 ```
 
 ## Test Matrix
@@ -536,7 +568,7 @@ Minimum sparse coverage before release:
 | Dense hot paths regress | Extract dense storage first and benchmark before adding sparse behavior. |
 | Sparse iteration becomes nondeterministic | Use coordinate-ordered traversal for query results and sorted sparse setup inputs. |
 | `Size` semantics become misleading | Decide and document addressable versus configured voxel counts before code changes. |
-| Blockers miss newly configured runtime sparse voxels | Defer runtime voxel mutation until blocker reconciliation is explicitly designed. |
+| Blockers miss newly configured runtime sparse voxels | Implement active-grid change reconciliation for sparse voxel add/remove and document blocker behavior. |
 | Sparse scan cells drift from configured voxel storage | Align sparse blocks to scan-cell keys and test coverage/scan behavior together. |
 | Public docs imply missing sparse voxels behave like empty dense voxels | Use explicit wording in README/wiki examples and sparse tests. |
 | ReleaseLean breaks through MemoryPack references | Keep new serialization attributes guarded consistently with existing package-variant patterns. |
@@ -547,6 +579,8 @@ Minimum sparse coverage before release:
 2. Implement Phase 1 and commit once dense tests pass.
 3. Implement Phase 2 and commit once sparse construction tests pass.
 4. Implement Phase 3 and commit once query/mutation tests pass.
-5. Decide whether Phase 4 belongs in the first sparse release.
+5. Complete Phase 4 runtime sparse mutation with blocker reconciliation.
 6. Run Phase 5 benchmarks before polishing docs.
 7. Complete Phase 6 docs and release alignment.
+
+Final outcome: complete on 2026-06-12 and archived under `docs/feature-work/done`.

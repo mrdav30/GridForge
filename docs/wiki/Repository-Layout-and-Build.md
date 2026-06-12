@@ -22,7 +22,9 @@ The root solution file is `GridForge.slnx`.
 | --- | --- |
 | `src/GridForge` | Library source, package metadata, XML docs generation, and NuGet packaging configuration |
 | `src/GridForge/Configuration` | Grid creation inputs and snapped bounds identity |
-| `src/GridForge/Grids` | Core grid model, managers, node types, and pooling |
+| `src/GridForge/Grids` | Core grid model, managers, node types, storage, topology, and pooling |
+| `src/GridForge/Grids/Storage` | Dense and sparse physical voxel storage |
+| `src/GridForge/Grids/Topology` | Per-grid topology metrics, snapping, dimensions, and world/index projection |
 | `src/GridForge/Spatial` | Shared indices, occupants, partitions, directions, and awareness types |
 | `src/GridForge/Blockers` | Bounds-based obstacle application built on tracer coverage |
 | `src/GridForge/Utility` | Tracing and logging support |
@@ -173,7 +175,7 @@ That makes it the practical handoff script for release packaging, not just a con
 - Forgetting that build also creates NuGet packages
 - Assuming CI only validates on one operating system
 - Editing files under `bin`, `obj`, or `TestResults` instead of the source that produces them
-- Treating the benchmark project as optional when changing pooling, tracing, or registration behavior
+- Treating the benchmark project as optional when changing pooling, tracing, storage, topology, or registration behavior
 
 ## Read This Next
 

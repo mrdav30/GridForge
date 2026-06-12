@@ -19,7 +19,7 @@ This lets many queries start with "which scan cells matter?" instead of "which v
 
 ## How The Overlay Is Built
 
-Each `VoxelGrid` generates its scan-cell overlay at initialization time.
+Each `VoxelGrid` prepares scan-cell storage at initialization time.
 
 The grid derives:
 
@@ -28,7 +28,10 @@ The grid derives:
 - scan-cell length
 - a linear `CellKey` for each scan cell
 
-Every voxel then stores its `ScanCellKey`, which makes later occupant registration and scan retrieval straightforward.
+Dense grids create overlay cells for the whole grid address space. Sparse grids
+create scan-cell blocks only where configured voxels exist. Every physical voxel
+stores its `ScanCellKey`, which makes later occupant registration and scan
+retrieval straightforward.
 
 ## What A `ScanCell` Stores
 
@@ -105,6 +108,10 @@ So the query gets cheaper in layers:
 - only occupied scan cells
 - optional filters
 - exact distance
+
+For sparse grids, candidate scan cells only come from configured sparse blocks.
+Missing sparse regions do not create scan cells and do not participate in scan
+candidate enumeration.
 
 ## Query Types Built On The Overlay
 
@@ -191,7 +198,8 @@ No single type does all of it, and that separation is intentional.
 ## Practical Design Notes
 
 - Scan cells only exist inside one grid. Cross-grid scan queries are assembled by tracer coverage, not by shared scan-cell storage.
-- Empty scan cells still exist as part of the grid overlay, but only occupied ones participate in active occupancy summaries.
+- Empty dense scan cells still exist as part of the grid overlay, but only occupied ones participate in active occupancy summaries.
+- Sparse scan cells exist only for configured sparse blocks; absent blocks are intentional absence.
 - The same scan cell can contain occupants from multiple voxels, which is why voxel-bucket grouping still exists inside the scan cell.
 
 ## Common Mistakes

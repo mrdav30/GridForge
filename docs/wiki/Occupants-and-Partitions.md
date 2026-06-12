@@ -72,6 +72,7 @@ The add path rejects a few important cases:
 - duplicate registration to the same voxel identity
 - voxels without vacancy
 - voxels whose scan cell cannot be resolved
+- missing sparse voxels
 
 If the add succeeds, the target voxel's `OccupantCount` increases and the owning scan cell becomes active for later scans.
 
@@ -88,6 +89,22 @@ If removal succeeds:
 - the active scan-cell set itself is released back to a pool when the grid becomes unoccupied
 
 That last point is worth calling out because it is easy to forget: active scan-cell tracking is intentionally allocation-conscious and can disappear entirely when no occupants remain.
+
+## Sparse Grid Behavior
+
+Sparse grids require the target physical voxel to exist before occupant or
+partition state can attach to it.
+
+That means:
+
+- occupant registration fails cleanly for missing sparse voxels
+- sparse scan queries inspect only configured scan cells that overlap the query
+  region
+- partitions attach only to configured sparse voxels
+- removing a sparse voxel is rejected while it has occupants or partitions
+
+GridForge does not configure missing sparse voxels as a side effect of occupant
+registration, partition attachment, tracing, or scans.
 
 ## Why Group Ids Exist
 

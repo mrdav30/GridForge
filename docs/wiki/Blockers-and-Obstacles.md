@@ -118,9 +118,11 @@ The blocker base subscribes to:
 
 - `GridWorld.OnActiveGridAdded`
 - `GridWorld.OnActiveGridRemoved`
+- `GridWorld.OnActiveGridChange`
 - `GridWorld.OnReset`
 
-That lets active blockers react when the registered grid set changes inside their owning world.
+That lets active blockers react when the registered grid set or relevant grid
+contents change inside their owning world.
 
 ### Why this exists
 
@@ -133,6 +135,12 @@ If a newly added grid overlaps the blocker's cached bounds, the blocker reapplie
 ### What happens on grid removal
 
 If a removed grid was one the blocker had previously covered, the blocker reapplies itself across the remaining world state.
+
+### What happens on grid change
+
+Sparse runtime voxel add/remove operations publish active-grid change events.
+If a new configured sparse voxel overlaps an active blocker, the blocker
+reapplies coverage so the new voxel receives the correct obstacle token.
 
 ### What happens on reset
 
@@ -154,6 +162,16 @@ This is why blockers are safe to use for temporary world-space effects like:
 - placed structures
 - streamed-in map hazards
 - editor-authored blocked regions
+
+## Sparse Grid Behavior
+
+Blockers apply obstacle state only to covered physical voxels. On dense grids,
+that is every covered in-bounds voxel. On sparse grids, that is only covered
+configured voxels.
+
+Missing sparse voxels are not treated as unblocked dense cells, and blocker
+application does not configure them. If a sparse voxel is added later under an
+active blocker, grid-change reconciliation reapplies overlapping blocker state.
 
 ## Obstacles And Occupancy Interact
 

@@ -24,8 +24,18 @@ Usually one of these is happening:
 
 - the position is outside the snapped bounds, not the original unsnapped bounds
 - the grid was never registered in this world
-- the world voxel size is not the one you think it is
+- the grid's topology metrics are not the cell dimensions you think they are
 - the position is just outside an inclusive max boundary due to your own conversion logic
+- the grid is sparse and the addressed in-bounds voxel was never configured
+
+## Why Does `TryGetGrid(...)` Succeed But `TryGetGridAndVoxel(...)` Fail?
+
+On sparse grids, this can be expected.
+
+`TryGetGrid(...)` answers whether a position falls inside a registered grid's
+bounds. `TryGetGridAndVoxel(...)` also requires the addressed physical voxel to
+exist. Missing sparse voxels are intentional absence, so the grid can resolve
+while the voxel lookup fails.
 
 ## Why Does The Exact Max Bound Still Resolve To A Voxel?
 
@@ -53,7 +63,7 @@ Safe pattern:
 
 - create a fresh `GridWorld` for the scenario
 - dispose or reset it when the scenario ends
-- keep custom voxel-size assumptions local to that world
+- keep custom topology-metric assumptions local to the grid configuration
 
 ## Why Did A Stored `WorldVoxelIndex` Stop Resolving Later?
 
@@ -80,7 +90,7 @@ Use `Reset()` when:
 Use `Reset(deactivate: true)` when:
 
 - you want a full teardown
-- you are about to use different voxel or spatial-hash settings
+- you are about to use different topology or spatial-hash settings
 - you want to guarantee the next run starts from an inactive state
 
 ## Quick Troubleshooting Checklist
@@ -88,6 +98,7 @@ Use `Reset(deactivate: true)` when:
 1. Are you querying the world instance you think you are?
 2. What are the snapped bounds after topology normalization?
 3. Does the grid's `GridConfiguration.TopologyMetrics` match the cell size the scenario was designed for?
-4. Is the voxel blocked, occupied, or both?
-5. Are you holding pooled data past the immediate operation?
-6. Did a previous test, benchmark, or tool run leave world state behind?
+4. If the grid is sparse, was the voxel configured?
+5. Is the voxel blocked, occupied, or both?
+6. Are you holding pooled data past the immediate operation?
+7. Did a previous test, benchmark, or tool run leave world state behind?

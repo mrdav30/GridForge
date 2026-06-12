@@ -13,7 +13,7 @@
 ## Roadmap Documents
 
 - [Vector2d Query API Battle Plan](done/2026-06-11-vector2d-query-api-plan.md)
-- [Sparse Voxel Grid Battle Plan](2026-06-11-sparse-voxel-grid-plan.md)
+- [Sparse Voxel Grid Battle Plan](done/2026-06-11-sparse-voxel-grid-plan.md)
 - [Hex Prism Grid Battle Plan](2026-06-11-hex-prism-grid-plan.md)
 
 ## North Star
@@ -79,7 +79,7 @@ Locked shared decisions:
 
 - Storage and topology are orthogonal boundaries. Topology maps world-space input to topology-local coordinates or coverage ranges; storage decides whether physical voxels exist.
 - `GridConfiguration` directly carries `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics` fields with dense rectangular defaults. Do not add sparse- or hex-specific wrapper configurations for the first releases.
-- Static sparse grids are creation-time configured only for the first sparse release. Runtime sparse add/remove remains deferred to roadmap item 6.
+- Sparse grids are configured-voxel only. They support creation-time configured indices or masks plus explicit runtime sparse add/remove APIs.
 - Sparse grids stay within current `int` dimension and `Size` limits at first. Construction must validate overflow instead of silently wrapping.
 - `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the number of configured voxels.
 - Public dense storage exposure through `VoxelGrid.Voxels` should be replaced by storage-neutral deterministic enumeration APIs. Dense array access can remain internal to dense storage.
@@ -113,15 +113,19 @@ Target outcome:
 
 Implement sparse construction, lookup, and query/mutation compatibility for configured voxels.
 
-Status: Static sparse support through runtime voxel mutation completed on
-2026-06-12. Runtime mutation was pulled forward from item 6 because the work
-stayed within the rectangular storage boundary and did not depend on hex-prism
-topology decisions.
+Status: completed on 2026-06-12. Static sparse construction, storage-neutral
+query flows, explicit runtime sparse mutation, blocker reconciliation,
+benchmarks, README/wiki/XML docs, and release metadata alignment are complete.
+Runtime mutation was pulled forward from item 6 because the work stayed within
+the rectangular storage boundary and did not depend on hex-prism topology
+decisions.
 
 Why:
 
 - Sparse storage has clear value once topology math has an explicit owner.
-- Static sparse support avoids the hardest runtime reconciliation problems.
+- Static sparse construction established the storage boundary first; runtime
+  mutation was added after blocker, occupant, partition, scan, and neighbor
+  behavior were storage-neutral.
 - Query behavior can be proven against dense rectangular behavior first.
 
 Target outcome:
@@ -221,7 +225,7 @@ Each slice should include:
 | 2D + scans | 2D scans accidentally behave like 3D scans | Use layer-locked XZ filtering with explicit tests. |
 | Sparse + blockers | Missing sparse voxels look like empty dense voxels | Document configured-only blocker behavior and test it. |
 | Hex + neighbors | Hex neighbors are forced into rectangular `SpatialDirection` | Add topology-aware neighbor descriptors instead of overloading rectangular enums. |
-| Runtime sparse mutation + blockers | Newly added voxels under active blockers miss obstacle state | Defer runtime mutation until reconciliation is explicitly designed. |
+| Runtime sparse mutation + blockers | Newly added voxels under active blockers miss obstacle state | Implemented through active-grid change reconciliation and sparse blocker tests. |
 | Public docs + roadmap drift | Users see contradictory semantics | Update README, wiki, XML docs, tests, and benchmarks with each release slice. |
 
 ## Validation Baseline
