@@ -113,6 +113,36 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
+    public void BoundsBlocker_ShouldApplyToRuntimeAddedSparseVoxelInsideActiveBounds()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
+        VoxelIndex coveredIndex = new(1, 0, 1);
+
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.False(blocker.IsBlocking);
+
+        Assert.True(grid.TryAddVoxel(coveredIndex, out Voxel addedVoxel));
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(addedVoxel.IsBlocked);
+        Assert.Equal(1, grid.ObstacleCount);
+        Assert.False(grid.TryRemoveVoxel(coveredIndex));
+
+        blocker.RemoveBlockage();
+
+        Assert.False(addedVoxel.IsBlocked);
+        Assert.True(grid.TryRemoveVoxel(coveredIndex));
+    }
+
+    [Fact]
     public void Blocker_ShouldRemoveBlockageFromVoxels()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);

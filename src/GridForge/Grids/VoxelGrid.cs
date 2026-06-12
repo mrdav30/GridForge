@@ -652,6 +652,105 @@ public class VoxelGrid
         IsValidVoxelIndex(x, y, z) && _storage?.TryGetVoxel(x, y, z, out _) == true;
 
     /// <summary>
+    /// Checks whether a physical voxel is configured at the supplied grid-local index.
+    /// </summary>
+    /// <param name="voxelIndex">The grid-local voxel index to test.</param>
+    /// <returns>True when the index resolves to a configured voxel; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool ContainsVoxel(VoxelIndex voxelIndex) =>
+        IsVoxelAllocated(voxelIndex.x, voxelIndex.y, voxelIndex.z);
+
+    /// <summary>
+    /// Configures a sparse voxel at runtime.
+    /// </summary>
+    /// <param name="voxelIndex">The grid-local voxel index to configure.</param>
+    /// <param name="voxel">The configured voxel when the operation succeeds.</param>
+    /// <returns>True when a new sparse voxel was configured; otherwise false.</returns>
+    public bool TryAddVoxel(VoxelIndex voxelIndex, out Voxel? voxel)
+    {
+        voxel = null;
+        if (!CanMutateSparseVoxel(voxelIndex))
+            return false;
+
+        if (!_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
+            return false;
+
+        uint gridVersion = IncrementVersion();
+        voxel!.CachedGridVersion = gridVersion;
+        InvalidateRuntimeVoxelMutationCaches(voxelIndex);
+        World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelAdded, voxelIndex, voxel.WorldPosition);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a configured sparse voxel at runtime when it has no unsafe runtime state.
+    /// </summary>
+    /// <param name="voxelIndex">The grid-local voxel index to remove.</param>
+    /// <returns>True when the sparse voxel was removed; otherwise false.</returns>
+    public bool TryRemoveVoxel(VoxelIndex voxelIndex)
+    {
+        if (!CanMutateSparseVoxel(voxelIndex)
+            || !TryGetVoxel(voxelIndex, out Voxel? voxel)
+            || !CanRemoveSparseVoxel(voxel!))
+        {
+            return false;
+        }
+
+        Vector3d affectedPosition = voxel!.WorldPosition;
+        if (!_sparseStorage.TryRemoveVoxel(this, voxelIndex, out _))
+            return false;
+
+        IncrementVersion();
+        InvalidateRuntimeVoxelMutationCaches(voxelIndex);
+        World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelRemoved, voxelIndex, affectedPosition);
+        return true;
+    }
+
+    private bool CanMutateSparseVoxel(VoxelIndex voxelIndex) =>
+        IsActive
+        && StorageKind == GridStorageKind.Sparse
+        && IsValidVoxelIndex(voxelIndex.x, voxelIndex.y, voxelIndex.z);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRemoveSparseVoxel(Voxel voxel) =>
+        voxel.IsAllocated
+        && !voxel.IsOccupied
+        && voxel.ObstacleCount == 0
+        && !voxel.IsPartioned
+        && !voxel.HasEventSubscribers;
+
+    private void InvalidateRuntimeVoxelMutationCaches(VoxelIndex voxelIndex)
+    {
+        InvalidateLocalNeighborCachesAround(voxelIndex);
+        InvalidateNeighborGridBoundaryCaches(voxelIndex);
+    }
+
+    private void InvalidateLocalNeighborCachesAround(VoxelIndex voxelIndex)
+    {
+        int xStart = Math.Max(0, voxelIndex.x - 1);
+        int xEnd = Math.Min(Width - 1, voxelIndex.x + 1);
+        int yStart = Math.Max(0, voxelIndex.y - 1);
+        int yEnd = Math.Min(Height - 1, voxelIndex.y + 1);
+        int zStart = Math.Max(0, voxelIndex.z - 1);
+        int zEnd = Math.Min(Length - 1, voxelIndex.z + 1);
+
+        _storage?.InvalidateBoundaryVoxels(xStart, xEnd, yStart, yEnd, zStart, zEnd);
+    }
+
+    private void InvalidateNeighborGridBoundaryCaches(VoxelIndex voxelIndex)
+    {
+        if (World == null || !IsConjoined || !IsOnBoundary(voxelIndex))
+            return;
+
+        foreach (VoxelGrid neighborGrid in GetAllGridNeighbors())
+        {
+            SpatialDirection reciprocalDirection = GetNeighborDirection(neighborGrid, this);
+            if (reciprocalDirection != SpatialDirection.None)
+                neighborGrid.NotifyBoundaryChange(reciprocalDirection);
+        }
+    }
+
+    /// <summary>
     /// Retrieves the <see cref="Voxel"/> at the specified coordinates, if allocated.
     /// </summary>
     public bool TryGetVoxel(int x, int y, int z, out Voxel? result)

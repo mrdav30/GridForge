@@ -7,6 +7,7 @@
 
 using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Spatial;
 
 namespace GridForge.Grids;
 
@@ -41,6 +42,26 @@ public readonly struct GridEventInfo
     public readonly uint GridVersion;
 
     /// <summary>
+    /// The reason this grid event was raised.
+    /// </summary>
+    public readonly GridEventKind ChangeKind;
+
+    /// <summary>
+    /// The changed voxel index for voxel-scoped grid events.
+    /// </summary>
+    public readonly VoxelIndex VoxelIndex;
+
+    /// <summary>
+    /// The minimum world-space bounds affected by this event.
+    /// </summary>
+    public readonly Vector3d AffectedBoundsMin;
+
+    /// <summary>
+    /// The maximum world-space bounds affected by this event.
+    /// </summary>
+    public readonly Vector3d AffectedBoundsMax;
+
+    /// <summary>
     /// The minimum snapped bounds of the grid.
     /// </summary>
     public readonly Vector3d BoundsMin => Configuration.BoundsMin;
@@ -58,13 +79,25 @@ public readonly struct GridEventInfo
         ushort gridIndex,
         int gridSpawnToken,
         GridConfiguration configuration,
-        uint gridVersion)
+        uint gridVersion,
+        GridEventKind changeKind = GridEventKind.Unspecified,
+        VoxelIndex voxelIndex = default,
+        Vector3d affectedBoundsMin = default,
+        Vector3d affectedBoundsMax = default)
     {
         WorldSpawnToken = worldSpawnToken;
         GridIndex = gridIndex;
         GridSpawnToken = gridSpawnToken;
         Configuration = configuration;
         GridVersion = gridVersion;
+        ChangeKind = changeKind;
+        VoxelIndex = voxelIndex;
+        AffectedBoundsMin = !voxelIndex.IsAllocated && affectedBoundsMin == default && affectedBoundsMax == default
+            ? configuration.BoundsMin
+            : affectedBoundsMin;
+        AffectedBoundsMax = !voxelIndex.IsAllocated && affectedBoundsMin == default && affectedBoundsMax == default
+            ? configuration.BoundsMax
+            : affectedBoundsMax;
     }
 
     /// <summary>

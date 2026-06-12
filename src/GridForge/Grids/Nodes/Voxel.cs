@@ -129,6 +129,13 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
+    internal bool HasEventSubscribers =>
+        _onObstacleAdded != null
+        || _onObstacleRemoved != null
+        || _onObstaclesCleared != null
+        || _onOccupantAdded != null
+        || _onOccupantRemoved != null;
+
     #endregion
 
     #region Events

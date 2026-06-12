@@ -307,7 +307,7 @@ public sealed class GridWorld : IDisposable
             RegisterGridSpatialCells(newGrid, allocatedIndex);
 
             Version++;
-            addedGridInfo = CreateGridEventInfo(newGrid);
+            addedGridInfo = CreateGridEventInfo(newGrid, GridEventKind.GridAdded);
         }
         finally
         {
@@ -342,7 +342,7 @@ public sealed class GridWorld : IDisposable
             RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
 
             Version++;
-            removedGridInfo = CreateGridEventInfo(gridToRemove);
+            removedGridInfo = CreateGridEventInfo(gridToRemove, GridEventKind.GridRemoved);
         }
         finally
         {
@@ -1066,12 +1066,24 @@ public sealed class GridWorld : IDisposable
         return SwiftHashTools.CombineHashCodes(x, y, z);
     }
 
-    internal void NotifyActiveGridChange(VoxelGrid grid)
+    internal void NotifyActiveGridChange(VoxelGrid? grid)
     {
         if (grid == null || !grid.IsActive)
             return;
 
-        NotifyActiveGridChange(CreateGridEventInfo(grid));
+        NotifyActiveGridChange(CreateGridEventInfo(grid, GridEventKind.GridChanged));
+    }
+
+    internal void NotifyActiveGridChange(
+        VoxelGrid? grid,
+        GridEventKind changeKind,
+        VoxelIndex voxelIndex,
+        Vector3d affectedPosition)
+    {
+        if (grid == null || !grid.IsActive)
+            return;
+
+        NotifyActiveGridChange(CreateGridEventInfo(grid, changeKind, voxelIndex, affectedPosition, affectedPosition));
     }
 
     #endregion
@@ -1091,8 +1103,34 @@ public sealed class GridWorld : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private GridEventInfo CreateGridEventInfo(VoxelGrid grid) =>
-         new(SpawnToken, grid.GridIndex, grid.SpawnToken, grid.Configuration, grid.Version);
+    private GridEventInfo CreateGridEventInfo(VoxelGrid grid, GridEventKind changeKind) =>
+        new(
+            SpawnToken,
+            grid.GridIndex,
+            grid.SpawnToken,
+            grid.Configuration,
+            grid.Version,
+            changeKind,
+            default,
+            grid.BoundsMin,
+            grid.BoundsMax);
+
+    private GridEventInfo CreateGridEventInfo(
+        VoxelGrid grid,
+        GridEventKind changeKind,
+        VoxelIndex voxelIndex,
+        Vector3d affectedBoundsMin,
+        Vector3d affectedBoundsMax) =>
+        new(
+            SpawnToken,
+            grid.GridIndex,
+            grid.SpawnToken,
+            grid.Configuration,
+            grid.Version,
+            changeKind,
+            voxelIndex,
+            affectedBoundsMin,
+            affectedBoundsMax);
 
     private void NotifyActiveGridAdded(GridEventInfo eventInfo)
     {

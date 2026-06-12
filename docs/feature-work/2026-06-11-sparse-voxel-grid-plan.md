@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Phase 3 complete; ready for runtime sparse voxel mutation design and implementation.
+- Current state: Phase 4 complete; ready for performance hardening and benchmark coverage.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
@@ -378,24 +378,39 @@ Candidate APIs:
 
 Checklist:
 
-- [ ] Add explicit sparse-only voxel configuration APIs, or decide they are out of scope for the first sparse release.
-- [ ] Reject `TryRemoveVoxel` when the voxel has occupants, obstacles, partitions, or active event handlers that would make removal unsafe.
-- [ ] Define whether adding a sparse voxel under an active blocker should immediately apply blocker state. Recommended behavior: yes, by having sparse voxel add trigger grid-change reconciliation for overlapping active blockers.
-- [ ] Add deterministic events or version increments for sparse voxel add/remove.
-- [ ] Invalidate affected local and neighboring boundary caches when a sparse voxel is added or removed.
-- [ ] Release empty sparse blocks and scan cells when the last configured voxel is removed.
+- [x] Add explicit sparse-only voxel configuration APIs, or decide they are out of scope for the first sparse release.
+- [x] Reject `TryRemoveVoxel` when the voxel has occupants, obstacles, partitions, or active event handlers that would make removal unsafe.
+- [x] Define whether adding a sparse voxel under an active blocker should immediately apply blocker state. Recommended behavior: yes, by having sparse voxel add trigger grid-change reconciliation for overlapping active blockers.
+- [x] Add deterministic events or version increments for sparse voxel add/remove.
+- [x] Invalidate affected local and neighboring boundary caches when a sparse voxel is added or removed.
+- [x] Release empty sparse blocks and scan cells when the last configured voxel is removed.
 
 Exit criteria:
 
-- [ ] Runtime sparse mutation is either implemented and tested or explicitly deferred.
-- [ ] Active blocker reconciliation is not ambiguous.
-- [ ] Sparse add/remove paths remain pooling-safe.
+- [x] Runtime sparse mutation is either implemented and tested or explicitly deferred.
+- [x] Active blocker reconciliation is not ambiguous.
+- [x] Sparse add/remove paths remain pooling-safe.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "SparseVoxelGrid|Blocker|Voxel"
+```
+
+Phase 4 validation:
+
+```bash
+dotnet build GridForge.slnx --configuration Debug
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration Debug --no-build --filter "SparseVoxelGrid|Blocker|Voxel"
+# Passed: 158/158
+dotnet test GridForge.slnx --configuration Debug --no-build
+# Passed: 253/253
+dotnet build GridForge.slnx --configuration ReleaseLean
+# Succeeded: 0 warnings, 0 errors
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+# Passed: 255/255
 ```
 
 ## Phase 5: Performance Hardening And Benchmarks

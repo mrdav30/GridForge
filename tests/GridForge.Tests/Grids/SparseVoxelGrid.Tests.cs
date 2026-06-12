@@ -131,6 +131,149 @@ public class SparseVoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void SparseGrid_ShouldAddAndRemoveConfiguredVoxelAtRuntime()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2), scanCellSize: 2);
+        VoxelIndex index = new(1, 0, 1);
+        GridEventInfo lastEvent = default;
+        int changedCount = 0;
+
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        _world.OnActiveGridChange += eventInfo =>
+        {
+            lastEvent = eventInfo;
+            changedCount++;
+        };
+
+        uint initialVersion = grid.Version;
+
+        Assert.True(grid.TryAddVoxel(index, out Voxel addedVoxel));
+        Assert.NotNull(addedVoxel);
+        Assert.Equal(1, grid.ConfiguredVoxelCount);
+        Assert.True(grid.ContainsVoxel(index));
+        Assert.True(grid.TryGetVoxel(index, out Voxel resolvedVoxel));
+        Assert.Same(addedVoxel, resolvedVoxel);
+        Assert.True(grid.TryGetScanCell(index, out ScanCell scanCell));
+        Assert.Equal(grid.GetScanCellKey(index), scanCell.CellKey);
+        Assert.Equal(initialVersion + 1, grid.Version);
+        Assert.Equal(GridEventKind.SparseVoxelAdded, lastEvent.ChangeKind);
+        Assert.Equal(index, lastEvent.VoxelIndex);
+        Assert.Equal(addedVoxel.WorldPosition, lastEvent.AffectedBoundsMin);
+        Assert.Equal(addedVoxel.WorldPosition, lastEvent.AffectedBoundsMax);
+
+        Assert.False(grid.TryAddVoxel(index, out _));
+        Assert.Equal(1, grid.ConfiguredVoxelCount);
+
+        Assert.True(grid.TryRemoveVoxel(index));
+
+        Assert.False(addedVoxel.IsAllocated);
+        Assert.Equal(0, grid.ConfiguredVoxelCount);
+        Assert.False(grid.ContainsVoxel(index));
+        Assert.False(grid.TryGetVoxel(index, out _));
+        Assert.False(grid.TryGetScanCell(index, out _));
+        Assert.Empty(grid.EnumerateVoxels());
+        Assert.Equal(GridEventKind.SparseVoxelRemoved, lastEvent.ChangeKind);
+        Assert.Equal(index, lastEvent.VoxelIndex);
+        Assert.Equal(2, changedCount);
+    }
+
+    [Fact]
+    public void DenseGrid_ShouldRejectRuntimeSparseVoxelMutation()
+    {
+        GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Assert.True(grid.ContainsVoxel(new VoxelIndex(1, 0, 1)));
+        Assert.False(grid.TryAddVoxel(new VoxelIndex(1, 0, 1), out _));
+        Assert.False(grid.TryRemoveVoxel(new VoxelIndex(1, 0, 1)));
+        Assert.Equal(grid.Size, grid.ConfiguredVoxelCount);
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldRejectRuntimeRemoveWhenVoxelHasUnsafeState()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        VoxelIndex index = new(0, 0, 0);
+
+        Assert.True(_world.TryAddGrid(config, new[] { index }, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(index, out Voxel voxel));
+
+        TestOccupant occupant = new(voxel.WorldPosition);
+        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+        Assert.False(grid.TryRemoveVoxel(index));
+        Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+
+        BoundsKey obstacleToken = new(voxel.WorldPosition, voxel.WorldPosition);
+        Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
+        Assert.False(grid.TryRemoveVoxel(index));
+        Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));
+
+        TestPartition partition = new();
+        Assert.True(voxel.TryAddPartition(partition));
+        Assert.False(grid.TryRemoveVoxel(index));
+        Assert.True(voxel.TryRemovePartition<TestPartition>());
+
+        void HandleObstacleAdded(ObstacleEventInfo _) { }
+
+        voxel.OnObstacleAdded += HandleObstacleAdded;
+        Assert.False(grid.TryRemoveVoxel(index));
+        voxel.OnObstacleAdded -= HandleObstacleAdded;
+
+        Assert.True(grid.TryRemoveVoxel(index));
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldInvalidateLocalNeighborCachesWhenRuntimeVoxelsChange()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
+        VoxelIndex originIndex = new(0, 0, 0);
+        VoxelIndex eastIndex = new(1, 0, 0);
+
+        Assert.True(_world.TryAddGrid(config, new[] { originIndex }, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(originIndex, out Voxel originVoxel));
+        Assert.False(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out _, useCache: true));
+
+        Assert.True(grid.TryAddVoxel(eastIndex, out Voxel eastVoxel));
+
+        Assert.True(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.Same(eastVoxel, resolvedNeighbor);
+
+        Assert.True(grid.TryRemoveVoxel(eastIndex));
+
+        Assert.False(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out _, useCache: true));
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldInvalidateNeighborGridBoundaryCachesWhenRuntimeVoxelsChange()
+    {
+        GridConfiguration firstConfig = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
+        GridConfiguration secondConfig = CreateSparseConfig(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0));
+        VoxelIndex firstBoundaryIndex = new(1, 0, 0);
+        VoxelIndex secondBoundaryIndex = new(1, 0, 0);
+
+        Assert.True(_world.TryAddGrid(firstConfig, new[] { firstBoundaryIndex }, out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(secondConfig, out ushort secondGridIndex));
+        VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
+        Assert.True(firstGrid.TryGetVoxel(firstBoundaryIndex, out Voxel firstBoundaryVoxel));
+        Assert.False(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out _, useCache: true));
+
+        Assert.True(secondGrid.TryAddVoxel(secondBoundaryIndex, out Voxel secondBoundaryVoxel));
+
+        Assert.True(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.Same(secondBoundaryVoxel, resolvedNeighbor);
+
+        Assert.True(secondGrid.TryRemoveVoxel(secondBoundaryIndex));
+
+        Assert.False(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out _, useCache: true));
+    }
+
+    [Fact]
     public void SparseGrid_ShouldCreateConfiguredVoxelsFromBooleanMask()
     {
         GridConfiguration config = CreateSparseConfig(new Vector3d(10, 0, 10), new Vector3d(11, 0, 11));

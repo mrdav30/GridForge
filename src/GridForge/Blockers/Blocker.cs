@@ -382,6 +382,7 @@ public abstract class Blocker : IBlocker
 
             World.OnActiveGridAdded += HandleActiveGridAdded;
             World.OnActiveGridRemoved += HandleActiveGridRemoved;
+            World.OnActiveGridChange += HandleActiveGridChanged;
             World.OnReset += HandleWorldReset;
             _isWatchingWorldEvents = true;
         }
@@ -396,6 +397,7 @@ public abstract class Blocker : IBlocker
 
             World.OnActiveGridAdded -= HandleActiveGridAdded;
             World.OnActiveGridRemoved -= HandleActiveGridRemoved;
+            World.OnActiveGridChange -= HandleActiveGridChanged;
             World.OnReset -= HandleWorldReset;
             _isWatchingWorldEvents = false;
         }
@@ -427,6 +429,17 @@ public abstract class Blocker : IBlocker
         return IsActive && _watchedGridIndices.Contains(eventInfo.GridIndex);
     }
 
+    private bool ShouldReactToGridChanged(GridEventInfo eventInfo)
+    {
+        return IsActive
+            && IsSparseVoxelMutation(eventInfo.ChangeKind)
+            && BoundsOverlap(CacheMin, CacheMax, eventInfo.AffectedBoundsMin, eventInfo.AffectedBoundsMax);
+    }
+
+    private static bool IsSparseVoxelMutation(GridEventKind changeKind) =>
+        changeKind == GridEventKind.SparseVoxelAdded
+        || changeKind == GridEventKind.SparseVoxelRemoved;
+
     private void HandleActiveGridAdded(GridEventInfo eventInfo)
     {
         if (eventInfo.WorldSpawnToken != World.SpawnToken || !ShouldReactToGridAdded(eventInfo))
@@ -438,6 +451,14 @@ public abstract class Blocker : IBlocker
     private void HandleActiveGridRemoved(GridEventInfo eventInfo)
     {
         if (eventInfo.WorldSpawnToken != World.SpawnToken || !ShouldReactToGridRemoved(eventInfo))
+            return;
+
+        ReapplyBlockage();
+    }
+
+    private void HandleActiveGridChanged(GridEventInfo eventInfo)
+    {
+        if (eventInfo.WorldSpawnToken != World.SpawnToken || !ShouldReactToGridChanged(eventInfo))
             return;
 
         ReapplyBlockage();

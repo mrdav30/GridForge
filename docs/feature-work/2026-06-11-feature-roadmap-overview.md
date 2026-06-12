@@ -113,9 +113,10 @@ Target outcome:
 
 Implement sparse construction, lookup, and query/mutation compatibility for configured voxels.
 
-Status: Phase 2 construction and lookup completed on 2026-06-12. Next step is
-storage-neutral coverage, blockers, occupants, partitions, scans, and neighbor
-compatibility.
+Status: Static sparse support through runtime voxel mutation completed on
+2026-06-12. Runtime mutation was pulled forward from item 6 because the work
+stayed within the rectangular storage boundary and did not depend on hex-prism
+topology decisions.
 
 Why:
 
@@ -130,10 +131,11 @@ Target outcome:
 - `TryGetGrid(...)` can resolve sparse grid bounds, while `TryGetGridAndVoxel(...)` fails for missing configured cells.
 - `GridTracer`, blockers, occupants, partitions, scans, and neighbor lookup work without caller-side storage branching.
 
-Defer:
+Completed runtime follow-through:
 
-- Runtime sparse voxel add/remove unless the first sparse release explicitly needs it.
-- Active blocker reconciliation for newly configured sparse voxels.
+- Sparse voxel add/remove APIs are explicit and sparse-only.
+- Removing a configured voxel is rejected when occupants, blockers, partitions, or active voxel event handlers make removal unsafe.
+- Adding a voxel under active blocker coverage triggers sparse mutation reconciliation.
 
 ### 5. Hex Prism Grid Support
 
@@ -155,7 +157,9 @@ Target outcome:
 
 ### 6. Runtime Sparse Mutation
 
-Return to runtime sparse voxel add/remove after static sparse and hex support are stable.
+Runtime sparse voxel add/remove was pulled forward and completed during sparse
+storage work. Keep this roadmap item as the historical dependency marker and
+use the sparse plan for implementation details.
 
 Why:
 
@@ -174,9 +178,8 @@ Target outcome:
 Vector2d API
   -> Shared sparse/topology decisions
   -> Rectangular topology extraction
-      -> Static sparse storage
+      -> Static sparse storage + runtime sparse mutation
       -> Hex-prism topology
-          -> Runtime sparse mutation
 ```
 
 Static sparse storage and hex-prism topology can proceed in adjacent branches after rectangular topology extraction, but they should be integrated carefully because both touch tracing, scan cells, blockers, occupants, and neighbors.
@@ -187,9 +190,8 @@ Recommended release slices:
 
 1. `Vector2d` query APIs and docs. Done on 2026-06-11.
 2. Rectangular topology extraction with no behavior changes.
-3. Static sparse rectangular grids.
+3. Static sparse rectangular grids, including explicit runtime sparse mutation.
 4. Hex-prism grids.
-5. Runtime sparse mutation.
 
 Each slice should include:
 

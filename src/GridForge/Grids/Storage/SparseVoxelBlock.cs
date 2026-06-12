@@ -7,6 +7,7 @@
 
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -37,21 +38,57 @@ internal sealed class SparseVoxelBlock
 
     public Voxel AddVoxel(VoxelGrid grid, VoxelIndex index)
     {
-        Voxel voxel = Pools.VoxelPool.Rent();
-        voxel.Initialize(
-            new WorldVoxelIndex(grid.World!.SpawnToken, grid.GridIndex, grid.SpawnToken, index),
-            grid.GetWorldPosition(index),
-            CellKey,
-            grid.IsOnBoundary(index),
-            grid.Version);
+        TryAddVoxel(grid, index, out Voxel? voxel);
+        return voxel!;
+    }
 
-        _voxels![_count++] = voxel;
-        return voxel;
+    public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)
+    {
+        voxel = null;
+        if (TryFindVoxelArrayIndex(index, out int insertIndex))
+            return false;
+
+        EnsureCapacity(_count + 1);
+        voxel = CreateVoxel(grid, index);
+
+        if (insertIndex < _count)
+            Array.Copy(_voxels!, insertIndex, _voxels!, insertIndex + 1, _count - insertIndex);
+
+        _voxels![insertIndex] = voxel;
+        _count++;
+        return true;
+    }
+
+    public bool TryRemoveVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)
+    {
+        voxel = null;
+        if (!TryFindVoxelArrayIndex(index, out int voxelArrayIndex))
+            return false;
+
+        voxel = _voxels![voxelArrayIndex];
+        int moveCount = _count - voxelArrayIndex - 1;
+        if (moveCount > 0)
+            Array.Copy(_voxels, voxelArrayIndex + 1, _voxels, voxelArrayIndex, moveCount);
+
+        _voxels[--_count] = null!;
+        voxel.Reset(grid);
+        Pools.VoxelPool.Release(voxel);
+        return true;
     }
 
     public bool TryGetVoxel(VoxelIndex index, out Voxel? result)
     {
         result = null;
+        if (!TryFindVoxelArrayIndex(index, out int voxelArrayIndex))
+            return false;
+
+        result = _voxels![voxelArrayIndex];
+        return result.IsAllocated;
+    }
+
+    private bool TryFindVoxelArrayIndex(VoxelIndex index, out int voxelArrayIndex)
+    {
+        voxelArrayIndex = 0;
         if (_voxels == null)
             return false;
 
@@ -65,8 +102,8 @@ internal sealed class SparseVoxelBlock
 
             if (compare == 0)
             {
-                result = voxel;
-                return voxel.IsAllocated;
+                voxelArrayIndex = mid;
+                return true;
             }
 
             if (compare < 0)
@@ -75,7 +112,40 @@ internal sealed class SparseVoxelBlock
                 max = mid - 1;
         }
 
+        voxelArrayIndex = min;
         return false;
+    }
+
+    private void EnsureCapacity(int minCapacity)
+    {
+        if (_voxels != null && _voxels.Length >= minCapacity)
+            return;
+
+        int capacity = _voxels == null
+            ? minCapacity
+            : Math.Max(minCapacity, _voxels.Length << 1);
+        Voxel[] replacement = ArrayPool<Voxel>.Shared.Rent(capacity);
+
+        if (_voxels != null)
+        {
+            Array.Copy(_voxels, replacement, _count);
+            ArrayPool<Voxel>.Shared.Return(_voxels, clearArray: true);
+        }
+
+        _voxels = replacement;
+    }
+
+    private Voxel CreateVoxel(VoxelGrid grid, VoxelIndex index)
+    {
+        Voxel voxel = Pools.VoxelPool.Rent();
+        voxel.Initialize(
+            new WorldVoxelIndex(grid.World!.SpawnToken, grid.GridIndex, grid.SpawnToken, index),
+            grid.GetWorldPosition(index),
+            CellKey,
+            grid.IsOnBoundary(index),
+            grid.Version);
+
+        return voxel;
     }
 
     public IEnumerable<Voxel> EnumerateVoxels()
