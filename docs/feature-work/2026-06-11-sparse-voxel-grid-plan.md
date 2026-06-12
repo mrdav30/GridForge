@@ -15,7 +15,8 @@
 - Started: 2026-06-11
 - Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Planning.
+- Current state: Phase 0 complete; ready for dense storage extraction.
+- Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
 
@@ -25,6 +26,11 @@
 - `GridTracer.GetCoveredVoxels(...)` returns only configured voxels for sparse grids.
 - `BoundsBlocker` and other blocker workflows apply obstacle state only to configured sparse voxels covered by the blocker bounds.
 - Reads must not allocate or configure sparse voxels. Configuration happens through explicit construction or explicit mutation APIs.
+- The first sparse release is static: sparse voxels are configured at grid creation time. Runtime sparse add/remove is deferred to the runtime sparse mutation roadmap slice.
+- `GridConfiguration` directly carries storage intent through `GridStorageKind`; do not introduce a separate sparse configuration wrapper in the first release.
+- Initial sparse support stays within the current `int` dimension envelope. Construction must validate `Width`, `Height`, `Length`, and `Size` overflow before storage initialization.
+- `ConfiguredVoxelCount` is the public physical-cell count. Dense grids report `Size`; sparse grids report the de-duplicated configured voxel count.
+- Replace public dense-array assumptions with storage-neutral deterministic enumeration APIs. Dense array access can remain internal to dense storage.
 - Keep the core library engine-agnostic. Unity integration belongs outside this repository.
 
 ## Non-Goals
@@ -120,8 +126,9 @@ Candidate public additions:
 - `GridStorageKind` enum with `Dense` and `Sparse`
 - `GridConfiguration.StorageKind`, defaulting to `Dense`
 - `GridWorld.TryAddGrid(GridConfiguration configuration, IEnumerable<VoxelIndex> configuredVoxels, out ushort allocatedIndex)` for sparse setup
-- `VoxelGrid.ConfiguredVoxelCount` or `AllocatedVoxelCount`
-- `VoxelGrid.IsSparse` or `VoxelGrid.StorageKind`
+- `VoxelGrid.ConfiguredVoxelCount`
+- `VoxelGrid.StorageKind`
+- `VoxelGrid.EnumerateVoxels()` or equivalent storage-neutral deterministic physical-voxel enumeration
 
 Design rule:
 
@@ -129,7 +136,7 @@ Design rule:
 - sparse construction must validate, de-duplicate, and sort configured indices before storage initialization
 - configured indices outside the normalized grid bounds must fail the grid add operation, not be silently ignored
 
-Large address-space support needs an explicit decision before implementation. The current grid exposes `Width`, `Height`, `Length`, and `Size` as `int`. The initial sparse phase may preserve the current supported dimension envelope for additive compatibility, but it must validate overflow. A later phase can introduce `long AddressableVoxelCount` or a breaking replacement for `Size` if sparse grids are expected to support address spaces larger than `int.MaxValue` cells.
+Large address-space support is deferred. The current grid exposes `Width`, `Height`, `Length`, and `Size` as `int`, and the initial sparse phase stays within that dimension envelope. Construction must validate overflow before storage initialization. A later phase can introduce `long AddressableVoxelCount` or a breaking replacement for `Size` if sparse grids need address spaces larger than `int.MaxValue` cells.
 
 ## Behavior Matrix
 
@@ -160,18 +167,27 @@ Likely files:
 
 Checklist:
 
-- [ ] Decide whether sparse grids are creation-time configured only for the first release, or whether runtime `TryAddVoxel` and `TryRemoveVoxel` APIs are included immediately.
-- [ ] Decide whether `GridConfiguration` directly carries `StorageKind`, or whether sparse setup uses a separate `SparseGridConfiguration` wrapper.
-- [ ] Decide whether initial sparse support stays within current `int` dimension limits.
-- [ ] Decide the public name for physical voxel count: `AllocatedVoxelCount`, `ConfiguredVoxelCount`, or another term.
-- [ ] Decide whether public `VoxelGrid.Voxels` remains dense-only, becomes obsolete, or is replaced by storage-neutral enumeration APIs.
-- [ ] Record the decisions in this plan before implementation starts.
+- [x] Lock first-release sparse grids as creation-time configured only; defer runtime `TryAddVoxel` and `TryRemoveVoxel`.
+- [x] Use `GridConfiguration.StorageKind`; do not add a separate `SparseGridConfiguration` wrapper.
+- [x] Keep initial sparse support within current `int` dimension limits.
+- [x] Use `ConfiguredVoxelCount` as the public physical voxel count.
+- [x] Replace public dense-array assumptions with storage-neutral enumeration APIs.
+- [x] Record the decisions in this plan before implementation starts.
+
+Decision record:
+
+- Sparse grids are creation-time configured only in the first sparse release. Runtime `TryAddVoxel` and `TryRemoveVoxel` remain deferred to roadmap item 6.
+- `GridConfiguration` directly carries `GridStorageKind StorageKind`, defaulting to `Dense`; sparse setup supplies configured indices through an explicit `GridWorld.TryAddGrid(...)` overload.
+- Sparse grids stay within current `int` dimensions and `Size` semantics initially. Overflow or invalid address-space dimensions must fail construction.
+- `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the sorted, de-duplicated configured voxel count.
+- `VoxelGrid.Voxels` should not remain the storage-neutral public surface. Add a deterministic physical-voxel enumeration API and keep dense-array access internal to dense storage.
+- Missing sparse voxels are intentional absence for lookup, tracing, blockers, occupants, partitions, and neighbors. Reads must not materialize them.
 
 Exit criteria:
 
-- [ ] There is one agreed meaning for absent sparse voxels.
-- [ ] There is one agreed construction path for sparse grids.
-- [ ] There is no unresolved ambiguity around blockers, occupants, partitions, tracing, or missing neighbors.
+- [x] There is one agreed meaning for absent sparse voxels.
+- [x] There is one agreed construction path for sparse grids.
+- [x] There is no unresolved ambiguity around blockers, occupants, partitions, tracing, or missing neighbors.
 
 ## Phase 1: Extract Dense Storage Without Behavior Changes
 
@@ -193,7 +209,7 @@ Checklist:
 - [ ] Move dense voxel generation into `DenseVoxelGridStorage`.
 - [ ] Move dense scan-cell generation into `DenseVoxelGridStorage`.
 - [ ] Route `VoxelGrid.TryGetVoxel(...)`, `TryGetScanCell(...)`, `GetActiveScanCells()`, and boundary invalidation through storage.
-- [ ] Keep `VoxelGrid.Voxels` working for dense grids during this phase, either as a compatibility property backed by dense storage or as a dense-only property with clear XML docs.
+- [ ] Add storage-neutral deterministic voxel enumeration and keep dense array access internal to dense storage.
 - [ ] Preserve exact dense neighbor behavior, scan-cell keys, voxel world positions, obstacle behavior, occupant behavior, and pooling cleanup.
 - [ ] Add focused regression tests around dense construction, reset, reuse, boundary invalidation, tracing, blocker apply/remove, and occupant registration.
 
@@ -463,4 +479,3 @@ Minimum sparse coverage before release:
 5. Decide whether Phase 4 belongs in the first sparse release.
 6. Run Phase 5 benchmarks before polishing docs.
 7. Complete Phase 6 docs and release alignment.
-

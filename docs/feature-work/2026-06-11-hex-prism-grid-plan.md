@@ -13,9 +13,10 @@
 ## Status
 
 - Started: 2026-06-11
-- Release posture: Likely breaking if `GridConfiguration`, `GridWorld.VoxelSize`, `SpatialDirection`, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward additive compatibility where it does not preserve the wrong architecture.
+- Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, `SpatialDirection`, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Planning.
+- Current state: Phase 0 complete; ready for rectangular topology extraction.
+- Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
 
@@ -28,6 +29,14 @@
 - Hex indexing uses axial coordinates in the horizontal plane: `VoxelIndex.x` is `q`, `VoxelIndex.z` is `r`, and `VoxelIndex.y` is the vertical layer.
 - No floating-point math may be introduced into runtime topology math. Any required constants, including `Sqrt3`, must come from deterministic fixed-point code.
 - Query APIs should not force user code to branch on topology. The query result may contain a grid whose topology is rectangular or hex, but lookup, scan, trace, blocker, occupant, and partition workflows should remain world/grid/voxel based.
+- Final public names are `GridTopologyKind`, `RectangularPrism`, `HexPrism`, `HexOrientation`, and `GridTopologyMetrics`.
+- `GridConfiguration` directly carries `GridTopologyKind` and `GridTopologyMetrics`; do not introduce separate rectangular or hex configuration wrappers in the first release.
+- `GridWorld` does not own cell geometry after topology extraction. Per-grid cell geometry comes from `GridConfiguration.TopologyMetrics`.
+- Replace `GridWorld.VoxelSize`, `DefaultVoxelSize`, `VoxelResolution`, and `*VoxelSize` snapping helpers during the breaking API cleanup instead of carrying them forward as topology API.
+- `VoxelIndex` remains the single topology-local coordinate type for the first topology release.
+- Hex examples default to `HexOrientation.PointyTop`; `FlatTop` remains fully supported.
+- Hex primary neighbors are the 6 planar axial neighbors plus above/below.
+- Rectangular diagonal neighbor APIs remain rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
 
 ## Non-Goals
 
@@ -156,7 +165,9 @@ Vertical neighbors:
 (0, -1, 0)
 ```
 
-The first release should define and document whether hex diagonal/edge-adjacent vertical neighbors are exposed. Recommended default: expose 6 planar neighbors plus above/below as the primary neighbor set, then add optional expanded neighbor sets only if a concrete query needs them.
+The first release exposes 6 planar neighbors plus above/below as the primary
+hex neighbor set. Hex diagonal or edge-adjacent vertical neighbor sets are
+deferred until a concrete query needs them.
 
 ### Hex Orientation
 
@@ -188,28 +199,30 @@ worldZ = radius * Sqrt3 * (r + q / 2)
 
 All formulas must use `Fixed64` and deterministic constants.
 
-### FixedMathSharp Dependency
+### GridForge Hex Constant
 
-GridForge should not own approximations of mathematical constants that belong in the deterministic math layer.
+GridForge should own the first `Sqrt3` constant locally because hex-prism topology is the first consumer and FixedMathSharp just completed a major release. Revisit whether `Sqrt3` belongs in FixedMathSharp later, after the hex topology work proves the exact constant shape and usage.
 
-Likely FixedMathSharp files:
+Likely GridForge files:
 
-- Modify: `../FixedMathSharp/src/FixedMathSharp/Core/FixedMath.cs`
-- Modify: `../FixedMathSharp/src/FixedMathSharp/Numerics/Scalars/Fixed64.cs`
-- Test: `../FixedMathSharp/tests/FixedMathSharp.Tests/**/*`
+- Create: `src/GridForge/Grids/Topology/GridTopologyConstants.cs`
+- Or place next to the first actual consumer if `HexCoordinateUtility` owns every use.
+- Test: `tests/GridForge.Tests/Grids/Topology/GridTopologyConstants.Tests.cs`
+- Test: `tests/GridForge.Tests/Spatial/HexCoordinateUtility.Tests.cs`
 
 Required support:
 
-- add or verify a deterministic `Sqrt3` constant
-- prefer a raw fixed-point payload, not `FromDouble(...)`, for public constants
-- add exact raw-value tests and approximate value tests in FixedMathSharp
-- update GridForge only after the constant is available through the package or project reference
+- add a GridForge-local deterministic `Sqrt3` constant
+- prefer a raw fixed-point payload, not `FromDouble(...)`
+- use `const long Sqrt3Raw = 7439101574L` and `static readonly Fixed64 Sqrt3 = Fixed64.FromRaw(Sqrt3Raw)`
+- keep the constant internal unless a public GridForge topology API needs it
+- add exact raw-value tests and fixed-point tolerance tests against `FixedMath.Sqrt(new Fixed64(3))`
 
-The current FixedMathSharp checkout already has deterministic `FixedMath.Sqrt(Fixed64)` and raw-backed constants such as `Fixed64.Pi`. This plan assumes `Fixed64.Sqrt3` or an equivalent fixed constant is added before hex topology consumes it.
+The current FixedMathSharp checkout already has deterministic `FixedMath.Sqrt(Fixed64)` and public raw construction through `Fixed64.FromRaw(long)`. This plan does not require a FixedMathSharp change for hex support.
 
 ## Public API Direction
 
-Candidate additions:
+Public additions:
 
 ```csharp
 public enum GridTopologyKind
@@ -225,7 +238,7 @@ public enum HexOrientation
 }
 ```
 
-Possible configuration shape:
+Configuration shape:
 
 ```csharp
 public readonly partial struct GridConfiguration
@@ -248,11 +261,12 @@ public readonly struct GridTopologyMetrics
 }
 ```
 
-The exact names can change during Phase 0, but the architecture should preserve these facts:
+Phase 0 locked these public-shape facts:
 
 - rectangular grids default to current behavior
 - hex grids require a positive horizontal radius and positive layer height
-- `GridWorld.VoxelSize` becomes either a rectangular default metric or a legacy compatibility shortcut
+- `GridConfiguration.TopologyMetrics` owns cell geometry for every topology
+- default rectangular metrics reproduce current cubic-grid behavior by using the same width, layer height, and length
 - topology identity must be part of duplicate-grid detection; two grids with the same bounds but different topology or metrics are not equivalent
 - XML docs must state whether `VoxelIndex` is rectangular `(x, y, z)` or hex axial `(q, y, r)` for a given topology
 
@@ -285,56 +299,35 @@ Likely files:
 
 Checklist:
 
-- [ ] Decide final names: `GridTopologyKind`, `RectangularPrism`, `HexPrism`, `HexOrientation`, and topology metrics.
-- [ ] Decide whether `GridWorld.VoxelSize` remains a rectangular default only, becomes obsolete, or is replaced by default topology metrics.
-- [ ] Decide whether `GridConfiguration` directly carries topology fields or points to a separate topology configuration struct.
-- [ ] Decide whether `VoxelIndex.x/y/z` remains the single topology-local coordinate type for the first release.
-- [ ] Decide the default hex orientation for examples. Recommended default: `PointyTop` for common war-game and location-centered usage, while fully supporting `FlatTop`.
-- [ ] Decide the primary hex neighbor set for first release. Recommended default: 6 planar neighbors plus above/below.
-- [ ] Decide whether rectangular diagonal neighbor APIs remain rectangular-only or become topology-provided expanded neighbor sets.
-- [ ] Record the decisions in this plan before implementation starts.
+- [x] Use final names: `GridTopologyKind`, `RectangularPrism`, `HexPrism`, `HexOrientation`, and `GridTopologyMetrics`.
+- [x] Move cell geometry ownership out of `GridWorld` and into per-grid `GridConfiguration.TopologyMetrics`.
+- [x] Use direct `GridConfiguration` topology fields; do not add a separate topology configuration wrapper.
+- [x] Keep `VoxelIndex.x/y/z` as the single topology-local coordinate type for the first release.
+- [x] Use `PointyTop` as the default hex orientation for examples while fully supporting `FlatTop`.
+- [x] Use 6 planar neighbors plus above/below as the primary hex neighbor set.
+- [x] Keep rectangular diagonal neighbor APIs rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
+- [x] Record the decisions in this plan before implementation starts.
+
+Decision record:
+
+- Use `GridTopologyKind.RectangularPrism`, `GridTopologyKind.HexPrism`, `HexOrientation.FlatTop`, `HexOrientation.PointyTop`, and `GridTopologyMetrics`.
+- `GridWorld` does not own cell geometry after topology extraction. Per-grid `GridConfiguration.TopologyMetrics` is the source for rectangular cell width, layer height, length, hex radius, hex layer height, and hex orientation.
+- Replace `GridWorld.VoxelSize`, `DefaultVoxelSize`, `VoxelResolution`, and public `*VoxelSize` snapping helper names during the breaking API cleanup.
+- Default rectangular metrics reproduce current cubic-grid behavior by setting cell width, layer height, and length to the same fixed value.
+- `GridConfiguration` directly carries topology kind and metrics fields with rectangular defaults. Topology identity and metrics participate in duplicate-grid detection.
+- `VoxelIndex` remains the single topology-local coordinate type: rectangular grids use `(x, y, z)`, while hex grids use axial `(q, y, r)`.
+- Documentation and examples default to `PointyTop`; `FlatTop` is first-class and must have exact tests.
+- The first hex neighbor surface is 6 deterministic planar axial neighbors plus above/below. Expanded diagonal or vertical-edge neighbor sets are deferred until a concrete query needs them.
+- Existing rectangular diagonal APIs remain rectangular-only. Hex should use topology-aware neighbor descriptors rather than overloading the 26-direction rectangular `SpatialDirection` enum.
+- Mixed rectangular/hex grids may coexist in one `GridWorld`, but cross-topology voxel-neighbor bridging is intentional absence until an explicit mapping is designed.
 
 Exit criteria:
 
-- [ ] There is one agreed meaning for rectangular and hex-prism topology.
-- [ ] There is one agreed API surface for topology configuration.
-- [ ] There is no unresolved ambiguity around orientation, vertical layers, `VoxelIndex`, neighbors, tracing, blockers, or scan cells.
+- [x] There is one agreed meaning for rectangular and hex-prism topology.
+- [x] There is one agreed API surface for topology configuration.
+- [x] There is no unresolved ambiguity around orientation, vertical layers, `VoxelIndex`, neighbors, tracing, blockers, or scan cells.
 
-## Phase 1: Add FixedMathSharp Support For Hex Constants
-
-Intent: keep deterministic constants in the deterministic math library instead of GridForge.
-
-Likely files:
-
-- Modify: `../FixedMathSharp/src/FixedMathSharp/Core/FixedMath.cs`
-- Modify: `../FixedMathSharp/src/FixedMathSharp/Numerics/Scalars/Fixed64.cs`
-- Test: `../FixedMathSharp/tests/FixedMathSharp.Tests/Numerics/Scalars/Fixed64.Tests.cs`
-- Test: `../FixedMathSharp/tests/FixedMathSharp.Tests/Core/FixedMath.Tests.cs`
-- Docs if needed: `../FixedMathSharp/docs/wiki/fixed64-representation.md`
-
-Checklist:
-
-- [ ] Add a deterministic raw fixed-point constant for `sqrt(3)`.
-- [ ] Expose it as `Fixed64.Sqrt3` or another approved public constant.
-- [ ] Add tests that assert the exact raw payload.
-- [ ] Add tests that assert the value is within a fixed tolerance of `FixedMath.Sqrt(new Fixed64(3))`.
-- [ ] Build and test FixedMathSharp in `Debug`, `Release`, and `ReleaseLean` if package variants are affected.
-- [ ] Update GridForge dependency guidance once the constant is available.
-
-Exit criteria:
-
-- [ ] GridForge can consume `Sqrt3` without local approximation or floating-point conversion.
-- [ ] FixedMathSharp documents and tests the constant as deterministic fixed-point data.
-
-Validation:
-
-```bash
-dotnet restore ../FixedMathSharp/FixedMathSharp.slnx
-dotnet build ../FixedMathSharp/FixedMathSharp.slnx --configuration Debug
-dotnet test ../FixedMathSharp/FixedMathSharp.slnx --configuration Debug --no-build
-```
-
-## Phase 2: Extract Rectangular Topology Without Behavior Changes
+## Phase 1: Extract Rectangular Topology Without Behavior Changes
 
 Intent: introduce the topology boundary while preserving current rectangular behavior.
 
@@ -358,8 +351,8 @@ Checklist:
 - [ ] Move world-position to `VoxelIndex` conversion into topology.
 - [ ] Move `VoxelIndex` to world-position conversion into topology.
 - [ ] Move rectangular floor/ceil snap behavior behind topology while preserving current public results.
-- [ ] Keep current `GridWorld.SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, and `CeilToVoxelSize(...)` behavior during this phase, either as compatibility wrappers or rectangular helpers.
-- [ ] Ensure bounds normalization still uses owning world/default rectangular metrics for existing callers.
+- [ ] Move current `GridWorld.SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, and `CeilToVoxelSize(...)` behavior behind rectangular topology and replace public `*VoxelSize` names with topology-neutral or rectangular-specific names.
+- [ ] Ensure bounds normalization uses each grid's topology metrics; default rectangular metrics preserve current cubic-grid results for existing-style callers.
 - [ ] Ensure `BoundsTracker` duplicate keys include any new topology identity while preserving current duplicate behavior for default rectangular grids.
 - [ ] Add dense rectangular regression tests for dimensions, exact bounds, snapped positions, voxel lookup, scan-cell keys, tracing, blockers, and neighbor traversal.
 
@@ -377,7 +370,7 @@ dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
-## Phase 3: Add Hex-Prism Topology Construction And Lookup
+## Phase 2: Add Hex-Prism Topology Construction And Lookup
 
 Intent: create hex-prism grids that resolve world positions and indices without changing user-facing query workflows.
 
@@ -385,18 +378,25 @@ Likely files:
 
 - Create: `src/GridForge/Grids/Topology/HexOrientation.cs`
 - Create: `src/GridForge/Grids/Topology/HexPrismTopology.cs`
+- Create: `src/GridForge/Grids/Topology/GridTopologyConstants.cs`, unless `HexCoordinateUtility` is the first and only consumer.
 - Create: `src/GridForge/Spatial/HexCoordinateUtility.cs`
 - Modify: `src/GridForge/Configuration/GridConfiguration.cs`
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
 - Modify: `src/GridForge/Grids/Managers/GridWorld.cs`
+- Test: `tests/GridForge.Tests/Grids/Topology/GridTopologyConstants.Tests.cs`
 - Test: `tests/GridForge.Tests/Grids/HexPrismGrid.Tests.cs`
 - Test: `tests/GridForge.Tests/Spatial/HexCoordinateUtility.Tests.cs`
 
 Checklist:
 
+- [ ] Add `const long Sqrt3Raw = 7439101574L` in the GridForge topology or hex coordinate layer.
+- [ ] Add `internal static readonly Fixed64 Sqrt3 = Fixed64.FromRaw(Sqrt3Raw)` next to the first actual hex topology consumer.
+- [ ] Do not expose `Sqrt3` as a FixedMathSharp public constant in this roadmap slice.
+- [ ] Add tests that assert the exact raw payload.
+- [ ] Add tests that assert the value is within a fixed tolerance of `FixedMath.Sqrt(new Fixed64(3))`.
 - [ ] Add `HexOrientation.FlatTop` and `HexOrientation.PointyTop`.
 - [ ] Add hex metrics validation for positive radius and positive layer height.
-- [ ] Implement axial-to-world projection for flat-top and pointy-top using `Fixed64.Sqrt3`.
+- [ ] Implement axial-to-world projection for flat-top and pointy-top using the GridForge-local `Sqrt3`.
 - [ ] Implement world-to-axial inverse projection for flat-top and pointy-top using fixed-point math.
 - [ ] Implement deterministic cube-coordinate rounding for projected axial coordinates.
 - [ ] Generate hex-prism voxel centers from `VoxelIndex(q, y, r)`.
@@ -408,6 +408,8 @@ Checklist:
 
 Exit criteria:
 
+- [ ] GridForge can consume `Sqrt3` without local approximation or floating-point conversion.
+- [ ] No FixedMathSharp source, package, or release workflow change is required for this hex topology slice.
 - [ ] A `GridWorld` can own rectangular and hex-prism grids at the same time.
 - [ ] `TryGetGridAndVoxel(...)` works for both topologies without caller branching.
 - [ ] Hex orientation differences are covered by exact deterministic tests.
@@ -416,10 +418,10 @@ Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
-dotnet test GridForge.slnx --configuration Debug --no-build --filter "HexPrismGrid|HexCoordinateUtility|VoxelGrid|GridWorld"
+dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridTopologyConstants|HexPrismGrid|HexCoordinateUtility|VoxelGrid|GridWorld"
 ```
 
-## Phase 4: Topology-Aware Neighbors And Conjoined Grids
+## Phase 3: Topology-Aware Neighbors And Conjoined Grids
 
 Intent: make adjacency correct when grids of the same or different topology coexist.
 
@@ -460,7 +462,7 @@ dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build --filter "Voxel|VoxelGrid|HexPrismGrid"
 ```
 
-## Phase 5: Topology-Aware Coverage, Tracing, Blockers, And Scans
+## Phase 4: Topology-Aware Coverage, Tracing, Blockers, And Scans
 
 Intent: make query and mutation workflows seamless over rectangular and hex-prism grids.
 
@@ -503,7 +505,7 @@ dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
-## Phase 6: Performance Hardening And Benchmarks
+## Phase 5: Performance Hardening And Benchmarks
 
 Intent: prove hex support is fast enough for large-scale simulation workloads.
 
@@ -548,7 +550,7 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*Hex*'
 ```
 
-## Phase 7: Documentation And Release Alignment
+## Phase 6: Documentation And Release Alignment
 
 Intent: make topology behavior clear without turning the README into a geometry textbook.
 
@@ -575,7 +577,7 @@ Checklist:
 - [ ] Document that `GridWorld` can own mixed topology grids.
 - [ ] Document mixed-topology neighbor limitations for the first release.
 - [ ] Document blocker and trace behavior over hex grids.
-- [ ] Document deterministic fixed-point constraints and the `Sqrt3` dependency from FixedMathSharp.
+- [ ] Document deterministic fixed-point constraints and the GridForge-local `Sqrt3` constant.
 - [ ] Update XML docs for topology configuration, orientation, metrics, and topology-local `VoxelIndex` meaning.
 - [ ] Run wiki link rewrite tests if docs links change.
 
@@ -626,22 +628,20 @@ Minimum topology coverage before release:
 | --- | --- |
 | Topology leaks into every caller API | Keep topology inside `VoxelGrid`, `GridTracer`, and manager internals; public workflows remain world/grid/voxel based. |
 | Rectangular hot paths regress | Extract rectangular topology first and benchmark before adding hex behavior. |
-| Floating-point constants sneak into hex math | Add `Sqrt3` to FixedMathSharp as raw fixed data and reject runtime `double` conversions in GridForge topology code. |
+| Floating-point constants sneak into hex math | Add a GridForge-local raw-backed `Sqrt3` and reject runtime `double` conversions in topology code. |
 | `SpatialDirection` cannot represent hex neighbors cleanly | Introduce topology-aware neighbor descriptors instead of forcing hex into the 26-direction rectangular enum. |
 | Bounds coverage over hex cells is too slow | Start conservative and correct, then benchmark coverage algorithms before optimizing. |
 | Mixed topology neighbor bridging becomes ambiguous | Permit mixed topology coexistence first; defer cross-topology voxel-neighbor bridging until a concrete mapping is designed. |
-| `GridWorld.VoxelSize` becomes misleading | Decide whether it is a default rectangular metric, legacy convenience, or replacement candidate during Phase 0. |
+| World-level cell-size APIs leak rectangular topology | Move cell geometry to per-grid topology metrics and replace `VoxelSize`/`*VoxelSize` public API names during the breaking topology cleanup. |
 | `VoxelIndex` meaning becomes unclear | Document topology-local coordinate meaning in XML docs and wiki, and keep exact tests for both topologies. |
 | ReleaseLean breaks through new dependency usage | Keep MemoryPack and package-variant guards consistent with existing project patterns. |
 
 ## Recommended Implementation Order
 
 1. Finish Phase 0 decisions in this document.
-2. Add or verify `Fixed64.Sqrt3` in FixedMathSharp.
-3. Extract rectangular topology and prove behavior did not move.
-4. Add hex-prism construction and lookup for both orientations.
-5. Add topology-aware neighbor behavior.
-6. Add topology-aware tracing, coverage, blockers, occupants, and scans.
-7. Run benchmarks and optimize only where evidence points.
-8. Complete docs and release alignment.
-
+2. Extract rectangular topology and prove behavior did not move.
+3. Add hex-prism construction and lookup for both orientations, including the GridForge-local raw-backed `Sqrt3`.
+4. Add topology-aware neighbor behavior.
+5. Add topology-aware tracing, coverage, blockers, occupants, and scans.
+6. Run benchmarks and optimize only where evidence points.
+7. Complete docs and release alignment.

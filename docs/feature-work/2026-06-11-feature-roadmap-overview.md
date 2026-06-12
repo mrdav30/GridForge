@@ -12,7 +12,7 @@
 
 ## Roadmap Documents
 
-- [Vector2d Query API Battle Plan](2026-06-11-vector2d-query-api-plan.md)
+- [Vector2d Query API Battle Plan](done/2026-06-11-vector2d-query-api-plan.md)
 - [Sparse Voxel Grid Battle Plan](2026-06-11-sparse-voxel-grid-plan.md)
 - [Hex Prism Grid Battle Plan](2026-06-11-hex-prism-grid-plan.md)
 
@@ -35,9 +35,12 @@ The user should not need to branch on grid storage, grid topology, or 2D versus 
 
 ## Recommended Execution Order
 
-### 1. Vector2d Query API
+### 1. Vector2d Query API - Done
 
 Implement the 2D-friendly API first.
+
+Status: completed on 2026-06-11. The plan is archived under
+`docs/feature-work/done`.
 
 Why:
 
@@ -50,11 +53,14 @@ Target outcome:
 
 - `Vector2d` lookup, tracing, coverage, scan, obstacle, and blocker helpers work as convenience APIs over the existing 3D runtime.
 - `ScanRadius(Vector2d, ...)` is a true layer-locked XZ circle scan, not a 3D sphere scan.
-- Documentation states that `IVoxelOccupant.Position` remains `Vector3d`.
+- Documentation explains that flat consumers can store `Vector2d` position plus `Fixed64` height and expose `IVoxelOccupant.Position` as the world-space bridge GridForge consumes.
 
-### 2. Shared Foundation Decisions
+### 2. Shared Foundation Decisions - Done
 
 Before implementing sparse or hex behavior, finish Phase 0 decisions from both detailed plans together.
+
+Status: completed on 2026-06-11. The sparse and hex Phase 0 sections now carry
+the shared decisions below.
 
 Why:
 
@@ -67,7 +73,23 @@ Target outcome:
 
 - Sparse semantics are locked: configured voxels only, no read-time materialization, blockers affect configured voxels only.
 - Topology semantics are locked: rectangular-prism and hex-prism grids share the same `VoxelGrid` public model.
-- `VoxelIndex`, `GridWorld.VoxelSize`, storage counts, topology metrics, and missing-neighbor behavior have explicit decisions.
+- `VoxelIndex`, per-grid topology metrics, storage counts, and missing-neighbor behavior have explicit decisions.
+
+Locked shared decisions:
+
+- Storage and topology are orthogonal boundaries. Topology maps world-space input to topology-local coordinates or coverage ranges; storage decides whether physical voxels exist.
+- `GridConfiguration` directly carries `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics` fields with dense rectangular defaults. Do not add sparse- or hex-specific wrapper configurations for the first releases.
+- Static sparse grids are creation-time configured only for the first sparse release. Runtime sparse add/remove remains deferred to roadmap item 6.
+- Sparse grids stay within current `int` dimension and `Size` limits at first. Construction must validate overflow instead of silently wrapping.
+- `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the number of configured voxels.
+- Public dense storage exposure through `VoxelGrid.Voxels` should be replaced by storage-neutral deterministic enumeration APIs. Dense array access can remain internal to dense storage.
+- `GridWorld` does not own cell geometry after topology extraction. Replace `VoxelSize`, `DefaultVoxelSize`, and `VoxelResolution` with per-grid `GridConfiguration.TopologyMetrics` during the breaking API cleanup.
+- Rectangular default behavior is expressed by default rectangular topology metrics, not by a world-level voxel-size scalar. A rectangular convenience factory can set width, layer height, and length to the same fixed value for current cubic-grid behavior.
+- World-level snapping helpers named around `VoxelSize` should be replaced by topology-normalization helpers or rectangular-specific helper names during rectangular topology extraction.
+- `VoxelIndex` remains the single topology-local coordinate type for the first topology release: rectangular `(x, y, z)` and hex axial `(q, y, r)`.
+- Hex examples default to `PointyTop`; `FlatTop` remains fully supported.
+- Hex primary neighbors are the 6 planar axial neighbors plus above/below. Rectangular diagonal neighbor APIs remain rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
+- Missing sparse voxels and unsupported cross-topology neighbor bridges are intentional absence, not default empty cells.
 
 ### 3. Rectangular Topology Extraction
 
@@ -114,7 +136,7 @@ Implement hex-prism topology after rectangular topology and static sparse storag
 Why:
 
 - Hex changes coordinate projection, inverse projection, neighbor rules, coverage, tracing, and scan-cell coverage.
-- It depends on deterministic `Sqrt3` support from `FixedMathSharp`.
+- Hex projection uses a deterministic GridForge-local `Sqrt3` constant added alongside hex construction.
 - It benefits from already-separated topology and storage responsibilities.
 
 Target outcome:
@@ -157,7 +179,7 @@ Static sparse storage and hex-prism topology can proceed in adjacent branches af
 
 Recommended release slices:
 
-1. `Vector2d` query APIs and docs.
+1. `Vector2d` query APIs and docs. Done on 2026-06-11.
 2. Rectangular topology extraction with no behavior changes.
 3. Static sparse rectangular grids.
 4. Hex-prism grids.
