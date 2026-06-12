@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, `SpatialDirection`, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Phase 1 complete; rectangular topology extraction is in place with rectangular behavior preserved.
+- Current state: Phase 2 complete; rectangular topology extraction and hex-prism construction/lookup are in place.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
@@ -397,37 +397,55 @@ Likely files:
 
 Checklist:
 
-- [ ] Add `const long Sqrt3Raw = 7439101574L` in the GridForge topology or hex coordinate layer.
-- [ ] Add `internal static readonly Fixed64 Sqrt3 = Fixed64.FromRaw(Sqrt3Raw)` next to the first actual hex topology consumer.
-- [ ] Do not expose `Sqrt3` as a FixedMathSharp public constant in this roadmap slice.
-- [ ] Add tests that assert the exact raw payload.
-- [ ] Add tests that assert the value is within a fixed tolerance of `FixedMath.Sqrt(new Fixed64(3))`.
+- [x] Add `const long Sqrt3Raw = 7439101574L` in the GridForge topology or hex coordinate layer.
+- [x] Add `internal static readonly Fixed64 Sqrt3 = Fixed64.FromRaw(Sqrt3Raw)` next to the first actual hex topology consumer.
+- [x] Do not expose `Sqrt3` as a FixedMathSharp public constant in this roadmap slice.
+- [x] Add tests that assert the exact raw payload.
+- [x] Add tests that assert the value is within a fixed tolerance of `FixedMath.Sqrt(new Fixed64(3))`.
 - [x] Add `HexOrientation.FlatTop` and `HexOrientation.PointyTop`.
-- [ ] Add hex metrics validation for positive radius and positive layer height.
-- [ ] Implement axial-to-world projection for flat-top and pointy-top using the GridForge-local `Sqrt3`.
-- [ ] Implement world-to-axial inverse projection for flat-top and pointy-top using fixed-point math.
-- [ ] Implement deterministic cube-coordinate rounding for projected axial coordinates.
-- [ ] Generate hex-prism voxel centers from `VoxelIndex(q, y, r)`.
-- [ ] Resolve `TryGetVoxel(position)` through hex projection and layer selection.
-- [ ] Resolve `TryGetVoxel(VoxelIndex)` as axial `q`, layer `y`, axial `r`.
-- [ ] Define hex grid address ranges from normalized bounds without relying on rectangular `Width * Height * Length` assumptions.
-- [ ] Ensure `TryGetGrid(position)` rejects positions inside the coarse AABB but outside the actual hex topology coverage.
-- [ ] Add tests for flat-top projection, pointy-top projection, inverse projection, center lookup, edge lookup, outside lookup, exact layer lookup, and invalid metrics.
+- [x] Add hex metrics validation for positive radius and positive layer height.
+- [x] Implement axial-to-world projection for flat-top and pointy-top using the GridForge-local `Sqrt3`.
+- [x] Implement world-to-axial inverse projection for flat-top and pointy-top using fixed-point math.
+- [x] Implement deterministic cube-coordinate rounding for projected axial coordinates.
+- [x] Generate hex-prism voxel centers from `VoxelIndex(q, y, r)`.
+- [x] Resolve `TryGetVoxel(position)` through hex projection and layer selection.
+- [x] Resolve `TryGetVoxel(VoxelIndex)` as axial `q`, layer `y`, axial `r`.
+- [x] Define hex grid address ranges from normalized bounds without relying on rectangular `Width * Height * Length` assumptions.
+- [x] Ensure `TryGetGrid(position)` rejects positions inside the coarse AABB but outside the actual hex topology coverage.
+- [x] Add tests for flat-top projection, pointy-top projection, inverse projection, center lookup, edge lookup, outside lookup, exact layer lookup, and invalid metrics.
 
 Exit criteria:
 
-- [ ] GridForge can consume `Sqrt3` without local approximation or floating-point conversion.
-- [ ] No FixedMathSharp source, package, or release workflow change is required for this hex topology slice.
-- [ ] A `GridWorld` can own rectangular and hex-prism grids at the same time.
-- [ ] `TryGetGridAndVoxel(...)` works for both topologies without caller branching.
-- [ ] Hex orientation differences are covered by exact deterministic tests.
+- [x] GridForge can consume `Sqrt3` without local approximation or floating-point conversion.
+- [x] No FixedMathSharp source, package, or release workflow change is required for this hex topology slice.
+- [x] A `GridWorld` can own rectangular and hex-prism grids at the same time.
+- [x] `TryGetGridAndVoxel(...)` works for both topologies without caller branching.
+- [x] Hex orientation differences are covered by exact deterministic tests.
+
+Progress notes:
+
+- Completed 2026-06-12.
+- Added GridForge-local `GridTopologyConstants.Sqrt3Raw` and `Sqrt3` beside the first hex topology consumer instead of changing FixedMathSharp.
+- Added `GridTopologyMetrics.Hex(...)`, `HexCoordinateUtility`, `HexPrismTopology`, and factory creation for `GridTopologyKind.HexPrism`.
+- Implemented fixed-point flat-top and pointy-top axial projection, inverse projection, cube rounding, layer selection, center generation, and point lookup.
+- Hex grids use `VoxelIndex.x = q`, `VoxelIndex.y = layer`, and `VoxelIndex.z = r`; `BoundsMin` anchors local axial `(0, 0)`.
+- Bounds normalization expands the max corner onto the hex lattice for the configured orientation. Topology-aware neighbors, tracing, scan-cell coverage, blockers, and scans remain in later phases.
+- Added construction and lookup tests for invalid metrics, exact `Sqrt3` payload, projection/inverse projection, mixed rectangular-plus-hex worlds, center lookup, exact layer lookup, and coarse-AABB rejection.
 
 Validation:
 
 ```bash
+dotnet test GridForge.slnx --configuration Debug --filter "GridTopologyConstants|HexPrismGrid|HexCoordinateUtility"
 dotnet build GridForge.slnx --configuration Debug
-dotnet test GridForge.slnx --configuration Debug --no-build --filter "GridTopologyConstants|HexPrismGrid|HexCoordinateUtility|VoxelGrid|GridWorld"
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+git diff --check
 ```
+
+Results: focused Phase 2 tests passed 11/11, full `Debug` tests passed
+264/264, full `ReleaseLean` tests passed 266/266, and `git diff --check`
+reported no whitespace errors.
 
 ## Phase 3: Topology-Aware Neighbors And Conjoined Grids
 

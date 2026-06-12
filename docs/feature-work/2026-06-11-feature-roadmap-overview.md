@@ -145,6 +145,11 @@ Completed runtime follow-through:
 
 Implement hex-prism topology after rectangular topology and static sparse storage are stable.
 
+Status: Phase 2 completed on 2026-06-12. Hex-prism construction, fixed-point
+projection, inverse projection, cube rounding, and world/grid/voxel lookup are
+in place; topology-aware neighbors, tracing, coverage, blockers, and scans
+remain in the later hex phases.
+
 Why:
 
 - Hex changes coordinate projection, inverse projection, neighbor rules, coverage, tracing, and scan-cell coverage.

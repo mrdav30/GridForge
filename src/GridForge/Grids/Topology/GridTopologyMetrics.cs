@@ -94,6 +94,16 @@ public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetr
         }
     }
 
+    internal Fixed64 LargestHexEdge
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get
+        {
+            Fixed64 horizontalDiameter = CellRadius * new Fixed64(2);
+            return FixedMath.Max(horizontalDiameter, LayerHeight);
+        }
+    }
+
     /// <summary>
     /// Creates cubic rectangular-prism metrics.
     /// </summary>
@@ -114,12 +124,32 @@ public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetr
             ResolvePositive(cellLength),
             HexOrientation.PointyTop);
 
+    /// <summary>
+    /// Creates hex-prism metrics with the supplied horizontal radius, vertical layer height, and orientation.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static GridTopologyMetrics Hex(
+        Fixed64 cellRadius,
+        Fixed64 layerHeight,
+        HexOrientation hexOrientation = HexOrientation.PointyTop) => new(
+            cellRadius,
+            Fixed64.Zero,
+            layerHeight,
+            Fixed64.Zero,
+            hexOrientation);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static GridTopologyMetrics Normalize(
         GridTopologyKind topologyKind,
         GridTopologyMetrics metrics) => topologyKind == GridTopologyKind.RectangularPrism
             ? Rectangular(metrics.CellWidth, metrics.LayerHeight, metrics.CellLength)
-            : metrics;
+            : Hex(metrics.CellRadius, metrics.LayerHeight, metrics.HexOrientation);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsValid(
+        GridTopologyKind topologyKind,
+        GridTopologyMetrics metrics) => topologyKind == GridTopologyKind.RectangularPrism
+            || (metrics.CellRadius > Fixed64.Zero && metrics.LayerHeight > Fixed64.Zero);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 ResolvePositive(Fixed64 value) =>

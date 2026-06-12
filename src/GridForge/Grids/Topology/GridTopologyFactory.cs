@@ -15,13 +15,27 @@ internal static class GridTopologyFactory
     {
         topology = null;
 
-        if (configuration.TopologyKind == GridTopologyKind.RectangularPrism)
+        switch (configuration.TopologyKind)
         {
-            topology = new RectangularPrismTopology(configuration.TopologyMetrics);
-            return true;
-        }
+            case GridTopologyKind.RectangularPrism:
+                {
+                    topology = new RectangularPrismTopology(configuration.TopologyMetrics);
+                    return true;
+                }
+            case GridTopologyKind.HexPrism:
+                {
+                    if (!GridTopologyMetrics.IsValid(configuration.TopologyKind, configuration.TopologyMetrics))
+                    {
+                        GridForgeLogger.Channel.Warn($"Hex-prism topology requires positive cell radius and layer height.");
+                        return false;
+                    }
 
-        GridForgeLogger.Channel.Warn($"Grid topology '{configuration.TopologyKind}' is not implemented yet.");
-        return false;
+                    topology = new HexPrismTopology(configuration.TopologyMetrics);
+                    return true;
+                }
+            default:
+                GridForgeLogger.Channel.Warn($"Grid topology '{configuration.TopologyKind}' is not implemented.");
+                return false;
+        }
     }
 }
