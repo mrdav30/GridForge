@@ -1,5 +1,4 @@
-﻿using FixedMathSharp;
-using GridForge.Grids;
+﻿using GridForge.Grids;
 using GridForge.Spatial;
 using SwiftCollections.Diagnostics;
 using SwiftCollections.Pool;

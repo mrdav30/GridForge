@@ -1,4 +1,11 @@
-﻿using FixedMathSharp;
+﻿//=======================================================================
+// VoxelGrid.cs
+//=======================================================================
+// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// See LICENSE file in the project root for full license information.
+//=======================================================================
+
+using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
@@ -687,7 +694,7 @@ public class VoxelGrid
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="result">The resolved voxel, if found.</param>
     /// <returns>True if the voxel was resolved; otherwise false.</returns>
-    
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetVoxel(Vector2d position, Fixed64 layerY, out Voxel? result) =>
         TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);

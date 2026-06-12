@@ -1,5 +1,4 @@
 ﻿using BenchmarkDotNet.Attributes;
-using FixedMathSharp;
 using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;

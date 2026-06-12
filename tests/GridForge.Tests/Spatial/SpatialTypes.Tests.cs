@@ -1,8 +1,8 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
-using GridForge.Grids.Topology;
 using GridForge.Grids.Tests;
+using GridForge.Grids.Topology;
 using System;
 using System.Collections.Generic;
 using System.Linq;

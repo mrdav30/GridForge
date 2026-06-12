@@ -1,4 +1,11 @@
-﻿namespace GridForge.Blockers;
+﻿//=======================================================================
+// IBlocker.cs
+//=======================================================================
+// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// See LICENSE file in the project root for full license information.
+//=======================================================================
+
+namespace GridForge.Blockers;
 
 /// <summary>
 /// Defines the interface for a grid blocker, allowing custom implementations.
