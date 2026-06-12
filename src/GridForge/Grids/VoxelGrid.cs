@@ -739,14 +739,25 @@ public class VoxelGrid
 
     private void InvalidateNeighborGridBoundaryCaches(VoxelIndex voxelIndex)
     {
-        if (World == null || !IsConjoined || !IsOnBoundary(voxelIndex))
+        GridWorld? world = World;
+        SwiftSparseMap<SwiftHashSet<int>>? neighbors = Neighbors;
+        if (world == null || neighbors == null || NeighborCount == 0 || !IsOnBoundary(voxelIndex))
             return;
 
-        foreach (VoxelGrid neighborGrid in GetAllGridNeighbors())
+        var neighborSets = neighbors.DenseValues;
+        int neighborSetCount = neighbors.Count;
+        for (int i = 0; i < neighborSetCount; i++)
         {
-            SpatialDirection reciprocalDirection = GetNeighborDirection(neighborGrid, this);
-            if (reciprocalDirection != SpatialDirection.None)
-                neighborGrid.NotifyBoundaryChange(reciprocalDirection);
+            SwiftHashSet<int> neighborSet = neighborSets[i];
+            foreach (int neighborIndex in neighborSet)
+            {
+                if (!world.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
+                    continue;
+
+                SpatialDirection reciprocalDirection = GetNeighborDirection(neighborGrid!, this);
+                if (reciprocalDirection != SpatialDirection.None)
+                    neighborGrid!.NotifyBoundaryChange(reciprocalDirection);
+            }
         }
     }
 
@@ -757,13 +768,10 @@ public class VoxelGrid
     {
         result = null;
 
-        if (!IsValidVoxelIndex(x, y, z) || _storage?.TryGetVoxel(x, y, z, out result) != true)
-        {
-            GridForgeLogger.Channel.Warn($"Voxel at coorinate {(x, y, z)} is has not been allocated to the grid.");
+        if (!IsValidVoxelIndex(x, y, z))
             return false;
-        }
 
-        return true;
+        return _storage?.TryGetVoxel(x, y, z, out result) == true;
     }
 
     /// <summary>

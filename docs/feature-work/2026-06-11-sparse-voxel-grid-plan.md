@@ -436,23 +436,33 @@ Benchmark scenarios:
 
 Checklist:
 
-- [ ] Add BenchmarkDotNet coverage for sparse construction, lookup, coverage, blocker, and scan flows.
-- [ ] Compare dense baseline before and after storage extraction.
-- [ ] Validate sparse missing-region coverage skips absent blocks without per-voxel allocation.
-- [ ] Validate sparse scan paths remain deterministic and allocation-conscious.
-- [ ] Decide whether adaptive sparse blocks are justified by benchmark data.
+- [x] Add BenchmarkDotNet coverage for sparse construction, lookup, coverage, blocker, and scan flows.
+- [x] Compare dense baseline before and after storage extraction.
+- [x] Validate sparse missing-region coverage skips absent blocks without per-voxel allocation.
+- [x] Validate sparse scan paths remain deterministic and allocation-conscious.
+- [x] Decide whether adaptive sparse blocks are justified by benchmark data.
 
 Exit criteria:
 
-- [ ] Dense hot paths are not materially regressed.
-- [ ] Sparse grids show clear memory or construction-time wins for low-density workloads.
-- [ ] Sparse query performance is explained in docs with realistic tradeoffs.
+- [x] Dense hot paths are not materially regressed.
+- [x] Sparse grids show clear memory or construction-time wins for low-density workloads.
+- [x] Sparse query performance is explained in docs with realistic tradeoffs.
+
+Progress notes:
+
+- Added `SparseVoxelGridBenchmarks` with dense baselines and sparse scenarios for construction density, configured/missing lookup, empty/clustered coverage, blocker apply/remove, occupant registration, scratch-backed radius scans, and dense-to-sparse neighbor lookup.
+- Hardened sparse hot paths by appending prepared construction voxels directly, avoiding duplicate runtime-add lookups, keeping valid sparse misses quiet, and removing iterator allocation from tracer spatial-cell loops.
+- Benchmark smoke on 2026-06-12 showed low-density sparse construction at about `6.2 ms / 724 KB` versus dense at about `55.7 ms / 54 MB` for the repeated 64x64 flat-grid lifecycle workload. Medium-density sparse stayed well below dense construction cost; high-density sparse approached dense time while still allocating less.
+- Empty sparse coverage over an unconfigured region remained cheap because storage walks touched sparse blocks by scan-cell key and skips absent blocks instead of materializing per-voxel misses.
+- Adaptive sparse blocks are not justified yet. Sorted per-scan-cell block arrays keep the low/medium density cases simple and allocation-light, while the high-density case is already close enough to dense that a more complex adaptive structure needs stronger evidence.
+- BenchmarkDotNet `ShortRun` still reports `MinIterationTime` warnings for some fast scenarios. Treat the suite as a quick regression guardrail; use a longer job/config before publishing absolute numbers.
 
 Validation:
 
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*Sparse*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
 ```
 
 ## Phase 6: Documentation And Release Alignment

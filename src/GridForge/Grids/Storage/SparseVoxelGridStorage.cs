@@ -67,7 +67,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
                     ScanCells.Add(cellKey, block.ScanCell!);
                 }
 
-                _voxels[i] = block.AddVoxel(grid, index);
+                _voxels[i] = block.AddPreparedVoxel(grid, index);
             }
         }
         finally
@@ -120,7 +120,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
     {
         voxel = null;
         int cellKey = grid.GetScanCellKey(index);
-        if (cellKey < 0 || TryGetVoxel(index.x, index.y, index.z, out _))
+        if (cellKey < 0)
             return false;
 
         EnsureStorageMaps();

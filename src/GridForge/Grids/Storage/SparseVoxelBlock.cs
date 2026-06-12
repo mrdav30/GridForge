@@ -36,10 +36,13 @@ internal sealed class SparseVoxelBlock
         _count = 0;
     }
 
-    public Voxel AddVoxel(VoxelGrid grid, VoxelIndex index)
+    public Voxel AddPreparedVoxel(VoxelGrid grid, VoxelIndex index)
     {
-        TryAddVoxel(grid, index, out Voxel? voxel);
-        return voxel!;
+        // GridWorld validates prepared sparse input as sorted and deduplicated before storage initialization.
+        EnsureCapacity(_count + 1);
+        Voxel voxel = CreateVoxel(grid, index);
+        _voxels![_count++] = voxel;
+        return voxel;
     }
 
     public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)

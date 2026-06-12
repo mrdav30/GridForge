@@ -447,20 +447,30 @@ public static class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        foreach (int cellIndex in world.GetSpatialGridCells(candidateMin, candidateMax))
-        {
-            if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-                continue;
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
 
-            AddTraceLineVoxelsForCell(
-                world,
-                gridList,
-                start,
-                end,
-                padding,
-                gridVoxelMapping,
-                voxelRedundancyCheck,
-                processedGrids);
+        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
+        {
+            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
+            {
+                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
+                {
+                    int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
+                    if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+                        continue;
+
+                    AddTraceLineVoxelsForCell(
+                        world,
+                        gridList,
+                        start,
+                        end,
+                        padding,
+                        gridVoxelMapping,
+                        voxelRedundancyCheck,
+                        processedGrids);
+                }
+            }
         }
     }
 
@@ -787,18 +797,28 @@ public static class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        foreach (int cellIndex in world.GetSpatialGridCells(candidateMin, candidateMax))
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
+
+        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
         {
-            if (world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
             {
-                AddCoveredVoxelsForCell(
-                    world,
-                    gridList,
-                    queryMin,
-                    queryMax,
-                    gridVoxelMapping,
-                    voxelRedundancyCheck,
-                    processedGrids);
+                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
+                {
+                    int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
+                    if (world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+                    {
+                        AddCoveredVoxelsForCell(
+                            world,
+                            gridList,
+                            queryMin,
+                            queryMax,
+                            gridVoxelMapping,
+                            voxelRedundancyCheck,
+                            processedGrids);
+                    }
+                }
             }
         }
     }
