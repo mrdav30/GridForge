@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using System;
@@ -66,6 +67,46 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(new Vector3d(1, 1, 1), maxVoxel.WorldPosition);
         Assert.True(grid.TryGetVoxelIndex(Vector3d.FromDouble(0.75, 0.75, 0.75), out VoxelIndex resolvedIndex));
         Assert.Equal(new VoxelIndex(1, 1, 1), resolvedIndex);
+    }
+
+    [Fact]
+    public void DenseStorageBoundary_ShouldExposeStorageNeutralPhysicalVoxelEnumeration()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 1, 1)),
+            out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        Assert.Equal(GridStorageKind.Dense, grid.StorageKind);
+        Assert.Equal(grid.Size, grid.ConfiguredVoxelCount);
+
+        VoxelIndex[] voxelIndices = grid
+            .EnumerateVoxels()
+            .Select(voxel => voxel.Index)
+            .ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                new VoxelIndex(0, 0, 0),
+                new VoxelIndex(0, 0, 1),
+                new VoxelIndex(0, 1, 0),
+                new VoxelIndex(0, 1, 1),
+                new VoxelIndex(1, 0, 0),
+                new VoxelIndex(1, 0, 1),
+                new VoxelIndex(1, 1, 0),
+                new VoxelIndex(1, 1, 1)
+            },
+            voxelIndices);
+    }
+
+    [Fact]
+    public void DenseStorageBoundary_ShouldKeepDenseCollectionsOutOfPublicSurface()
+    {
+        const BindingFlags PublicInstance = BindingFlags.Instance | BindingFlags.Public;
+
+        Assert.Null(typeof(VoxelGrid).GetProperty("Voxels", PublicInstance));
+        Assert.Null(typeof(VoxelGrid).GetProperty("ScanCells", PublicInstance));
     }
 
     [Fact]

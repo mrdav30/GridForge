@@ -50,7 +50,7 @@ world-space input
 ### `GridWorld` owns
 
 - active/inactive lifecycle for one world instance
-- that world's voxel size and spatial hash cell size
+- that world's spatial hash cell size
 - the active grid bucket
 - exact-bounds duplicate tracking
 - the spatial hash used for coarse grid lookup
@@ -59,8 +59,9 @@ world-space input
 ### `VoxelGrid` owns
 
 - one grid's snapped bounds and dimensions
-- its 3D voxel array
-- its scan-cell overlay
+- its per-grid topology metrics
+- its physical voxel storage
+- its scan-cell overlay for configured voxels
 - the set of active scan cells
 - neighboring grid relationships
 - per-grid obstacle and occupancy summary state

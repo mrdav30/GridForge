@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
@@ -84,9 +85,31 @@ public class VoxelGrid
     public int Size { get; private set; }
 
     /// <summary>
-    /// The primary 3D collection of voxels managed by this grid.
+    /// The number of physical voxels configured in the grid storage.
     /// </summary>
-    public SwiftArray3D<Voxel>? Voxels { get; private set; }
+    public int ConfiguredVoxelCount
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _storage?.ConfiguredVoxelCount ?? 0;
+    }
+
+    /// <summary>
+    /// The physical voxel storage strategy used by this grid.
+    /// </summary>
+    public GridStorageKind StorageKind
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _storage?.Kind ?? GridStorageKind.Dense;
+    }
+
+    /// <summary>
+    /// The dense 3D collection of voxels managed by this grid when dense storage is active.
+    /// </summary>
+    internal SwiftArray3D<Voxel>? Voxels
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _denseStorage.Voxels;
+    }
 
     /// <summary>
     /// Stores <see cref="SpatialDirection"/> as indices of neighboring grids based on their relative positions.
@@ -114,7 +137,11 @@ public class VoxelGrid
     /// <summary>
     /// Collection of scan cells indexed by their grid-local scan cell key.
     /// </summary>
-    public SwiftSparseMap<ScanCell>? ScanCells { get; private set; }
+    internal SwiftSparseMap<ScanCell>? ScanCells
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _storage?.ScanCells;
+    }
 
     /// <summary>
     /// Stores currently active (occupied) scan cells within the grid.
@@ -147,8 +174,28 @@ public class VoxelGrid
     private int _scanLayerSize;
 
     private IGridTopology? _topology;
+    private IVoxelGridStorage? _storage;
+    private readonly DenseVoxelGridStorage _denseStorage = new();
 
     internal IGridTopology Topology => _topology!;
+
+    internal int ScanWidth
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _scanWidth;
+    }
+
+    internal int ScanHeight
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _scanHeight;
+    }
+
+    internal int ScanLength
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _scanLength;
+    }
 
     #endregion
 
@@ -194,8 +241,9 @@ public class VoxelGrid
         Length = dimensions.Length;
         Size = Width * Height * Length;
 
-        GenerateScanCells();
-        GenerateVoxels();
+        ConfigureScanDimensions();
+        _storage = _denseStorage;
+        _storage.Initialize(this);
 
         IsActive = true;
     }
@@ -208,12 +256,12 @@ public class VoxelGrid
         if (!IsActive)
             return;
 
-        ReleaseVoxels();
+        _storage?.Reset(this);
+        _storage = null;
 
         // Just in case since voxels should have already cleared any registered obstacles.
         ObstacleCount = 0;
 
-        ReleaseScanCells();
         ReleaseActiveScanCells();
         ReleaseNeighbors();
 
@@ -229,40 +277,6 @@ public class VoxelGrid
         ClearDimensions();
 
         IsActive = false;
-    }
-
-    private void ReleaseVoxels()
-    {
-        if (Voxels == null)
-            return;
-
-        foreach (Voxel voxel in Voxels)
-        {
-            if (voxel == null)
-                continue;
-
-            voxel.Reset(this);
-            Pools.VoxelPool.Release(voxel);
-        }
-
-        Voxels = null;
-    }
-
-    private void ReleaseScanCells()
-    {
-        if (ScanCells == null)
-            return;
-
-        foreach (ScanCell cell in ScanCells.Values)
-        {
-            if (cell == null)
-                continue;
-
-            Pools.ScanCellPool.Release(cell);
-        }
-
-        Pools.ScanCellMapPool.Release(ScanCells);
-        ScanCells = null;
     }
 
     private void ReleaseActiveScanCells()
@@ -314,76 +328,12 @@ public class VoxelGrid
 
     #region Grid Construction
 
-    /// <summary>
-    /// Generates the scan cell overlay for the grid.
-    /// </summary>
-    private void GenerateScanCells()
+    private void ConfigureScanDimensions()
     {
         _scanWidth = ((Width - 1) / ScanCellSize) + 1;
         _scanHeight = ((Height - 1) / ScanCellSize) + 1;
         _scanLength = ((Length - 1) / ScanCellSize) + 1;
         _scanLayerSize = _scanWidth * _scanHeight;
-
-        ScanCells = Pools.ScanCellMapPool.Rent();
-
-        for (int x = 0; x < _scanWidth; x++)
-        {
-            for (int y = 0; y < _scanHeight; y++)
-            {
-                for (int z = 0; z < _scanLength; z++)
-                {
-                    int cellKey = x + y * _scanWidth + z * _scanLayerSize;
-
-                    ScanCell scanCell = Pools.ScanCellPool.Rent();
-                    scanCell.Initialize(World!, GridIndex, cellKey);
-                    ScanCells.Add(cellKey, scanCell);
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Generates the 3D grid structure based on the configured settings.
-    /// </summary>
-    private void GenerateVoxels()
-    {
-#if DEBUG
-        long startMem = GC.GetTotalMemory(true);
-#endif
-
-        Voxels = new SwiftArray3D<Voxel>(Width, Height, Length);
-
-        for (int x = 0; x < Width; x++)
-        {
-            for (int y = 0; y < Height; y++)
-            {
-                for (int z = 0; z < Length; z++)
-                {
-                    VoxelIndex index = new(x, y, z);
-                    Vector3d position = Topology.GetWorldPosition(BoundsMin, index);
-
-                    // Rent a voxel from the object pool and initialize it
-                    Voxel voxel = Pools.VoxelPool.Rent();
-
-                    bool isBoundaryVoxel = IsOnBoundary(index);
-                    int scanCellKey = GetScanCellKey(index);
-
-                    voxel.Initialize(
-                        new WorldVoxelIndex(World!.SpawnToken, GridIndex, SpawnToken, index),
-                        position,
-                        scanCellKey,
-                        isBoundaryVoxel,
-                        Version);
-
-                    Voxels[x, y, z] = voxel;
-                }
-            }
-        }
-
-#if DEBUG
-        long usedMem = GC.GetTotalMemory(true) - startMem;
-        GridForgeLogger.Channel.Info($"Grid generated using {usedMem} Bytes.");
-#endif
     }
 
     #endregion
@@ -498,7 +448,7 @@ public class VoxelGrid
     /// <param name="direction">The direction of the affected boundary.</param>
     public void NotifyBoundaryChange(SpatialDirection direction)
     {
-        SwiftThrowHelper.ThrowIfNull(Voxels, nameof(Voxels));
+        SwiftThrowHelper.ThrowIfNull(_storage, nameof(_storage));
 
         int directionIndex = (int)direction;
         if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
@@ -510,26 +460,7 @@ public class VoxelGrid
         (int yStart, int yEnd) = SpatialAwareness.GetBoundaryRange(offset.y, Height);
         (int zStart, int zEnd) = SpatialAwareness.GetBoundaryRange(offset.z, Length);
 
-        VoxelGrid.InvalidateBoundaryVoxels(Voxels!, xStart, xEnd, yStart, yEnd, zStart, zEnd);
-    }
-
-    private static void InvalidateBoundaryVoxels(
-        SwiftArray3D<Voxel> voxels,
-        int xStart,
-        int xEnd,
-        int yStart,
-        int yEnd,
-        int zStart,
-        int zEnd)
-    {
-        for (int x = xStart; x <= xEnd; x++)
-        {
-            for (int y = yStart; y <= yEnd; y++)
-            {
-                for (int z = zStart; z <= zEnd; z++)
-                    voxels[x, y, z]?.InvalidateNeighborCache();
-            }
-        }
+        _storage!.InvalidateBoundaryVoxels(xStart, xEnd, yStart, yEnd, zStart, zEnd);
     }
 
     #endregion
@@ -697,7 +628,7 @@ public class VoxelGrid
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsVoxelAllocated(int x, int y, int z) =>
-        IsValidVoxelIndex(x, y, z) && Voxels![x, y, z]?.IsAllocated == true;
+        IsValidVoxelIndex(x, y, z) && _storage?.TryGetVoxel(x, y, z, out _) == true;
 
     /// <summary>
     /// Retrieves the <see cref="Voxel"/> at the specified coordinates, if allocated.
@@ -706,15 +637,20 @@ public class VoxelGrid
     {
         result = null;
 
-        if (!IsVoxelAllocated(x, y, z))
+        if (!IsValidVoxelIndex(x, y, z) || _storage?.TryGetVoxel(x, y, z, out result) != true)
         {
             GridForgeLogger.Channel.Warn($"Voxel at coorinate {(x, y, z)} is has not been allocated to the grid.");
             return false;
         }
 
-        result = Voxels![x, y, z];
         return true;
     }
+
+    /// <summary>
+    /// Enumerates physical voxels configured in this grid in deterministic storage order.
+    /// </summary>
+    public IEnumerable<Voxel> EnumerateVoxels() =>
+        _storage?.EnumerateVoxels() ?? Array.Empty<Voxel>();
 
     /// <summary>
     /// Retrieves a grid voxel from a given coordinate.
@@ -811,7 +747,7 @@ public class VoxelGrid
     public bool TryGetScanCell(int key, out ScanCell? outScanCell)
     {
         outScanCell = null;
-        return ScanCells?.TryGetValue(key, out outScanCell) == true;
+        return _storage?.TryGetScanCell(key, out outScanCell) == true;
     }
 
     /// <summary>
@@ -845,7 +781,7 @@ public class VoxelGrid
 
         foreach (int activeCellKey in ActiveScanCells!)
         {
-            if (ScanCells!.TryGetValue(activeCellKey, out ScanCell scanCell))
+            if (_storage!.TryGetScanCell(activeCellKey, out ScanCell? scanCell) && scanCell != null)
                 yield return scanCell;
         }
     }

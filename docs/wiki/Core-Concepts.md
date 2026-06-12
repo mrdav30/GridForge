@@ -19,7 +19,7 @@ One of the most important concepts in GridForge is that runtime state is coordin
 
 `GridWorld` is responsible for:
 
-- owning voxel size and spatial hash settings for one world instance
+- owning spatial hash settings for one world instance
 - registering and removing grids
 - spatial hashing for fast grid lookup
 - resolving world positions or `WorldVoxelIndex` values back to active grids and voxels
@@ -59,6 +59,8 @@ It defines:
 - `BoundsMin`
 - `BoundsMax`
 - `ScanCellSize`
+- `TopologyKind`
+- `TopologyMetrics`
 
 Important details:
 
@@ -74,6 +76,7 @@ Useful mental model:
 
 - `GridWorld` answers "which grid?"
 - `VoxelGrid` answers "which cell inside that grid?"
+- `VoxelGrid.EnumerateVoxels()` iterates the physical voxels configured in the grid without exposing storage layout.
 
 ## `Voxel`
 

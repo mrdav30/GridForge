@@ -14,8 +14,8 @@ If `GridWorld` is the world coordinator, these are the types that actually hold 
 It owns:
 
 - the grid's bounds and dimensions
-- the 3D voxel array
-- the scan-cell overlay
+- the storage strategy for physical voxels
+- the scan-cell overlay for configured voxels
 - neighboring grid links
 - per-grid occupancy and obstacle summary state
 - per-grid versioning
@@ -25,8 +25,13 @@ It owns:
 When a grid is initialized, `VoxelGrid.Initialize(...)`:
 
 1. stores identity and configuration
-2. computes dimensions from snapped bounds and world voxel size
-3. generates scan cells and voxels
+2. computes dimensions from snapped bounds and per-grid topology metrics
+3. initializes the grid's voxel storage and scan-cell overlay
+
+Dense rectangular grids configure every voxel in the grid address space. Use
+`VoxelGrid.EnumerateVoxels()` when code needs to iterate physical voxels without
+depending on a dense array layout, and use `ConfiguredVoxelCount` when code needs
+the physical-cell count.
 
 ## What A `Voxel` Owns
 

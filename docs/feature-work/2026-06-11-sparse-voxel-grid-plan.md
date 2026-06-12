@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Additive if the initial scope stays within the current dimension limits; potentially breaking if large sparse address spaces require public `Size` semantics to change.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Phase 0 complete; ready for dense storage extraction.
+- Current state: Phase 1 complete; ready for sparse construction and lookup.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
 
 ## Locked Decisions
@@ -205,19 +205,19 @@ Likely files:
 
 Checklist:
 
-- [ ] Add an internal storage interface that covers dense grid responsibilities currently embedded in `VoxelGrid`.
-- [ ] Move dense voxel generation into `DenseVoxelGridStorage`.
-- [ ] Move dense scan-cell generation into `DenseVoxelGridStorage`.
-- [ ] Route `VoxelGrid.TryGetVoxel(...)`, `TryGetScanCell(...)`, `GetActiveScanCells()`, and boundary invalidation through storage.
-- [ ] Add storage-neutral deterministic voxel enumeration and keep dense array access internal to dense storage.
-- [ ] Preserve exact dense neighbor behavior, scan-cell keys, voxel world positions, obstacle behavior, occupant behavior, and pooling cleanup.
-- [ ] Add focused regression tests around dense construction, reset, reuse, boundary invalidation, tracing, blocker apply/remove, and occupant registration.
+- [x] Add an internal storage interface that covers dense grid responsibilities currently embedded in `VoxelGrid`.
+- [x] Move dense voxel generation into `DenseVoxelGridStorage`.
+- [x] Move dense scan-cell generation into `DenseVoxelGridStorage`.
+- [x] Route `VoxelGrid.TryGetVoxel(...)`, `TryGetScanCell(...)`, `GetActiveScanCells()`, and boundary invalidation through storage.
+- [x] Add storage-neutral deterministic voxel enumeration and keep dense array access internal to dense storage.
+- [x] Preserve exact dense neighbor behavior, scan-cell keys, voxel world positions, obstacle behavior, occupant behavior, and pooling cleanup.
+- [x] Add focused regression tests around dense construction, reset, reuse, boundary invalidation, tracing, blocker apply/remove, and occupant registration.
 
 Exit criteria:
 
-- [ ] Dense grids produce the same public behavior as before.
-- [ ] No sparse code exists yet beyond neutral storage boundaries.
-- [ ] Existing tests pass under `Debug`.
+- [x] Dense grids produce the same public behavior as before.
+- [x] No sparse code exists yet beyond neutral storage boundaries.
+- [x] Existing tests pass under `Debug`.
 
 Validation:
 
