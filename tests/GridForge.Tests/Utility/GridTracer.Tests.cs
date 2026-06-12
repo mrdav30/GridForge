@@ -246,8 +246,8 @@ public class GridTracerTests : IDisposable
         var blocker = new BoundsBlocker(_world, boundingArea);
         blocker.ApplyBlockage();
 
-        Vector3d snappedMin = _world.FloorToVoxelSize(boundingArea.Min);
-        Vector3d snappedMax = _world.CeilToVoxelSize(boundingArea.Max);
+        Vector3d snappedMin = grid.FloorToGrid(boundingArea.Min);
+        Vector3d snappedMax = grid.CeilToGrid(boundingArea.Max);
 
         foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(_world, boundingArea.Min, boundingArea.Max))
         {
@@ -635,12 +635,10 @@ public class GridTracerTests : IDisposable
         _world.SpatialGridHash[cellIndex].Add(staleIndex);
     }
 
-    private void ResetWorld(
-        Fixed64? voxelSize = null,
-        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
+    private void ResetWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
         _world.Dispose();
-        _world = GridWorldTestFactory.CreateWorld(voxelSize, spatialGridCellSize);
+        _world = GridWorldTestFactory.CreateWorld(spatialGridCellSize);
     }
 
     private static WorldVoxelIndex[] CopyCoveredVoxelIndices(IEnumerable<GridVoxelSet> coveredSets)

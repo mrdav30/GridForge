@@ -72,7 +72,7 @@ public class BlockerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        var voxelSize = (float)_world.VoxelSize;
+        var voxelSize = (float)grid.Configuration.TopologyMetrics.CellWidth;
 
         Vector3d position = Vector3d.FromDouble(-39 + voxelSize, 0, -39 + voxelSize);
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;

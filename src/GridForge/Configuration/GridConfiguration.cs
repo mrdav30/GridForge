@@ -1,4 +1,5 @@
 ﻿using FixedMathSharp;
+using GridForge.Grids.Topology;
 using MemoryPack;
 using SwiftCollections;
 using SwiftCollections.Utility;
@@ -45,6 +46,20 @@ public readonly partial struct GridConfiguration
     public readonly int ScanCellSize;
 
     /// <summary>
+    /// The cell topology used by this grid.
+    /// </summary>
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly GridTopologyKind TopologyKind;
+
+    /// <summary>
+    /// The deterministic cell geometry used by this grid's topology.
+    /// </summary>
+    [JsonInclude]
+    [MemoryPackInclude]
+    public readonly GridTopologyMetrics TopologyMetrics;
+
+    /// <summary>
     /// The center point of the grid's bounding volume.
     /// </summary>
     [JsonIgnore]
@@ -62,11 +77,15 @@ public readonly partial struct GridConfiguration
     /// <param name="boundsMin">The minimum boundary of the grid.</param>
     /// <param name="boundsMax">The maximum boundary of the grid.</param>
     /// <param name="scanCellSize">The size of scan cells within the grid. Default is 8.</param>
+    /// <param name="topologyKind">The topology kind used by the grid. Defaults to rectangular-prism.</param>
+    /// <param name="topologyMetrics">Deterministic topology metrics. Defaults to 1x1x1 rectangular-prism cells.</param>
     [JsonConstructor]
     public GridConfiguration(
         Vector3d boundsMin,
         Vector3d boundsMax,
-        int scanCellSize = DefaultScanCellSize)
+        int scanCellSize = DefaultScanCellSize,
+        GridTopologyKind topologyKind = GridTopologyKind.RectangularPrism,
+        GridTopologyMetrics topologyMetrics = default)
     {
         if (boundsMin > boundsMax)
             GridForgeLogger.Channel.Warn($"GridMin was greater than GridMax, auto-correcting values.");
@@ -81,6 +100,10 @@ public readonly partial struct GridConfiguration
             FixedMath.Max(boundsMin.Z, boundsMax.Z));
 
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
+        TopologyKind = topologyKind;
+        TopologyMetrics = GridTopologyMetrics.Normalize(
+            topologyKind,
+            topologyMetrics);
     }
 
     #endregion
@@ -90,7 +113,17 @@ public readonly partial struct GridConfiguration
     /// </summary>
     public readonly BoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
 
+    /// <summary>
+    /// Creates an exact identity key for this configuration's snapped bounds and topology.
+    /// </summary>
+    public readonly GridConfigurationKey ToGridKey() =>
+        new(BoundsMin, BoundsMax, TopologyKind, TopologyMetrics);
+
     /// <inheritdoc/>
-    public override readonly int GetHashCode() =>
-        SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
+    public override readonly int GetHashCode()
+    {
+        int hash = SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
+        hash = SwiftHashTools.CombineHashCodes(hash, TopologyKind.GetHashCode());
+        return SwiftHashTools.CombineHashCodes(hash, TopologyMetrics.GetHashCode());
+    }
 }

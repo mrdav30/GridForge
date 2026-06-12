@@ -16,8 +16,6 @@ public static class GridTracer
 {
     private readonly struct TraceLinePlan
     {
-        public readonly Vector3d SnappedMin;
-        public readonly Vector3d SnappedMax;
         public readonly Vector3d TraceStart;
         public readonly Fixed64 Steps;
         public readonly Fixed64 StepX;
@@ -25,16 +23,12 @@ public static class GridTracer
         public readonly Fixed64 StepZ;
 
         public TraceLinePlan(
-            Vector3d snappedMin,
-            Vector3d snappedMax,
             Vector3d traceStart,
             Fixed64 steps,
             Fixed64 stepX,
             Fixed64 stepY,
             Fixed64 stepZ)
         {
-            SnappedMin = snappedMin;
-            SnappedMax = snappedMax;
             TraceStart = traceStart;
             Steps = steps;
             StepX = stepX;
@@ -306,10 +300,12 @@ public static class GridTracer
         SwiftHashSet<ScanCell> voxelRedundancyCheck,
         Fixed64? padding = null)
     {
-        (Vector3d snappedMin, Vector3d snappedMax) =
-            world.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
+        (Vector3d queryMin, Vector3d queryMax) =
+            CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
+        (Vector3d candidateMin, Vector3d candidateMax) =
+            ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
         (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(snappedMin, snappedMax);
+            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
 
         for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
         {
@@ -321,8 +317,8 @@ public static class GridTracer
                         cellX,
                         cellY,
                         cellZ,
-                        snappedMin,
-                        snappedMax,
+                        queryMin,
+                        queryMax,
                         scanCells,
                         processedGrids,
                         voxelRedundancyCheck);
@@ -335,8 +331,8 @@ public static class GridTracer
         int cellX,
         int cellY,
         int cellZ,
-        Vector3d snappedMin,
-        Vector3d snappedMax,
+        Vector3d queryMin,
+        Vector3d queryMax,
         SwiftList<ScanCell> scanCells,
         SwiftHashSet<ushort> processedGrids,
         SwiftHashSet<ScanCell> voxelRedundancyCheck)
@@ -352,8 +348,8 @@ public static class GridTracer
 
             AddCoveredScanCellsForGrid(
                 world.ActiveGrids[gridIndex],
-                snappedMin,
-                snappedMax,
+                queryMin,
+                queryMax,
                 scanCells,
                 voxelRedundancyCheck);
         }
@@ -361,11 +357,12 @@ public static class GridTracer
 
     private static void AddCoveredScanCellsForGrid(
         VoxelGrid currentGrid,
-        Vector3d snappedMin,
-        Vector3d snappedMax,
+        Vector3d queryMin,
+        Vector3d queryMax,
         SwiftList<ScanCell> scanCells,
         SwiftHashSet<ScanCell> voxelRedundancyCheck)
     {
+        (Vector3d snappedMin, Vector3d snappedMax) = currentGrid.NormalizeBounds(queryMin, queryMax);
         (int xMin, int yMin, int zMin) = currentGrid.SnapToScanCell(snappedMin);
         (int xMax, int yMax, int zMax) = currentGrid.SnapToScanCell(snappedMax);
 
@@ -467,9 +464,11 @@ public static class GridTracer
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        TraceLinePlan plan = CreateTraceLinePlan(world, start, end, padding);
+        (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding);
+        (Vector3d candidateMin, Vector3d candidateMax) =
+            ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        foreach (int cellIndex in world.GetSpatialGridCells(plan.SnappedMin, plan.SnappedMax))
+        foreach (int cellIndex in world.GetSpatialGridCells(candidateMin, candidateMax))
         {
             if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
                 continue;
@@ -477,36 +476,44 @@ public static class GridTracer
             AddTraceLineVoxelsForCell(
                 world,
                 gridList,
-                plan,
+                start,
+                end,
+                padding,
                 gridVoxelMapping,
                 voxelRedundancyCheck);
         }
     }
 
     private static TraceLinePlan CreateTraceLinePlan(
-        GridWorld world,
+        VoxelGrid grid,
         Vector3d start,
         Vector3d end,
         Fixed64? padding)
     {
         (Vector3d snappedMin, Vector3d snappedMax) =
-            world.SnapBoundsToVoxelSize(start, end, padding);
+            grid.NormalizeBounds(start, end, padding);
 
         Vector3d traceStart = CreateTraceEndpoint(start, end, snappedMin, snappedMax, useMinWhenIncreasing: true);
         Vector3d traceEnd = CreateTraceEndpoint(start, end, snappedMin, snappedMax, useMinWhenIncreasing: false);
 
         Vector3d diff = traceEnd - traceStart;
-        Vector3d delta = Vector3d.Abs(diff);
-        Fixed64 steps = FixedMath.Ceil(FixedMath.Max(FixedMath.Max(delta.X, delta.Y), delta.Z));
+        Fixed64 steps = CalculateTraceSteps(grid, diff);
 
         return new TraceLinePlan(
-            snappedMin,
-            snappedMax,
             traceStart,
             steps,
             diff.X / (steps + Fixed64.One),
             diff.Y / (steps + Fixed64.One),
             diff.Z / (steps + Fixed64.One));
+    }
+
+    private static Fixed64 CalculateTraceSteps(VoxelGrid grid, Vector3d diff)
+    {
+        Vector3d delta = Vector3d.Abs(diff);
+        Fixed64 stepX = delta.X / grid.Topology.Metrics.CellWidth;
+        Fixed64 stepY = delta.Y / grid.Topology.Metrics.LayerHeight;
+        Fixed64 stepZ = delta.Z / grid.Topology.Metrics.CellLength;
+        return FixedMath.Ceil(FixedMath.Max(FixedMath.Max(stepX, stepY), stepZ));
     }
 
     private static Vector3d CreateTraceEndpoint(
@@ -533,10 +540,44 @@ public static class GridTracer
         return (start <= end) == useMinWhenIncreasing ? snappedMin : snappedMax;
     }
 
+    private static (Vector3d min, Vector3d max) CreatePaddedOrderedBounds(
+        Vector3d min,
+        Vector3d max,
+        Fixed64? padding)
+    {
+        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero
+            ? padding.Value
+            : Fixed64.Zero;
+
+        min -= fixedPadding;
+        max += fixedPadding;
+
+        (min.X, max.X) = min.X > max.X ? (max.X, min.X) : (min.X, max.X);
+        (min.Y, max.Y) = min.Y > max.Y ? (max.Y, min.Y) : (min.Y, max.Y);
+        (min.Z, max.Z) = min.Z > max.Z ? (max.Z, min.Z) : (min.Z, max.Z);
+
+        return (min, max);
+    }
+
+    private static (Vector3d min, Vector3d max) ExpandOrderedBounds(
+        Vector3d min,
+        Vector3d max,
+        Fixed64 expansion)
+    {
+        if (expansion <= Fixed64.Zero)
+            return (min, max);
+
+        return (
+            new Vector3d(min.X - expansion, min.Y - expansion, min.Z - expansion),
+            new Vector3d(max.X + expansion, max.Y + expansion, max.Z + expansion));
+    }
+
     private static void AddTraceLineVoxelsForCell(
         GridWorld world,
         SwiftHashSet<ushort> gridList,
-        TraceLinePlan plan,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
@@ -553,24 +594,28 @@ public static class GridTracer
             gridVoxelMapping.Add(currentGrid, voxelList);
 
             AddTraceLineGridVoxels(
-                world,
                 currentGrid,
-                plan,
+                start,
+                end,
+                padding,
                 voxelList,
                 voxelRedundancyCheck);
         }
     }
 
     private static void AddTraceLineGridVoxels(
-        GridWorld world,
         VoxelGrid currentGrid,
-        TraceLinePlan plan,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
+        TraceLinePlan plan = CreateTraceLinePlan(currentGrid, start, end, padding);
+
         for (Fixed64 i = Fixed64.Zero; i <= plan.Steps; i += Fixed64.One)
         {
-            Vector3d tracePos = world.FloorToVoxelSize(
+            Vector3d tracePos = currentGrid.FloorToGrid(
                 new Vector3d(
                     plan.TraceStart.X + plan.StepX * i,
                     plan.TraceStart.Y + plan.StepY * i,
@@ -644,21 +689,23 @@ public static class GridTracer
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        (Vector3d snappedMin, Vector3d snappedMax) =
-            world.SnapBoundsToVoxelSize(boundsMin, boundsMax, padding);
+        (Vector3d queryMin, Vector3d queryMax) =
+            CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
+        (Vector3d candidateMin, Vector3d candidateMax) =
+            ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        foreach (int cellIndex in world.GetSpatialGridCells(snappedMin, snappedMax))
+        foreach (int cellIndex in world.GetSpatialGridCells(candidateMin, candidateMax))
         {
             if (world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-                AddCoveredVoxelsForCell(world, gridList, snappedMin, snappedMax, gridVoxelMapping, voxelRedundancyCheck);
+                AddCoveredVoxelsForCell(world, gridList, queryMin, queryMax, gridVoxelMapping, voxelRedundancyCheck);
         }
     }
 
     private static void AddCoveredVoxelsForCell(
         GridWorld world,
         SwiftHashSet<ushort> gridList,
-        Vector3d snappedMin,
-        Vector3d snappedMax,
+        Vector3d queryMin,
+        Vector3d queryMax,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
@@ -673,24 +720,27 @@ public static class GridTracer
 
             SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
             gridVoxelMapping.Add(currentGrid, voxelList);
-            AddCoveredGridVoxels(world, currentGrid, snappedMin, snappedMax, voxelList, voxelRedundancyCheck);
+            AddCoveredGridVoxels(currentGrid, queryMin, queryMax, voxelList, voxelRedundancyCheck);
         }
     }
 
     private static void AddCoveredGridVoxels(
-        GridWorld world,
         VoxelGrid currentGrid,
-        Vector3d snappedMin,
-        Vector3d snappedMax,
+        Vector3d queryMin,
+        Vector3d queryMax,
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        Fixed64 resolution = world.VoxelSize;
-        for (Fixed64 x = snappedMin.X; x <= snappedMax.X; x += resolution)
+        (Vector3d snappedMin, Vector3d snappedMax) = currentGrid.NormalizeBounds(queryMin, queryMax);
+        Fixed64 cellWidth = currentGrid.Topology.Metrics.CellWidth;
+        Fixed64 layerHeight = currentGrid.Topology.Metrics.LayerHeight;
+        Fixed64 cellLength = currentGrid.Topology.Metrics.CellLength;
+
+        for (Fixed64 x = snappedMin.X; x <= snappedMax.X; x += cellWidth)
         {
-            for (Fixed64 y = snappedMin.Y; y <= snappedMax.Y; y += resolution)
+            for (Fixed64 y = snappedMin.Y; y <= snappedMax.Y; y += layerHeight)
             {
-                for (Fixed64 z = snappedMin.Z; z <= snappedMax.Z; z += resolution)
+                for (Fixed64 z = snappedMin.Z; z <= snappedMax.Z; z += cellLength)
                     TryAddCoveredVoxel(currentGrid, new Vector3d(x, y, z), voxelList, voxelRedundancyCheck);
             }
         }

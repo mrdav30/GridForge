@@ -1,10 +1,12 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace GridForge.Grids;
@@ -22,9 +24,9 @@ public sealed class GridWorld : IDisposable
     public const ushort MaxGrids = ushort.MaxValue - 1;
 
     /// <summary>
-    /// The default size of each grid voxel in world units.
+    /// The default rectangular cell edge in world units.
     /// </summary>
-    public static readonly Fixed64 DefaultVoxelSize = Fixed64.One;
+    public static readonly Fixed64 DefaultRectangularCellSize = Fixed64.One;
 
     /// <summary>
     /// The default size of a spatial hash cell used for grid lookup.
@@ -36,19 +38,9 @@ public sealed class GridWorld : IDisposable
     #region Properties
 
     /// <summary>
-    /// The size of each grid voxel in world units for this world.
-    /// </summary>
-    public Fixed64 VoxelSize { get; }
-
-    /// <summary>
     /// The size of a spatial hash cell used for grid lookup in this world.
     /// </summary>
     public int SpatialGridCellSize { get; }
-
-    /// <summary>
-    /// Resolution for snapping or searching within the grid.
-    /// </summary>
-    public Fixed64 VoxelResolution => VoxelSize * Fixed64.Half;
 
     /// <summary>
     /// Collection of all active grids owned by this world.
@@ -56,9 +48,9 @@ public sealed class GridWorld : IDisposable
     public SwiftBucket<VoxelGrid> ActiveGrids { get; }
 
     /// <summary>
-    /// Dictionary mapping exact bounds keys to grid indices to prevent duplicate grids.
+    /// Dictionary mapping exact grid configuration keys to grid indices to prevent duplicate grids.
     /// </summary>
-    public SwiftDictionary<BoundsKey, ushort> BoundsTracker { get; }
+    public SwiftDictionary<GridConfigurationKey, ushort> BoundsTracker { get; }
 
     /// <summary>
     /// Dictionary mapping spatial hash keys to grid indices for fast lookups.
@@ -79,6 +71,8 @@ public sealed class GridWorld : IDisposable
     /// Indicates whether this world is currently active.
     /// </summary>
     public bool IsActive { get; private set; }
+
+    internal Fixed64 MaxTopologyCellEdge { get; private set; }
 
     private readonly ReaderWriterLockSlim _gridLock = new();
 
@@ -130,19 +124,15 @@ public sealed class GridWorld : IDisposable
     #endregion
 
     /// <summary>
-    /// Initializes a new world with the supplied voxel and spatial-hash settings.
+    /// Initializes a new world with the supplied spatial-hash settings.
     /// </summary>
-    /// <param name="voxelSize">Optional voxel size for this world.</param>
     /// <param name="spatialGridCellSize">Optional spatial hash cell size for this world.</param>
-    public GridWorld(
-        Fixed64? voxelSize = null,
-        int spatialGridCellSize = DefaultSpatialGridCellSize)
+    public GridWorld(int spatialGridCellSize = DefaultSpatialGridCellSize)
     {
         ActiveGrids = new SwiftBucket<VoxelGrid>();
-        BoundsTracker = new SwiftDictionary<BoundsKey, ushort>();
+        BoundsTracker = new SwiftDictionary<GridConfigurationKey, ushort>();
         SpatialGridHash = new SwiftDictionary<int, SwiftHashSet<ushort>>();
 
-        VoxelSize = ResolveVoxelSize(voxelSize);
         SpatialGridCellSize = ResolveSpatialGridCellSize(spatialGridCellSize);
         SpawnToken = GetHashCode();
         Version = 1;
@@ -207,6 +197,7 @@ public sealed class GridWorld : IDisposable
         ActiveGrids.Clear();
         BoundsTracker.Clear();
         SpatialGridHash.Clear();
+        MaxTopologyCellEdge = Fixed64.Zero;
     }
 
     /// <inheritdoc />
@@ -234,8 +225,10 @@ public sealed class GridWorld : IDisposable
         if (!CanAddGrid())
             return false;
 
-        GridConfiguration normalizedConfiguration = NormalizeConfiguration(configuration);
-        BoundsKey boundsKey = normalizedConfiguration.ToBoundsKey();
+        if (!GridWorld.TryNormalizeConfiguration(configuration, out GridConfiguration normalizedConfiguration))
+            return false;
+
+        GridConfigurationKey boundsKey = normalizedConfiguration.ToGridKey();
 
         if (TryFindExistingGrid(boundsKey, out allocatedIndex))
             return false;
@@ -250,6 +243,7 @@ public sealed class GridWorld : IDisposable
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
             newGrid.Initialize(this, allocatedIndex, normalizedConfiguration);
+            UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
             RegisterGridSpatialCells(newGrid, allocatedIndex);
 
             Version++;
@@ -281,9 +275,11 @@ public sealed class GridWorld : IDisposable
         try
         {
             gridToRemove = ActiveGrids[removeIndex];
+            Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
             UnregisterGridSpatialCells(gridToRemove, removeIndex);
-            BoundsTracker.Remove(gridToRemove.Configuration.ToBoundsKey());
+            BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
             ActiveGrids.RemoveAt(removeIndex);
+            RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
 
             Version++;
             removedGridInfo = CreateGridEventInfo(gridToRemove);
@@ -321,7 +317,29 @@ public sealed class GridWorld : IDisposable
         return true;
     }
 
-    private bool TryFindExistingGrid(BoundsKey boundsKey, out ushort allocatedIndex)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpdateMaxTopologyCellEdge(Fixed64 candidate)
+    {
+        if (candidate > MaxTopologyCellEdge)
+            MaxTopologyCellEdge = candidate;
+    }
+
+    private void RecalculateMaxTopologyCellEdgeIfNeeded(Fixed64 removedMaxCellEdge)
+    {
+        if (removedMaxCellEdge < MaxTopologyCellEdge)
+            return;
+
+        Fixed64 maxCellEdge = Fixed64.Zero;
+        foreach (VoxelGrid grid in ActiveGrids)
+        {
+            if (grid != null && grid.IsActive && grid.Topology.MaxCellEdge > maxCellEdge)
+                maxCellEdge = grid.Topology.MaxCellEdge;
+        }
+
+        MaxTopologyCellEdge = maxCellEdge;
+    }
+
+    private bool TryFindExistingGrid(GridConfigurationKey boundsKey, out ushort allocatedIndex)
     {
         _gridLock.EnterReadLock();
         try
@@ -451,10 +469,9 @@ public sealed class GridWorld : IDisposable
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <returns>True if a containing grid was found; otherwise false.</returns>
-    public bool TryGetGrid(Vector2d position, out VoxelGrid? outGrid)
-    {
-        return TryGetGrid(position, default, out outGrid);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetGrid(Vector2d position, out VoxelGrid? outGrid) =>
+         TryGetGrid(position, default, out outGrid);
 
     /// <summary>
     /// Retrieves the grid containing a 2D XZ-plane world position on the supplied world Y layer.
@@ -463,10 +480,9 @@ public sealed class GridWorld : IDisposable
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <returns>True if a containing grid was found; otherwise false.</returns>
-    public bool TryGetGrid(Vector2d position, Fixed64 layerY, out VoxelGrid? outGrid)
-    {
-        return TryGetGrid(GridPlane2d.ToWorld(position, layerY), out outGrid);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetGrid(Vector2d position, Fixed64 layerY, out VoxelGrid? outGrid) =>
+        TryGetGrid(GridPlane2d.ToWorld(position, layerY), out outGrid);
 
     /// <summary>
     /// Retrieves a grid by a world-scoped voxel identity.
@@ -512,13 +528,12 @@ public sealed class GridWorld : IDisposable
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <param name="outVoxel">The resolved voxel, if found.</param>
     /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetGridAndVoxel(
         Vector2d position,
         out VoxelGrid? outGrid,
-        out Voxel? outVoxel)
-    {
-        return TryGetGridAndVoxel(position, default, out outGrid, out outVoxel);
-    }
+        out Voxel? outVoxel) =>
+         TryGetGridAndVoxel(position, default, out outGrid, out outVoxel);
 
     /// <summary>
     /// Retrieves the grid and voxel containing a 2D XZ-plane world position on the supplied world Y layer.
@@ -527,15 +542,14 @@ public sealed class GridWorld : IDisposable
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <param name="outVoxel">The resolved voxel, if found.</param>
-    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
+    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>  
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetGridAndVoxel(
         Vector2d position,
         Fixed64 layerY,
         out VoxelGrid? outGrid,
-        out Voxel? outVoxel)
-    {
-        return TryGetGridAndVoxel(GridPlane2d.ToWorld(position, layerY), out outGrid, out outVoxel);
-    }
+        out Voxel? outVoxel) =>
+         TryGetGridAndVoxel(GridPlane2d.ToWorld(position, layerY), out outGrid, out outVoxel);
 
     /// <summary>
     /// Retrieves the grid and voxel for a given voxel identity.
@@ -616,12 +630,22 @@ public sealed class GridWorld : IDisposable
 
     #region Internal Helpers
 
-    internal GridConfiguration NormalizeConfiguration(GridConfiguration configuration)
+    internal static bool TryNormalizeConfiguration(GridConfiguration configuration, out GridConfiguration normalizedConfiguration)
     {
-        (Vector3d boundsMin, Vector3d boundsMax) =
-            SnapBoundsToVoxelSize(configuration.BoundsMin, configuration.BoundsMax);
+        normalizedConfiguration = default;
+        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
+            return false;
 
-        return new GridConfiguration(boundsMin, boundsMax, configuration.ScanCellSize);
+        (Vector3d boundsMin, Vector3d boundsMax) =
+            topology!.NormalizeBounds(configuration.BoundsMin, configuration.BoundsMax);
+
+        normalizedConfiguration = new GridConfiguration(
+            boundsMin,
+            boundsMax,
+            configuration.ScanCellSize,
+            configuration.TopologyKind,
+            configuration.TopologyMetrics);
+        return true;
     }
 
     /// <summary>
@@ -717,6 +741,7 @@ public sealed class GridWorld : IDisposable
         return IsGridIndexAllocated(index);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanResolveActiveGrid()
     {
         if (IsActive)
@@ -726,11 +751,11 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
-    private bool IsGridIndexInActiveRange(int index)
-    {
-        return (uint)index <= ActiveGrids.Count;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsGridIndexInActiveRange(int index) =>
+         (uint)index < MaxGrids && (uint)index <= ActiveGrids.Count;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool IsGridIndexAllocated(int index)
     {
         if (ActiveGrids.IsAllocated(index))
@@ -740,6 +765,7 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetSpatialGridCandidates(
         Vector3d position,
         out SwiftHashSet<ushort>? gridList)
@@ -774,6 +800,7 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool TryGetActiveGridCandidate(ushort gridIndex, out VoxelGrid? grid)
     {
         grid = null;
@@ -825,55 +852,6 @@ public sealed class GridWorld : IDisposable
         return SwiftHashTools.CombineHashCodes(x, y, z);
     }
 
-    /// <summary>
-    /// Ceil-snaps a world-space position to this world's voxel size.
-    /// </summary>
-    public Vector3d CeilToVoxelSize(Vector3d position)
-    {
-        return new Vector3d(
-            (position.X.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.X.Sign(),
-            (position.Y.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.Y.Sign(),
-            (position.Z.Abs() / VoxelSize).CeilToInt() * VoxelSize * position.Z.Sign()
-        );
-    }
-
-    /// <summary>
-    /// Floor-snaps a world-space position to this world's voxel size.
-    /// </summary>
-    public Vector3d FloorToVoxelSize(Vector3d position)
-    {
-        return new Vector3d(
-            (position.X.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.X.Sign(),
-            (position.Y.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.Y.Sign(),
-            (position.Z.Abs() / VoxelSize).FloorToInt() * VoxelSize * position.Z.Sign()
-        );
-    }
-
-    /// <summary>
-    /// Snaps the supplied bounds to this world's voxel size.
-    /// </summary>
-    public (Vector3d min, Vector3d max) SnapBoundsToVoxelSize(
-        Vector3d min,
-        Vector3d max,
-        Fixed64? padding = null)
-    {
-        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero
-            ? padding.Value
-            : Fixed64.Zero;
-
-        min -= fixedPadding;
-        max += fixedPadding;
-
-        Vector3d snapMin = FloorToVoxelSize(min);
-        Vector3d snapMax = CeilToVoxelSize(max);
-
-        (snapMin.X, snapMax.X) = snapMin.X > snapMax.X ? (snapMax.X, snapMin.X) : (snapMin.X, snapMax.X);
-        (snapMin.Y, snapMax.Y) = snapMin.Y > snapMax.Y ? (snapMax.Y, snapMin.Y) : (snapMin.Y, snapMax.Y);
-        (snapMin.Z, snapMax.Z) = snapMin.Z > snapMax.Z ? (snapMax.Z, snapMin.Z) : (snapMin.Z, snapMax.Z);
-
-        return (snapMin, snapMax);
-    }
-
     internal void NotifyActiveGridChange(VoxelGrid grid)
     {
         if (grid == null || !grid.IsActive)
@@ -886,18 +864,7 @@ public sealed class GridWorld : IDisposable
 
     #region Private Helpers
 
-    private static Fixed64 ResolveVoxelSize(Fixed64? voxelSize)
-    {
-        Fixed64 resolved = voxelSize ?? DefaultVoxelSize;
-        if (resolved <= Fixed64.Zero)
-        {
-            GridForgeLogger.Channel.Warn($"Voxel size must be greater than zero. Falling back to default size {DefaultVoxelSize}.");
-            return DefaultVoxelSize;
-        }
-
-        return resolved;
-    }
-
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int ResolveSpatialGridCellSize(int spatialGridCellSize)
     {
         if (spatialGridCellSize <= 0)
@@ -909,10 +876,9 @@ public sealed class GridWorld : IDisposable
         return spatialGridCellSize;
     }
 
-    private GridEventInfo CreateGridEventInfo(VoxelGrid grid)
-    {
-        return new GridEventInfo(SpawnToken, grid.GridIndex, grid.SpawnToken, grid.Configuration, grid.Version);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private GridEventInfo CreateGridEventInfo(VoxelGrid grid) =>
+         new(SpawnToken, grid.GridIndex, grid.SpawnToken, grid.Configuration, grid.Version);
 
     private void NotifyActiveGridAdded(GridEventInfo eventInfo)
     {
@@ -974,6 +940,7 @@ public sealed class GridWorld : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private (int xMin, int yMin, int zMin) SnapToSpatialGrid(Vector3d position)
     {
         return (

@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Dimensions;
@@ -145,8 +146,9 @@ public class VoxelGrid
     private int _scanLength;
     private int _scanLayerSize;
 
-    private Fixed64 ActiveVoxelSize => World!.VoxelSize;
-    private Fixed64 ActiveVoxelResolution => World!.VoxelResolution;
+    private IGridTopology? _topology;
+
+    internal IGridTopology Topology => _topology!;
 
     #endregion
 
@@ -172,13 +174,24 @@ public class VoxelGrid
         GridIndex = gridIndex;
 
         Configuration = configuration;
+        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
+        {
+            World = null;
+            GridIndex = ushort.MaxValue;
+            Configuration = default;
+            Version = 0;
+            return;
+        }
+
+        _topology = topology;
 
         SpawnToken = GetHashCode();
 
-        // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid
-        Width = ((BoundsMax.X - BoundsMin.X) / ActiveVoxelSize).FloorToInt() + 1;
-        Height = ((BoundsMax.Y - BoundsMin.Y) / ActiveVoxelSize).FloorToInt() + 1;
-        Length = ((BoundsMax.Z - BoundsMin.Z) / ActiveVoxelSize).FloorToInt() + 1;
+        // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid.
+        GridDimensions dimensions = topology!.CalculateDimensions(BoundsMin, BoundsMax);
+        Width = dimensions.Width;
+        Height = dimensions.Height;
+        Length = dimensions.Length;
         Size = Width * Height * Length;
 
         GenerateScanCells();
@@ -206,6 +219,7 @@ public class VoxelGrid
 
         Configuration = default;
         World = null;
+        _topology = null;
 
         SpawnToken = 0;
         Version = 0;
@@ -345,16 +359,12 @@ public class VoxelGrid
             {
                 for (int z = 0; z < Length; z++)
                 {
-                    Vector3d position = new(
-                            BoundsMin.X + x * ActiveVoxelSize,
-                            BoundsMin.Y + y * ActiveVoxelSize,
-                            BoundsMin.Z + z * ActiveVoxelSize
-                        );
+                    VoxelIndex index = new(x, y, z);
+                    Vector3d position = Topology.GetWorldPosition(BoundsMin, index);
 
                     // Rent a voxel from the object pool and initialize it
                     Voxel voxel = Pools.VoxelPool.Rent();
 
-                    VoxelIndex index = new(x, y, z);
                     bool isBoundaryVoxel = IsOnBoundary(index);
                     int scanCellKey = GetScanCellKey(index);
 
@@ -500,10 +510,10 @@ public class VoxelGrid
         (int yStart, int yEnd) = SpatialAwareness.GetBoundaryRange(offset.y, Height);
         (int zStart, int zEnd) = SpatialAwareness.GetBoundaryRange(offset.z, Length);
 
-        InvalidateBoundaryVoxels(Voxels!, xStart, xEnd, yStart, yEnd, zStart, zEnd);
+        VoxelGrid.InvalidateBoundaryVoxels(Voxels!, xStart, xEnd, yStart, yEnd, zStart, zEnd);
     }
 
-    private void InvalidateBoundaryVoxels(
+    private static void InvalidateBoundaryVoxels(
         SwiftArray3D<Voxel> voxels,
         int xStart,
         int xEnd,
@@ -530,22 +540,18 @@ public class VoxelGrid
     /// Determines if a voxel coordinate is at the boundary of the grid.
     /// Used to determine if a voxel should update when a neighboring grid is added/removed.
     /// </summary>
-    public bool IsOnBoundary(VoxelIndex coord)
-    {
-        return coord.x == 0 || coord.x == Width - 1
-            || coord.y == 0 || coord.y == Height - 1
-            || coord.z == 0 || coord.z == Length - 1;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsOnBoundary(VoxelIndex coord) =>
+         coord.x == 0 || coord.x == Width - 1
+      || coord.y == 0 || coord.y == Height - 1
+      || coord.z == 0 || coord.z == Length - 1;
 
     /// <summary>
     /// Checks whether a given position falls within the grid bounds.
     /// </summary>
-    public bool IsInBounds(Vector3d target)
-    {
-        return BoundsMin.X <= target.X && target.X <= BoundsMax.X
-            && BoundsMin.Y <= target.Y && target.Y <= BoundsMax.Y
-            && BoundsMin.Z <= target.Z && target.Z <= BoundsMax.Z;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool IsInBounds(Vector3d target) =>
+        IsActive && Topology.IsInBounds(BoundsMin, BoundsMax, target);
 
     /// <summary>
     /// Checks if two grids are overlapping within a given tolerance threshold.
@@ -557,22 +563,20 @@ public class VoxelGrid
     /// <returns>True if the grids overlap within the tolerance, otherwise false.</returns>
     public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64? tolerance = null)
     {
-        Fixed64 toleranceValue = tolerance ?? a.ActiveVoxelResolution;
+        Fixed64 toleranceValue = tolerance ?? a.Topology.OverlapTolerance;
 
         return AxisOverlaps(a.BoundsMin.X, a.BoundsMax.X, b.BoundsMin.X, b.BoundsMax.X, toleranceValue)
             && AxisOverlaps(a.BoundsMin.Y, a.BoundsMax.Y, b.BoundsMin.Y, b.BoundsMax.Y, toleranceValue)
             && AxisOverlaps(a.BoundsMin.Z, a.BoundsMax.Z, b.BoundsMin.Z, b.BoundsMax.Z, toleranceValue);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool AxisOverlaps(
         Fixed64 firstMin,
         Fixed64 firstMax,
         Fixed64 secondMin,
         Fixed64 secondMax,
-        Fixed64 tolerance)
-    {
-        return firstMax >= secondMin - tolerance && firstMin <= secondMax + tolerance;
-    }
+        Fixed64 tolerance) => firstMax >= secondMin - tolerance && firstMin <= secondMax + tolerance;
 
     /// <summary>
     /// Retrieves all neighboring grids connected to this grid.
@@ -619,12 +623,10 @@ public class VoxelGrid
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool IsVoxelIndexInBounds(int x, int y, int z)
-    {
-        return (uint)x < (uint)Voxels!.Width
-            && (uint)y < (uint)Voxels!.Height
-            && (uint)z < (uint)Voxels!.Depth;
-    }
+    private bool IsVoxelIndexInBounds(int x, int y, int z) =>
+         (uint)x < (uint)Width
+      && (uint)y < (uint)Height
+      && (uint)z < (uint)Length;
 
     /// <summary>
     /// Determines if a voxel is facing the boundary of the grid in a specific direction.
@@ -656,24 +658,16 @@ public class VoxelGrid
             return false;
         }
 
-        if (!IsInBounds(position))
+        if (!Topology.TryGetVoxelIndex(BoundsMin, BoundsMax, position, out VoxelIndex voxelIndex))
         {
             GridForgeLogger.Channel.Warn($"Position does not fall in the bounds of this grid");
             return false;
         }
 
-        // Convert world position to grid indices by subtracting the minimum bound
-        // and dividing by the voxel size to get a zero-based index
-        (int x, int y, int z) = (
-            ((position.X - BoundsMin.X) / ActiveVoxelSize).FloorToInt(),
-            ((position.Y - BoundsMin.Y) / ActiveVoxelSize).FloorToInt(),
-            ((position.Z - BoundsMin.Z) / ActiveVoxelSize).FloorToInt()
-        );
-
-        if (!IsValidVoxelIndex(x, y, z))
+        if (!IsValidVoxelIndex(voxelIndex.x, voxelIndex.y, voxelIndex.z))
             return false;
 
-        result = new VoxelIndex(x, y, z);
+        result = voxelIndex;
         return true;
     }
 
@@ -683,10 +677,9 @@ public class VoxelGrid
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="result">The resolved voxel index, if found.</param>
     /// <returns>True if the position resolved to an allocated voxel index; otherwise false.</returns>
-    public bool TryGetVoxelIndex(Vector2d position, out VoxelIndex result)
-    {
-        return TryGetVoxelIndex(position, default, out result);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetVoxelIndex(Vector2d position, out VoxelIndex result) =>
+        TryGetVoxelIndex(position, default, out result);
 
     /// <summary>
     /// Converts a 2D XZ-plane world position on the supplied world Y layer to a voxel index within the grid.
@@ -695,14 +688,14 @@ public class VoxelGrid
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="result">The resolved voxel index, if found.</param>
     /// <returns>True if the position resolved to an allocated voxel index; otherwise false.</returns>
-    public bool TryGetVoxelIndex(Vector2d position, Fixed64 layerY, out VoxelIndex result)
-    {
-        return TryGetVoxelIndex(GridPlane2d.ToWorld(position, layerY), out result);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetVoxelIndex(Vector2d position, Fixed64 layerY, out VoxelIndex result) =>
+        TryGetVoxelIndex(GridPlane2d.ToWorld(position, layerY), out result);
 
     /// <summary>
     /// Checks if a voxel at the given coordinates is allocated within the grid.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsVoxelAllocated(int x, int y, int z) =>
         IsValidVoxelIndex(x, y, z) && Voxels![x, y, z]?.IsAllocated == true;
 
@@ -726,10 +719,9 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves a grid voxel from a given coordinate.
     /// </summary>
-    public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result)
-    {
-        return TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result) =>
+         TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
 
     /// <summary>
     /// Retrieve <see cref="Voxel"/> from world <see cref="Vector3d"/> points
@@ -748,10 +740,9 @@ public class VoxelGrid
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="result">The resolved voxel, if found.</param>
     /// <returns>True if the voxel was resolved; otherwise false.</returns>
-    public bool TryGetVoxel(Vector2d position, out Voxel? result)
-    {
-        return TryGetVoxel(position, default, out result);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetVoxel(Vector2d position, out Voxel? result) =>
+        TryGetVoxel(position, default, out result);
 
     /// <summary>
     /// Retrieves a <see cref="Voxel"/> from a 2D XZ-plane world position on the supplied world Y layer.
@@ -760,10 +751,10 @@ public class VoxelGrid
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="result">The resolved voxel, if found.</param>
     /// <returns>True if the voxel was resolved; otherwise false.</returns>
-    public bool TryGetVoxel(Vector2d position, Fixed64 layerY, out Voxel? result)
-    {
-        return TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
-    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetVoxel(Vector2d position, Fixed64 layerY, out Voxel? result) =>
+        TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
 
     /// <summary>
     /// Computes the scan cell key for a given world position.
@@ -816,6 +807,7 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves a scan cell from the grid using its key.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(int key, out ScanCell? outScanCell)
     {
         outScanCell = null;
@@ -825,6 +817,7 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the scan cell corresponding to a given world position.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(Vector3d position, out ScanCell? outScanCell)
     {
         int key = GetScanCellKey(position);
@@ -834,6 +827,7 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the scan cell associated with the given voxel index.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(VoxelIndex voxelIndex, out ScanCell? outScanCell)
     {
         outScanCell = null;
@@ -859,40 +853,35 @@ public class VoxelGrid
     /// <summary>
     /// Helper function to ceil snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
     /// </summary>
-    public Vector3d CeilToGrid(Vector3d position)
-    {
-        Fixed64 voxelSize = ActiveVoxelSize;
-        return new Vector3d(
-            FixedMath.Clamp(((position.X - BoundsMin.X) / voxelSize).CeilToInt() * voxelSize + BoundsMin.X, BoundsMin.X, BoundsMax.X),
-            FixedMath.Clamp(((position.Y - BoundsMin.Y) / voxelSize).CeilToInt() * voxelSize + BoundsMin.Y, BoundsMin.Y, BoundsMax.Y),
-            FixedMath.Clamp(((position.Z - BoundsMin.Z) / voxelSize).CeilToInt() * voxelSize + BoundsMin.Z, BoundsMin.Z, BoundsMax.Z)
-        );
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Vector3d CeilToGrid(Vector3d position) =>
+         Topology.CeilToGrid(BoundsMin, BoundsMax, position);
 
     /// <summary>
     /// Helper function to floor snap a <see cref="Vector3d"/> to this grid's voxel size, ensuring it stays within grid bounds.
     /// </summary>
-    public Vector3d FloorToGrid(Vector3d position)
-    {
-        Fixed64 voxelSize = ActiveVoxelSize;
-        return new Vector3d(
-            FixedMath.Clamp(((position.X - BoundsMin.X) / voxelSize).FloorToInt() * voxelSize + BoundsMin.X, BoundsMin.X, BoundsMax.X),
-            FixedMath.Clamp(((position.Y - BoundsMin.Y) / voxelSize).FloorToInt() * voxelSize + BoundsMin.Y, BoundsMin.Y, BoundsMax.Y),
-            FixedMath.Clamp(((position.Z - BoundsMin.Z) / voxelSize).FloorToInt() * voxelSize + BoundsMin.Z, BoundsMin.Z, BoundsMax.Z)
-        );
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Vector3d FloorToGrid(Vector3d position) =>
+        Topology.FloorToGrid(BoundsMin, BoundsMax, position);
 
     /// <summary>
     /// Snaps a given position to the closest scan cell in the grid
     /// </summary>
-    public (int x, int y, int z) SnapToScanCell(Vector3d position)
-    {
-        return (
-                (int)((position.X - BoundsMin.X) / ActiveVoxelSize) / ScanCellSize,
-                (int)((position.Y - BoundsMin.Y) / ActiveVoxelSize) / ScanCellSize,
-                (int)((position.Z - BoundsMin.Z) / ActiveVoxelSize) / ScanCellSize
-            );
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public (int x, int y, int z) SnapToScanCell(Vector3d position) =>
+        Topology.SnapToScanCell(BoundsMin, position, ScanCellSize);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null) =>
+        Topology.NormalizeBounds(min, max, padding);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Vector3d GetWorldPosition(VoxelIndex index) =>
+        Topology.GetWorldPosition(BoundsMin, index);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Vector3d GetWorldOffset((int x, int y, int z) offset) =>
+        Topology.GetWorldOffset(offset);
 
     /// <inheritdoc/>
     public override int GetHashCode() =>

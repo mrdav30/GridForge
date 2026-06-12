@@ -2,6 +2,7 @@
 using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using System;
@@ -14,17 +15,18 @@ namespace GridForge.Grids.Tests;
 public class GridWorldTests
 {
     [Fact]
-    public void TryAddGrid_ShouldNormalizeBoundsUsingOwningWorldVoxelSize()
+    public void TryAddGrid_ShouldNormalizeBoundsUsingRectangularTopologyMetrics()
     {
         GridConfiguration rawConfiguration = new(
             Vector3d.FromDouble(-1.25, 0, -1.25),
             Vector3d.FromDouble(1.25, 0, 1.25),
-            scanCellSize: 4);
+            scanCellSize: 4,
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
 
         Assert.Equal(Vector3d.FromDouble(-1.25, 0, -1.25), rawConfiguration.BoundsMin);
         Assert.Equal(Vector3d.FromDouble(1.25, 0, 1.25), rawConfiguration.BoundsMax);
 
-        using GridWorld world = GridWorldTestFactory.CreateWorld((Fixed64)0.5, spatialGridCellSize: 32);
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 32);
 
         Assert.True(world.TryAddGrid(rawConfiguration, out ushort gridIndex));
 
@@ -32,15 +34,33 @@ public class GridWorldTests
         Assert.Equal(new Vector3d(-1, 0, -1), grid.BoundsMin);
         Assert.Equal(Vector3d.FromDouble(1.5, 0, 1.5), grid.BoundsMax);
         Assert.Equal(rawConfiguration.ScanCellSize, grid.Configuration.ScanCellSize);
+        Assert.Equal(rawConfiguration.TopologyMetrics, grid.Configuration.TopologyMetrics);
     }
 
     [Fact]
-    public void Constructor_ShouldFallbackForInvalidVoxelAndSpatialSettings()
+    public void Constructor_ShouldFallbackForInvalidSpatialSettings()
     {
-        using GridWorld world = GridWorldTestFactory.CreateWorld((Fixed64)(-2), spatialGridCellSize: 0);
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 0);
 
-        Assert.Equal(GridWorld.DefaultVoxelSize, world.VoxelSize);
         Assert.Equal(GridWorld.DefaultSpatialGridCellSize, world.SpatialGridCellSize);
+    }
+
+    [Fact]
+    public void TryAddGrid_ShouldAllowMatchingBoundsWhenTopologyMetricsDiffer()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
+        GridConfiguration defaultMetrics = new(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));
+        GridConfiguration halfMetrics = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
+
+        Assert.True(world.TryAddGrid(defaultMetrics, out ushort defaultIndex));
+        Assert.True(world.TryAddGrid(halfMetrics, out ushort halfIndex));
+        Assert.NotEqual(defaultIndex, halfIndex);
+
+        Assert.False(world.TryAddGrid(defaultMetrics, out ushort duplicateIndex));
+        Assert.Equal(defaultIndex, duplicateIndex);
     }
 
     [Fact]

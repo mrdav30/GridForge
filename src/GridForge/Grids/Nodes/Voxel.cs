@@ -593,16 +593,9 @@ public class Voxel : IEquatable<Voxel>
             && ownerGrid.World.SpawnToken == WorldIndex.WorldSpawnToken;
     }
 
-    private Vector3d GetNeighborWorldPosition(VoxelGrid ownerGrid, (int x, int y, int z) offset)
-    {
-        Fixed64 voxelSize = ownerGrid.World!.VoxelSize;
-        Vector3d neighborPosition = new(
-            WorldPosition.X + offset.x * voxelSize,
-            WorldPosition.Y + offset.y * voxelSize,
-            WorldPosition.Z + offset.z * voxelSize);
-
-        return neighborPosition;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector3d GetNeighborWorldPosition(VoxelGrid ownerGrid, (int x, int y, int z) offset) =>
+         WorldPosition + ownerGrid.GetWorldOffset(offset);
 
     /// <summary>
     /// Updates and caches the neighboring voxels of this voxel.

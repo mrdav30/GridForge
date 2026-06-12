@@ -95,6 +95,8 @@ Locked shared decisions:
 
 Extract the current rectangular behavior behind a topology boundary before adding sparse storage.
 
+Status: completed on 2026-06-12.
+
 Why:
 
 - The current dense grid implicitly mixes topology math and storage layout.

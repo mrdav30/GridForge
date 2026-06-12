@@ -736,7 +736,11 @@ public static class GridScanManager
         if (!world.TryGetGrid(scanCell.GridIndex, out VoxelGrid? grid))
             return false;
 
-        localLayerY = ((layerY - grid!.BoundsMin.Y) / world.VoxelSize).FloorToInt();
+        Vector3d layerProbe = new(grid!.BoundsMin.X, layerY, grid.BoundsMin.Z);
+        if (!grid.TryGetVoxelIndex(layerProbe, out VoxelIndex layerIndex))
+            return false;
+
+        localLayerY = layerIndex.y;
         return (uint)localLayerY < (uint)grid.Height;
     }
 

@@ -16,7 +16,6 @@ internal static class BenchmarkEnvironment
 
     public static GridWorld PrepareWorld(
         bool clearAllPools = false,
-        Fixed64? voxelSize = null,
         int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
         SuppressLogging();
@@ -25,7 +24,7 @@ internal static class BenchmarkEnvironment
         if (clearAllPools)
             ClearAllPools();
 
-        _currentWorld = new GridWorld(voxelSize, spatialGridCellSize);
+        _currentWorld = new GridWorld(spatialGridCellSize);
         return _currentWorld;
     }
 

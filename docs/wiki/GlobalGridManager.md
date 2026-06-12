@@ -15,10 +15,9 @@ That means:
 - `TryGetGrid(...)`
 - `TryGetGridAndVoxel(...)`
 - `TryGetVoxel(...)`
-- `VoxelSize`
 - `SpatialGridCellSize`
 - construct and own a `GridWorld`
-- register grids against that world
+- register grids with explicit `GridConfiguration.TopologyMetrics`
 - route tracing, blockers, occupants, and queries through that world
 - treat `WorldVoxelIndex` as the stable cross-system identity
 

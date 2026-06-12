@@ -1,5 +1,6 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using System;
 using System.Linq;
@@ -35,14 +36,36 @@ public class VoxelGridTests : IDisposable
         _world.TryAddGrid(config, out ushort index);
         VoxelGrid grid = _world.ActiveGrids[index];
 
-        int width = ((end.X - start.X) / _world.VoxelSize).FloorToInt() + 1;
-        int height = ((end.Y - start.Y) / _world.VoxelSize).FloorToInt() + 1;
-        int length = ((end.Z - start.Z) / _world.VoxelSize).FloorToInt() + 1;
+        Fixed64 cellSize = GridWorld.DefaultRectangularCellSize;
+        int width = ((end.X - start.X) / cellSize).FloorToInt() + 1;
+        int height = ((end.Y - start.Y) / cellSize).FloorToInt() + 1;
+        int length = ((end.Z - start.Z) / cellSize).FloorToInt() + 1;
 
         Assert.Equal(width, grid.Width);
         Assert.Equal(height, grid.Height);
         Assert.Equal(length, grid.Length);
         Assert.True(grid.IsActive);
+    }
+
+    [Fact]
+    public void Initialize_ShouldUseRectangularTopologyMetricsForDimensionsAndVoxelCenters()
+    {
+        Fixed64 cellSize = (Fixed64)0.5;
+        GridConfiguration config = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(1, 1, 1),
+            topologyMetrics: GridTopologyMetrics.Rectangular(cellSize));
+
+        Assert.True(_world.TryAddGrid(config, out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        Assert.Equal(3, grid.Width);
+        Assert.Equal(3, grid.Height);
+        Assert.Equal(3, grid.Length);
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(2, 2, 2), out Voxel maxVoxel));
+        Assert.Equal(new Vector3d(1, 1, 1), maxVoxel.WorldPosition);
+        Assert.True(grid.TryGetVoxelIndex(Vector3d.FromDouble(0.75, 0.75, 0.75), out VoxelIndex resolvedIndex));
+        Assert.Equal(new VoxelIndex(1, 1, 1), resolvedIndex);
     }
 
     [Fact]
@@ -164,13 +187,16 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void TryGetVoxelIndex_ShouldHandleNegativePositionsAndFractionalVoxelSize()
+    public void TryGetVoxelIndex_ShouldHandleNegativePositionsAndFractionalRectangularMetrics()
     {
-        ResetWorld((Fixed64)0.5);
+        ResetWorld();
 
         try
         {
-            var config = new GridConfiguration(Vector3d.FromDouble(-1.5, 0, -1.5), Vector3d.FromDouble(1.5, 0, 1.5));
+            var config = new GridConfiguration(
+                Vector3d.FromDouble(-1.5, 0, -1.5),
+                Vector3d.FromDouble(1.5, 0, 1.5),
+                topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
 
             Assert.True(_world.TryAddGrid(config, out ushort index));
 
@@ -543,18 +569,21 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void TryGetVoxelIndex_ShouldUseOwningWorldVoxelSizeEvenWhenOtherWorldsDiffer()
+    public void TryGetVoxelIndex_ShouldUseOwningGridTopologyMetricsEvenWhenOtherGridsDiffer()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
-        using GridWorld fractionalWorld = GridWorldTestFactory.CreateWorld((Fixed64)0.5);
+        GridConfiguration fractionalConfig = new(
+            new Vector3d(2, 0, 0),
+            new Vector3d(3, 0, 1),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
 
         Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
-        VoxelGrid fractionalGrid = GridWorldTestFactory.AddGrid(fractionalWorld, config);
+        VoxelGrid fractionalGrid = GridWorldTestFactory.AddGrid(_world, fractionalConfig);
 
         Assert.True(grid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex resolvedIndex));
         Assert.Equal(new VoxelIndex(1, 0, 1), resolvedIndex);
-        Assert.True(fractionalGrid.TryGetVoxelIndex(new Vector3d(1, 0, 1), out VoxelIndex fractionalIndex));
+        Assert.True(fractionalGrid.TryGetVoxelIndex(new Vector3d(3, 0, 1), out VoxelIndex fractionalIndex));
         Assert.Equal(new VoxelIndex(2, 0, 2), fractionalIndex);
     }
 
@@ -741,11 +770,9 @@ public class VoxelGridTests : IDisposable
         versionField.SetValue(grid, version);
     }
 
-    private void ResetWorld(
-        Fixed64? voxelSize = null,
-        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
+    private void ResetWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
         _world.Dispose();
-        _world = GridWorldTestFactory.CreateWorld(voxelSize, spatialGridCellSize);
+        _world = GridWorldTestFactory.CreateWorld(spatialGridCellSize);
     }
 }

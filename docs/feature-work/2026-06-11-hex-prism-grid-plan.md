@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, `SpatialDirection`, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Phase 0 complete; ready for rectangular topology extraction.
+- Current state: Phase 1 complete; rectangular topology extraction is in place with rectangular behavior preserved.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
@@ -91,7 +91,7 @@ Likely files:
 - Create: `src/GridForge/Grids/Topology/GridTopologyKind.cs`
 - Create: `src/GridForge/Grids/Topology/RectangularPrismTopology.cs`
 - Create: `src/GridForge/Grids/Topology/HexPrismTopology.cs`
-- Create: `src/GridForge/Grids/Topology/HexOrientation.cs`
+- Existing: `src/GridForge/Grids/Topology/HexOrientation.cs`
 - Create: `src/GridForge/Grids/Topology/GridTopologyMetrics.cs`
 - Modify: `src/GridForge/Configuration/GridConfiguration.cs`
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
@@ -347,20 +347,28 @@ Likely files:
 
 Checklist:
 
-- [ ] Move rectangular dimension calculation out of `VoxelGrid.Initialize(...)` and into `RectangularPrismTopology`.
-- [ ] Move world-position to `VoxelIndex` conversion into topology.
-- [ ] Move `VoxelIndex` to world-position conversion into topology.
-- [ ] Move rectangular floor/ceil snap behavior behind topology while preserving current public results.
-- [ ] Move current `GridWorld.SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, and `CeilToVoxelSize(...)` behavior behind rectangular topology and replace public `*VoxelSize` names with topology-neutral or rectangular-specific names.
-- [ ] Ensure bounds normalization uses each grid's topology metrics; default rectangular metrics preserve current cubic-grid results for existing-style callers.
-- [ ] Ensure `BoundsTracker` duplicate keys include any new topology identity while preserving current duplicate behavior for default rectangular grids.
-- [ ] Add dense rectangular regression tests for dimensions, exact bounds, snapped positions, voxel lookup, scan-cell keys, tracing, blockers, and neighbor traversal.
+- [x] Move rectangular dimension calculation out of `VoxelGrid.Initialize(...)` and into `RectangularPrismTopology`.
+- [x] Move world-position to `VoxelIndex` conversion into topology.
+- [x] Move `VoxelIndex` to world-position conversion into topology.
+- [x] Move rectangular floor/ceil snap behavior behind topology while preserving current public results.
+- [x] Move current `GridWorld.SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, and `CeilToVoxelSize(...)` behavior behind rectangular topology and replace public `*VoxelSize` names with topology-neutral or rectangular-specific names.
+- [x] Ensure bounds normalization uses each grid's topology metrics; default rectangular metrics preserve current cubic-grid results for existing-style callers.
+- [x] Ensure `BoundsTracker` duplicate keys include any new topology identity while preserving current duplicate behavior for default rectangular grids.
+- [x] Add dense rectangular regression tests for dimensions, exact bounds, snapped positions, voxel lookup, scan-cell keys, tracing, blockers, and neighbor traversal.
 
 Exit criteria:
 
-- [ ] Rectangular grids behave exactly as before.
-- [ ] No hex behavior exists yet beyond topology-neutral interfaces.
-- [ ] Existing tests pass under `Debug`.
+- [x] Rectangular grids behave exactly as before.
+- [x] No hex behavior exists yet beyond topology-neutral interfaces.
+- [x] Existing tests pass under `Debug`.
+
+Progress notes:
+
+- Completed 2026-06-12.
+- Added `GridTopologyKind`, `HexOrientation`, `GridTopologyMetrics`, `IGridTopology`, and `RectangularPrismTopology`.
+- Moved rectangular cell geometry to `GridConfiguration.TopologyMetrics`.
+- Removed world-level `VoxelSize`, `DefaultVoxelSize`, `VoxelResolution`, and public `*VoxelSize` snapping helpers.
+- Preserved rectangular tracing, scan-cell coverage, blocker, scan, lookup, and neighbor behavior under `Debug` tests.
 
 Validation:
 
@@ -376,7 +384,7 @@ Intent: create hex-prism grids that resolve world positions and indices without 
 
 Likely files:
 
-- Create: `src/GridForge/Grids/Topology/HexOrientation.cs`
+- Existing: `src/GridForge/Grids/Topology/HexOrientation.cs`
 - Create: `src/GridForge/Grids/Topology/HexPrismTopology.cs`
 - Create: `src/GridForge/Grids/Topology/GridTopologyConstants.cs`, unless `HexCoordinateUtility` is the first and only consumer.
 - Create: `src/GridForge/Spatial/HexCoordinateUtility.cs`
@@ -394,7 +402,7 @@ Checklist:
 - [ ] Do not expose `Sqrt3` as a FixedMathSharp public constant in this roadmap slice.
 - [ ] Add tests that assert the exact raw payload.
 - [ ] Add tests that assert the value is within a fixed tolerance of `FixedMath.Sqrt(new Fixed64(3))`.
-- [ ] Add `HexOrientation.FlatTop` and `HexOrientation.PointyTop`.
+- [x] Add `HexOrientation.FlatTop` and `HexOrientation.PointyTop`.
 - [ ] Add hex metrics validation for positive radius and positive layer height.
 - [ ] Implement axial-to-world projection for flat-top and pointy-top using the GridForge-local `Sqrt3`.
 - [ ] Implement world-to-axial inverse projection for flat-top and pointy-top using fixed-point math.

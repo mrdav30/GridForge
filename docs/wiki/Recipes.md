@@ -141,13 +141,15 @@ for (int i = loadedChunks.Count - 1; i >= 0; i--)
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Grids.Topology;
 
-using GridWorld world = new GridWorld((Fixed64)0.5, spatialGridCellSize: 64);
+using GridWorld world = new GridWorld(spatialGridCellSize: 64);
 
 GridConfiguration config = new GridConfiguration(
     new Vector3d(-2, 0, -2),
     new Vector3d(2, 0, 2),
-    scanCellSize: 4);
+    scanCellSize: 4,
+    topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
 
 world.TryAddGrid(config, out ushort gridIndex);
 VoxelGrid grid = world.ActiveGrids[gridIndex];

@@ -86,8 +86,8 @@ Use `Reset(deactivate: true)` when:
 ## Quick Troubleshooting Checklist
 
 1. Are you querying the world instance you think you are?
-2. What are the snapped bounds after world normalization?
-3. Is that world's `VoxelSize` the same one the scenario was designed for?
+2. What are the snapped bounds after topology normalization?
+3. Does the grid's `GridConfiguration.TopologyMetrics` match the cell size the scenario was designed for?
 4. Is the voxel blocked, occupied, or both?
 5. Are you holding pooled data past the immediate operation?
 6. Did a previous test, benchmark, or tool run leave world state behind?

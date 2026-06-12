@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Grids.Topology;
 using GridForge.Grids.Tests;
 using System;
 using System.Collections.Generic;
@@ -85,6 +86,30 @@ public class SpatialTypesTests
         Assert.Equal(GridConfiguration.DefaultScanCellSize, configuration.ScanCellSize);
         Assert.Equal(new Vector3d(3, 3, 3), configuration.GridCenter);
         Assert.Equal(configuration.ToBoundsKey(), new BoundsKey(configuration.BoundsMin, configuration.BoundsMax));
+        Assert.Equal(GridTopologyKind.RectangularPrism, configuration.TopologyKind);
+        Assert.Equal(GridTopologyMetrics.Rectangular(GridWorld.DefaultRectangularCellSize), configuration.TopologyMetrics);
+    }
+
+    [Fact]
+    public void GridConfiguration_ShouldIncludeTopologyInGridIdentity()
+    {
+        GridConfiguration defaultRectangular = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            scanCellSize: 2);
+        GridConfiguration differentScanSize = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            scanCellSize: 16);
+        GridConfiguration halfCellRectangular = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
+
+        Assert.Equal(defaultRectangular.ToGridKey(), differentScanSize.ToGridKey());
+        Assert.Equal(defaultRectangular.GetHashCode(), differentScanSize.GetHashCode());
+        Assert.NotEqual(defaultRectangular.ToGridKey(), halfCellRectangular.ToGridKey());
+        Assert.NotEqual(defaultRectangular.GetHashCode(), halfCellRectangular.GetHashCode());
     }
 
     [Fact]

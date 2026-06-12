@@ -6,11 +6,9 @@ namespace GridForge.Grids.Tests;
 
 internal static class GridWorldTestFactory
 {
-    public static GridWorld CreateWorld(
-        Fixed64? voxelSize = null,
-        int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
+    public static GridWorld CreateWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
-        return new GridWorld(voxelSize, spatialGridCellSize);
+        return new GridWorld(spatialGridCellSize);
     }
 
     public static VoxelGrid AddGrid(

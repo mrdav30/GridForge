@@ -114,22 +114,25 @@ if (world.TryGetVoxel(flatPosition, out Voxel flatVoxel))
 }
 ```
 
-## 4. Customize Voxel And Scan Granularity
+## 4. Customize Cell And Scan Granularity
 
-When you need finer spatial resolution, configure the world up front and then create grids against that setup.
+When you need finer spatial resolution, configure rectangular cell metrics on the grid configuration. The world still owns spatial-hash granularity.
 
 ```csharp
-using GridWorld fineWorld = new GridWorld((Fixed64)0.5, spatialGridCellSize: 64);
+using GridForge.Grids.Topology;
+
+using GridWorld fineWorld = new GridWorld(spatialGridCellSize: 64);
 
 GridConfiguration fineGrid = new GridConfiguration(
     new Vector3d(-4, 0, -4),
     new Vector3d(4, 0, 4),
-    scanCellSize: 4);
+    scanCellSize: 4,
+    topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)0.5));
 ```
 
 Practical rule of thumb:
 
-- Voxel size controls world-space precision.
+- Rectangular topology metrics control world-space cell precision.
 - Scan cell size controls how many voxels are grouped together for scan queries.
 
 ## 5. Configure Logging When You Need Visibility
