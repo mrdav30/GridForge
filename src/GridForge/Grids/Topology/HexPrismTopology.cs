@@ -64,10 +64,23 @@ internal sealed class HexPrismTopology : IGridTopology
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsInBounds(Vector3d boundsMin, Vector3d boundsMax, Vector3d position) =>
-        TryGetVoxelIndex(boundsMin, boundsMax, position, out _);
+    public bool IsInBounds(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position) =>
+        TryGetVoxelIndex(boundsMin, boundsMax, width, height, length, position, out _);
 
-    public bool TryGetVoxelIndex(Vector3d boundsMin, Vector3d boundsMax, Vector3d position, out VoxelIndex result)
+    public bool TryGetVoxelIndex(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position,
+        out VoxelIndex result)
     {
         result = default;
 
@@ -83,12 +96,9 @@ internal sealed class HexPrismTopology : IGridTopology
 
         Fixed64 layer = (position.Y - boundsMin.Y) / Metrics.LayerHeight;
         VoxelIndex rounded = HexCoordinateUtility.RoundAxial(q, layer, r);
-        VoxelIndex maxIndex = GetMaxIndex(boundsMin, boundsMax);
-        int maxY = ((boundsMax.Y - boundsMin.Y) / Metrics.LayerHeight).FloorToInt();
-
-        if ((uint)rounded.x > (uint)maxIndex.x
-            || (uint)rounded.y > (uint)maxY
-            || (uint)rounded.z > (uint)maxIndex.z)
+        if ((uint)rounded.x >= (uint)width
+            || (uint)rounded.y >= (uint)height
+            || (uint)rounded.z >= (uint)length)
         {
             return false;
         }
@@ -162,15 +172,27 @@ internal sealed class HexPrismTopology : IGridTopology
         (zStart, zEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.z, length);
     }
 
-    public Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
+    public Vector3d FloorToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
     {
-        VoxelIndex index = ClampToGrid(boundsMin, boundsMax, position);
+        VoxelIndex index = ClampToGrid(boundsMin, width, height, length, position);
         return GetWorldPosition(boundsMin, index);
     }
 
-    public Vector3d CeilToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
+    public Vector3d CeilToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
     {
-        VoxelIndex index = ClampToGrid(boundsMin, boundsMax, position);
+        VoxelIndex index = ClampToGrid(boundsMin, width, height, length, position);
         return GetWorldPosition(boundsMin, index);
     }
 
@@ -188,7 +210,12 @@ internal sealed class HexPrismTopology : IGridTopology
         return (index.x / scanCellSize, index.y / scanCellSize, index.z / scanCellSize);
     }
 
-    private VoxelIndex ClampToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
+    private VoxelIndex ClampToGrid(
+        Vector3d boundsMin,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
     {
         HexCoordinateUtility.WorldOffsetToAxial(
             position.X - boundsMin.X,
@@ -199,13 +226,11 @@ internal sealed class HexPrismTopology : IGridTopology
 
         Fixed64 layer = (position.Y - boundsMin.Y) / Metrics.LayerHeight;
         VoxelIndex rounded = HexCoordinateUtility.RoundAxial(q, layer, r);
-        VoxelIndex maxIndex = GetMaxIndex(boundsMin, boundsMax);
-        int maxY = ((boundsMax.Y - boundsMin.Y) / Metrics.LayerHeight).FloorToInt();
 
         return new VoxelIndex(
-            FixedMath.Clamp(rounded.x, 0, maxIndex.x),
-            FixedMath.Clamp(rounded.y, 0, maxY),
-            FixedMath.Clamp(rounded.z, 0, maxIndex.z));
+            FixedMath.Clamp(rounded.x, 0, width - 1),
+            FixedMath.Clamp(rounded.y, 0, height - 1),
+            FixedMath.Clamp(rounded.z, 0, length - 1));
     }
 
     private VoxelIndex GetMaxIndex(Vector3d boundsMin, Vector3d boundsMax)

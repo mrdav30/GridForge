@@ -145,10 +145,10 @@ Completed runtime follow-through:
 
 Implement hex-prism topology after rectangular topology and static sparse storage are stable.
 
-Status: Phase 3 completed on 2026-06-12. Hex-prism construction, fixed-point
-projection, inverse projection, cube rounding, world/grid/voxel lookup, and
-typed rectangular/hex neighbor APIs are in place. Tracing, coverage, blockers,
-and scans remain in the later hex phases.
+Status: Phase 5 completed on 2026-06-13. Hex-prism construction, fixed-point
+projection, inverse projection, cube rounding, world/grid/voxel lookup, typed
+rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
+occupants, scans, and benchmark-backed performance hardening are in place.
 
 Why:
 

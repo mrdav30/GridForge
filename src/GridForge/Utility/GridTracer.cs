@@ -773,7 +773,7 @@ public static class GridTracer
             return;
         }
 
-        Fixed64 stepCount = new(steps);
+        Fixed64 stepCount = new Fixed64(steps);
         for (int i = 0; i < steps; i++)
         {
             Fixed64 t = new Fixed64(i) / stepCount;
@@ -811,6 +811,7 @@ public static class GridTracer
             && grid.TryGetVoxelIndex(traceEnd, out endIndex);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int CalculateHexTraceSteps(VoxelIndex start, VoxelIndex end)
     {
         int qDelta = System.Math.Abs(end.x - start.x);
@@ -821,6 +822,7 @@ public static class GridTracer
         return System.Math.Max(planarSteps, verticalSteps);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static VoxelIndex InterpolateHexTraceIndex(VoxelIndex start, VoxelIndex end, Fixed64 t)
     {
         Fixed64 q = Interpolate(new Fixed64(start.x), new Fixed64(end.x), t);
@@ -1022,6 +1024,12 @@ public static class GridTracer
             return;
         }
 
+        Fixed64 horizontalExpansion = currentGrid.Topology.Metrics.CellRadius;
+        Fixed64 coverageMinX = queryMin.X - horizontalExpansion;
+        Fixed64 coverageMaxX = queryMax.X + horizontalExpansion;
+        Fixed64 coverageMinZ = queryMin.Z - horizontalExpansion;
+        Fixed64 coverageMaxZ = queryMax.Z + horizontalExpansion;
+
         for (int x = minIndex.x; x <= maxIndex.x; x++)
         {
             for (int y = minIndex.y; y <= maxIndex.y; y++)
@@ -1030,7 +1038,12 @@ public static class GridTracer
                 {
                     if (currentGrid.TryGetVoxel(x, y, z, out Voxel? voxel)
                         && voxel != null
-                        && IsHexVoxelCenterInHorizontalCoverage(currentGrid, voxel, queryMin, queryMax)
+                        && IsHexVoxelCenterInHorizontalCoverage(
+                            voxel,
+                            coverageMinX,
+                            coverageMaxX,
+                            coverageMinZ,
+                            coverageMaxZ)
                         && voxelRedundancyCheck.Add(voxel))
                     {
                         voxelList.Add(voxel);
@@ -1078,12 +1091,14 @@ public static class GridTracer
         minIndex = default;
         maxIndex = default;
 
-        Fixed64 horizontalExpansion = grid.Topology.Metrics.CellRadius;
-        Vector3d candidateMin = new(
+        GridTopologyMetrics metrics = grid.Topology.Metrics;
+        Fixed64 horizontalExpansion = metrics.CellRadius;
+        Fixed64 layerHeight = metrics.LayerHeight;
+        Vector3d candidateMin = new Vector3d(
             queryMin.X - horizontalExpansion,
             queryMin.Y,
             queryMin.Z - horizontalExpansion);
-        Vector3d candidateMax = new(
+        Vector3d candidateMax = new Vector3d(
             queryMax.X + horizontalExpansion,
             queryMax.Y,
             queryMax.Z + horizontalExpansion);
@@ -1096,10 +1111,10 @@ public static class GridTracer
         Fixed64 rMin = Fixed64.MaxValue;
         Fixed64 rMax = Fixed64.MinValue;
 
-        IncludeHexAxialCorner(grid, clippedMin.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid, clippedMin.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid, clippedMax.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid, clippedMax.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMin.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMin.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
 
         int xMin = System.Math.Max(0, qMin.FloorToInt() - 1);
         int xMax = System.Math.Min(grid.Width - 1, qMax.CeilToInt() + 1);
@@ -1107,10 +1122,10 @@ public static class GridTracer
         int zMax = System.Math.Min(grid.Length - 1, rMax.CeilToInt() + 1);
         int yMin = System.Math.Max(
             0,
-            ((clippedMin.Y - grid.BoundsMin.Y) / grid.Topology.Metrics.LayerHeight).FloorToInt());
+            ((clippedMin.Y - grid.BoundsMin.Y) / layerHeight).FloorToInt());
         int yMax = System.Math.Min(
             grid.Height - 1,
-            ((clippedMax.Y - grid.BoundsMin.Y) / grid.Topology.Metrics.LayerHeight).CeilToInt());
+            ((clippedMax.Y - grid.BoundsMin.Y) / layerHeight).CeilToInt());
 
         if (xMin > xMax || yMin > yMax || zMin > zMax)
             return false;
@@ -1122,7 +1137,8 @@ public static class GridTracer
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void IncludeHexAxialCorner(
-        VoxelGrid grid,
+        Vector3d gridBoundsMin,
+        GridTopologyMetrics metrics,
         Fixed64 x,
         Fixed64 z,
         ref Fixed64 qMin,
@@ -1131,9 +1147,9 @@ public static class GridTracer
         ref Fixed64 rMax)
     {
         HexCoordinateUtility.WorldOffsetToAxial(
-            x - grid.BoundsMin.X,
-            z - grid.BoundsMin.Z,
-            grid.Topology.Metrics,
+            x - gridBoundsMin.X,
+            z - gridBoundsMin.Z,
+            metrics,
             out Fixed64 q,
             out Fixed64 r);
 
@@ -1145,17 +1161,17 @@ public static class GridTracer
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsHexVoxelCenterInHorizontalCoverage(
-        VoxelGrid grid,
         Voxel voxel,
-        Vector3d queryMin,
-        Vector3d queryMax)
+        Fixed64 coverageMinX,
+        Fixed64 coverageMaxX,
+        Fixed64 coverageMinZ,
+        Fixed64 coverageMaxZ)
     {
-        Fixed64 horizontalExpansion = grid.Topology.Metrics.CellRadius;
         Vector3d position = voxel.WorldPosition;
-        return position.X >= queryMin.X - horizontalExpansion
-            && position.X <= queryMax.X + horizontalExpansion
-            && position.Z >= queryMin.Z - horizontalExpansion
-            && position.Z <= queryMax.Z + horizontalExpansion;
+        return position.X >= coverageMinX
+            && position.X <= coverageMaxX
+            && position.Z >= coverageMinZ
+            && position.Z <= coverageMaxZ;
     }
 
     private static IEnumerable<ScanCell> GetCoveredScanCellsIterator(

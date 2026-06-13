@@ -15,7 +15,7 @@
 - Started: 2026-06-11
 - Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, rectangular/hex direction APIs, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Phase 3 complete; rectangular topology extraction, hex-prism construction/lookup, and typed rectangular/hex neighbor APIs are in place.
+- Current state: Phase 5 complete; rectangular topology extraction, hex-prism construction/lookup, typed rectangular/hex neighbor APIs, topology-aware query flows, and benchmark-backed hex performance hardening are in place.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
@@ -600,25 +600,53 @@ Benchmark scenarios:
 
 Checklist:
 
-- [ ] Add BenchmarkDotNet benchmarks for topology conversion hot paths.
-- [ ] Compare rectangular baseline before and after topology extraction.
-- [ ] Compare flat-top and pointy-top projection cost.
-- [ ] Validate no per-query allocations in hot topology conversion paths.
-- [ ] Optimize hex rounding and coverage only after benchmark evidence.
-- [ ] Decide whether lookup tables or cached per-grid constants are justified.
+- [x] Add BenchmarkDotNet benchmarks for topology conversion hot paths.
+- [x] Compare rectangular baseline before and after topology extraction.
+- [x] Compare flat-top and pointy-top projection cost.
+- [x] Validate no per-query allocations in hot topology conversion paths.
+- [x] Optimize hex rounding and coverage only after benchmark evidence.
+- [x] Decide whether lookup tables or cached per-grid constants are justified.
+
+Implementation notes:
+
+- Added `HexPrismTopologyBenchmarks` with the `hex-prism-topology` benchmark alias covering rectangular baseline lookup, pointy/flat hex lookup, projection, construction, line tracing, bounds coverage, blockers, occupant registration, caller-owned radius scans, and mixed rectangular/hex world lookup.
+- The first benchmark pass showed hex world-to-index lookup around 31 ms per 65,536 lookup batch versus roughly 4.9 ms for the rectangular baseline. The hot cost was repeated axial max-index derivation inside topology lookup.
+- `VoxelGrid` now passes its cached dimensions through the internal topology contract for bounds checks, world-to-index lookup, and floor/ceil snapping. Hex topology uses those dimensions directly instead of recomputing max axial bounds in per-query lookup and trace endpoint snapping.
+- `GridTracer` hoists repeated hex coverage constants out of inner loops, passes cached topology metrics into axial corner projection, and marks small hex trace helpers for aggressive inlining.
+- `HexCoordinateUtility.RoundCube` is marked for aggressive inlining because it is in the lookup and trace rounding path.
+- No lookup tables or extra per-grid caches were added. The dimension pass-through removed the measured repeated work without introducing cache invalidation, sparse mutation, or pooling lifetime risks.
+- The full short-run benchmark now shows pointy/flat hex world-to-index lookup at roughly 16.9 ms and 17.8 ms per 65,536 lookup batch, with the rectangular baseline at roughly 5.0 ms. Lookup/projection benchmarks report only fixed benchmark overhead allocations shared with the rectangular baseline.
+- Hex bounds coverage remains conservative and scales with candidate region size: small/medium/large coverage measured roughly 0.78 ms, 5.6 ms, and 20.1 ms in the short-run suite.
+- BenchmarkDotNet emitted `MinIterationTime` warnings because the repository's in-process short-run config intentionally favors quick smoke feedback. Treat these numbers as relative phase evidence, not a release-grade performance report.
 
 Exit criteria:
 
-- [ ] Rectangular hot paths are not materially regressed.
-- [ ] Hex lookup and coverage performance is documented with realistic tradeoffs.
-- [ ] Any added caches are deterministic, reset-safe, and pooling-safe.
+- [x] Rectangular hot paths are not materially regressed.
+- [x] Hex lookup and coverage performance is documented with realistic tradeoffs.
+- [x] Any added caches are deterministic, reset-safe, and pooling-safe.
 
 Validation:
 
 ```bash
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- hex-prism-topology --list flat
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- all --filter '*Hex*'
+git diff --check
 ```
+
+Results: `Debug` build passed with 0 warnings and 0 errors, focused
+topology/tracing coverage passed 135/135 after internal dimension pass-through
+hardening, and full `Debug` tests passed 276/276. `ReleaseLean` build passed
+with 0 warnings and 0 errors, and `ReleaseLean` tests passed 278/278. Benchmark
+catalog validation exposed the `hex-prism-topology` alias and all 16 benchmark
+methods. Full benchmark smoke coverage executed all 16 hex-prism benchmark
+methods and refreshed
+`BenchmarkDotNet.Artifacts/results/GridForge.Benchmarks.HexPrismTopologyBenchmarks-report-github.md`
+with the Phase 5 numbers above.
 
 ## Phase 6: Documentation And Release Alignment
 

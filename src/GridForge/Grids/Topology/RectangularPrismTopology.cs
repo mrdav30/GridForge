@@ -54,22 +54,37 @@ internal sealed class RectangularPrismTopology : IGridTopology
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsInBounds(Vector3d boundsMin, Vector3d boundsMax, Vector3d position) =>
+    public bool IsInBounds(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position) =>
         boundsMin.X <= position.X && position.X <= boundsMax.X
         && boundsMin.Y <= position.Y && position.Y <= boundsMax.Y
         && boundsMin.Z <= position.Z && position.Z <= boundsMax.Z;
 
-    public bool TryGetVoxelIndex(Vector3d boundsMin, Vector3d boundsMax, Vector3d position, out VoxelIndex result)
+    public bool TryGetVoxelIndex(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position,
+        out VoxelIndex result)
     {
         result = default;
-        if (!IsInBounds(boundsMin, boundsMax, position))
+        if (!IsInBounds(boundsMin, boundsMax, width, height, length, position))
             return false;
 
         result = new VoxelIndex(
             ((position.X - boundsMin.X) / Metrics.CellWidth).FloorToInt(),
             ((position.Y - boundsMin.Y) / Metrics.LayerHeight).FloorToInt(),
             ((position.Z - boundsMin.Z) / Metrics.CellLength).FloorToInt());
-        return true;
+        return (uint)result.x < (uint)width
+            && (uint)result.y < (uint)height
+            && (uint)result.z < (uint)length;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -126,7 +141,13 @@ internal sealed class RectangularPrismTopology : IGridTopology
         (zStart, zEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.z, length);
     }
 
-    public Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
+    public Vector3d FloorToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
     {
         return new Vector3d(
             FixedMath.Clamp(((position.X - boundsMin.X) / Metrics.CellWidth).FloorToInt() * Metrics.CellWidth + boundsMin.X, boundsMin.X, boundsMax.X),
@@ -134,7 +155,13 @@ internal sealed class RectangularPrismTopology : IGridTopology
             FixedMath.Clamp(((position.Z - boundsMin.Z) / Metrics.CellLength).FloorToInt() * Metrics.CellLength + boundsMin.Z, boundsMin.Z, boundsMax.Z));
     }
 
-    public Vector3d CeilToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
+    public Vector3d CeilToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
     {
         return new Vector3d(
             FixedMath.Clamp(((position.X - boundsMin.X) / Metrics.CellWidth).CeilToInt() * Metrics.CellWidth + boundsMin.X, boundsMin.X, boundsMax.X),

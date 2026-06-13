@@ -26,9 +26,22 @@ internal interface IGridTopology
 
     (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null);
 
-    bool IsInBounds(Vector3d boundsMin, Vector3d boundsMax, Vector3d position);
+    bool IsInBounds(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position);
 
-    bool TryGetVoxelIndex(Vector3d boundsMin, Vector3d boundsMax, Vector3d position, out VoxelIndex result);
+    bool TryGetVoxelIndex(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position,
+        out VoxelIndex result);
 
     Vector3d GetWorldPosition(Vector3d boundsMin, VoxelIndex index);
 
@@ -52,9 +65,21 @@ internal interface IGridTopology
         out int zStart,
         out int zEnd);
 
-    Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position);
+    Vector3d FloorToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position);
 
-    Vector3d CeilToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position);
+    Vector3d CeilToGrid(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        int width,
+        int height,
+        int length,
+        Vector3d position);
 
     (int x, int y, int z) SnapToScanCell(Vector3d boundsMin, Vector3d position, int scanCellSize);
 }

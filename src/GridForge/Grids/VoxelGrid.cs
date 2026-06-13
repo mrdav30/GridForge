@@ -586,7 +586,7 @@ public class VoxelGrid
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsInBounds(Vector3d target) =>
-        IsActive && Topology.IsInBounds(BoundsMin, BoundsMax, target);
+        IsActive && Topology.IsInBounds(BoundsMin, BoundsMax, Width, Height, Length, target);
 
     /// <summary>
     /// Checks if two grids are overlapping within a given tolerance threshold.
@@ -690,14 +690,11 @@ public class VoxelGrid
             return false;
         }
 
-        if (!Topology.TryGetVoxelIndex(BoundsMin, BoundsMax, position, out VoxelIndex voxelIndex))
+        if (!Topology.TryGetVoxelIndex(BoundsMin, BoundsMax, Width, Height, Length, position, out VoxelIndex voxelIndex))
         {
             GridForgeLogger.Channel.Warn($"Position does not fall in the bounds of this grid");
             return false;
         }
-
-        if (!IsValidVoxelIndex(voxelIndex.x, voxelIndex.y, voxelIndex.z))
-            return false;
 
         result = voxelIndex;
         return true;
@@ -1030,14 +1027,14 @@ public class VoxelGrid
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d CeilToGrid(Vector3d position) =>
-         Topology.CeilToGrid(BoundsMin, BoundsMax, position);
+         Topology.CeilToGrid(BoundsMin, BoundsMax, Width, Height, Length, position);
 
     /// <summary>
     /// Helper function to floor snap a <see cref="Vector3d"/> through this grid's topology, ensuring it stays within grid bounds.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d FloorToGrid(Vector3d position) =>
-        Topology.FloorToGrid(BoundsMin, BoundsMax, position);
+        Topology.FloorToGrid(BoundsMin, BoundsMax, Width, Height, Length, position);
 
     /// <summary>
     /// Snaps a given position to the closest scan cell in the grid

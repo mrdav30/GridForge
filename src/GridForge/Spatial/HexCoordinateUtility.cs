@@ -67,6 +67,7 @@ internal static class HexCoordinateUtility
         return new VoxelIndex(roundedQ, y.FloorToInt(), roundedR);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void RoundCube(Fixed64 q, Fixed64 r, out int roundedQ, out int roundedR)
     {
         Fixed64 s = -q - r;
