@@ -90,7 +90,11 @@ Locked shared decisions:
 - `VoxelIndex` remains the single topology-local coordinate type for the first topology release: rectangular `(x, y, z)` and hex axial `(q, y, r)`.
 - Hex examples default to `PointyTop`; `FlatTop` remains fully supported.
 - Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood; `HexDirectionUtility.Primary` keeps the 6 planar axial neighbors plus above/below available as the face-adjacent subset.
-- Missing sparse voxels and unsupported cross-topology neighbor bridges are intentional absence, not default empty cells.
+- Missing sparse voxels are intentional absence, not default empty cells.
+- Voxel neighbor discovery is being hardened around contact queries versus
+  directed topology-local lookup. Cross-topology contact bridging is supported
+  as one-to-many footprint overlap, while directed neighbor lookup remains
+  topology-local.
 
 ### 3. Rectangular Topology Extraction
 
@@ -153,8 +157,9 @@ rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
 occupants, scans, benchmark-backed performance hardening, docs, and release
 alignment are complete. Sparse hex-prism validation was completed in the hex
 follow-up plan. Mixed-topology neighbor bridging now has a tested contact-query
-implementation, with performance hardening and final release alignment still
-tracked in the follow-up plan.
+implementation. The follow-up plan now tracks the breaking API hardening needed
+to unify neighbor discovery around contact queries versus directed
+topology-local lookup before final performance and release alignment.
 
 Why:
 
@@ -168,7 +173,9 @@ Target outcome:
 - Hex grids use axial coordinates in the XZ plane: `VoxelIndex.x = q`, `VoxelIndex.z = r`, `VoxelIndex.y = layer`.
 - Both `FlatTop` and `PointyTop` orientations are supported.
 - Query workflows remain world/grid/voxel based.
-- Mixed rectangular/hex grids can coexist, with cross-topology voxel bridging exposed as a one-to-many contact query.
+- Mixed rectangular/hex grids can coexist, with cross-topology voxel bridging
+  exposed through the same one-to-many contact-query model planned for general
+  voxel neighbor discovery.
 - Sparse hex grids are supported as explicitly configured axial cells.
 
 ### 6. Runtime Sparse Mutation
@@ -221,7 +228,9 @@ Each slice should include:
 
 - Keep `GridWorld` as the explicit owner of world state.
 - Keep `VoxelGrid` as the public grid model.
-- Keep `Voxel` as the mutable cell model for obstacles, occupants, partitions, identity, and neighbor cache behavior.
+- Keep `Voxel` as the mutable cell model for obstacles, occupants, partitions,
+  identity, and public neighbor query entrypoints. Neighbor resolution details
+  should live in focused internal resolvers instead of bloating `Voxel`.
 - Keep 2D, sparse, and topology differences behind focused helpers or strategies.
 - Do not add engine-specific assumptions to the core library.
 - Do not introduce floating-point math in deterministic runtime paths.
@@ -236,7 +245,7 @@ Each slice should include:
 | Hex + tracing | Hex coverage becomes slow or nondeterministic | Start conservative and exact, then benchmark before optimizing. |
 | 2D + scans | 2D scans accidentally behave like 3D scans | Use layer-locked XZ filtering with explicit tests. |
 | Sparse + blockers | Missing sparse voxels look like empty dense voxels | Document configured-only blocker behavior and test it. |
-| Hex + neighbors | Hex neighbors are forced into rectangular directions or opaque slot indices | Use separate `RectangularDirection` and `HexDirection` public APIs while keeping compact topology slots internal. |
+| Hex + neighbors | Hex neighbors are forced into rectangular directions or opaque slot indices | Split the public model into general contact queries plus exact directed overloads; rename hex directions around axial offsets rather than pointy-top compass labels. |
 | Runtime sparse mutation + blockers | Newly added voxels under active blockers miss obstacle state | Implemented through active-grid change reconciliation and sparse blocker tests. |
 | Public docs + roadmap drift | Users see contradictory semantics | Update README, wiki, XML docs, tests, and benchmarks with each release slice. |
 

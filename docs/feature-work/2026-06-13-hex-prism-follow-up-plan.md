@@ -15,8 +15,8 @@ benchmarks, and documentation.
 
 ### 1. Mixed-Topology Voxel Neighbor Bridging
 
-Status: phases 1-4 completed on 2026-06-13; phase 5 performance hardening and
-phase 6 final release alignment remain.
+Status: phases 1-4 completed on 2026-06-13; phases 5-9 remain after the
+neighbor API and resolver hardening review.
 
 Intent: decide whether rectangular-prism and hex-prism grids should ever expose
 direct voxel-neighbor bridges across topology boundaries.
@@ -33,17 +33,37 @@ Current state:
   work at the `GridWorld` level.
 - Direct mixed voxel-neighbor bridging is now exposed as a contact query that
   leaves same-topology direction APIs unchanged.
+- Review of the phase 1-4 public API found that neighbor discovery is too
+  spread out across rectangular, hex, and mixed-only method names. The final
+  contract should make "which neighbors touch this voxel?" easy to ask without
+  forcing callers to remember which topology-specific API applies.
 
 Preferred design:
 
-- Keep rectangular and hex direction APIs same-topology only.
-- Add a separate mixed-topology contact query instead of adding fake
-  rectangular/hex direction mappings.
-- Treat mixed bridging as one-to-many: a source voxel can touch zero, one, or
-  many voxels from grids that use a different topology.
-- Use world-space voxel footprint AABBs as the deterministic contact model.
-  Rectangular voxels use half rectangular cell extents around `WorldPosition`.
-  Hex voxels use an orientation-aware prism AABB:
+- Split the public model by query intent:
+  - contact queries answer "which physical voxels touch this voxel?"
+  - directed queries answer "which voxel exists at this topology-local
+    direction?"
+- Add a unified no-allocation contact query:
+  `Voxel.GetNeighborsInto(ownerGrid, results, VoxelNeighborScope.All)`.
+- Add a unified fast boolean contact query:
+  `Voxel.HasNeighbor(ownerGrid, VoxelNeighborScope.All)`.
+- Keep directed same-topology lookup through overloads:
+  `TryGetNeighbor(ownerGrid, RectangularDirection direction, out Voxel?)` and
+  `TryGetNeighbor(ownerGrid, HexDirection direction, out Voxel?)`.
+- Keep no-allocation direction-aware result paths:
+  `GetRectangularNeighborsInto(...)` and `GetHexNeighborsInto(...)`.
+- Remove public `useCache` parameters. Cache policy is an implementation
+  detail, not something callers should need to choose for correctness.
+- Remove the current per-voxel neighbor result cache unless benchmarks later
+  prove a new cache is worth the invalidation complexity.
+- Treat contact lookup as one-to-many: a source voxel can touch zero, one, or
+  many voxels from the source grid, same-topology grids, mixed-topology grids,
+  or all of them depending on the requested `VoxelNeighborScope`.
+- Use world-space voxel footprint AABBs as the deterministic contact model for
+  broad and final contact checks. Rectangular voxels use half rectangular cell
+  extents around `WorldPosition`. Hex voxels use an orientation-aware prism
+  AABB:
   - pointy-top half extents: `X = Sqrt3 * radius / 2`, `Z = radius`
   - flat-top half extents: `X = radius`, `Z = Sqrt3 * radius / 2`
   - both use `Y = layerHeight / 2`
@@ -54,6 +74,10 @@ Preferred design:
   topology-local voxel index. Do not rely on hash-set iteration order.
 - Keep sparse semantics intact: missing sparse voxels are absent and are never
   materialized by bridge queries.
+- Rename `HexDirection` values away from world-compass labels and toward
+  orientation-neutral axial labels. The current values are axial offsets, so
+  names such as `East` read too pointy-top/world-compass-specific when
+  `FlatTop` is also supported.
 
 Approaches considered:
 
@@ -66,17 +90,31 @@ Approaches considered:
   through the spatial hash, works for rectangular and both hex orientations,
   and makes one-to-many mixed contacts explicit. This is an AABB contact model,
   not exact hex polygon intersection.
+- AABB-only directed lookup: rejected because directed APIs promise an exact
+  topology-local offset, while contact APIs promise physical footprint overlap.
+- Preserve the current per-voxel neighbor cache: rejected unless future
+  benchmarks prove a new cache is necessary. The existing cache leaks into the
+  API through `useCache`, complicates sparse mutation and topology changes, and
+  pulls the design toward old rectangular-only assumptions.
 
 Decisions:
 
-- The public API lives on `Voxel`, with implementation in an internal resolver.
+- The public API lives on `Voxel`, with implementation in an internal
+  `VoxelNeighborResolver` or equivalent focused resolver.
 - Results are raw `Voxel` values because callers can already inspect
   `WorldIndex`, `Index`, `WorldPosition`, and owner grid state.
 - Caller-owned result storage is the primary API. No enumerable wrapper was
   added in phases 1-4 because it would hide lifetime/allocation tradeoffs
   without a proven caller need.
+- `VoxelGrid.Neighbors` may remain as an internal same-topology grid adjacency
+  accelerator, but it should not be the public source of truth for neighbor
+  discovery.
+- `GridTracer` and neighbor discovery should share candidate-grid and
+  candidate-voxel range helpers where their behavior overlaps. Tracing can keep
+  trace-specific center/coverage rules; neighbor contact should keep footprint
+  overlap rules.
 
-Implemented public API:
+Phase 1-4 public API, scheduled for replacement:
 
 ```csharp
 public void GetMixedTopologyNeighborsInto(
@@ -87,6 +125,49 @@ public void GetMixedTopologyNeighborsInto(
 public bool HasMixedTopologyNeighbor(
     VoxelGrid ownerGrid,
     Fixed64? tolerance = null);
+```
+
+Target public API:
+
+```csharp
+[Flags]
+public enum VoxelNeighborScope : byte
+{
+    None = 0,
+    SourceGrid = 1,
+    SameTopologyGrids = 2,
+    MixedTopologyGrids = 4,
+    All = SourceGrid | SameTopologyGrids | MixedTopologyGrids
+}
+
+public void GetNeighborsInto(
+    VoxelGrid ownerGrid,
+    SwiftList<Voxel> results,
+    VoxelNeighborScope scope = VoxelNeighborScope.All,
+    Fixed64? tolerance = null);
+
+public bool HasNeighbor(
+    VoxelGrid ownerGrid,
+    VoxelNeighborScope scope = VoxelNeighborScope.All,
+    Fixed64? tolerance = null);
+
+public bool TryGetNeighbor(
+    VoxelGrid ownerGrid,
+    RectangularDirection direction,
+    out Voxel? neighbor);
+
+public bool TryGetNeighbor(
+    VoxelGrid ownerGrid,
+    HexDirection direction,
+    out Voxel? neighbor);
+
+public void GetRectangularNeighborsInto(
+    VoxelGrid ownerGrid,
+    SwiftList<(RectangularDirection Direction, Voxel Voxel)> results);
+
+public void GetHexNeighborsInto(
+    VoxelGrid ownerGrid,
+    SwiftList<(HexDirection Direction, Voxel Voxel)> results);
 ```
 
 Implementation phases:
@@ -215,61 +296,186 @@ dotnet test GridForge.slnx --configuration Release
 dotnet test GridForge.slnx --configuration ReleaseLean
 ```
 
-#### Phase 5: Performance Hardening
+#### Phase 5: Public Neighbor API Refactor
 
 Status: planned.
 
-Goal: make sure the mixed bridge is useful without turning a voxel neighbor
-query into a broad world scan.
+Goal: replace topology-fragmented public neighbor discovery with contact and
+directed lookup APIs that are easier to discover and harder to misuse.
 
 Tasks:
 
-- Add benchmark cases if the resolver lands:
+- Add `VoxelNeighborScope` as a `[Flags]` enum with `SourceGrid`,
+  `SameTopologyGrids`, `MixedTopologyGrids`, and `All`.
+- Replace `GetMixedTopologyNeighborsInto(...)` with
+  `GetNeighborsInto(..., VoxelNeighborScope scope = VoxelNeighborScope.All,
+  Fixed64? tolerance = null)`.
+- Replace `HasMixedTopologyNeighbor(...)` with
+  `HasNeighbor(..., VoxelNeighborScope scope = VoxelNeighborScope.All,
+  Fixed64? tolerance = null)`.
+- Replace `TryGetRectangularNeighbor(...)` and `TryGetHexNeighbor(...)` with
+  `TryGetNeighbor(...)` overloads that accept `RectangularDirection` or
+  `HexDirection`.
+- Add no-allocation `GetRectangularNeighborsInto(...)` and
+  `GetHexNeighborsInto(...)` APIs for callers that need direction-labeled
+  same-topology results.
+- Remove public `useCache` parameters from neighbor APIs.
+- Remove or de-emphasize enumerable neighbor wrappers unless a clear caller need
+  outweighs the hidden allocation/lifetime cost.
+
+Exit criteria:
+
+- A caller can ask for all touching neighbors through one primary API without
+  branching on topology.
+- Directed same-topology lookup remains explicit and exact.
+- The public API no longer exposes cache policy.
+
+#### Phase 6: Resolver Consolidation And Cache Removal
+
+Status: planned.
+
+Goal: move neighbor discovery out of `Voxel`, remove the per-voxel neighbor
+cache, and share candidate discovery logic without blurring contact semantics
+with trace semantics.
+
+Tasks:
+
+- Create or rename to a single internal `VoxelNeighborResolver` under the
+  topology/grid area.
+- Move exact topology-offset lookup for directed neighbor overloads into the
+  resolver.
+- Move local same-grid all-neighbor lookup into the resolver.
+- Move world-space footprint contact lookup for source-grid, same-topology grid,
+  and mixed-topology grid scopes into the resolver.
+- Replace `MixedTopologyNeighborResolver` once the unified resolver owns the
+  mixed contact path.
+- Remove `Voxel._cachedNeighbors`, `_isNeighborCacheValid`,
+  `InvalidateNeighborCache()`, `EnsureNeighborCache(...)`,
+  `RefreshNeighborCache(...)`, and related cache invalidation paths if no
+  other behavior still requires them.
+- Keep `VoxelGrid.Neighbors` only as an internal same-topology grid adjacency
+  accelerator if it still improves grid load/unload behavior; do not let it
+  define public neighbor semantics.
+- Extract shared candidate-grid and candidate-voxel range helpers used by both
+  neighbor contact and `GridTracer` where doing so removes duplicate broad-phase
+  logic without weakening either system's final filter.
+- Ensure all pooled collections are released in `finally` blocks and that
+  result ordering remains deterministic.
+
+Exit criteria:
+
+- `Voxel` mostly validates ownership/nulls and forwards to the resolver.
+- Per-voxel neighbor result caching is gone.
+- The resolver owns neighbor behavior in one place and supports dense, sparse,
+  rectangular, pointy-top hex, and flat-top hex grids.
+
+#### Phase 7: Direction Semantics And Validation Refresh
+
+Status: planned.
+
+Goal: make hex direction naming orientation-neutral and prove the unified API
+does not regress rectangular, hex, sparse, or mixed neighbor behavior.
+
+Tasks:
+
+- Rename `HexDirection` values from compass-style names to axial-offset names
+  such as `QPositive`, `QPositiveRNegative`, `RNegative`, `QNegative`,
+  `QNegativeRPositive`, and `RPositive`, plus matching above/below variants.
+- Update `HexDirectionUtility` arrays, subsets, XML docs, tests, and examples
+  to use the new axial names.
+- Add tests for `VoxelNeighborScope.SourceGrid`,
+  `VoxelNeighborScope.SameTopologyGrids`, `VoxelNeighborScope.MixedTopologyGrids`,
+  and `VoxelNeighborScope.All`.
+- Add tests proving `GetNeighborsInto(...)` returns deterministic contact
+  results across local, conjoined same-topology, and mixed-topology grids.
+- Add tests proving directed `TryGetNeighbor(...)` overloads remain exact,
+  same-topology, and do not return mixed contact results.
+- Update existing rectangular and hex neighbor tests to use the new public API
+  names and no-cache signatures.
+- Keep sparse runtime mutation, grid unload, and vertical-separation tests in
+  the validation matrix.
+
+Validation commands:
+
+```bash
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --filter "Neighbor|MixedTopology|HexDirection|HexPrismGrid|Voxel"
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet test GridForge.slnx --configuration Release
+dotnet test GridForge.slnx --configuration ReleaseLean
+```
+
+Exit criteria:
+
+- Hex direction names describe axial offsets rather than pointy-top compass
+  intuition.
+- Unified contact lookup and directed lookup are both covered by focused tests.
+- Existing mixed-topology phase 1-4 behavior is preserved through the new API.
+
+#### Phase 8: Performance Hardening
+
+Status: planned.
+
+Goal: make sure unified neighbor discovery is useful without turning a voxel
+neighbor query into a broad world scan.
+
+Tasks:
+
+- Add benchmark cases for the unified resolver:
+  - local source-grid only neighbors
+  - same-topology conjoined-grid neighbors
   - no mixed candidates nearby
-  - one pointy-top hex candidate
-  - one flat-top hex candidate
+  - one pointy-top hex mixed candidate
+  - one flat-top hex mixed candidate
   - many candidate grids in nearby spatial hash cells
   - sparse target with mostly missing candidate cells
 - Verify candidate grid collection stays bounded by spatial hash coverage, not
   total active grid count.
 - Verify hot paths avoid LINQ and avoid allocations when callers use
-  `GetMixedTopologyNeighborsInto(...)`.
-- Only add caching if benchmark data proves the uncached resolver is too slow;
-  mixed result caching would require careful invalidation for grid load/unload,
-  sparse mutation, and topology-specific footprint changes.
+  `GetNeighborsInto(...)`, `GetRectangularNeighborsInto(...)`, and
+  `GetHexNeighborsInto(...)`.
+- Compare the unified resolver against the removed per-voxel cache behavior if
+  a prior benchmark exists, or capture a new baseline before considering any
+  replacement cache.
+- Only add caching if benchmark data proves the uncached resolver is too slow.
+  Any new cache must have explicit invalidation for grid load/unload, sparse
+  mutation, and topology-specific footprint changes.
 
 Exit criteria:
 
-- Benchmarks either show the uncached spatial-hash resolver is acceptable or
-  capture a measured reason to add a dedicated mixed-neighbor cache.
+- Benchmarks either show the uncached unified resolver is acceptable or capture
+  a measured reason to add a new dedicated neighbor cache.
 
-#### Phase 6: Documentation And Plan Closure
+#### Phase 9: Documentation And Plan Closure
 
-Status: partially completed; API docs were aligned with phases 1-4, while
-benchmark documentation and plan closure remain tied to phase 5.
+Status: partially completed; API docs were aligned with phases 1-4, while final
+API docs, benchmark documentation, and plan closure remain tied to phases 5-8.
 
-Goal: document the final contract without implying direction-based mixed
-neighbors.
+Goal: document the final contact-vs-directed neighbor contract without implying
+fake direction mappings across topology families.
 
 Tasks:
 
-- Update `docs/wiki/VoxelGrid-and-Voxel-Model.md` with the mixed-topology
-  contact-query semantics.
+- Update `docs/wiki/VoxelGrid-and-Voxel-Model.md` with the unified
+  `GetNeighborsInto(...)` contact-query semantics and directed
+  `TryGetNeighbor(...)` overload semantics.
 - Update `docs/wiki/Architecture-Overview.md` to distinguish same-topology
-  grid-slot neighbors from mixed-topology contact queries.
-- Update `docs/wiki/Testing-and-Benchmarking.md` with the mixed topology test
+  grid-slot acceleration from public contact queries.
+- Update `docs/wiki/Core-Concepts.md` so users see one primary neighbor query
+  and topology-specific directed overloads.
+- Update `docs/wiki/Testing-and-Benchmarking.md` with the unified neighbor test
   and benchmark surfaces.
 - Update README only if the public API becomes important enough for the front
   door.
 - Mark this follow-up plan `**Status:** Done` and move it under
   `docs/feature-work/done` only after sparse hex validation and mixed topology
-  bridging are both complete.
+  bridging/API hardening are complete.
 
 Exit criteria:
 
-- Mixed-topology voxel bridging is either implemented as a tested, benchmarked,
-  caller-friendly contact query, or the plan explicitly records why it should
-  remain unsupported.
+- Voxel neighbor discovery is implemented as a tested, benchmarked,
+  caller-friendly contact query plus exact directed lookup overloads, or the
+  plan explicitly records why a remaining piece should be deferred.
 
 ### 2. Sparse Hex-Prism Validation
 
