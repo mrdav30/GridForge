@@ -44,6 +44,7 @@ Sparse storage coverage includes:
 
 - dense storage behavior after storage extraction
 - sparse construction from configured indices and masks
+- sparse hex construction from topology-local axial `(q, layer, r)` indices
 - missing in-bounds sparse voxel lookup
 - storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor lookup
 - explicit runtime sparse voxel add/remove safety rules
@@ -57,6 +58,7 @@ Hex-prism topology coverage includes:
 - hex line tracing and conservative bounds coverage
 - hex blocker apply/remove behavior
 - hex occupant registration and radius scans
+- sparse hex tracing, scan-cell coverage, blockers, occupants, scans, and runtime mutation
 
 ## Standard Test Commands
 

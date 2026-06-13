@@ -207,7 +207,9 @@ All formulas must use `Fixed64` and deterministic constants.
 
 ### GridForge Hex Constant
 
-GridForge should own the first `Sqrt3` constant locally because hex-prism topology is the first consumer and FixedMathSharp just completed a major release. The later decision about whether `Sqrt3` belongs in FixedMathSharp is tracked in `2026-06-13-hex-prism-follow-up-plan.md`.
+GridForge owns the first `Sqrt3` constant locally because hex-prism topology is
+the first consumer and FixedMathSharp had just completed a major release. No
+FixedMathSharp ownership follow-up is currently tracked.
 
 Likely GridForge files:
 
@@ -684,7 +686,7 @@ Implementation notes:
 - Updated tracing, blocker, scan, occupant, sparse, determinism, and benchmark docs so coverage, blocker, and scan behavior tell the same topology story.
 - Updated XML docs for `GridConfiguration`, `GridTopologyMetrics`, `VoxelIndex`, `HexDirection`, and `VoxelGrid` topology-local lookup APIs.
 - Updated package metadata to mention rectangular and hex-prism support and added hex package tags.
-- Extracted intentionally deferred work into `2026-06-13-hex-prism-follow-up-plan.md`: mixed-topology voxel-neighbor bridging, sparse hex-prism validation, and the later FixedMathSharp `Sqrt3` ownership revisit.
+- Extracted intentionally deferred work into `2026-06-13-hex-prism-follow-up-plan.md`: mixed-topology voxel-neighbor bridging and sparse hex-prism validation.
 
 Exit criteria:
 

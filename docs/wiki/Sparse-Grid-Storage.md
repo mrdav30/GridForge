@@ -32,6 +32,7 @@ using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 
 using GridWorld world = new GridWorld();
@@ -71,6 +72,33 @@ Configured indices outside the normalized grid dimensions fail grid
 registration. Duplicate configured indices are de-duplicated deterministically.
 Configured indices are topology-local: rectangular grids read them as
 `(x, y, z)`, while hex-prism grids read them as `(q, layer, r)`.
+
+Sparse hex grids use the same storage rules. The grid bounds remain a
+world-space address space, while the configured indices identify the physical
+axial cells that exist. Choose bounds large enough for the authored axial range;
+configuration normalization resolves the exact grid dimensions.
+
+```csharp
+GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(
+    new Fixed64(2),
+    Fixed64.One,
+    HexOrientation.PointyTop);
+GridConfiguration sparseHexConfig = new GridConfiguration(
+    Vector3d.Zero,
+    new Vector3d(24, 0, 16),
+    topologyKind: GridTopologyKind.HexPrism,
+    topologyMetrics: hexMetrics,
+    storageKind: GridStorageKind.Sparse);
+
+VoxelIndex[] configuredHexes =
+{
+    new VoxelIndex(0, 0, 0),
+    new VoxelIndex(1, 0, 0),
+    new VoxelIndex(4, 0, 4)
+};
+
+world.TryAddGrid(sparseHexConfig, configuredHexes, out ushort sparseHexGridIndex);
+```
 
 ## Lookup Semantics
 
@@ -137,6 +165,11 @@ Sparse behavior is storage-neutral from the caller's point of view:
 | Partitions | Attach to configured voxels only |
 | Neighbor lookup | Missing sparse neighbors are absent |
 | Radius scans | Inspect covered configured scan cells, then active occupant buckets |
+
+Sparse scan cells are block buckets for configured voxels, not proof that every
+local coordinate inside the block is configured. Use `grid.ContainsVoxel(...)`
+or `grid.TryGetVoxel(...)` when code needs to know whether a specific sparse
+voxel physically exists.
 
 Coverage result lifetime is the same as dense coverage: grouped
 `GridVoxelSet.Voxels` lists are backed by pooled storage and should be consumed

@@ -144,6 +144,49 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
+    public void BoundsBlocker_ShouldApplyToConfiguredAndRuntimeAddedSparseHexVoxels()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        GridConfiguration config = CreateSparseHexConfig(metrics, new VoxelIndex(1, 0, 1));
+        VoxelIndex originIndex = new(0, 0, 0);
+        VoxelIndex eastIndex = new(1, 0, 0);
+
+        Assert.True(_world.TryAddGrid(config, new[] { originIndex }, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(originIndex, out Voxel origin));
+        Assert.False(grid.TryGetVoxel(eastIndex, out _));
+
+        Vector3d outsideHexFootprint = new(grid.BoundsMax.X, grid.BoundsMin.Y, grid.BoundsMin.Z);
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(grid.BoundsMin, outsideHexFootprint),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(origin.IsBlocked);
+        Assert.Equal(1, grid.ObstacleCount);
+
+        Assert.True(grid.TryAddVoxel(eastIndex, out Voxel east));
+
+        Assert.True(east.IsBlocked);
+        Assert.Equal(2, grid.ObstacleCount);
+        Assert.False(grid.TryRemoveVoxel(eastIndex));
+
+        blocker.RemoveBlockage();
+
+        Assert.False(origin.IsBlocked);
+        Assert.False(east.IsBlocked);
+        Assert.Equal(0, grid.ObstacleCount);
+        Assert.True(grid.TryRemoveVoxel(eastIndex));
+    }
+
+    [Fact]
     public void Blocker_ShouldRemoveBlockageFromVoxels()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
@@ -936,6 +979,21 @@ public class BlockerTests : IDisposable
 
     private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max) =>
         new(min, max, storageKind: GridStorageKind.Sparse);
+
+    private static GridConfiguration CreateSparseHexConfig(
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        Vector3d boundsMax = HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        return new GridConfiguration(
+            Vector3d.Zero,
+            boundsMax,
+            scanCellSize,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics,
+            storageKind: GridStorageKind.Sparse);
+    }
 
     private static GridConfiguration CreateHexConfiguration(
         GridTopologyMetrics metrics,

@@ -151,8 +151,9 @@ Status: completed on 2026-06-13. The plan is archived under
 inverse projection, cube rounding, world/grid/voxel lookup, typed
 rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
 occupants, scans, benchmark-backed performance hardening, docs, and release
-alignment are complete. Deferred mixed-topology neighbor bridging and sparse
-hex-prism validation are tracked in the hex follow-up plan.
+alignment are complete. Sparse hex-prism validation was completed in the hex
+follow-up plan; mixed-topology neighbor bridging remains deferred unless
+explicitly designed.
 
 Why:
 
@@ -167,6 +168,7 @@ Target outcome:
 - Both `FlatTop` and `PointyTop` orientations are supported.
 - Query workflows remain world/grid/voxel based.
 - Mixed rectangular/hex grids can coexist, with cross-topology neighbor bridging deferred unless explicitly designed.
+- Sparse hex grids are supported as explicitly configured axial cells.
 
 ### 6. Runtime Sparse Mutation
 

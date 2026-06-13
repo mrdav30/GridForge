@@ -1,6 +1,6 @@
 # Hex Prism Follow-Up Plan
 
-**Status:** Planned
+**Status:** Active
 
 **Goal:** Track topology work intentionally deferred from the first hex-prism
 release so the completed implementation plan can stay closed without losing
@@ -34,20 +34,30 @@ Exit criteria:
 
 ### 2. Sparse Hex-Prism Validation
 
+Status: completed on 2026-06-13.
+
 Intent: validate the combined sparse-storage plus hex-topology path explicitly
 before documenting it as a recommended workflow.
 
 Checklist:
 
-- Add tests for sparse hex construction from topology-local `(q, layer, r)`
+- [x] Add tests for sparse hex construction from topology-local `(q, layer, r)`
   configured indices.
-- Add lookup, coverage, blocker, occupant, scan, and runtime mutation coverage
+- [x] Add lookup, coverage, blocker, occupant, scan, and runtime mutation coverage
   for sparse hex grids.
-- Add benchmark coverage only if the tests expose a different performance shape
-  from dense hex or sparse rectangular grids.
-- Update sparse and topology docs if sparse hex becomes a highlighted scenario.
+- [x] Evaluate whether benchmark coverage is needed beyond dense hex and sparse
+  rectangular grid coverage.
+- [x] Update sparse and topology docs if sparse hex becomes a highlighted scenario.
+
+Result:
+
+- Sparse hex grids are supported as configured topology-local axial cells.
+- Focused tests cover construction, missing lookup, tracing, scan cells,
+  blockers, occupant registration, radius scans, and runtime sparse mutation.
+- No benchmark was added because validation did not expose a different
+  performance shape from the existing sparse-storage and hex-topology benchmark
+  surfaces.
 
 Exit criteria:
 
-- Sparse hex behavior is either documented as supported with explicit coverage
-  or captured as intentionally unsupported with clear reasons.
+- Sparse hex behavior is documented as supported with explicit coverage.

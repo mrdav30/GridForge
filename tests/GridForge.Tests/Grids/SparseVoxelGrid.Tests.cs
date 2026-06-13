@@ -8,6 +8,7 @@
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using System;
 using System.Linq;
@@ -66,6 +67,58 @@ public class SparseVoxelGridTests : IDisposable
         Assert.True(_world.TryGetGridAndVoxel(new Vector3d(1, 0, 1), out VoxelGrid configuredGrid, out Voxel configuredVoxel));
         Assert.Same(grid, configuredGrid);
         Assert.Equal(new VoxelIndex(1, 0, 1), configuredVoxel.Index);
+    }
+
+    [Fact]
+    public void SparseHexGrid_ShouldCreateConfiguredAxialVoxelsOnly()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        VoxelIndex maxIndex = new(2, 0, 2);
+        GridConfiguration config = CreateSparseHexConfig(metrics, maxIndex, scanCellSize: 2);
+        VoxelIndex[] configured =
+        {
+            new(0, 0, 0),
+            new(1, 0, 0),
+            new(2, 0, 2)
+        };
+
+        Assert.True(_world.TryAddGrid(config, configured, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        VoxelIndex missingIndex = new(0, 0, 2);
+        Vector3d missingPosition = grid.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(missingIndex, metrics);
+        Vector3d maxPosition = grid.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+
+        Assert.Equal(GridTopologyKind.HexPrism, grid.Configuration.TopologyKind);
+        Assert.Equal(GridStorageKind.Sparse, grid.StorageKind);
+        Assert.Equal(3, grid.Width);
+        Assert.Equal(1, grid.Height);
+        Assert.Equal(3, grid.Length);
+        Assert.Equal(9, grid.Size);
+        Assert.Equal(3, grid.ConfiguredVoxelCount);
+        Assert.True(grid.TryGetVoxel(maxIndex, out Voxel maxVoxel));
+        Assert.Equal(maxPosition, maxVoxel.WorldPosition);
+        Assert.True(grid.TryGetScanCell(maxIndex, out ScanCell maxScanCell));
+        Assert.Equal(grid.GetScanCellKey(maxIndex), maxScanCell.CellKey);
+
+        Assert.False(grid.TryGetVoxel(missingIndex, out _));
+        Assert.False(grid.ContainsVoxel(missingIndex));
+        Assert.False(grid.TryGetScanCell(missingPosition, out _));
+        Assert.True(_world.TryGetGrid(missingPosition, out VoxelGrid resolvedGrid));
+        Assert.Same(grid, resolvedGrid);
+        Assert.False(_world.TryGetGridAndVoxel(missingPosition, out VoxelGrid missingGrid, out Voxel missingVoxel));
+        Assert.Same(grid, missingGrid);
+        Assert.Null(missingVoxel);
+
+        VoxelIndex[] actual = grid
+            .EnumerateVoxels()
+            .Select(voxel => voxel.Index)
+            .ToArray();
+
+        Assert.Equal(configured, actual);
     }
 
     [Fact]
@@ -172,6 +225,61 @@ public class SparseVoxelGridTests : IDisposable
         Assert.False(grid.ContainsVoxel(index));
         Assert.False(grid.TryGetVoxel(index, out _));
         Assert.False(grid.TryGetScanCell(index, out _));
+        Assert.Empty(grid.EnumerateVoxels());
+        Assert.Equal(GridEventKind.SparseVoxelRemoved, lastEvent.ChangeKind);
+        Assert.Equal(index, lastEvent.VoxelIndex);
+        Assert.Equal(2, changedCount);
+    }
+
+    [Fact]
+    public void SparseHexGrid_ShouldAddAndRemoveAxialVoxelAtRuntime()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.FlatTop);
+        GridConfiguration config = CreateSparseHexConfig(metrics, new VoxelIndex(2, 0, 2), scanCellSize: 2);
+        VoxelIndex index = new(1, 0, 1);
+        GridEventInfo lastEvent = default;
+        int changedCount = 0;
+
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector3d position = grid.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(index, metrics);
+        _world.OnActiveGridChange += eventInfo =>
+        {
+            lastEvent = eventInfo;
+            changedCount++;
+        };
+
+        uint initialVersion = grid.Version;
+
+        Assert.True(_world.TryGetGrid(position, out VoxelGrid resolvedGrid));
+        Assert.Same(grid, resolvedGrid);
+        Assert.False(_world.TryGetGridAndVoxel(position, out _, out _));
+        Assert.True(grid.TryAddVoxel(index, out Voxel addedVoxel));
+        Assert.NotNull(addedVoxel);
+        Assert.Equal(position, addedVoxel.WorldPosition);
+        Assert.Equal(1, grid.ConfiguredVoxelCount);
+        Assert.True(grid.ContainsVoxel(index));
+        Assert.True(_world.TryGetGridAndVoxel(position, out VoxelGrid configuredGrid, out Voxel configuredVoxel));
+        Assert.Same(grid, configuredGrid);
+        Assert.Same(addedVoxel, configuredVoxel);
+        Assert.True(grid.TryGetScanCell(index, out ScanCell scanCell));
+        Assert.Equal(grid.GetScanCellKey(index), scanCell.CellKey);
+        Assert.Equal(initialVersion + 1, grid.Version);
+        Assert.Equal(GridEventKind.SparseVoxelAdded, lastEvent.ChangeKind);
+        Assert.Equal(index, lastEvent.VoxelIndex);
+        Assert.Equal(position, lastEvent.AffectedBoundsMin);
+        Assert.Equal(position, lastEvent.AffectedBoundsMax);
+
+        Assert.True(grid.TryRemoveVoxel(index));
+
+        Assert.False(addedVoxel.IsAllocated);
+        Assert.Equal(0, grid.ConfiguredVoxelCount);
+        Assert.False(grid.ContainsVoxel(index));
+        Assert.False(_world.TryGetGridAndVoxel(position, out _, out _));
         Assert.Empty(grid.EnumerateVoxels());
         Assert.Equal(GridEventKind.SparseVoxelRemoved, lastEvent.ChangeKind);
         Assert.Equal(index, lastEvent.VoxelIndex);
@@ -347,6 +455,21 @@ public class SparseVoxelGridTests : IDisposable
             min,
             max,
             scanCellSize,
+            storageKind: GridStorageKind.Sparse);
+    }
+
+    private static GridConfiguration CreateSparseHexConfig(
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        Vector3d boundsMax = HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        return new GridConfiguration(
+            Vector3d.Zero,
+            boundsMax,
+            scanCellSize,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics,
             storageKind: GridStorageKind.Sparse);
     }
 }
