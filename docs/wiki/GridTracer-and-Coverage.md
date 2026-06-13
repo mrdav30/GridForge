@@ -24,9 +24,27 @@ Several higher-level systems depend on the same answer:
 world-space input
   -> snap to voxel-aligned bounds or points
   -> find candidate grids through GridWorld
-  -> enumerate covered voxels or scan cells
+  -> enumerate covered voxels or scan cells through each grid's topology
   -> group or yield results
 ```
+
+## Topology-Aware Coverage
+
+`GridTracer` keeps the public workflow topology-neutral: callers pass a
+`GridWorld` plus world-space input and receive grouped grid/voxel or scan-cell
+results.
+
+Internally, rectangular-prism grids use rectangular index ranges. Hex-prism
+grids use axial coordinates in the XZ plane. Hex line tracing snaps endpoints
+through the grid topology, interpolates in axial/cube space, and rounds
+deterministically to `VoxelIndex(q, layer, r)`. Hex bounds coverage is
+conservative: it expands the broad phase by the hex radius, projects candidate
+corners into axial space, then filters candidate voxels by horizontal cell
+reach.
+
+The result is intentionally practical for blockers and scans: coverage may
+include every hex cell touched by a world-space region without asking callers to
+branch on `GridTopologyKind`.
 
 ## 2D XZ Projection
 

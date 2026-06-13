@@ -9,6 +9,7 @@ namespace GridForge.Spatial;
 
 /// <summary>
 /// Represents the 20 possible neighbor directions in a hex-prism grid.
+/// Offsets are expressed as axial Q, vertical layer, and axial R.
 /// </summary>
 public enum HexDirection
 {

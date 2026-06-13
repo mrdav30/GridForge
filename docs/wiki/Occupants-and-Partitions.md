@@ -106,6 +106,19 @@ That means:
 GridForge does not configure missing sparse voxels as a side effect of occupant
 registration, partition attachment, tracing, or scans.
 
+## Topology Behavior
+
+Occupant registration starts from world space and resolves through the owning
+grid's topology. Rectangular grids resolve to `VoxelIndex(x, y, z)`. Hex grids
+resolve to axial `VoxelIndex(q, layer, r)` stored in the same `x`, `y`, and `z`
+fields.
+
+Occupants themselves do not need topology-specific storage. They expose a
+world-space `Position`, and GridForge handles topology projection, scan-cell
+ticketing, and exact distance checks internally. When you inspect
+`WorldVoxelIndex` values for a hex grid, read the embedded `VoxelIndex` as
+`(q, layer, r)`.
+
 ## Why Group Ids Exist
 
 `OccupantGroupId` is the lightweight grouping hook used by scan queries.

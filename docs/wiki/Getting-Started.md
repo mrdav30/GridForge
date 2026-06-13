@@ -135,7 +135,32 @@ Practical rule of thumb:
 - Rectangular topology metrics control world-space cell precision.
 - Scan cell size controls how many voxels are grouped together for scan queries.
 
-## 5. Choose Dense Or Sparse Storage
+## 5. Create A Hex-Prism Grid
+
+Rectangular-prism topology is the default. To create a hex-prism grid, choose
+`GridTopologyKind.HexPrism` and provide hex metrics with a positive horizontal
+radius and vertical layer height.
+
+```csharp
+using GridForge.Grids.Topology;
+
+GridConfiguration hexGrid = new GridConfiguration(
+    new Vector3d(12, 0, 0),
+    new Vector3d(28, 0, 16),
+    scanCellSize: 4,
+    topologyKind: GridTopologyKind.HexPrism,
+    topologyMetrics: GridTopologyMetrics.Hex(
+        new Fixed64(2),
+        Fixed64.One,
+        HexOrientation.PointyTop));
+```
+
+Hex grids use axial coordinates in the XZ plane: `VoxelIndex.x` is `q`,
+`VoxelIndex.z` is `r`, and `VoxelIndex.y` is the vertical layer. Use
+`HexOrientation.FlatTop` when you want the alternate axial-to-world projection.
+The orientation is deterministic geometry, not an engine or renderer setting.
+
+## 6. Choose Dense Or Sparse Storage
 
 Dense storage is the default: every in-bounds topology-local voxel exists.
 Sparse storage uses the same bounds as an address space, but only explicitly
@@ -163,7 +188,7 @@ world.TryAddGrid(sparseGrid, configured, out ushort sparseGridIndex);
 `TryGetGridAndVoxel(...)` returns `false` for missing sparse voxels. Missing
 sparse voxels are intentional absence, not default empty cells.
 
-## 6. Configure Logging When You Need Visibility
+## 7. Configure Logging When You Need Visibility
 
 GridForge logging is routed through `GridForgeLogger`. By default, the library emits `Warning` and `Error` level messages.
 
@@ -178,7 +203,7 @@ GridForgeLogger.LogHandler = (level, message, source) =>
 
 For diagnostics in library or tool code, use interpolated helper calls such as `GridForgeLogger.Channel.Warn($"...")`; disabled diagnostic levels skip formatted expression evaluation.
 
-## 7. Reset Or Dispose Explicitly
+## 8. Reset Or Dispose Explicitly
 
 Because a `GridWorld` owns mutable runtime state, cleanup should be deliberate.
 

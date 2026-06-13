@@ -14,6 +14,7 @@ If `GridWorld` is the world coordinator, these are the types that actually hold 
 It owns:
 
 - the grid's bounds and dimensions
+- the topology used to interpret local indices and world positions
 - the storage strategy for physical voxels
 - the scan-cell overlay for configured voxels
 - neighboring grid links
@@ -36,6 +37,24 @@ Use `VoxelGrid.EnumerateVoxels()` when code needs to iterate physical voxels
 without depending on a dense array layout, and use `ConfiguredVoxelCount` when
 code needs the physical-cell count. Dense grids report `Size`; sparse grids
 report the configured voxel count.
+
+## Topology Model
+
+`VoxelGrid` keeps topology and storage as separate responsibilities.
+
+| Topology | Local Index Meaning | Metrics |
+| --- | --- | --- |
+| Rectangular-prism | `VoxelIndex(x, y, z)` | cell width, layer height, and cell length |
+| Hex-prism | `VoxelIndex(q, layer, r)` stored as `x`, `y`, `z` | horizontal radius, layer height, and `FlatTop` or `PointyTop` orientation |
+
+Topology controls snapped bounds, dimensions, world-to-index lookup,
+index-to-world projection, scan-cell keys, and boundary ranges. Storage controls
+whether a physical voxel exists at a valid topology-local index.
+
+One `GridWorld` can own rectangular and hex grids together. Ordinary lookup,
+coverage, blocker, occupant, scan, and trace workflows still use
+`GridWorld`, `VoxelGrid`, and `Voxel`; callers only need topology-specific
+direction APIs when asking for voxel neighbors.
 
 ## Dense And Sparse Storage
 
@@ -91,6 +110,11 @@ layer groups, and vertical diagonals.
 For sparse grids, missing local neighbors are absent even when their indices are
 inside the grid bounds. Boundary neighbor lookup can still cross into
 configured voxels on neighboring grids.
+
+Mixed rectangular/hex grids can coexist in one `GridWorld`, but voxel-neighbor
+bridging is same-topology only in this release. Use world-space lookup,
+tracing, blockers, or scans when behavior intentionally crosses topology
+families.
 
 ## Reset And Reuse
 

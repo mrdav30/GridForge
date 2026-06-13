@@ -48,8 +48,8 @@
 	<!-- NuGet Packaging Metadata -->
 	<PropertyGroup>
 		<Authors>mrdav30</Authors>
-		<Description>A high-performance, deterministic voxel grid system for spatial partitioning, simulation, and game development.</Description>
-		<PackageTags>json,grid,ai,simulation,physics,game-development,spatial,pathfinding,fixed-point,voxels,sparse-grid,deterministic,voxel-engine,lockstep,memorypack</PackageTags>
+		<Description>A high-performance, deterministic rectangular and hex-prism voxel grid system for spatial partitioning, simulation, and game development.</Description>
+		<PackageTags>json,grid,ai,simulation,physics,game-development,spatial,pathfinding,fixed-point,voxels,sparse-grid,hex-grid,hex-prism,deterministic,voxel-engine,lockstep,memorypack</PackageTags>
 		<RepositoryUrl>https://github.com/mrdav30/GridForge</RepositoryUrl>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageIconUrl>https://raw.githubusercontent.com/mrdav30/gridforge/main/icon.png</PackageIconUrl>

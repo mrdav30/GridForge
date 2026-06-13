@@ -33,7 +33,7 @@ GridForge constantly moves between three different coordinate views:
 | --- | --- | --- |
 | World space | Absolute positions in your simulation or game world | `Vector3d` |
 | 2D XZ-plane query input | Flat query coordinates projected to world X/Z with an explicit world Y layer | `Vector2d` + `layerY` |
-| Grid-local space | Integer voxel coordinates inside one grid | `VoxelIndex` |
+| Grid-local space | Integer voxel coordinates inside one grid, interpreted by that grid's topology | `VoxelIndex` |
 | World-scoped voxel identity | A voxel coordinate plus its owning world and grid instance | `WorldVoxelIndex` |
 
 For 2D-friendly lookup APIs, GridForge treats `Vector2d(x, z)` as a convenience
@@ -49,6 +49,17 @@ Snapping is a core behavior:
 - `GridConfiguration` preserves ordered input bounds.
 - `GridWorld` normalizes and snaps those bounds during registration.
 - Voxel lookup converts a world position into a zero-based `VoxelIndex`.
+
+Topology determines how that `VoxelIndex` should be read:
+
+| Topology | `VoxelIndex` Meaning |
+| --- | --- |
+| `GridTopologyKind.RectangularPrism` | local rectangular `(x, y, z)` coordinates |
+| `GridTopologyKind.HexPrism` | axial `q` in `x`, vertical layer in `y`, axial `r` in `z` |
+
+`HexOrientation.PointyTop` and `HexOrientation.FlatTop` change the fixed-point
+projection between axial coordinates and world XZ. They do not imply a renderer
+orientation or any engine-specific coordinate convention.
 
 ## `GridConfiguration`
 
@@ -67,6 +78,9 @@ Important details:
 
 - bounds are ordered during construction, but not snapped until a world registers the grid
 - `ScanCellSize` is expressed in voxels, not world units
+- `TopologyKind` chooses rectangular-prism or hex-prism cells for this grid
+- `TopologyMetrics` owns rectangular cell width/layer height/length or hex
+  radius/layer height/orientation
 - `StorageKind.Dense` allocates every in-bounds topology-local voxel
 - `StorageKind.Sparse` allocates only explicitly configured topology-local voxels
 - `ToBoundsKey()` creates the exact identity key used after normalization
@@ -85,6 +99,12 @@ Dense grids configure every voxel in the normalized address space. Sparse grids
 use the same bounds as an address space but only configured voxels physically
 exist. Missing sparse voxels are intentional absence for lookup, tracing,
 blockers, occupants, partitions, scan cells, and neighbor resolution.
+
+A single `GridWorld` can own rectangular-prism and hex-prism grids together.
+Ordinary world/grid/voxel queries do not require callers to branch on topology.
+Voxel-neighbor APIs are topology-specific: rectangular grids use
+`RectangularDirection`, hex grids use `HexDirection`, and mixed-topology grids do
+not form voxel-neighbor bridges in this release.
 
 ## `Voxel`
 
@@ -147,7 +167,10 @@ Partitions are attachable pieces of typed metadata or behavior that live on a vo
 
 ### `VoxelIndex`
 
-`VoxelIndex` is the local coordinate of a voxel inside one grid.
+`VoxelIndex` is the local coordinate of a voxel inside one grid. Rectangular
+grids interpret it as `(x, y, z)`. Hex grids interpret it as axial
+`(q, layer, r)`, stored as `(x, y, z)` so existing world/grid/voxel identity
+types stay compact and deterministic.
 
 ### `WorldVoxelIndex`
 

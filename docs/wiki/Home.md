@@ -13,6 +13,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Snapped world-space bounds through `GridConfiguration` normalization at registration time
 - Fast proximity and coverage queries via voxels and scan cells
 - 2D-friendly XZ projection helpers for flat simulations without a separate runtime model
+- Rectangular-prism and hex-prism topology behind the same `VoxelGrid` public model
 - Dense and sparse storage behind the same `VoxelGrid` query model
 - Obstacle, blocker, occupant, and partition workflows
 - Allocation-conscious internals backed by pooling and `SwiftCollections`
@@ -84,6 +85,13 @@ For sparse worlds, the registered bounds still identify the grid address space,
 but only configured voxels exist. `TryGetGrid(...)` can resolve an in-bounds
 sparse grid while `TryGetGridAndVoxel(...)` fails when the addressed sparse
 voxel was not configured.
+
+For topology choices, `GridConfiguration` selects rectangular-prism or
+hex-prism cells per grid. Rectangular grids use `VoxelIndex(x, y, z)`. Hex
+grids use axial XZ coordinates: `VoxelIndex.x = q`, `VoxelIndex.z = r`, and
+`VoxelIndex.y = layer`. `PointyTop` and `FlatTop` orientations affect only the
+fixed-point world projection; query, blocker, occupant, scan, and trace
+workflows stay world/grid/voxel based.
 
 ## Architecture At A Glance
 

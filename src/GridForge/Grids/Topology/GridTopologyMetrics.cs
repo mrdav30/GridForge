@@ -22,7 +22,7 @@ namespace GridForge.Grids.Topology;
 public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetrics>
 {
     /// <summary>
-    /// Horizontal radius for hex-prism cells. Rectangular-prism grids leave this as zero.
+    /// Horizontal center-to-corner radius for hex-prism cells. Rectangular-prism grids leave this as zero.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]
@@ -36,7 +36,7 @@ public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetr
     public readonly Fixed64 CellWidth;
 
     /// <summary>
-    /// Rectangular-prism cell height along world Y.
+    /// Vertical layer height along world Y for rectangular-prism and hex-prism grids.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]
@@ -51,6 +51,7 @@ public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetr
 
     /// <summary>
     /// Hex-prism horizontal projection orientation. Rectangular-prism grids ignore this value.
+    /// The orientation affects fixed-point world XZ projection only; it is not an engine rendering setting.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]

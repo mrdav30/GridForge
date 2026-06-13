@@ -2,12 +2,7 @@
 
 This document tracks the breaking refactor from one process-wide static world to explicit world contexts. The goal is to let multiple isolated worlds exist in the same process without leaking grid identity, voxel identity, blockers, occupants, or setup-wide configuration across world boundaries.
 
-## Status
-
-- Started: 2026-04-24
-- Release posture: Breaking release
-- Backwards compatibility: Explicitly out of scope
-- Current state: Phase 4 complete, Phase 5 not started
+**Status:** Done
 
 ## Scope
 

@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Done
+
 **Goal:** Add per-grid topology support so one `GridWorld` can own rectangular-prism grids and hexagonal-prism grids while keeping world queries, tracing, blockers, occupants, partitions, and scan flows storage-neutral and topology-neutral from the caller's perspective.
 
 **Architecture:** Keep `GridWorld` as the explicit world owner and `VoxelGrid` as the public grid type. Move shape-specific coordinate math into focused topology strategies: rectangular-prism topology preserves current behavior, while hex-prism topology maps flat XZ hex cells with optional vertical Y layers. Storage layout remains a separate concern so dense/sparse storage can compose with rectangular or hex topology over time.
@@ -15,7 +17,7 @@
 - Started: 2026-06-11
 - Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, rectangular/hex direction APIs, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Phase 5 complete; rectangular topology extraction, hex-prism construction/lookup, typed rectangular/hex neighbor APIs, topology-aware query flows, and benchmark-backed hex performance hardening are in place.
+- Current state: Done; rectangular topology extraction, hex-prism construction/lookup, typed rectangular/hex neighbor APIs, topology-aware query flows, benchmark-backed hex performance hardening, docs, and release alignment are complete.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
@@ -130,7 +132,7 @@ Target matrix:
 | Topology | Dense Storage | Sparse Storage |
 | --- | --- | --- |
 | RectangularPrism | required baseline | covered by sparse-grid plan |
-| HexPrism | first hex target | later target after both boundaries are stable |
+| HexPrism | first hex target | follow-up validation tracked separately |
 
 Do not couple hex math to dense-only storage decisions.
 
@@ -205,13 +207,11 @@ All formulas must use `Fixed64` and deterministic constants.
 
 ### GridForge Hex Constant
 
-GridForge should own the first `Sqrt3` constant locally because hex-prism topology is the first consumer and FixedMathSharp just completed a major release. Revisit whether `Sqrt3` belongs in FixedMathSharp later, after the hex topology work proves the exact constant shape and usage.
+GridForge should own the first `Sqrt3` constant locally because hex-prism topology is the first consumer and FixedMathSharp just completed a major release. The later decision about whether `Sqrt3` belongs in FixedMathSharp is tracked in `2026-06-13-hex-prism-follow-up-plan.md`.
 
 Likely GridForge files:
 
-- Create: `src/GridForge/Grids/Topology/GridTopologyConstants.cs`
-- Or place next to the first actual consumer if `HexCoordinateUtility` owns every use.
-- Test: `tests/GridForge.Tests/Grids/Topology/GridTopologyConstants.Tests.cs`
+- Place next to the first actual consumer because `HexCoordinateUtility` owns every use.
 - Test: `tests/GridForge.Tests/Spatial/HexCoordinateUtility.Tests.cs`
 
 Required support:
@@ -294,7 +294,7 @@ Intent: agree on names, metrics, and compatibility posture before touching hot p
 
 Likely files:
 
-- `docs/feature-work/2026-06-11-hex-prism-grid-plan.md`
+- `docs/feature-work/done/2026-06-11-hex-prism-grid-plan.md`
 - `src/GridForge/Configuration/GridConfiguration.cs`
 - `src/GridForge/Grids/Managers/GridWorld.cs`
 - `src/GridForge/Grids/VoxelGrid.cs`
@@ -392,12 +392,10 @@ Likely files:
 
 - Existing: `src/GridForge/Grids/Topology/HexOrientation.cs`
 - Create: `src/GridForge/Grids/Topology/HexPrismTopology.cs`
-- Create: `src/GridForge/Grids/Topology/GridTopologyConstants.cs`, unless `HexCoordinateUtility` is the first and only consumer.
 - Create: `src/GridForge/Spatial/HexCoordinateUtility.cs`
 - Modify: `src/GridForge/Configuration/GridConfiguration.cs`
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
 - Modify: `src/GridForge/Grids/Managers/GridWorld.cs`
-- Test: `tests/GridForge.Tests/Grids/Topology/GridTopologyConstants.Tests.cs`
 - Test: `tests/GridForge.Tests/Grids/HexPrismGrid.Tests.cs`
 - Test: `tests/GridForge.Tests/Spatial/HexCoordinateUtility.Tests.cs`
 
@@ -431,17 +429,17 @@ Exit criteria:
 Progress notes:
 
 - Completed 2026-06-12.
-- Added GridForge-local `GridTopologyConstants.Sqrt3Raw` and `Sqrt3` beside the first hex topology consumer instead of changing FixedMathSharp.
+- Added GridForge-local `HexCoordinateUtility.Sqrt3Raw` and `Sqrt3` beside the first hex topology consumer instead of changing FixedMathSharp.
 - Added `GridTopologyMetrics.Hex(...)`, `HexCoordinateUtility`, `HexPrismTopology`, and factory creation for `GridTopologyKind.HexPrism`.
 - Implemented fixed-point flat-top and pointy-top axial projection, inverse projection, cube rounding, layer selection, center generation, and point lookup.
 - Hex grids use `VoxelIndex.x = q`, `VoxelIndex.y = layer`, and `VoxelIndex.z = r`; `BoundsMin` anchors local axial `(0, 0)`.
-- Bounds normalization expands the max corner onto the hex lattice for the configured orientation. Topology-aware neighbors, tracing, scan-cell coverage, blockers, and scans remain in later phases.
+- Bounds normalization expands the max corner onto the hex lattice for the configured orientation. Topology-aware neighbors, tracing, scan-cell coverage, blockers, and scans were completed in later phases.
 - Added construction and lookup tests for invalid metrics, exact `Sqrt3` payload, projection/inverse projection, mixed rectangular-plus-hex worlds, center lookup, exact layer lookup, and coarse-AABB rejection.
 
 Validation:
 
 ```bash
-dotnet test GridForge.slnx --configuration Debug --filter "GridTopologyConstants|HexPrismGrid|HexCoordinateUtility"
+dotnet test GridForge.slnx --configuration Debug --filter "HexPrismGrid|HexCoordinateUtility"
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 dotnet build GridForge.slnx --configuration ReleaseLean
@@ -669,29 +667,46 @@ Likely files:
 
 Checklist:
 
-- [ ] Explain topology as rectangular-prism or hex-prism cells owned by the same `VoxelGrid` public model.
-- [ ] Explain that hex grids use axial `q/r` coordinates through `VoxelIndex.x/z` and vertical layer through `VoxelIndex.y`.
-- [ ] Explain flat-top versus pointy-top orientation without implying engine-specific rendering behavior.
-- [ ] Document that `GridWorld` can own mixed topology grids.
-- [ ] Document mixed-topology neighbor limitations for the first release.
-- [ ] Document blocker and trace behavior over hex grids.
-- [ ] Document deterministic fixed-point constraints and the GridForge-local `Sqrt3` constant.
-- [ ] Update XML docs for topology configuration, orientation, metrics, and topology-local `VoxelIndex` meaning.
-- [ ] Run wiki link rewrite tests if docs links change.
+- [x] Explain topology as rectangular-prism or hex-prism cells owned by the same `VoxelGrid` public model.
+- [x] Explain that hex grids use axial `q/r` coordinates through `VoxelIndex.x/z` and vertical layer through `VoxelIndex.y`.
+- [x] Explain flat-top versus pointy-top orientation without implying engine-specific rendering behavior.
+- [x] Document that `GridWorld` can own mixed topology grids.
+- [x] Document mixed-topology neighbor limitations for the first release.
+- [x] Document blocker and trace behavior over hex grids.
+- [x] Document deterministic fixed-point constraints and the GridForge-local `Sqrt3` constant.
+- [x] Update XML docs for topology configuration, orientation, metrics, and topology-local `VoxelIndex` meaning.
+- [x] Run wiki link rewrite tests if docs links change.
+
+Implementation notes:
+
+- Updated README and wiki pages to explain per-grid rectangular-prism and hex-prism topology, axial `(q, layer, r)` index semantics, pointy-top versus flat-top projection, mixed rectangular/hex worlds, and same-topology neighbor bridging limits.
+- Added hex examples to Getting Started and Common Workflows without introducing an engine-specific rendering assumption.
+- Updated tracing, blocker, scan, occupant, sparse, determinism, and benchmark docs so coverage, blocker, and scan behavior tell the same topology story.
+- Updated XML docs for `GridConfiguration`, `GridTopologyMetrics`, `VoxelIndex`, `HexDirection`, and `VoxelGrid` topology-local lookup APIs.
+- Updated package metadata to mention rectangular and hex-prism support and added hex package tags.
+- Extracted intentionally deferred work into `2026-06-13-hex-prism-follow-up-plan.md`: mixed-topology voxel-neighbor bridging, sparse hex-prism validation, and the later FixedMathSharp `Sqrt3` ownership revisit.
 
 Exit criteria:
 
-- [ ] README, wiki, XML docs, tests, benchmarks, and package metadata tell the same topology story.
-- [ ] Users can choose rectangular or hex-prism grids without needing engine-specific assumptions.
+- [x] README, wiki, XML docs, tests, benchmarks, and package metadata tell the same topology story.
+- [x] Users can choose rectangular or hex-prism grids without needing engine-specific assumptions.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 PYTHONDONTWRITEBYTECODE=1 python3 .github/scripts/rewrite_wiki_links_for_github_wiki_tests.py
 git diff --check
 ```
+
+Results: `Debug` build passed with 0 warnings and 0 errors, full `Debug`
+tests passed 276/276, `ReleaseLean` build passed with 0 warnings and 0 errors,
+and full `ReleaseLean` tests passed 278/278. Benchmark catalog validation
+showed the `hex-prism-topology` alias. Wiki link rewrite tests passed 4/4.
 
 ## Test Matrix
 

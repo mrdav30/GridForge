@@ -173,6 +173,20 @@ Missing sparse voxels are not treated as unblocked dense cells, and blocker
 application does not configure them. If a sparse voxel is added later under an
 active blocker, grid-change reconciliation reapplies overlapping blocker state.
 
+## Topology Behavior
+
+Blockers rely on `GridTracer`, so their coverage follows each grid's topology.
+Rectangular-prism grids use rectangular voxel coverage. Hex-prism grids use
+conservative hex coverage over axial `(q, layer, r)` cells. A single
+`BoundsBlocker` can cover rectangular and hex grids in the same `GridWorld`, and
+cached blocker removal still stores `WorldVoxelIndex` identities rather than
+runtime voxel references.
+
+That means blocker callers do not need separate rectangular and hex code paths.
+The tradeoff is the same one described in the tracer docs: hex bounds coverage
+is conservative so obstacle application is stable for world-space regions that
+touch hex cell footprints.
+
 ## Obstacles And Occupancy Interact
 
 Obstacle state affects vacancy checks.

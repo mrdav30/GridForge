@@ -104,13 +104,38 @@ GridConfiguration
   -> duplicate check
   -> pooled VoxelGrid rent
   -> VoxelGrid.Initialize(...)
-      -> dimension calculation
+      -> topology-specific dimension calculation
       -> dense or sparse physical voxel storage initialization
       -> scan-cell storage for configured voxels
   -> spatial hash registration
   -> neighbor linking
   -> world add notification
 ```
+
+## Topology Architecture
+
+Grid topology is a per-grid strategy. `GridConfiguration.TopologyKind` selects
+rectangular-prism or hex-prism cells, and `GridConfiguration.TopologyMetrics`
+stores the deterministic cell geometry for that grid.
+
+The topology layer owns:
+
+- bounds normalization and snapping
+- dimensions and topology-local index ranges
+- world-position to `VoxelIndex` projection
+- `VoxelIndex` to world-position projection
+- scan-cell key projection
+- neighbor offsets and boundary ranges
+
+Storage remains separate. Dense and sparse storage decide which physical voxels
+exist after topology has mapped world-space input to a local index or coverage
+range.
+
+Hex-prism grids use axial XZ coordinates: `VoxelIndex.x = q`,
+`VoxelIndex.z = r`, and `VoxelIndex.y = layer`. `FlatTop` and `PointyTop`
+change only the fixed-point projection. Mixed rectangular/hex grids can live in
+one `GridWorld`, while voxel-neighbor bridging remains same-topology only until
+a concrete cross-topology mapping is designed.
 
 ## Query Architecture
 
@@ -173,3 +198,8 @@ It turns:
 - bounds into scan-cell coverage
 
 That same utility underpins blockers, custom coverage queries, and scan-region enumeration.
+
+Rectangular coverage uses rectangular index ranges. Hex-prism line tracing uses
+axial/cube interpolation and deterministic rounding; hex bounds coverage uses a
+conservative candidate range followed by cell-center reach checks. Callers still
+use the same tracer APIs for both topologies.

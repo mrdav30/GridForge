@@ -69,6 +69,8 @@ world.TryAddGrid(config, mask, out ushort maskGridIndex);
 
 Configured indices outside the normalized grid dimensions fail grid
 registration. Duplicate configured indices are de-duplicated deterministically.
+Configured indices are topology-local: rectangular grids read them as
+`(x, y, z)`, while hex-prism grids read them as `(q, layer, r)`.
 
 ## Lookup Semantics
 

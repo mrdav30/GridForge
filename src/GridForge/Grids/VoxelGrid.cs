@@ -377,7 +377,7 @@ public class VoxelGrid
     /// </summary>
     /// <param name="a">The source rectangular-prism grid.</param>
     /// <param name="b">The neighboring rectangular-prism grid.</param>
-    /// <returns>The rectangular direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="RectangularDirection.None"/>.</returns>
+    /// <returns>The rectangular direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="RectangularDirection.None"/> when the grids are not rectangular neighbors.</returns>
     public static RectangularDirection GetRectangularNeighborDirection(VoxelGrid a, VoxelGrid b)
     {
         return TryGetNeighborSlot(a, b, GridTopologyKind.RectangularPrism, out int slot)
@@ -390,7 +390,7 @@ public class VoxelGrid
     /// </summary>
     /// <param name="a">The source hex-prism grid.</param>
     /// <param name="b">The neighboring hex-prism grid.</param>
-    /// <returns>The hex direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="HexDirection.None"/>.</returns>
+    /// <returns>The hex direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="HexDirection.None"/> when the grids are not hex-prism neighbors.</returns>
     public static HexDirection GetHexNeighborDirection(VoxelGrid a, VoxelGrid b)
     {
         return TryGetNeighborSlot(a, b, GridTopologyKind.HexPrism, out int slot)
@@ -664,21 +664,22 @@ public class VoxelGrid
       && (uint)z < (uint)Length;
 
     /// <summary>
-    /// Determines if a voxel is facing the rectangular-prism boundary in the supplied direction.
+    /// Determines if a topology-local voxel index is facing the rectangular-prism boundary in the supplied direction.
     /// </summary>
     public bool IsFacingBoundary(VoxelIndex voxelIndex, RectangularDirection direction) =>
         TryGetNeighborSlot(direction, out int slot)
         && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
 
     /// <summary>
-    /// Determines if a voxel is facing the hex-prism boundary in the supplied direction.
+    /// Determines if a topology-local voxel index is facing the hex-prism boundary in the supplied direction.
     /// </summary>
     public bool IsFacingBoundary(VoxelIndex voxelIndex, HexDirection direction) =>
         TryGetNeighborSlot(direction, out int slot)
         && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
 
     /// <summary>
-    /// Converts a world position to voxel index within the grid.
+    /// Converts a world position to a topology-local voxel index within the grid.
+    /// Rectangular-prism grids return X/Y/Z coordinates; hex-prism grids return axial Q, layer, and axial R in X/Y/Z fields.
     /// </summary>
     public bool TryGetVoxelIndex(Vector3d position, out VoxelIndex result)
     {
@@ -722,7 +723,7 @@ public class VoxelGrid
         TryGetVoxelIndex(GridPlane2d.ToWorld(position, layerY), out result);
 
     /// <summary>
-    /// Checks if a voxel at the given coordinates is allocated within the grid.
+    /// Checks if a voxel at the given topology-local coordinates is allocated within the grid.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsVoxelAllocated(int x, int y, int z) =>
@@ -841,7 +842,7 @@ public class VoxelGrid
     }
 
     /// <summary>
-    /// Retrieves the <see cref="Voxel"/> at the specified coordinates, if allocated.
+    /// Retrieves the <see cref="Voxel"/> at the specified topology-local coordinates, if allocated.
     /// </summary>
     public bool TryGetVoxel(int x, int y, int z, out Voxel? result)
     {
@@ -868,7 +869,7 @@ public class VoxelGrid
         _storage?.AddVoxelsInIndexRange(min, max, results, redundancy);
 
     /// <summary>
-    /// Retrieves a grid voxel from a given coordinate.
+    /// Retrieves a grid voxel from a topology-local coordinate.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result) =>
@@ -1037,7 +1038,7 @@ public class VoxelGrid
         Topology.FloorToGrid(BoundsMin, BoundsMax, Width, Height, Length, position);
 
     /// <summary>
-    /// Snaps a given position to the closest scan cell in the grid
+    /// Snaps a given position to the topology-local scan cell in the grid.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (int x, int y, int z) SnapToScanCell(Vector3d position) =>

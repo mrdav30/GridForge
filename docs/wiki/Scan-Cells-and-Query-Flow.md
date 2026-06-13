@@ -11,7 +11,7 @@ A pure voxel-by-voxel occupant scan does not scale well. Many queries only need 
 Scan cells solve that by grouping voxels into larger buckets:
 
 - `ScanCellSize` is measured in voxels
-- one scan cell represents a region of neighboring voxels
+- one scan cell represents a region of neighboring topology-local voxels
 - occupants are indexed into the scan cell that contains their voxel
 - grids only track scan cells that are currently active
 
@@ -112,6 +112,12 @@ So the query gets cheaper in layers:
 For sparse grids, candidate scan cells only come from configured sparse blocks.
 Missing sparse regions do not create scan cells and do not participate in scan
 candidate enumeration.
+
+For hex-prism grids, candidate scan cells are found through topology-aware hex
+coverage. The broad phase uses axial candidate ranges, and the final scan still
+applies the same exact fixed-point distance check to occupant positions. Callers
+use the same `GridScanManager` entry points regardless of whether a candidate
+grid is rectangular or hex.
 
 ## Query Types Built On The Overlay
 

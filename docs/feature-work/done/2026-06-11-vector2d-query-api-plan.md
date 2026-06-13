@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Done
+
 **Goal:** Add first-class 2D-friendly query and mutation overloads while preserving GridForge's current 3D runtime model, deterministic math, and explicit `GridWorld` ownership.
 
 **Architecture:** Treat 2D APIs as an ergonomic projection over the existing voxel model. `Vector2d` inputs represent XZ-plane coordinates, and a `Fixed64 layerY` value selects the vertical world layer. Internally, APIs lift 2D inputs to `Vector3d` or use layer-locked XZ comparisons without changing voxel identity, storage, blockers, occupants, or partitions.

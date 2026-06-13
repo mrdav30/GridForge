@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Done
+
 **Goal:** Add sparse voxel-grid support while keeping GridForge query workflows anchored to `GridWorld`, `VoxelGrid`, `Voxel`, `ScanCell`, `GridTracer`, blockers, occupants, and partitions.
 
 **Architecture:** Keep `VoxelGrid` as the public grid type and move physical voxel storage behind an internal storage strategy. Dense grids keep the current "bounds define every voxel" behavior. Sparse grids use bounds as an address space and only configured voxels exist; reads and queries must not materialize missing voxels.

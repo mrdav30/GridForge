@@ -8,6 +8,7 @@
 using FixedMathSharp;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
+using GridForge.Spatial;
 using MemoryPack;
 using SwiftCollections.Utility;
 using System;
@@ -16,7 +17,7 @@ using System.Text.Json.Serialization;
 namespace GridForge.Configuration;
 
 /// <summary>
-/// Defines the configuration parameters for a grid, including boundaries and scan cell size.
+/// Defines the configuration parameters for a grid, including boundaries, topology, storage, and scan cell size.
 /// Used to describe grid properties before a world normalizes and registers the grid.
 /// </summary>
 [Serializable]
@@ -53,7 +54,9 @@ public readonly partial struct GridConfiguration
     public readonly int ScanCellSize;
 
     /// <summary>
-    /// The cell topology used by this grid.
+    /// The cell topology used by this grid. Rectangular-prism grids interpret
+    /// <see cref="VoxelIndex"/> as local X/Y/Z coordinates; hex-prism grids
+    /// interpret it as axial Q, vertical layer, and axial R.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]
@@ -61,6 +64,8 @@ public readonly partial struct GridConfiguration
 
     /// <summary>
     /// The deterministic cell geometry used by this grid's topology.
+    /// Rectangular-prism metrics define cell width, layer height, and length.
+    /// Hex-prism metrics define horizontal radius, layer height, and orientation.
     /// </summary>
     [JsonInclude]
     [MemoryPackInclude]

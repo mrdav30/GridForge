@@ -35,6 +35,7 @@ That means you can start with a single grid, add neighboring grids as the world 
 - Multiple active grids per world, with conjoined boundary neighbor lookup
 - Deterministic fixed-point math through `FixedMathSharp`
 - Fast world-space lookup through snapped bounds and a spatial hash
+- Rectangular-prism and hex-prism topology through the same `VoxelGrid` model
 - Dense and sparse voxel storage behind the same `VoxelGrid` query model
 - Scan-cell overlays for efficient radius and occupant queries
 - Region coverage through `GridTracer`
@@ -122,6 +123,27 @@ bounds exists. Sparse grids use the same bounds as an address space, but only
 explicitly configured voxels exist. Missing sparse voxels are intentional
 absence for lookup, coverage, blockers, occupants, partitions, and neighbors.
 
+Each grid also chooses its cell topology through `GridConfiguration`.
+Rectangular-prism topology is the default and uses `VoxelIndex(x, y, z)`.
+Hex-prism topology uses axial coordinates in the XZ plane:
+`VoxelIndex.x = q`, `VoxelIndex.z = r`, and `VoxelIndex.y = layer`.
+Both `HexOrientation.PointyTop` and `HexOrientation.FlatTop` are deterministic
+fixed-point projections, so a single `GridWorld` can own rectangular and hex
+grids without caller-side query branching.
+
+```csharp
+using GridForge.Grids.Topology;
+
+GridConfiguration hexConfiguration = new GridConfiguration(
+    new Vector3d(24, 0, 0),
+    new Vector3d(40, 0, 16),
+    topologyKind: GridTopologyKind.HexPrism,
+    topologyMetrics: GridTopologyMetrics.Hex(
+        new Fixed64(2),
+        Fixed64.One,
+        HexOrientation.PointyTop));
+```
+
 ## Conjoined Grids And Dynamic Worlds
 
 The library is built for worlds that grow, stream, and split responsibility cleanly:
@@ -177,7 +199,7 @@ For benchmark discovery:
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 ```
 
-Benchmarks are especially useful when changing pooling, tracing, grid registration, scan flow, or other allocation-sensitive paths. The `sparse-voxel-grid` alias covers sparse construction, lookup, coverage, blocker, scan, and dense comparison scenarios.
+Benchmarks are especially useful when changing pooling, tracing, grid registration, scan flow, or other allocation-sensitive paths. The `sparse-voxel-grid` alias covers sparse construction, lookup, coverage, blocker, scan, and dense comparison scenarios. The `hex-prism-topology` alias covers hex lookup, projection, construction, tracing, coverage, blockers, occupants, scans, and rectangular baseline comparison.
 
 ## Contributing
 

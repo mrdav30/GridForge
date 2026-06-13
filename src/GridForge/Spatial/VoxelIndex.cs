@@ -12,25 +12,26 @@ using System.Runtime.CompilerServices;
 namespace GridForge.Spatial;
 
 /// <summary>
-/// Represents the local coordinates of a voxel within a single grid.
-/// Used to index voxels within a grid's spatial structure.
+/// Represents the topology-local coordinates of a voxel within a single grid.
+/// Rectangular-prism grids interpret the fields as X, Y, and Z. Hex-prism
+/// grids interpret them as axial Q, vertical layer, and axial R.
 /// </summary>
 public struct VoxelIndex : IEquatable<VoxelIndex>
 {
     #region Properties
 
     /// <summary>
-    /// The X position of the voxel in the local grid.
+    /// The local X coordinate for rectangular-prism grids, or axial Q coordinate for hex-prism grids.
     /// </summary>
     public int x;
 
     /// <summary>
-    /// The Y position of the voxel in the local grid.
+    /// The local Y coordinate for rectangular-prism grids, or vertical layer for hex-prism grids.
     /// </summary>
     public int y;
 
     /// <summary>
-    /// The Z position of the voxel in the local grid.
+    /// The local Z coordinate for rectangular-prism grids, or axial R coordinate for hex-prism grids.
     /// </summary>
     public int z;
 

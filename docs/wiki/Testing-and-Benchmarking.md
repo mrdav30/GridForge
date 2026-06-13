@@ -48,6 +48,16 @@ Sparse storage coverage includes:
 - storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor lookup
 - explicit runtime sparse voxel add/remove safety rules
 
+Hex-prism topology coverage includes:
+
+- flat-top and pointy-top projection and inverse projection
+- exact cube-coordinate rounding at hex boundaries
+- mixed rectangular/hex world lookup
+- topology-specific rectangular and hex neighbor APIs
+- hex line tracing and conservative bounds coverage
+- hex blocker apply/remove behavior
+- hex occupant registration and radius scans
+
 ## Standard Test Commands
 
 ```bash
@@ -77,11 +87,16 @@ Good GridForge tests usually:
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- list
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
 ```
 
 The `sparse-voxel-grid` alias covers sparse construction density, configured and
 missing lookup, empty and clustered coverage, blocker apply/remove, occupant
 registration, radius scans, neighbor lookup, and dense comparison scenarios.
+
+The `hex-prism-topology` alias covers rectangular baseline lookup, pointy/flat
+hex lookup, projection, construction, line tracing, bounds coverage, blockers,
+occupants, radius scans, and mixed rectangular/hex world lookup.
 
 ## Benchmark Environment Behavior
 

@@ -14,7 +14,8 @@
 
 - [Vector2d Query API Battle Plan](done/2026-06-11-vector2d-query-api-plan.md)
 - [Sparse Voxel Grid Battle Plan](done/2026-06-11-sparse-voxel-grid-plan.md)
-- [Hex Prism Grid Battle Plan](2026-06-11-hex-prism-grid-plan.md)
+- [Hex Prism Grid Battle Plan](done/2026-06-11-hex-prism-grid-plan.md)
+- [Hex Prism Follow-Up Plan](2026-06-13-hex-prism-follow-up-plan.md)
 
 ## North Star
 
@@ -145,10 +146,13 @@ Completed runtime follow-through:
 
 Implement hex-prism topology after rectangular topology and static sparse storage are stable.
 
-Status: Phase 5 completed on 2026-06-13. Hex-prism construction, fixed-point
-projection, inverse projection, cube rounding, world/grid/voxel lookup, typed
+Status: completed on 2026-06-13. The plan is archived under
+`docs/feature-work/done`. Hex-prism construction, fixed-point projection,
+inverse projection, cube rounding, world/grid/voxel lookup, typed
 rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
-occupants, scans, and benchmark-backed performance hardening are in place.
+occupants, scans, benchmark-backed performance hardening, docs, and release
+alignment are complete. Deferred mixed-topology neighbor bridging and sparse
+hex-prism validation are tracked in the hex follow-up plan.
 
 Why:
 
