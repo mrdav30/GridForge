@@ -87,7 +87,7 @@ public class NeighborCacheBenchmarks
         {
             for (int i = 0; i < _lookups.Length; i++)
             {
-                if (!_lookups[i].Voxel.TryGetNeighborFromDirection(
+                if (!_lookups[i].Voxel.TryGetRectangularNeighbor(
                     _lookups[i].OwnerGrid,
                     _lookups[i].Direction,
                     out _,
@@ -106,20 +106,20 @@ public class NeighborCacheBenchmarks
 
         for (int z = 0; z <= 31; z++)
         {
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, z), SpatialDirection.East));
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, z), SpatialDirection.West));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, z), RectangularDirection.East));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, z), RectangularDirection.West));
         }
 
         for (int x = 1; x < 31; x++)
         {
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 31), SpatialDirection.North));
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 0), SpatialDirection.South));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 31), RectangularDirection.North));
+            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 0), RectangularDirection.South));
         }
 
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 31), SpatialDirection.NorthEast));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 31), SpatialDirection.NorthWest));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 0), SpatialDirection.SouthEast));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 0), SpatialDirection.SouthWest));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 31), RectangularDirection.NorthEast));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 31), RectangularDirection.NorthWest));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 0), RectangularDirection.SouthEast));
+        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 0), RectangularDirection.SouthWest));
 
         return lookups.ToArray();
     }
@@ -141,7 +141,7 @@ public class NeighborCacheBenchmarks
         {
             for (int i = 0; i < _lookups.Length; i++)
             {
-                if (_lookups[i].Voxel.TryGetNeighborFromDirection(
+                if (_lookups[i].Voxel.TryGetRectangularNeighbor(
                     _lookups[i].OwnerGrid,
                     _lookups[i].Direction,
                     out _,
@@ -157,9 +157,9 @@ public class NeighborCacheBenchmarks
     {
         public readonly VoxelGrid OwnerGrid;
         public readonly Voxel Voxel;
-        public readonly SpatialDirection Direction;
+        public readonly RectangularDirection Direction;
 
-        public NeighborLookup(VoxelGrid ownerGrid, Voxel voxel, SpatialDirection direction)
+        public NeighborLookup(VoxelGrid ownerGrid, Voxel voxel, RectangularDirection direction)
         {
             OwnerGrid = ownerGrid;
             Voxel = voxel;

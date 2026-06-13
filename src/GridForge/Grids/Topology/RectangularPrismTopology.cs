@@ -21,6 +21,8 @@ internal sealed class RectangularPrismTopology : IGridTopology
 
     public Fixed64 MaxCellEdge => Metrics.LargestRectangularEdge;
 
+    public int NeighborSlotCount => RectangularDirectionUtility.Offsets.Length;
+
     public RectangularPrismTopology(GridTopologyMetrics metrics)
     {
         Metrics = GridTopologyMetrics.Normalize(GridTopologyKind.RectangularPrism, metrics);
@@ -82,6 +84,48 @@ internal sealed class RectangularPrismTopology : IGridTopology
             offset.y * Metrics.LayerHeight,
             offset.z * Metrics.CellLength);
 
+    public VoxelIndex GetNeighborOffset(int slot)
+    {
+        (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[slot];
+        return new VoxelIndex(offset.x, offset.y, offset.z);
+    }
+
+    public bool TryGetNeighborSlotFromWorldDelta(Vector3d worldDelta, out int slot)
+    {
+        RectangularDirection direction = RectangularDirectionUtility.GetDirectionFromOffset((
+            worldDelta.X.Sign(),
+            worldDelta.Y.Sign(),
+            worldDelta.Z.Sign()));
+        slot = (int)direction;
+        return direction != RectangularDirection.None;
+    }
+
+    public bool IsFacingBoundary(VoxelIndex voxelIndex, int slot, int width, int height, int length)
+    {
+        (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[slot];
+        return RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.x, offset.x, width)
+            && RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.y, offset.y, height)
+            && RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.z, offset.z, length);
+    }
+
+    public void GetBoundaryRange(
+        int slot,
+        int width,
+        int height,
+        int length,
+        out int xStart,
+        out int xEnd,
+        out int yStart,
+        out int yEnd,
+        out int zStart,
+        out int zEnd)
+    {
+        (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[slot];
+        (xStart, xEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.x, width);
+        (yStart, yEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.y, height);
+        (zStart, zEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.z, length);
+    }
+
     public Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
     {
         return new Vector3d(
@@ -124,4 +168,5 @@ internal sealed class RectangularPrismTopology : IGridTopology
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 CeilToCellOrigin(Fixed64 coordinate, Fixed64 cellSize) =>
         (coordinate.Abs() / cellSize).CeilToInt() * cellSize * coordinate.Sign();
+
 }

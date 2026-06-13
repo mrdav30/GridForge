@@ -120,7 +120,7 @@ public class VoxelGrid
     }
 
     /// <summary>
-    /// Stores <see cref="SpatialDirection"/> as indices of neighboring grids based on their relative positions.
+    /// Stores topology-local neighbor slots for neighboring grids based on their relative positions.
     /// </summary>
     /// <remarks>
     /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
@@ -131,6 +131,16 @@ public class VoxelGrid
     /// Count of currently linked neighboring grids.
     /// </summary>
     public byte NeighborCount { get; private set; }
+
+    /// <summary>
+    /// Count of topology-local neighbor slots supported by this grid.
+    /// </summary>
+    internal int NeighborSlotCount => _topology?.NeighborSlotCount ?? 0;
+
+    /// <summary>
+    /// The active topology kind for this grid.
+    /// </summary>
+    internal GridTopologyKind? TopologyKind => _topology?.Kind;
 
     /// <summary>
     /// Determines whether this grid has any linked neighbors.
@@ -363,20 +373,74 @@ public class VoxelGrid
     #region Boundary Management
 
     /// <summary>
-    /// Determines the relative direction of a neighboring grid based on its center offset.
+    /// Determines the rectangular-prism direction from grid <paramref name="a"/> to neighboring grid <paramref name="b"/>.
     /// </summary>
-    /// <param name="a">The first grid.</param>
-    /// <param name="b">The second grid.</param>
-    /// <returns>The direction from grid 'a' to grid 'b'.</returns>
-    public static SpatialDirection GetNeighborDirection(VoxelGrid a, VoxelGrid b)
+    /// <param name="a">The source rectangular-prism grid.</param>
+    /// <param name="b">The neighboring rectangular-prism grid.</param>
+    /// <returns>The rectangular direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="RectangularDirection.None"/>.</returns>
+    public static RectangularDirection GetRectangularNeighborDirection(VoxelGrid a, VoxelGrid b)
     {
-        Vector3d centerDifference = b.BoundsCenter - a.BoundsCenter;
-        (int x, int y, int z) gridOffset = (
-                centerDifference.X.Sign(),
-                centerDifference.Y.Sign(),
-                centerDifference.Z.Sign()
-            );
-        return GridDirectionUtility.GetNeighborDirectionFromOffset(gridOffset);
+        return TryGetNeighborSlot(a, b, GridTopologyKind.RectangularPrism, out int slot)
+            ? (RectangularDirection)slot
+            : RectangularDirection.None;
+    }
+
+    /// <summary>
+    /// Determines the hex-prism direction from grid <paramref name="a"/> to neighboring grid <paramref name="b"/>.
+    /// </summary>
+    /// <param name="a">The source hex-prism grid.</param>
+    /// <param name="b">The neighboring hex-prism grid.</param>
+    /// <returns>The hex direction from <paramref name="a"/> to <paramref name="b"/>, or <see cref="HexDirection.None"/>.</returns>
+    public static HexDirection GetHexNeighborDirection(VoxelGrid a, VoxelGrid b)
+    {
+        return TryGetNeighborSlot(a, b, GridTopologyKind.HexPrism, out int slot)
+            ? (HexDirection)slot
+            : HexDirection.None;
+    }
+
+    private static bool TryGetNeighborSlot(VoxelGrid a, VoxelGrid b, GridTopologyKind expectedKind, out int slot)
+    {
+        if (a._topology?.Kind != expectedKind || b._topology?.Kind != expectedKind)
+        {
+            slot = -1;
+            return false;
+        }
+
+        return TryGetNeighborSlot(a, b, out slot);
+    }
+
+    private static bool TryGetNeighborSlot(VoxelGrid a, VoxelGrid b, out int slot)
+    {
+        slot = -1;
+
+        if (a._topology == null
+            || b._topology == null
+            || a._topology.Kind != b._topology.Kind)
+        {
+            return false;
+        }
+
+        return a._topology.TryGetNeighborSlotFromWorldDelta(b.BoundsCenter - a.BoundsCenter, out slot)
+            && (uint)slot < (uint)a._topology.NeighborSlotCount;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal VoxelIndex GetNeighborOffset(int slot) => Topology.GetNeighborOffset(slot);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetNeighborSlot(RectangularDirection direction, out int slot)
+    {
+        slot = (int)direction;
+        return _topology?.Kind == GridTopologyKind.RectangularPrism
+            && (uint)slot < (uint)_topology.NeighborSlotCount;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryGetNeighborSlot(HexDirection direction, out int slot)
+    {
+        slot = (int)direction;
+        return _topology?.Kind == GridTopologyKind.HexPrism
+            && (uint)slot < (uint)_topology.NeighborSlotCount;
     }
 
     /// <summary>
@@ -385,18 +449,15 @@ public class VoxelGrid
     /// <param name="neighborGrid">The neighboring grid to add.</param>
     internal bool TryAddGridNeighbor(VoxelGrid neighborGrid)
     {
-        SpatialDirection neighborDirection = GetNeighborDirection(this, neighborGrid);
-        int neightborIndex = (int)neighborDirection;
-
-        if (neightborIndex == -1)
+        if (!TryGetNeighborSlot(this, neighborGrid, out int neighborSlot))
             return false;
 
         // Ensure the neighbor array is allocated and store the new neighbor
         Neighbors ??= new SwiftSparseMap<SwiftHashSet<int>>();
-        if (!Neighbors.TryGetValue(neightborIndex, out SwiftHashSet<int> neighborSet))
+        if (!Neighbors.TryGetValue(neighborSlot, out SwiftHashSet<int> neighborSet))
         {
             neighborSet = SwiftHashSetPool<int>.Shared.Rent();
-            Neighbors.Add(neightborIndex, neighborSet);
+            Neighbors.Add(neighborSlot, neighborSet);
         }
 
         if (!neighborSet.Add(neighborGrid.GridIndex))
@@ -406,7 +467,7 @@ public class VoxelGrid
         IncrementVersion();
 
         // Notify grid voxels that a new neighbor has been added
-        NotifyBoundaryChange(neighborDirection);
+        NotifyBoundaryChange(neighborSlot);
 
         return true;
     }
@@ -417,40 +478,37 @@ public class VoxelGrid
     /// <param name="neighborGrid">The neighboring grid to remove.</param>
     internal bool TryRemoveGridNeighbor(VoxelGrid neighborGrid)
     {
-        if (!TryGetGridNeighborSet(neighborGrid, out SpatialDirection neighborDirection, out int neighborIndex, out SwiftHashSet<int>? neighborSet))
+        if (!TryGetGridNeighborSet(neighborGrid, out int neighborSlot, out SwiftHashSet<int>? neighborSet))
             return false;
 
         if (!neighborSet!.Remove(neighborGrid.GridIndex))
             return false;
 
-        ReleaseNeighborSetIfEmpty(neighborIndex, neighborSet);
+        ReleaseNeighborSetIfEmpty(neighborSlot, neighborSet);
 
         if (--NeighborCount == 0)
             Neighbors = null;
 
         IncrementVersion();
 
-        NotifyBoundaryChange(neighborDirection); // Notify voxels of the removed neighbor
+        NotifyBoundaryChange(neighborSlot); // Notify voxels of the removed neighbor
 
         return true;
     }
 
     private bool TryGetGridNeighborSet(
         VoxelGrid neighborGrid,
-        out SpatialDirection neighborDirection,
-        out int neighborIndex,
+        out int neighborSlot,
         out SwiftHashSet<int>? neighborSet)
     {
         neighborSet = null;
-        neighborDirection = SpatialDirection.None;
-        neighborIndex = -1;
+        neighborSlot = -1;
 
         if (!IsConjoined)
             return false;
 
-        neighborDirection = GetNeighborDirection(this, neighborGrid);
-        neighborIndex = (int)neighborDirection;
-        return neighborIndex != -1 && Neighbors!.TryGetValue(neighborIndex, out neighborSet);
+        return TryGetNeighborSlot(this, neighborGrid, out neighborSlot)
+            && Neighbors!.TryGetValue(neighborSlot, out neighborSet);
     }
 
     private void ReleaseNeighborSetIfEmpty(int neighborIndex, SwiftHashSet<int> neighborSet)
@@ -467,20 +525,44 @@ public class VoxelGrid
     /// Notifies only the relevant boundary voxels when a neighboring grid is added or removed.
     /// Instead of looping through all voxels, it targets specific boundary rows or columns.
     /// </summary>
-    /// <param name="direction">The direction of the affected boundary.</param>
-    public void NotifyBoundaryChange(SpatialDirection direction)
+    /// <param name="direction">The rectangular direction of the affected boundary.</param>
+    public void NotifyBoundaryChange(RectangularDirection direction)
     {
-        SwiftThrowHelper.ThrowIfNull(_storage, nameof(_storage));
-
-        int directionIndex = (int)direction;
-        if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
+        if (!TryGetNeighborSlot(direction, out int slot))
             return;
 
-        (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[directionIndex];
+        NotifyBoundaryChange(slot);
+    }
 
-        (int xStart, int xEnd) = SpatialAwareness.GetBoundaryRange(offset.x, Width);
-        (int yStart, int yEnd) = SpatialAwareness.GetBoundaryRange(offset.y, Height);
-        (int zStart, int zEnd) = SpatialAwareness.GetBoundaryRange(offset.z, Length);
+    /// <summary>
+    /// Notifies only the relevant boundary voxels for a hex-prism direction.
+    /// </summary>
+    /// <param name="direction">The hex direction of the affected boundary.</param>
+    public void NotifyBoundaryChange(HexDirection direction)
+    {
+        if (!TryGetNeighborSlot(direction, out int slot))
+            return;
+
+        NotifyBoundaryChange(slot);
+    }
+
+    private void NotifyBoundaryChange(int slot)
+    {
+        SwiftThrowHelper.ThrowIfNull(_storage, nameof(_storage));
+        if ((uint)slot >= (uint)Topology.NeighborSlotCount)
+            return;
+
+        Topology.GetBoundaryRange(
+            slot,
+            Width,
+            Height,
+            Length,
+            out int xStart,
+            out int xEnd,
+            out int yStart,
+            out int yEnd,
+            out int zStart,
+            out int zEnd);
 
         _storage!.InvalidateBoundaryVoxels(xStart, xEnd, yStart, yEnd, zStart, zEnd);
     }
@@ -582,21 +664,18 @@ public class VoxelGrid
       && (uint)z < (uint)Length;
 
     /// <summary>
-    /// Determines if a voxel is facing the boundary of the grid in a specific direction.
-    /// Used to notify voxels when adjacent grids are added/removed.
+    /// Determines if a voxel is facing the rectangular-prism boundary in the supplied direction.
     /// </summary>
-    public bool IsFacingBoundaryDirection(VoxelIndex voxelIndex, SpatialDirection direction)
-    {
-        int directionIndex = (int)direction;
-        if (directionIndex < 0 || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
-            return false;
+    public bool IsFacingBoundary(VoxelIndex voxelIndex, RectangularDirection direction) =>
+        TryGetNeighborSlot(direction, out int slot)
+        && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
 
-        (int x, int y, int z) = SpatialAwareness.DirectionOffsets[directionIndex];
-
-        return SpatialAwareness.IsAxisFacingBoundary(voxelIndex.x, x, Width)
-            && SpatialAwareness.IsAxisFacingBoundary(voxelIndex.y, y, Height)
-            && SpatialAwareness.IsAxisFacingBoundary(voxelIndex.z, z, Length);
-    }
+    /// <summary>
+    /// Determines if a voxel is facing the hex-prism boundary in the supplied direction.
+    /// </summary>
+    public bool IsFacingBoundary(VoxelIndex voxelIndex, HexDirection direction) =>
+        TryGetNeighborSlot(direction, out int slot)
+        && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
 
     /// <summary>
     /// Converts a world position to voxel index within the grid.
@@ -758,9 +837,8 @@ public class VoxelGrid
                 if (!world.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
                     continue;
 
-                SpatialDirection reciprocalDirection = GetNeighborDirection(neighborGrid!, this);
-                if (reciprocalDirection != SpatialDirection.None)
-                    neighborGrid!.NotifyBoundaryChange(reciprocalDirection);
+                if (TryGetNeighborSlot(neighborGrid!, this, out int reciprocalSlot))
+                    neighborGrid!.NotifyBoundaryChange(reciprocalSlot);
             }
         }
     }

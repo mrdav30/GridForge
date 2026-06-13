@@ -21,6 +21,8 @@ internal sealed class HexPrismTopology : IGridTopology
 
     public Fixed64 MaxCellEdge => Metrics.LargestHexEdge;
 
+    public int NeighborSlotCount => HexDirectionUtility.Offsets.Length;
+
     public HexPrismTopology(GridTopologyMetrics metrics)
     {
         Metrics = GridTopologyMetrics.Normalize(GridTopologyKind.HexPrism, metrics);
@@ -103,6 +105,63 @@ internal sealed class HexPrismTopology : IGridTopology
     public Vector3d GetWorldOffset((int x, int y, int z) offset) =>
         HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(offset.x, offset.y, offset.z), Metrics);
 
+    public VoxelIndex GetNeighborOffset(int slot) => HexDirectionUtility.Offsets[slot];
+
+    public bool TryGetNeighborSlotFromWorldDelta(Vector3d worldDelta, out int slot)
+    {
+        HexCoordinateUtility.WorldOffsetToAxial(
+            worldDelta.X,
+            worldDelta.Z,
+            Metrics,
+            out Fixed64 q,
+            out Fixed64 r);
+        HexCoordinateUtility.RoundCube(q, r, out int roundedQ, out int roundedR);
+
+        int yDirection = worldDelta.Y.Sign();
+        if (yDirection != 0)
+        {
+            if (roundedQ == 0 && roundedR == 0)
+                return TryGetNeighborSlot(new VoxelIndex(0, yDirection, 0), out slot);
+
+            VoxelIndex planarOffset = NormalizePlanarOffset(roundedQ, roundedR);
+            if (planarOffset == default)
+            {
+                slot = -1;
+                return false;
+            }
+
+            return TryGetNeighborSlot(new VoxelIndex(planarOffset.x, yDirection, planarOffset.z), out slot);
+        }
+
+        return TryGetNeighborSlot(NormalizePlanarOffset(roundedQ, roundedR), out slot);
+    }
+
+    public bool IsFacingBoundary(VoxelIndex voxelIndex, int slot, int width, int height, int length)
+    {
+        VoxelIndex offset = HexDirectionUtility.Offsets[slot];
+        return RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.x, offset.x, width)
+            && RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.y, offset.y, height)
+            && RectangularDirectionUtility.IsAxisFacingBoundary(voxelIndex.z, offset.z, length);
+    }
+
+    public void GetBoundaryRange(
+        int slot,
+        int width,
+        int height,
+        int length,
+        out int xStart,
+        out int xEnd,
+        out int yStart,
+        out int yEnd,
+        out int zStart,
+        out int zEnd)
+    {
+        VoxelIndex offset = HexDirectionUtility.Offsets[slot];
+        (xStart, xEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.x, width);
+        (yStart, yEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.y, height);
+        (zStart, zEnd) = RectangularDirectionUtility.GetBoundaryRange(offset.z, length);
+    }
+
     public Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position)
     {
         VoxelIndex index = ClampToGrid(boundsMin, boundsMax, position);
@@ -180,4 +239,37 @@ internal sealed class HexPrismTopology : IGridTopology
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Fixed64 CeilToLayerOrigin(Fixed64 coordinate) =>
         (coordinate.Abs() / Metrics.LayerHeight).CeilToInt() * Metrics.LayerHeight * coordinate.Sign();
+
+    private static bool TryGetNeighborSlot(VoxelIndex neighborOffset, out int slot)
+    {
+        for (int i = 0; i < HexDirectionUtility.Offsets.Length; i++)
+        {
+            if (HexDirectionUtility.Offsets[i] == neighborOffset)
+            {
+                slot = i;
+                return true;
+            }
+        }
+
+        slot = -1;
+        return false;
+    }
+
+    private static VoxelIndex NormalizePlanarOffset(int q, int r)
+    {
+        if (q > 0 && r == 0)
+            return new VoxelIndex(1, 0, 0);
+        if (q > 0 && r < 0)
+            return new VoxelIndex(1, 0, -1);
+        if (q == 0 && r < 0)
+            return new VoxelIndex(0, 0, -1);
+        if (q < 0 && r == 0)
+            return new VoxelIndex(-1, 0, 0);
+        if (q < 0 && r > 0)
+            return new VoxelIndex(-1, 0, 1);
+        if (q == 0 && r > 0)
+            return new VoxelIndex(0, 0, 1);
+
+        return default;
+    }
 }

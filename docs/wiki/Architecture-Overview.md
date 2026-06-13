@@ -156,8 +156,9 @@ GridForge uses both events and version numbers to express change.
 
 Neighbor handling is split into two related but distinct problems:
 
-- `VoxelGrid` tracks neighboring grids by `SpatialDirection`, and each direction can contain more than one grid.
-- `Voxel` exposes neighbor lookup in the 26 directions of `SpatialAwareness`.
+- `VoxelGrid` tracks neighboring grids by topology-local neighbor slot, and each slot can contain more than one grid.
+- `Voxel` exposes rectangular lookup through `RectangularDirection` and hex lookup through `HexDirection`.
+- Rectangular full-neighbor lookup covers 26 directions. Hex full-neighbor lookup covers 20 directions, with `Primary`, `Planar`, `Vertical`, layer, and vertical-diagonal subsets exposed through the direction utilities.
 
 Boundary voxels bridge the two. When grids load or unload, `VoxelGrid.NotifyBoundaryChange(...)` invalidates neighbor caches only on the affected boundary slices instead of on every voxel.
 

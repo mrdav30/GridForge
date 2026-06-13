@@ -332,8 +332,8 @@ public class VoxelTests : IDisposable
         grid.TryGetVoxel(new Vector3d(-10, 0, 0), out Voxel westVoxel);
         grid.TryGetVoxel(new Vector3d(10, 0, 0), out Voxel eastVoxel);
 
-        Assert.True(grid.IsFacingBoundaryDirection(westVoxel.Index, SpatialDirection.West));
-        Assert.True(grid.IsFacingBoundaryDirection(eastVoxel.Index, SpatialDirection.East));
+        Assert.True(grid.IsFacingBoundary(westVoxel.Index, RectangularDirection.West));
+        Assert.True(grid.IsFacingBoundary(eastVoxel.Index, RectangularDirection.East));
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
-    public void GetNeighbors_ShouldReturnDeterministicDirectionOrderForInteriorVoxel()
+    public void GetRectangularNeighbors_ShouldReturnDeterministicDirectionOrderForInteriorVoxel()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
         _world.TryAddGrid(config, out ushort gridIndex);
@@ -437,22 +437,58 @@ public class VoxelTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
-        var neighbors = voxel.GetNeighbors(grid, useCache: false).ToList();
+        var neighbors = voxel.GetRectangularNeighbors(grid, useCache: false).ToList();
 
-        Assert.Equal(SpatialAwareness.DirectionOffsets.Length, neighbors.Count);
+        Assert.Equal(RectangularDirectionUtility.Offsets.Length, neighbors.Count);
 
-        for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
+        for (int i = 0; i < RectangularDirectionUtility.Offsets.Length; i++)
         {
-            (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
+            (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[i];
             Vector3d expectedPosition = voxel.WorldPosition + new Vector3d(offset.x, offset.y, offset.z);
 
-            Assert.Equal((SpatialDirection)i, neighbors[i].Item1);
+            Assert.Equal((RectangularDirection)i, neighbors[i].Item1);
             Assert.Equal(expectedPosition, neighbors[i].Item2.WorldPosition);
         }
     }
 
     [Fact]
-    public void GetNeighbors_ShouldReturnOnlyValidDirectionsForCornerVoxel()
+    public void RectangularDirectionUtility_ShouldExposeDeterministicSubsets()
+    {
+        Assert.Equal(26, RectangularDirectionUtility.All.Length);
+        Assert.Equal(6, RectangularDirectionUtility.Primary.Length);
+        Assert.Equal(6, RectangularDirectionUtility.Perpendicular.Length);
+        Assert.Equal(8, RectangularDirectionUtility.Planar.Length);
+        Assert.Equal(2, RectangularDirectionUtility.Vertical.Length);
+        Assert.Equal(9, RectangularDirectionUtility.BelowLayer.Length);
+        Assert.Equal(9, RectangularDirectionUtility.AboveLayer.Length);
+        Assert.Equal(16, RectangularDirectionUtility.VerticalDiagonal.Length);
+        Assert.Equal(20, RectangularDirectionUtility.Diagonal.Length);
+
+        Assert.Equal(RectangularDirectionUtility.Perpendicular, RectangularDirectionUtility.Primary);
+        Assert.Equal(
+            new[]
+            {
+                RectangularDirection.West,
+                RectangularDirection.South,
+                RectangularDirection.East,
+                RectangularDirection.North,
+                RectangularDirection.SouthWest,
+                RectangularDirection.NorthWest,
+                RectangularDirection.SouthEast,
+                RectangularDirection.NorthEast
+            },
+            RectangularDirectionUtility.Planar);
+        Assert.Equal(
+            RectangularDirectionUtility.BelowLayer.Skip(1)
+                .Concat(RectangularDirectionUtility.AboveLayer.Skip(1))
+                .ToArray(),
+            RectangularDirectionUtility.VerticalDiagonal);
+        Assert.DoesNotContain(RectangularDirection.Below, RectangularDirectionUtility.VerticalDiagonal);
+        Assert.DoesNotContain(RectangularDirection.Above, RectangularDirectionUtility.VerticalDiagonal);
+    }
+
+    [Fact]
+    public void GetRectangularNeighbors_ShouldReturnOnlyValidDirectionsForCornerVoxel()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
         _world.TryAddGrid(config, out ushort gridIndex);
@@ -460,13 +496,13 @@ public class VoxelTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        var actualDirections = voxel.GetNeighbors(grid, useCache: false)
+        var actualDirections = voxel.GetRectangularNeighbors(grid, useCache: false)
             .Select(result => result.Item1)
             .ToList();
-        var expectedDirections = SpatialAwareness.AllDirections
+        var expectedDirections = RectangularDirectionUtility.All
             .Where(direction =>
             {
-                (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[(int)direction];
+                (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[(int)direction];
                 return offset.x >= 0 && offset.y >= 0 && offset.z >= 0;
             })
             .ToList();
@@ -476,7 +512,7 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
-    public void GetNeighbors_ShouldResolveIdenticallyWithAndWithoutCache()
+    public void GetRectangularNeighbors_ShouldResolveIdenticallyWithAndWithoutCache()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
         _world.TryAddGrid(config, out ushort gridIndex);
@@ -484,14 +520,14 @@ public class VoxelTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
-        foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
+        foreach (RectangularDirection direction in RectangularDirectionUtility.All)
         {
-            bool foundWithoutCache = voxel.TryGetNeighborFromDirection(
+            bool foundWithoutCache = voxel.TryGetRectangularNeighbor(
                 grid,
                 direction,
                 out Voxel uncachedNeighbor,
                 useCache: false);
-            bool foundWithCache = voxel.TryGetNeighborFromDirection(
+            bool foundWithCache = voxel.TryGetRectangularNeighbor(
                 grid,
                 direction,
                 out Voxel cachedNeighbor,
@@ -505,7 +541,7 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
-    public void GetNeighbors_ShouldNotDuplicateResultsWhenCacheIsReused()
+    public void GetRectangularNeighbors_ShouldNotDuplicateResultsWhenCacheIsReused()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
         _world.TryAddGrid(config, out ushort gridIndex);
@@ -513,15 +549,15 @@ public class VoxelTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(1, 1, 1), out Voxel voxel));
 
-        var firstPass = voxel.GetNeighbors(grid, useCache: true).ToList();
-        var secondPass = voxel.GetNeighbors(grid, useCache: true).ToList();
+        var firstPass = voxel.GetRectangularNeighbors(grid, useCache: true).ToList();
+        var secondPass = voxel.GetRectangularNeighbors(grid, useCache: true).ToList();
 
         Assert.Equal(firstPass.Count, secondPass.Count);
         Assert.Equal(firstPass.Select(result => result.Item1), secondPass.Select(result => result.Item1));
     }
 
     [Fact]
-    public void GetNeighbors_ShouldSkipNullEntriesWhenEnumeratingFromCachedCornerState()
+    public void GetRectangularNeighbors_ShouldSkipNullEntriesWhenEnumeratingFromCachedCornerState()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
         _world.TryAddGrid(config, out ushort gridIndex);
@@ -529,22 +565,22 @@ public class VoxelTests : IDisposable
 
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
 
-        SpatialDirection[] firstPass = voxel.GetNeighbors(grid, useCache: true)
+        RectangularDirection[] firstPass = voxel.GetRectangularNeighbors(grid, useCache: true)
             .Select(result => result.Item1)
             .ToArray();
-        SpatialDirection[] secondPass = voxel.GetNeighbors(grid, useCache: true)
+        RectangularDirection[] secondPass = voxel.GetRectangularNeighbors(grid, useCache: true)
             .Select(result => result.Item1)
             .ToArray();
 
         Assert.Equal(7, firstPass.Length);
         Assert.Equal(firstPass, secondPass);
-        Assert.DoesNotContain(SpatialDirection.West, secondPass);
-        Assert.DoesNotContain(SpatialDirection.South, secondPass);
-        Assert.DoesNotContain(SpatialDirection.Below, secondPass);
+        Assert.DoesNotContain(RectangularDirection.West, secondPass);
+        Assert.DoesNotContain(RectangularDirection.South, secondPass);
+        Assert.DoesNotContain(RectangularDirection.Below, secondPass);
     }
 
     [Fact]
-    public void TryGetNeighborFromOffset_ShouldResolveAcrossConjoinedGridBoundary()
+    public void TryGetRectangularNeighbor_ShouldResolveAcrossConjoinedGridBoundary()
     {
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
@@ -559,7 +595,7 @@ public class VoxelTests : IDisposable
         Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
         Assert.True(secondGrid.TryGetVoxel(new Vector3d(2, 0, 0), out Voxel adjacentVoxel));
 
-        Assert.True(boundaryVoxel.TryGetNeighborFromOffset(firstGrid, (1, 0, 0), out Voxel resolvedNeighbor));
+        Assert.True(boundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out Voxel resolvedNeighbor));
         Assert.Same(adjacentVoxel, resolvedNeighbor);
     }
 
@@ -576,7 +612,7 @@ public class VoxelTests : IDisposable
         VoxelGrid denseGrid = _world.ActiveGrids[denseGridIndex];
         Assert.True(denseGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
 
-        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(denseGrid, SpatialDirection.East, out _));
+        Assert.False(boundaryVoxel.TryGetRectangularNeighbor(denseGrid, RectangularDirection.East, out _));
     }
 
     [Fact]
@@ -594,21 +630,20 @@ public class VoxelTests : IDisposable
         Assert.True(firstGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel boundaryVoxel));
         Assert.True(secondGrid.TryGetVoxel(new Vector3d(2, 0, 0), out Voxel expectedNeighbor));
 
-        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out Voxel neighbor));
+        Assert.True(boundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out Voxel neighbor));
         Assert.Same(expectedNeighbor, neighbor);
     }
 
     [Fact]
-    public void TryGetNeighborFromDirection_ShouldHandleInvalidDirectionsGracefully()
+    public void TryGetRectangularNeighbor_ShouldHandleInvalidDirectionsGracefully()
     {
         Voxel detachedVoxel = new();
         VoxelGrid detachedGrid = new();
 
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, SpatialDirection.None, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, SpatialDirection.West, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, (SpatialDirection)(-2), out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromDirection(detachedGrid, (SpatialDirection)999, out _));
-        Assert.False(detachedVoxel.TryGetNeighborFromOffset(detachedGrid, (1, 0, 0), out _));
+        Assert.False(detachedVoxel.TryGetRectangularNeighbor(detachedGrid, RectangularDirection.None, out _));
+        Assert.False(detachedVoxel.TryGetRectangularNeighbor(detachedGrid, RectangularDirection.West, out _));
+        Assert.False(detachedVoxel.TryGetRectangularNeighbor(detachedGrid, (RectangularDirection)(-2), out _));
+        Assert.False(detachedVoxel.TryGetRectangularNeighbor(detachedGrid, (RectangularDirection)999, out _));
     }
 
     [Fact]
@@ -620,7 +655,7 @@ public class VoxelTests : IDisposable
         VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.True(centerGrid.TryGetVoxel(new Vector3d(1, 0, 1), out Voxel boundaryVoxel));
-        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out _, useCache: true));
+        Assert.False(boundaryVoxel.TryGetRectangularNeighbor(centerGrid, RectangularDirection.NorthEast, out _, useCache: true));
 
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2)),
@@ -628,11 +663,11 @@ public class VoxelTests : IDisposable
         VoxelGrid northEastGrid = _world.ActiveGrids[northEastIndex];
 
         Assert.True(northEastGrid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel expectedNeighbor));
-        Assert.True(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out Voxel cachedNeighbor, useCache: true));
+        Assert.True(boundaryVoxel.TryGetRectangularNeighbor(centerGrid, RectangularDirection.NorthEast, out Voxel cachedNeighbor, useCache: true));
         Assert.Same(expectedNeighbor, cachedNeighbor);
 
         Assert.True(_world.TryRemoveGrid(northEastIndex));
-        Assert.False(boundaryVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.NorthEast, out _, useCache: true));
+        Assert.False(boundaryVoxel.TryGetRectangularNeighbor(centerGrid, RectangularDirection.NorthEast, out _, useCache: true));
     }
 
     [Fact]
@@ -648,7 +683,7 @@ public class VoxelTests : IDisposable
         VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
 
         Assert.True(centerGrid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel oldVoxel));
-        Assert.True(oldVoxel.TryGetNeighborFromDirection(centerGrid, SpatialDirection.East, out Voxel eastNeighbor, useCache: true));
+        Assert.True(oldVoxel.TryGetRectangularNeighbor(centerGrid, RectangularDirection.East, out Voxel eastNeighbor, useCache: true));
         Assert.Equal(new Vector3d(1, 0, 0), eastNeighbor.WorldPosition);
         Assert.True(oldVoxel.TryAddPartition(new TestPartition()));
         Assert.True(centerGrid.TryAddObstacle(oldVoxel, obstacleToken));
@@ -664,7 +699,7 @@ public class VoxelTests : IDisposable
         Assert.Null(reusedVoxel.GetPartitionOrDefault<TestPartition>());
         Assert.False(reusedVoxel.IsBlocked);
         Assert.Equal(0, reusedVoxel.ObstacleCount);
-        Assert.False(reusedVoxel.TryGetNeighborFromDirection(reusedGrid, SpatialDirection.East, out _, useCache: true));
+        Assert.False(reusedVoxel.TryGetRectangularNeighbor(reusedGrid, RectangularDirection.East, out _, useCache: true));
         Assert.True(reusedGrid.TryAddObstacle(reusedVoxel, obstacleToken));
     }
 
@@ -683,7 +718,7 @@ public class VoxelTests : IDisposable
         Assert.True(voxel.IsPartioned);
         Assert.Equal(voxel.WorldIndex.GridIndex, voxel.GridIndex);
 
-        _ = voxel.GetNeighbors(grid, useCache: true).ToArray();
+        _ = voxel.GetRectangularNeighbors(grid, useCache: true).ToArray();
         voxel.WorldIndex = new WorldVoxelIndex(
             voxel.WorldIndex.WorldSpawnToken,
             ushort.MaxValue,

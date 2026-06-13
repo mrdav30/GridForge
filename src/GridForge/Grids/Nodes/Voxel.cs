@@ -6,6 +6,7 @@
 //=======================================================================
 
 using FixedMathSharp;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
@@ -58,7 +59,7 @@ public class Voxel : IEquatable<Voxel>
     private bool _isNeighborCacheValid;
 
     /// <summary>
-    /// Cached array of neighboring voxels for fast lookup representing a 3x3x3 linear direction grid
+    /// Cached array of neighboring voxels for fast lookup by topology-local slot.
     /// </summary>
     /// <remarks>
     /// Unlike Grid adjacency (which is 1:many), voxels can only have 1 neighbor in any one direction (1:1).
@@ -515,68 +516,118 @@ public class Voxel : IEquatable<Voxel>
     internal void InvalidateNeighborCache() => _isNeighborCacheValid = false;
 
     /// <summary>
-    /// Retrieves the neighbors of this voxel, caching results if specified.
+    /// Retrieves rectangular-prism neighbors of this voxel in deterministic <see cref="RectangularDirection"/> order.
     /// </summary>
-    public IEnumerable<(SpatialDirection, Voxel)> GetNeighbors(VoxelGrid ownerGrid, bool useCache = true)
+    public IEnumerable<(RectangularDirection Direction, Voxel Voxel)> GetRectangularNeighbors(
+        VoxelGrid ownerGrid,
+        bool useCache = true)
     {
-        if (useCache && _isNeighborCacheValid)
+        if (!IsValidOwnerGrid(ownerGrid) || ownerGrid.TopologyKind != GridTopologyKind.RectangularPrism)
+            yield break;
+
+        if (useCache)
+            EnsureNeighborCache(ownerGrid);
+
+        for (int slot = 0; slot < ownerGrid.NeighborSlotCount; slot++)
         {
-            for (int i = 0; i < _cachedNeighbors!.Length; i++)
+            Voxel? neighbor;
+            if (useCache)
             {
-                if (_cachedNeighbors[i] == null)
+                neighbor = _cachedNeighbors![slot];
+                if (neighbor == null)
                     continue;
-                yield return ((SpatialDirection)i, _cachedNeighbors[i]);
+            }
+            else if (!TryGetNeighborFromSlot(ownerGrid, slot, out neighbor, useCache: false))
+            {
+                continue;
             }
 
-            yield break;
-        }
-
-        RefreshNeighborCache(ownerGrid);
-
-        for (int i = 0; i < _cachedNeighbors!.Length; i++)
-        {
-            if (_cachedNeighbors[i] == null)
-                continue;
-            yield return ((SpatialDirection)i, _cachedNeighbors[i]);
+            yield return ((RectangularDirection)slot, neighbor!);
         }
     }
 
     /// <summary>
-    /// Retrieves a neighbor voxel in a specific direction.
+    /// Retrieves hex-prism neighbors of this voxel in deterministic <see cref="HexDirection"/> order.
     /// </summary>
-    public bool TryGetNeighborFromDirection(
+    public IEnumerable<(HexDirection Direction, Voxel Voxel)> GetHexNeighbors(
         VoxelGrid ownerGrid,
-        SpatialDirection direction,
+        bool useCache = true)
+    {
+        if (!IsValidOwnerGrid(ownerGrid) || ownerGrid.TopologyKind != GridTopologyKind.HexPrism)
+            yield break;
+
+        if (useCache)
+            EnsureNeighborCache(ownerGrid);
+
+        for (int slot = 0; slot < ownerGrid.NeighborSlotCount; slot++)
+        {
+            Voxel? neighbor;
+            if (useCache)
+            {
+                neighbor = _cachedNeighbors![slot];
+                if (neighbor == null)
+                    continue;
+            }
+            else if (!TryGetNeighborFromSlot(ownerGrid, slot, out neighbor, useCache: false))
+            {
+                continue;
+            }
+
+            yield return ((HexDirection)slot, neighbor!);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the rectangular-prism neighbor voxel in the supplied direction.
+    /// </summary>
+    public bool TryGetRectangularNeighbor(
+        VoxelGrid ownerGrid,
+        RectangularDirection direction,
         out Voxel? neighbor,
         bool useCache = true)
     {
         neighbor = null;
-
-        // Validate the index
-        int directionIndex = (int)direction;
-        if (direction == SpatialDirection.None
-            || directionIndex < 0
-            || directionIndex >= SpatialAwareness.DirectionOffsets.Length)
-            return false;
-
-        // Check cached neighbors if caching is enabled
-        if (useCache)
-        {
-            if (!_isNeighborCacheValid)
-                RefreshNeighborCache(ownerGrid);
-
-            neighbor = _cachedNeighbors![directionIndex];
-            return neighbor != null;
-        }
-
-        (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[directionIndex];
-        return TryGetNeighborFromOffset(ownerGrid, offset, out neighbor);
+        return IsValidOwnerGrid(ownerGrid)
+            && ownerGrid.TryGetNeighborSlot(direction, out int slot)
+            && TryGetNeighborFromSlot(ownerGrid, slot, out neighbor, useCache);
     }
 
     /// <summary>
-    /// Retrieves a neighbor voxel based on a coordinate offset.
+    /// Retrieves the hex-prism neighbor voxel in the supplied direction.
     /// </summary>
-    public bool TryGetNeighborFromOffset(
+    public bool TryGetHexNeighbor(
+        VoxelGrid ownerGrid,
+        HexDirection direction,
+        out Voxel? neighbor,
+        bool useCache = true)
+    {
+        neighbor = null;
+        return IsValidOwnerGrid(ownerGrid)
+            && ownerGrid.TryGetNeighborSlot(direction, out int slot)
+            && TryGetNeighborFromSlot(ownerGrid, slot, out neighbor, useCache);
+    }
+
+    private bool TryGetNeighborFromSlot(
+        VoxelGrid ownerGrid,
+        int slot,
+        out Voxel? neighbor,
+        bool useCache)
+    {
+        neighbor = null;
+        if ((uint)slot >= (uint)ownerGrid.NeighborSlotCount)
+            return false;
+
+        if (useCache)
+        {
+            EnsureNeighborCache(ownerGrid);
+            neighbor = _cachedNeighbors![slot];
+            return neighbor != null;
+        }
+
+        return TryResolveNeighborAtOffset(ownerGrid, ToTuple(ownerGrid.GetNeighborOffset(slot)), out neighbor);
+    }
+
+    private bool TryResolveNeighborAtOffset(
         VoxelGrid ownerGrid,
         (int x, int y, int z) offset,
         out Voxel? neighbor)
@@ -611,23 +662,39 @@ public class Voxel : IEquatable<Voxel>
     private Vector3d GetNeighborWorldPosition(VoxelGrid ownerGrid, (int x, int y, int z) offset) =>
          WorldPosition + ownerGrid.GetWorldOffset(offset);
 
+    private void EnsureNeighborCache(VoxelGrid ownerGrid)
+    {
+        if (!_isNeighborCacheValid || _cachedNeighbors == null || _cachedNeighbors.Length != ownerGrid.NeighborSlotCount)
+            RefreshNeighborCache(ownerGrid);
+    }
+
     /// <summary>
     /// Updates and caches the neighboring voxels of this voxel.
     /// </summary>
     private void RefreshNeighborCache(VoxelGrid ownerGrid)
     {
-        _cachedNeighbors ??= Pools.VoxelNeighborPool.Rent(SpatialAwareness.DirectionOffsets.Length);
+        int slotCount = ownerGrid.NeighborSlotCount;
+        if (_cachedNeighbors == null || _cachedNeighbors.Length != slotCount)
+        {
+            ReleaseNeighborCache();
+            _cachedNeighbors = Pools.VoxelNeighborPool.Rent(slotCount);
+        }
+
         Array.Clear(_cachedNeighbors, 0, _cachedNeighbors.Length); // Ensure clean state
 
-        for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
+        for (int slot = 0; slot < slotCount; slot++)
         {
-            (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
-            if (TryGetNeighborFromOffset(ownerGrid, offset, out Voxel? neighbor))
-                _cachedNeighbors[i] = neighbor!;
+            if (TryResolveNeighborAtOffset(ownerGrid, ToTuple(ownerGrid.GetNeighborOffset(slot)), out Voxel? neighbor))
+            {
+                _cachedNeighbors[slot] = neighbor!;
+            }
         }
 
         _isNeighborCacheValid = true;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static (int x, int y, int z) ToTuple(VoxelIndex offset) => (offset.x, offset.y, offset.z);
 
     #endregion
 

@@ -13,9 +13,9 @@
 ## Status
 
 - Started: 2026-06-11
-- Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, `SpatialDirection`, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
+- Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, rectangular/hex direction APIs, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Phase 2 complete; rectangular topology extraction and hex-prism construction/lookup are in place.
+- Current state: Phase 3 complete; rectangular topology extraction, hex-prism construction/lookup, and typed rectangular/hex neighbor APIs are in place.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
@@ -35,8 +35,9 @@
 - Replace `GridWorld.VoxelSize`, `DefaultVoxelSize`, `VoxelResolution`, and `*VoxelSize` snapping helpers during the breaking API cleanup instead of carrying them forward as topology API.
 - `VoxelIndex` remains the single topology-local coordinate type for the first topology release.
 - Hex examples default to `HexOrientation.PointyTop`; `FlatTop` remains fully supported.
-- Hex primary neighbors are the 6 planar axial neighbors plus above/below.
-- Rectangular diagonal neighbor APIs remain rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
+- Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood.
+- `HexDirectionUtility.Primary` keeps the 6 planar axial neighbors plus above/below available as the face-adjacent subset.
+- Rectangular and hex direction utilities expose matching deterministic neighbor subsets for callers that need face-adjacent, planar, vertical, layer, or diagonal groups.
 
 ## Non-Goals
 
@@ -97,8 +98,8 @@ Likely files:
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
 - Modify: `src/GridForge/Grids/Managers/GridWorld.cs`
 - Modify: `src/GridForge/Utility/GridTracer.cs`
-- Modify: `src/GridForge/Spatial/SpatialAwareness.cs`
-- Modify: `src/GridForge/Spatial/SpatialDirection.cs`
+- Modify: `src/GridForge/Spatial/RectangularDirectionUtility.cs`
+- Modify: `src/GridForge/Spatial/RectangularDirection.cs`
 
 Responsibilities:
 
@@ -158,16 +159,19 @@ Neighbor offsets in the XZ plane:
 ( 0, +1)
 ```
 
-Vertical neighbors:
+Vertical and layer neighbors:
 
 ```text
 (0, +1, 0)
 (0, -1, 0)
+(+1, +1,  0) (+1, +1, -1) ( 0, +1, -1) (-1, +1,  0) (-1, +1, +1) ( 0, +1, +1)
+(+1, -1,  0) (+1, -1, -1) ( 0, -1, -1) (-1, -1,  0) (-1, -1, +1) ( 0, -1, +1)
 ```
 
-The first release exposes 6 planar neighbors plus above/below as the primary
-hex neighbor set. Hex diagonal or edge-adjacent vertical neighbor sets are
-deferred until a concrete query needs them.
+`GetHexNeighbors(...)` exposes all 20 directions: 6 same-layer planar
+neighbors, 7 neighbors on the layer below, and 7 neighbors on the layer above.
+`HexDirectionUtility.Primary` exposes the 8 face-adjacent directions when a
+caller only wants planar movement plus direct above/below.
 
 ### Hex Orientation
 
@@ -278,7 +282,7 @@ Phase 0 locked these public-shape facts:
 | `TryGetVoxel(position)` | snaps rectangular world position to `(x, y, z)` | projects world XZ to axial `(q, r)`, rounds deterministically, and resolves layer `y` |
 | `TryGetVoxel(VoxelIndex)` | interprets index as rectangular local coordinates | interprets index as axial `q`, layer `y`, axial `r` |
 | `Voxel.WorldPosition` | rectangular cell center | hex-prism center |
-| neighbor lookup | current 6/20/26 direction model | hex planar neighbors plus vertical layer neighbors |
+| neighbor lookup | 26-direction full neighborhood with subset arrays | 20-direction full neighborhood with subset arrays |
 | `GridTracer.TraceLine(...)` | rectangular line coverage | hex line coverage through axial/cube interpolation and deterministic rounding |
 | `GridTracer.GetCoveredVoxels(...)` | rectangular bounds coverage | conservative hex coverage over intersecting hex centers or cells |
 | blockers | apply to covered rectangular voxels | apply to covered hex-prism voxels |
@@ -294,8 +298,8 @@ Likely files:
 - `src/GridForge/Configuration/GridConfiguration.cs`
 - `src/GridForge/Grids/Managers/GridWorld.cs`
 - `src/GridForge/Grids/VoxelGrid.cs`
-- `src/GridForge/Spatial/SpatialDirection.cs`
-- `src/GridForge/Spatial/SpatialAwareness.cs`
+- `src/GridForge/Spatial/RectangularDirection.cs`
+- `src/GridForge/Spatial/RectangularDirectionUtility.cs`
 
 Checklist:
 
@@ -304,8 +308,9 @@ Checklist:
 - [x] Use direct `GridConfiguration` topology fields; do not add a separate topology configuration wrapper.
 - [x] Keep `VoxelIndex.x/y/z` as the single topology-local coordinate type for the first release.
 - [x] Use `PointyTop` as the default hex orientation for examples while fully supporting `FlatTop`.
-- [x] Use 6 planar neighbors plus above/below as the primary hex neighbor set.
-- [x] Keep rectangular diagonal neighbor APIs rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
+- [x] Use the 20-cell hex-prism neighborhood for full hex neighbor lookup.
+- [x] Keep the 8 face-adjacent hex directions available through `HexDirectionUtility.Primary`.
+- [x] Add matching rectangular and hex direction subsets for face-adjacent, planar, vertical, layer, and diagonal groups.
 - [x] Record the decisions in this plan before implementation starts.
 
 Decision record:
@@ -317,8 +322,9 @@ Decision record:
 - `GridConfiguration` directly carries topology kind and metrics fields with rectangular defaults. Topology identity and metrics participate in duplicate-grid detection.
 - `VoxelIndex` remains the single topology-local coordinate type: rectangular grids use `(x, y, z)`, while hex grids use axial `(q, y, r)`.
 - Documentation and examples default to `PointyTop`; `FlatTop` is first-class and must have exact tests.
-- The first hex neighbor surface is 6 deterministic planar axial neighbors plus above/below. Expanded diagonal or vertical-edge neighbor sets are deferred until a concrete query needs them.
-- Existing rectangular diagonal APIs remain rectangular-only. Hex should use topology-aware neighbor descriptors rather than overloading the 26-direction rectangular `SpatialDirection` enum.
+- The full hex neighbor surface is 20 deterministic directions: 6 same-layer planar neighbors, 7 below-layer neighbors, and 7 above-layer neighbors.
+- `HexDirectionUtility.Primary` carries the 8 face-adjacent directions: the 6 planar axial neighbors plus direct below/above.
+- Existing rectangular diagonal APIs remain rectangular-only. Hex should use `HexDirection` rather than overloading the 26-direction rectangular `RectangularDirection` enum.
 - Mixed rectangular/hex grids may coexist in one `GridWorld`, but cross-topology voxel-neighbor bridging is intentional absence until an explicit mapping is designed.
 
 Exit criteria:
@@ -453,40 +459,62 @@ Intent: make adjacency correct when grids of the same or different topology coex
 
 Likely files:
 
-- Create: `src/GridForge/Spatial/GridNeighborKind.cs`
-- Create: `src/GridForge/Spatial/GridNeighborOffset.cs`
-- Modify: `src/GridForge/Spatial/SpatialAwareness.cs`
-- Modify: `src/GridForge/Spatial/SpatialDirection.cs`
-- Modify: `src/GridForge/Grids/Managers/GridDirectionUtility.cs`
+- Create: `src/GridForge/Spatial/HexDirection.cs`
+- Create: `src/GridForge/Spatial/HexDirectionUtility.cs`
+- Rename: `src/GridForge/Spatial/SpatialDirection.cs` to `src/GridForge/Spatial/RectangularDirection.cs`
+- Rename: `src/GridForge/Spatial/SpatialAwareness.cs` to `src/GridForge/Spatial/RectangularDirectionUtility.cs`
+- Delete: `src/GridForge/Grids/Managers/GridDirectionUtility.cs`
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
 - Modify: `src/GridForge/Grids/Nodes/Voxel.cs`
+- Modify: `tests/GridForge.Benchmarks/Memory/NeighborCacheBenchmarks.cs`
+- Modify: `tests/GridForge.Benchmarks/Memory/SparseVoxelGridBenchmarks.cs`
 - Test: `tests/GridForge.Tests/Grids/Voxel.Tests.cs`
 - Test: `tests/GridForge.Tests/Grids/VoxelGrid.Tests.cs`
 - Test: `tests/GridForge.Tests/Grids/HexPrismGrid.Tests.cs`
 
 Checklist:
 
-- [ ] Add topology-provided neighbor offset enumeration.
-- [ ] Preserve existing rectangular `SpatialDirection` ordering for rectangular grids.
-- [ ] Add deterministic hex neighbor ordering for 6 planar neighbors plus above/below.
-- [ ] Decide and implement how `Voxel.GetNeighbors(...)` exposes topology-specific neighbor identity without forcing hex into the 26-direction rectangular enum.
-- [ ] Invalidate boundary neighbor caches through topology-aware boundary ranges.
-- [ ] Validate same-topology conjoined neighbors for rectangular-to-rectangular and hex-to-hex grids.
-- [ ] Validate mixed-topology overlap behavior. Recommended first release: allow world-level coexistence, but only same-topology conjoined voxel-neighbor bridging unless a mixed-topology mapping is explicitly designed.
-- [ ] Add tests for missing neighbors, same-grid hex planar neighbors, vertical hex neighbors, hex grid boundary neighbors, and mixed rectangular/hex coexistence.
+- [x] Add internal topology-provided neighbor slot enumeration.
+- [x] Preserve existing rectangular direction ordering for rectangular grids through `RectangularDirection`.
+- [x] Add deterministic hex neighbor ordering for the full 20-cell hex-prism neighborhood.
+- [x] Preserve the 8 face-adjacent hex directions as `HexDirectionUtility.Primary`.
+- [x] Split public neighbor APIs into `Voxel.GetRectangularNeighbors(...)` / `TryGetRectangularNeighbor(...)` and `Voxel.GetHexNeighbors(...)` / `TryGetHexNeighbor(...)`.
+- [x] Invalidate boundary neighbor caches through topology-aware boundary ranges.
+- [x] Validate same-topology conjoined neighbors for rectangular-to-rectangular and hex-to-hex grids.
+- [x] Validate mixed-topology overlap behavior. Recommended first release: allow world-level coexistence, but only same-topology conjoined voxel-neighbor bridging unless a mixed-topology mapping is explicitly designed.
+- [x] Add tests for missing neighbors, same-grid hex planar neighbors, vertical hex neighbors, hex grid boundary neighbors, and mixed rectangular/hex coexistence.
 
 Exit criteria:
 
-- [ ] Rectangular neighbor behavior remains unchanged.
-- [ ] Hex neighbor behavior is deterministic and documented.
-- [ ] Mixed topology grids can coexist in one world without accidental neighbor corruption.
+- [x] Rectangular neighbor behavior remains unchanged.
+- [x] Hex neighbor behavior is deterministic and documented.
+- [x] Mixed topology grids can coexist in one world without accidental neighbor corruption.
+
+Progress notes:
+
+- Completed 2026-06-12.
+- Added `RectangularDirection` and `HexDirection` as separate public direction enums so callers do not need topology slot indices or cross-topology descriptors.
+- `RectangularPrismTopology` now exposes the existing 26 rectangular offsets internally in their original order.
+- `HexPrismTopology` exposes 20 deterministic offsets: 6 same-layer planar neighbors, 7 below-layer neighbors, and 7 above-layer neighbors.
+- `RectangularDirectionUtility` and `HexDirectionUtility` expose deterministic subsets for `Primary`, `Planar`, `Vertical`, layer groups, and vertical diagonals.
+- `Voxel.GetRectangularNeighbors(...)`, `Voxel.TryGetRectangularNeighbor(...)`, `Voxel.GetHexNeighbors(...)`, and `Voxel.TryGetHexNeighbor(...)` expose topology-specific direction identity without asking callers to know neighbor slot indices.
+- Grid neighbor sets are keyed internally by topology-local neighbor slot. Mixed rectangular/hex grids can coexist in one world but do not form voxel-neighbor bridges until an explicit mixed-topology mapping is designed.
+- Boundary cache invalidation now flows through topology-provided boundary ranges.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
-dotnet test GridForge.slnx --configuration Debug --no-build --filter "Voxel|VoxelGrid|HexPrismGrid"
+dotnet test GridForge.slnx --configuration Debug --filter "GetHexNeighbors|TryGetHexNeighbor|HexDirectionUtility|RectangularDirectionUtility"
+dotnet test GridForge.slnx --configuration Debug --filter "HexPrismGrid|Voxel|VoxelGrid"
+dotnet test GridForge.slnx --configuration Debug --no-build
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+git diff --check
 ```
+
+Results: focused direction subset and hex-neighbor tests passed 6/6, and the broader `HexPrismGrid|Voxel|VoxelGrid` slice passed 150/150.
+Full `Debug` tests passed 269/269, full `ReleaseLean` tests passed 271/271, and `git diff --check` reported no whitespace errors.
 
 ## Phase 4: Topology-Aware Coverage, Tracing, Blockers, And Scans
 
@@ -655,7 +683,7 @@ Minimum topology coverage before release:
 | Topology leaks into every caller API | Keep topology inside `VoxelGrid`, `GridTracer`, and manager internals; public workflows remain world/grid/voxel based. |
 | Rectangular hot paths regress | Extract rectangular topology first and benchmark before adding hex behavior. |
 | Floating-point constants sneak into hex math | Add a GridForge-local raw-backed `Sqrt3` and reject runtime `double` conversions in topology code. |
-| `SpatialDirection` cannot represent hex neighbors cleanly | Introduce topology-aware neighbor descriptors instead of forcing hex into the 26-direction rectangular enum. |
+| Rectangular directions cannot represent hex neighbors cleanly | Use separate `RectangularDirection` and `HexDirection` public APIs, with compact topology-local slots kept internal. |
 | Bounds coverage over hex cells is too slow | Start conservative and correct, then benchmark coverage algorithms before optimizing. |
 | Mixed topology neighbor bridging becomes ambiguous | Permit mixed topology coexistence first; defer cross-topology voxel-neighbor bridging until a concrete mapping is designed. |
 | World-level cell-size APIs leak rectangular topology | Move cell geometry to per-grid topology metrics and replace `VoxelSize`/`*VoxelSize` public API names during the breaking topology cleanup. |

@@ -1,5 +1,5 @@
 ﻿//=======================================================================
-// SpatialDirection.cs
+// RectangularDirection.cs
 //=======================================================================
 // MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
@@ -8,10 +8,10 @@
 namespace GridForge.Spatial;
 
 /// <summary>
-/// Represents the 26 possible neighbor directions in a 3x3x3 grid.
+/// Represents the 26 possible neighbor directions in a rectangular-prism 3x3x3 grid.
 /// The integer ordering is used for neighbor indexing and deterministic preferences.
 /// </summary>
-public enum SpatialDirection
+public enum RectangularDirection
 {
     /// <summary>
     /// No linear direction from source

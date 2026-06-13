@@ -20,6 +20,8 @@ internal interface IGridTopology
 
     Fixed64 MaxCellEdge { get; }
 
+    int NeighborSlotCount { get; }
+
     GridDimensions CalculateDimensions(Vector3d boundsMin, Vector3d boundsMax);
 
     (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null);
@@ -31,6 +33,24 @@ internal interface IGridTopology
     Vector3d GetWorldPosition(Vector3d boundsMin, VoxelIndex index);
 
     Vector3d GetWorldOffset((int x, int y, int z) offset);
+
+    VoxelIndex GetNeighborOffset(int slot);
+
+    bool TryGetNeighborSlotFromWorldDelta(Vector3d worldDelta, out int slot);
+
+    bool IsFacingBoundary(VoxelIndex voxelIndex, int slot, int width, int height, int length);
+
+    void GetBoundaryRange(
+        int slot,
+        int width,
+        int height,
+        int length,
+        out int xStart,
+        out int xEnd,
+        out int yStart,
+        out int yEnd,
+        out int zStart,
+        out int zEnd);
 
     Vector3d FloorToGrid(Vector3d boundsMin, Vector3d boundsMax, Vector3d position);
 

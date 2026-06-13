@@ -443,7 +443,7 @@ public class SparseVoxelGridBenchmarks
         {
             for (int i = 0; i < _neighborVoxels.Length; i++)
             {
-                if (_neighborVoxels[i].TryGetNeighborFromDirection(_grid, SpatialDirection.East, out _, useCache))
+                if (_neighborVoxels[i].TryGetRectangularNeighbor(_grid, RectangularDirection.East, out _, useCache))
                     hitCount++;
             }
         }

@@ -236,16 +236,16 @@ public class SparseVoxelGridTests : IDisposable
         Assert.True(_world.TryAddGrid(config, new[] { originIndex }, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(originIndex, out Voxel originVoxel));
-        Assert.False(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out _, useCache: true));
+        Assert.False(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out _, useCache: true));
 
         Assert.True(grid.TryAddVoxel(eastIndex, out Voxel eastVoxel));
 
-        Assert.True(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.True(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out Voxel resolvedNeighbor, useCache: true));
         Assert.Same(eastVoxel, resolvedNeighbor);
 
         Assert.True(grid.TryRemoveVoxel(eastIndex));
 
-        Assert.False(originVoxel.TryGetNeighborFromDirection(grid, SpatialDirection.East, out _, useCache: true));
+        Assert.False(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out _, useCache: true));
     }
 
     [Fact]
@@ -261,16 +261,16 @@ public class SparseVoxelGridTests : IDisposable
         VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
         VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
         Assert.True(firstGrid.TryGetVoxel(firstBoundaryIndex, out Voxel firstBoundaryVoxel));
-        Assert.False(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out _, useCache: true));
+        Assert.False(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out _, useCache: true));
 
         Assert.True(secondGrid.TryAddVoxel(secondBoundaryIndex, out Voxel secondBoundaryVoxel));
 
-        Assert.True(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.True(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out Voxel resolvedNeighbor, useCache: true));
         Assert.Same(secondBoundaryVoxel, resolvedNeighbor);
 
         Assert.True(secondGrid.TryRemoveVoxel(secondBoundaryIndex));
 
-        Assert.False(firstBoundaryVoxel.TryGetNeighborFromDirection(firstGrid, SpatialDirection.East, out _, useCache: true));
+        Assert.False(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out _, useCache: true));
     }
 
     [Fact]

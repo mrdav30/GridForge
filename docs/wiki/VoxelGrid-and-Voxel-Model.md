@@ -75,10 +75,18 @@ A voxel carries:
 
 Neighbor handling spans both `VoxelGrid` and `Voxel`.
 
-- `VoxelGrid.Neighbors` stores neighboring grid ids by `SpatialDirection`
-- `Voxel` exposes directional neighbor lookup through `TryGetNeighborFromDirection(...)` and `GetNeighbors(...)`
+- `VoxelGrid.Neighbors` stores neighboring grid ids by topology-local neighbor slot.
+- `Voxel` exposes rectangular lookup through `TryGetRectangularNeighbor(...)` and `GetRectangularNeighbors(...)`.
+- `Voxel` exposes hex lookup through `TryGetHexNeighbor(...)` and `GetHexNeighbors(...)`.
 
 If a local voxel lookup fails at the edge of a grid, the voxel resolves the matching world-space neighbor through its owning world.
+
+Rectangular full-neighbor lookup uses the 26-cell rectangular-prism
+neighborhood. Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood:
+6 same-layer planar neighbors, 7 neighbors on the layer below, and 7 neighbors
+on the layer above. `RectangularDirectionUtility` and `HexDirectionUtility`
+also expose deterministic subsets such as `Primary`, `Planar`, `Vertical`,
+layer groups, and vertical diagonals.
 
 For sparse grids, missing local neighbors are absent even when their indices are
 inside the grid bounds. Boundary neighbor lookup can still cross into

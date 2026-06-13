@@ -88,7 +88,7 @@ Locked shared decisions:
 - World-level snapping helpers named around `VoxelSize` should be replaced by topology-normalization helpers or rectangular-specific helper names during rectangular topology extraction.
 - `VoxelIndex` remains the single topology-local coordinate type for the first topology release: rectangular `(x, y, z)` and hex axial `(q, y, r)`.
 - Hex examples default to `PointyTop`; `FlatTop` remains fully supported.
-- Hex primary neighbors are the 6 planar axial neighbors plus above/below. Rectangular diagonal neighbor APIs remain rectangular-only until topology-provided expanded neighbor sets have a concrete use case.
+- Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood; `HexDirectionUtility.Primary` keeps the 6 planar axial neighbors plus above/below available as the face-adjacent subset.
 - Missing sparse voxels and unsupported cross-topology neighbor bridges are intentional absence, not default empty cells.
 
 ### 3. Rectangular Topology Extraction
@@ -145,10 +145,10 @@ Completed runtime follow-through:
 
 Implement hex-prism topology after rectangular topology and static sparse storage are stable.
 
-Status: Phase 2 completed on 2026-06-12. Hex-prism construction, fixed-point
-projection, inverse projection, cube rounding, and world/grid/voxel lookup are
-in place; topology-aware neighbors, tracing, coverage, blockers, and scans
-remain in the later hex phases.
+Status: Phase 3 completed on 2026-06-12. Hex-prism construction, fixed-point
+projection, inverse projection, cube rounding, world/grid/voxel lookup, and
+typed rectangular/hex neighbor APIs are in place. Tracing, coverage, blockers,
+and scans remain in the later hex phases.
 
 Why:
 
@@ -229,7 +229,7 @@ Each slice should include:
 | Hex + tracing | Hex coverage becomes slow or nondeterministic | Start conservative and exact, then benchmark before optimizing. |
 | 2D + scans | 2D scans accidentally behave like 3D scans | Use layer-locked XZ filtering with explicit tests. |
 | Sparse + blockers | Missing sparse voxels look like empty dense voxels | Document configured-only blocker behavior and test it. |
-| Hex + neighbors | Hex neighbors are forced into rectangular `SpatialDirection` | Add topology-aware neighbor descriptors instead of overloading rectangular enums. |
+| Hex + neighbors | Hex neighbors are forced into rectangular directions or opaque slot indices | Use separate `RectangularDirection` and `HexDirection` public APIs while keeping compact topology slots internal. |
 | Runtime sparse mutation + blockers | Newly added voxels under active blockers miss obstacle state | Implemented through active-grid change reconciliation and sparse blocker tests. |
 | Public docs + roadmap drift | Users see contradictory semantics | Update README, wiki, XML docs, tests, and benchmarks with each release slice. |
 

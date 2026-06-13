@@ -15,7 +15,7 @@ public class VoxelGridTests : IDisposable
 {
     private GridWorld _world;
 
-    public static TheoryData<SpatialDirection, VoxelIndex> BoundaryDirectionCases => CreateBoundaryDirectionCases();
+    public static TheoryData<RectangularDirection, VoxelIndex> BoundaryDirectionCases => CreateBoundaryDirectionCases();
 
     public VoxelGridTests()
     {
@@ -200,7 +200,7 @@ public class VoxelGridTests : IDisposable
         Assert.True(grid1.NeighborCount >= 1);
 
         // get the direction before removal
-        int neighborIndex = (int)VoxelGrid.GetNeighborDirection(grid1, grid2);
+        int neighborIndex = (int)VoxelGrid.GetRectangularNeighborDirection(grid1, grid2);
 
         _world.TryRemoveGrid(grid2.GridIndex);
 
@@ -470,8 +470,8 @@ public class VoxelGridTests : IDisposable
 
     [Theory]
     [MemberData(nameof(BoundaryDirectionCases))]
-    public void IsFacingBoundaryDirection_ShouldMatchSpatialDirectionOffsets(
-        SpatialDirection direction,
+    public void IsFacingBoundary_ShouldMatchRectangularOffsets(
+        RectangularDirection direction,
         VoxelIndex boundaryIndex)
     {
         Assert.True(_world.TryAddGrid(
@@ -479,11 +479,11 @@ public class VoxelGridTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Assert.True(grid.IsFacingBoundaryDirection(boundaryIndex, direction));
+        Assert.True(grid.IsFacingBoundary(boundaryIndex, direction));
     }
 
     [Fact]
-    public void IsFacingBoundaryDirection_ShouldReturnFalseForCenterVoxel()
+    public void IsFacingBoundary_ShouldReturnFalseForCenterVoxel()
     {
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2)),
@@ -491,8 +491,8 @@ public class VoxelGridTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         VoxelIndex centerIndex = new(1, 1, 1);
 
-        foreach (SpatialDirection direction in SpatialAwareness.AllDirections)
-            Assert.False(grid.IsFacingBoundaryDirection(centerIndex, direction));
+        foreach (RectangularDirection direction in RectangularDirectionUtility.All)
+            Assert.False(grid.IsFacingBoundary(centerIndex, direction));
     }
 
     [Fact]
@@ -503,10 +503,10 @@ public class VoxelGridTests : IDisposable
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        Assert.False(grid.IsFacingBoundaryDirection(new VoxelIndex(0, 0, 0), (SpatialDirection)(-2)));
+        Assert.False(grid.IsFacingBoundary(new VoxelIndex(0, 0, 0), (RectangularDirection)(-2)));
 
-        grid.NotifyBoundaryChange((SpatialDirection)(-2));
-        grid.NotifyBoundaryChange((SpatialDirection)999);
+        grid.NotifyBoundaryChange((RectangularDirection)(-2));
+        grid.NotifyBoundaryChange((RectangularDirection)999);
     }
 
     [Fact]
@@ -518,7 +518,7 @@ public class VoxelGridTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.Voxels[0, 0, 0] = null;
 
-        grid.NotifyBoundaryChange(SpatialDirection.West);
+        grid.NotifyBoundaryChange(RectangularDirection.West);
 
         Assert.Null(grid.Voxels[0, 0, 0]);
     }
@@ -656,7 +656,7 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void GetNeighborDirection_ShouldFollowCardinalAxisOffsets()
+    public void GetRectangularNeighborDirection_ShouldFollowCardinalAxisOffsets()
     {
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
@@ -672,8 +672,8 @@ public class VoxelGridTests : IDisposable
         VoxelGrid eastGrid = _world.ActiveGrids[eastIndex];
         VoxelGrid northGrid = _world.ActiveGrids[northIndex];
 
-        Assert.Equal(SpatialDirection.East, VoxelGrid.GetNeighborDirection(centerGrid, eastGrid));
-        Assert.Equal(SpatialDirection.North, VoxelGrid.GetNeighborDirection(centerGrid, northGrid));
+        Assert.Equal(RectangularDirection.East, VoxelGrid.GetRectangularNeighborDirection(centerGrid, eastGrid));
+        Assert.Equal(RectangularDirection.North, VoxelGrid.GetRectangularNeighborDirection(centerGrid, northGrid));
     }
 
     [Fact]
@@ -722,19 +722,19 @@ public class VoxelGridTests : IDisposable
         Assert.NotEqual(firstKey, differentKey);
     }
 
-    private static TheoryData<SpatialDirection, VoxelIndex> CreateBoundaryDirectionCases()
+    private static TheoryData<RectangularDirection, VoxelIndex> CreateBoundaryDirectionCases()
     {
-        TheoryData<SpatialDirection, VoxelIndex> cases = new();
+        TheoryData<RectangularDirection, VoxelIndex> cases = new();
 
-        for (int i = 0; i < SpatialAwareness.DirectionOffsets.Length; i++)
+        for (int i = 0; i < RectangularDirectionUtility.Offsets.Length; i++)
         {
-            (int x, int y, int z) offset = SpatialAwareness.DirectionOffsets[i];
+            (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[i];
             VoxelIndex boundaryIndex = new(
                 offset.x < 0 ? 0 : offset.x > 0 ? 2 : 1,
                 offset.y < 0 ? 0 : offset.y > 0 ? 2 : 1,
                 offset.z < 0 ? 0 : offset.z > 0 ? 2 : 1);
 
-            cases.Add((SpatialDirection)i, boundaryIndex);
+            cases.Add((RectangularDirection)i, boundaryIndex);
         }
 
         return cases;
