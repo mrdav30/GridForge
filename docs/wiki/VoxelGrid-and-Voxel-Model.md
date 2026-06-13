@@ -97,6 +97,8 @@ Neighbor handling spans both `VoxelGrid` and `Voxel`.
 - `VoxelGrid.Neighbors` stores neighboring grid ids by topology-local neighbor slot.
 - `Voxel` exposes rectangular lookup through `TryGetRectangularNeighbor(...)` and `GetRectangularNeighbors(...)`.
 - `Voxel` exposes hex lookup through `TryGetHexNeighbor(...)` and `GetHexNeighbors(...)`.
+- `Voxel` exposes mixed rectangular/hex contact lookup through
+  `GetMixedTopologyNeighborsInto(...)` and `HasMixedTopologyNeighbor(...)`.
 
 If a local voxel lookup fails at the edge of a grid, the voxel resolves the matching world-space neighbor through its owning world.
 
@@ -111,10 +113,20 @@ For sparse grids, missing local neighbors are absent even when their indices are
 inside the grid bounds. Boundary neighbor lookup can still cross into
 configured voxels on neighboring grids.
 
-Mixed rectangular/hex grids can coexist in one `GridWorld`, but voxel-neighbor
-bridging is same-topology only in this release. Use world-space lookup,
-tracing, blockers, or scans when behavior intentionally crosses topology
-families.
+Mixed rectangular/hex grids can coexist in one `GridWorld`. Direction-based
+neighbor APIs remain same-topology only because rectangular and hex direction
+sets do not have a stable one-to-one mapping. When behavior intentionally
+crosses topology families, use the mixed-topology contact query:
+
+```csharp
+SwiftList<Voxel> mixedNeighbors = new SwiftList<Voxel>();
+voxel.GetMixedTopologyNeighborsInto(grid, mixedNeighbors);
+```
+
+The mixed query treats voxel footprint AABBs as the deterministic contact
+model. It returns zero, one, or many physical voxels from grids with a different
+topology, in deterministic grid/index order. Sparse target grids return only
+configured voxels; missing sparse cells are not materialized.
 
 ## Reset And Reuse
 

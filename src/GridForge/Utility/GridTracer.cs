@@ -575,28 +575,6 @@ public static class GridTracer
             new Vector3d(max.X + expansion, max.Y + expansion, max.Z + expansion));
     }
 
-    private static bool TryGetCoveredVoxelIndexRange(
-        VoxelGrid grid,
-        Vector3d queryMin,
-        Vector3d queryMax,
-        out VoxelIndex minIndex,
-        out VoxelIndex maxIndex)
-    {
-        minIndex = default;
-        maxIndex = default;
-
-        (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(queryMin, queryMax);
-        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax)
-            || !grid.TryGetVoxelIndex(clippedMin, out minIndex)
-            || !grid.TryGetVoxelIndex(clippedMax, out maxIndex))
-        {
-            return false;
-        }
-
-        OrderVoxelIndexRange(ref minIndex, ref maxIndex);
-        return true;
-    }
-
     private static bool TryGetCoveredScanCellRange(
         VoxelGrid grid,
         Vector3d queryMin,
@@ -616,49 +594,13 @@ public static class GridTracer
         zMax = 0;
 
         (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(queryMin, queryMax);
-        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax))
+        if (!TopologyVoxelRangeUtility.TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax))
             return false;
 
         (xMin, yMin, zMin) = grid.SnapToScanCell(clippedMin);
         (xMax, yMax, zMax) = grid.SnapToScanCell(clippedMax);
         OrderScanCellRange(ref xMin, ref yMin, ref zMin, ref xMax, ref yMax, ref zMax);
         return true;
-    }
-
-    private static bool TryClipBoundsToGrid(
-        VoxelGrid grid,
-        Vector3d min,
-        Vector3d max,
-        out Vector3d clippedMin,
-        out Vector3d clippedMax)
-    {
-        Fixed64 xMin = FixedMath.Max(min.X, grid.BoundsMin.X);
-        Fixed64 yMin = FixedMath.Max(min.Y, grid.BoundsMin.Y);
-        Fixed64 zMin = FixedMath.Max(min.Z, grid.BoundsMin.Z);
-        Fixed64 xMax = FixedMath.Min(max.X, grid.BoundsMax.X);
-        Fixed64 yMax = FixedMath.Min(max.Y, grid.BoundsMax.Y);
-        Fixed64 zMax = FixedMath.Min(max.Z, grid.BoundsMax.Z);
-
-        if (xMin > xMax || yMin > yMax || zMin > zMax)
-        {
-            clippedMin = default;
-            clippedMax = default;
-            return false;
-        }
-
-        clippedMin = new Vector3d(xMin, yMin, zMin);
-        clippedMax = new Vector3d(xMax, yMax, zMax);
-        return true;
-    }
-
-    private static void OrderVoxelIndexRange(ref VoxelIndex min, ref VoxelIndex max)
-    {
-        if (min.x > max.x)
-            (min.x, max.x) = (max.x, min.x);
-        if (min.y > max.y)
-            (min.y, max.y) = (max.y, min.y);
-        if (min.z > max.z)
-            (min.z, max.z) = (max.z, min.z);
     }
 
     private static void OrderScanCellRange(
@@ -994,7 +936,7 @@ public static class GridTracer
             return;
         }
 
-        if (!TryGetCoveredVoxelIndexRange(
+        if (!TopologyVoxelRangeUtility.TryGetCandidateRange(
             currentGrid,
             queryMin,
             queryMax,
@@ -1014,7 +956,7 @@ public static class GridTracer
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        if (!TryGetHexCoveredVoxelIndexRange(
+        if (!TopologyVoxelRangeUtility.TryGetCandidateRange(
             currentGrid,
             queryMin,
             queryMax,
@@ -1060,7 +1002,7 @@ public static class GridTracer
         SwiftList<ScanCell> scanCells,
         SwiftHashSet<ScanCell> scanCellRedundancyCheck)
     {
-        if (!TryGetHexCoveredVoxelIndexRange(
+        if (!TopologyVoxelRangeUtility.TryGetCandidateRange(
             currentGrid,
             queryMin,
             queryMax,
@@ -1079,84 +1021,6 @@ public static class GridTracer
             maxIndex.z / currentGrid.ScanCellSize,
             scanCells,
             scanCellRedundancyCheck);
-    }
-
-    private static bool TryGetHexCoveredVoxelIndexRange(
-        VoxelGrid grid,
-        Vector3d queryMin,
-        Vector3d queryMax,
-        out VoxelIndex minIndex,
-        out VoxelIndex maxIndex)
-    {
-        minIndex = default;
-        maxIndex = default;
-
-        GridTopologyMetrics metrics = grid.Topology.Metrics;
-        Fixed64 horizontalExpansion = metrics.CellRadius;
-        Fixed64 layerHeight = metrics.LayerHeight;
-        Vector3d candidateMin = new Vector3d(
-            queryMin.X - horizontalExpansion,
-            queryMin.Y,
-            queryMin.Z - horizontalExpansion);
-        Vector3d candidateMax = new Vector3d(
-            queryMax.X + horizontalExpansion,
-            queryMax.Y,
-            queryMax.Z + horizontalExpansion);
-
-        if (!TryClipBoundsToGrid(grid, candidateMin, candidateMax, out Vector3d clippedMin, out Vector3d clippedMax))
-            return false;
-
-        Fixed64 qMin = Fixed64.MaxValue;
-        Fixed64 qMax = Fixed64.MinValue;
-        Fixed64 rMin = Fixed64.MaxValue;
-        Fixed64 rMax = Fixed64.MinValue;
-
-        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMin.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMin.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-        IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
-
-        int xMin = System.Math.Max(0, qMin.FloorToInt() - 1);
-        int xMax = System.Math.Min(grid.Width - 1, qMax.CeilToInt() + 1);
-        int zMin = System.Math.Max(0, rMin.FloorToInt() - 1);
-        int zMax = System.Math.Min(grid.Length - 1, rMax.CeilToInt() + 1);
-        int yMin = System.Math.Max(
-            0,
-            ((clippedMin.Y - grid.BoundsMin.Y) / layerHeight).FloorToInt());
-        int yMax = System.Math.Min(
-            grid.Height - 1,
-            ((clippedMax.Y - grid.BoundsMin.Y) / layerHeight).CeilToInt());
-
-        if (xMin > xMax || yMin > yMax || zMin > zMax)
-            return false;
-
-        minIndex = new VoxelIndex(xMin, yMin, zMin);
-        maxIndex = new VoxelIndex(xMax, yMax, zMax);
-        return true;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void IncludeHexAxialCorner(
-        Vector3d gridBoundsMin,
-        GridTopologyMetrics metrics,
-        Fixed64 x,
-        Fixed64 z,
-        ref Fixed64 qMin,
-        ref Fixed64 qMax,
-        ref Fixed64 rMin,
-        ref Fixed64 rMax)
-    {
-        HexCoordinateUtility.WorldOffsetToAxial(
-            x - gridBoundsMin.X,
-            z - gridBoundsMin.Z,
-            metrics,
-            out Fixed64 q,
-            out Fixed64 r);
-
-        qMin = FixedMath.Min(qMin, q);
-        qMax = FixedMath.Max(qMax, q);
-        rMin = FixedMath.Min(rMin, r);
-        rMax = FixedMath.Max(rMax, r);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

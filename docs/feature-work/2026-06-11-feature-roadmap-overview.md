@@ -152,8 +152,9 @@ inverse projection, cube rounding, world/grid/voxel lookup, typed
 rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
 occupants, scans, benchmark-backed performance hardening, docs, and release
 alignment are complete. Sparse hex-prism validation was completed in the hex
-follow-up plan; mixed-topology neighbor bridging remains deferred unless
-explicitly designed.
+follow-up plan. Mixed-topology neighbor bridging now has a tested contact-query
+implementation, with performance hardening and final release alignment still
+tracked in the follow-up plan.
 
 Why:
 
@@ -167,7 +168,7 @@ Target outcome:
 - Hex grids use axial coordinates in the XZ plane: `VoxelIndex.x = q`, `VoxelIndex.z = r`, `VoxelIndex.y = layer`.
 - Both `FlatTop` and `PointyTop` orientations are supported.
 - Query workflows remain world/grid/voxel based.
-- Mixed rectangular/hex grids can coexist, with cross-topology neighbor bridging deferred unless explicitly designed.
+- Mixed rectangular/hex grids can coexist, with cross-topology voxel bridging exposed as a one-to-many contact query.
 - Sparse hex grids are supported as explicitly configured axial cells.
 
 ### 6. Runtime Sparse Mutation

@@ -15,7 +15,8 @@ benchmarks, and documentation.
 
 ### 1. Mixed-Topology Voxel Neighbor Bridging
 
-Status: planned.
+Status: phases 1-4 completed on 2026-06-13; phase 5 performance hardening and
+phase 6 final release alignment remain.
 
 Intent: decide whether rectangular-prism and hex-prism grids should ever expose
 direct voxel-neighbor bridges across topology boundaries.
@@ -29,8 +30,9 @@ Current state:
   neighbor slot. Mixed rectangular/hex grids intentionally do not enter this
   slot map today.
 - Mixed rectangular/hex lookup, tracing, blockers, occupants, and scans already
-  work at the `GridWorld` level; only direct voxel-neighbor bridging is
-  deferred.
+  work at the `GridWorld` level.
+- Direct mixed voxel-neighbor bridging is now exposed as a contact query that
+  leaves same-topology direction APIs unchanged.
 
 Preferred design:
 
@@ -65,21 +67,16 @@ Approaches considered:
   and makes one-to-many mixed contacts explicit. This is an AABB contact model,
   not exact hex polygon intersection.
 
-Questions to answer:
+Decisions:
 
-- Should the public API live on `Voxel`, `GridWorld`, or a dedicated query
-  helper? Current recommendation: expose the friendly entry point on `Voxel`
-  and put the implementation in an internal resolver.
-- Should results be raw `Voxel` values or a small result struct with the target
-  grid and overlap metadata? Current recommendation: start with raw `Voxel`
-  results plus caller-owned result storage; add metadata only if a real caller
-  needs it.
-- Should an enumerable convenience API exist? Current recommendation: add an
-  allocation-conscious `GetMixedTopologyNeighborsInto(...)` first, then add an
-  enumerable wrapper only if it can match existing API ergonomics without
-  hiding pooled lifetime rules.
+- The public API lives on `Voxel`, with implementation in an internal resolver.
+- Results are raw `Voxel` values because callers can already inspect
+  `WorldIndex`, `Index`, `WorldPosition`, and owner grid state.
+- Caller-owned result storage is the primary API. No enumerable wrapper was
+  added in phases 1-4 because it would hide lifetime/allocation tradeoffs
+  without a proven caller need.
 
-Candidate public API:
+Implemented public API:
 
 ```csharp
 public void GetMixedTopologyNeighborsInto(
@@ -92,18 +89,11 @@ public bool HasMixedTopologyNeighbor(
     Fixed64? tolerance = null);
 ```
 
-Possible follow-up convenience, only if the implementation can document result
-lifetime clearly:
-
-```csharp
-public IEnumerable<Voxel> GetMixedTopologyNeighbors(
-    VoxelGrid ownerGrid,
-    Fixed64? tolerance = null);
-```
-
 Implementation phases:
 
 #### Phase 1: Footprint And Candidate Foundations
+
+Status: completed on 2026-06-13.
 
 Goal: add the internal geometry needed for mixed-topology contact without
 changing public behavior.
@@ -130,6 +120,8 @@ Exit criteria:
 - No public API behavior changes yet.
 
 #### Phase 2: Internal Mixed-Topology Resolver
+
+Status: completed on 2026-06-13.
 
 Goal: implement the bridge as a storage-neutral, topology-aware query.
 
@@ -163,6 +155,8 @@ Exit criteria:
 
 #### Phase 3: Public API And Same-Topology Isolation
 
+Status: completed on 2026-06-13.
+
 Goal: expose the feature without making existing neighbor APIs confusing again.
 
 Tasks:
@@ -186,6 +180,8 @@ Exit criteria:
   enums.
 
 #### Phase 4: Validation Matrix
+
+Status: completed on 2026-06-13.
 
 Goal: prove correctness across orientations, directions, sparse storage, and
 load/unload behavior.
@@ -221,6 +217,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 #### Phase 5: Performance Hardening
 
+Status: planned.
+
 Goal: make sure the mixed bridge is useful without turning a voxel neighbor
 query into a broad world scan.
 
@@ -246,6 +244,9 @@ Exit criteria:
   capture a measured reason to add a dedicated mixed-neighbor cache.
 
 #### Phase 6: Documentation And Plan Closure
+
+Status: partially completed; API docs were aligned with phases 1-4, while
+benchmark documentation and plan closure remain tied to phase 5.
 
 Goal: document the final contract without implying direction-based mixed
 neighbors.

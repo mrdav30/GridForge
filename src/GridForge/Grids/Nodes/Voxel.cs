@@ -10,6 +10,7 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
+using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -606,6 +607,39 @@ public class Voxel : IEquatable<Voxel>
             && ownerGrid.TryGetNeighborSlot(direction, out int slot)
             && TryGetNeighborFromSlot(ownerGrid, slot, out neighbor, useCache);
     }
+
+    /// <summary>
+    /// Fills caller-owned storage with mixed-topology neighboring voxels whose world-space
+    /// voxel footprints touch this voxel's footprint.
+    /// </summary>
+    /// <param name="ownerGrid">The active grid that owns this voxel.</param>
+    /// <param name="results">Caller-owned storage cleared and filled with mixed-topology contacts.</param>
+    /// <param name="tolerance">Optional fixed-point tolerance applied to footprint contact checks.</param>
+    public void GetMixedTopologyNeighborsInto(
+        VoxelGrid ownerGrid,
+        SwiftList<Voxel> results,
+        Fixed64? tolerance = null)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
+        if (!IsValidOwnerGrid(ownerGrid))
+            return;
+
+        MixedTopologyNeighborResolver.AddNeighbors(this, ownerGrid, results, tolerance);
+    }
+
+    /// <summary>
+    /// Determines whether this voxel has at least one mixed-topology neighboring voxel.
+    /// </summary>
+    /// <param name="ownerGrid">The active grid that owns this voxel.</param>
+    /// <param name="tolerance">Optional fixed-point tolerance applied to footprint contact checks.</param>
+    /// <returns>True when a mixed-topology contact exists; otherwise false.</returns>
+    public bool HasMixedTopologyNeighbor(
+        VoxelGrid ownerGrid,
+        Fixed64? tolerance = null) =>
+        IsValidOwnerGrid(ownerGrid)
+        && MixedTopologyNeighborResolver.HasNeighbor(this, ownerGrid, tolerance);
 
     private bool TryGetNeighborFromSlot(
         VoxelGrid ownerGrid,

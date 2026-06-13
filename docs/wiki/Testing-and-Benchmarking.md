@@ -55,6 +55,7 @@ Hex-prism topology coverage includes:
 - exact cube-coordinate rounding at hex boundaries
 - mixed rectangular/hex world lookup
 - topology-specific rectangular and hex neighbor APIs
+- mixed-topology voxel contact queries for pointy-top and flat-top hex grids
 - hex line tracing and conservative bounds coverage
 - hex blocker apply/remove behavior
 - hex occupant registration and radius scans

@@ -134,8 +134,9 @@ range.
 Hex-prism grids use axial XZ coordinates: `VoxelIndex.x = q`,
 `VoxelIndex.z = r`, and `VoxelIndex.y = layer`. `FlatTop` and `PointyTop`
 change only the fixed-point projection. Mixed rectangular/hex grids can live in
-one `GridWorld`, while voxel-neighbor bridging remains same-topology only until
-a concrete cross-topology mapping is designed.
+one `GridWorld`; direct mixed voxel bridging is exposed as a contact query over
+world-space voxel footprint AABBs rather than as rectangular or hex direction
+slots.
 
 ## Query Architecture
 
@@ -184,8 +185,16 @@ Neighbor handling is split into two related but distinct problems:
 - `VoxelGrid` tracks neighboring grids by topology-local neighbor slot, and each slot can contain more than one grid.
 - `Voxel` exposes rectangular lookup through `RectangularDirection` and hex lookup through `HexDirection`.
 - Rectangular full-neighbor lookup covers 26 directions. Hex full-neighbor lookup covers 20 directions, with `Primary`, `Planar`, `Vertical`, layer, and vertical-diagonal subsets exposed through the direction utilities.
+- Mixed rectangular/hex lookup uses `GetMixedTopologyNeighborsInto(...)` and
+  `HasMixedTopologyNeighbor(...)`, returning one-to-many contacts from grids
+  that use a different topology.
 
 Boundary voxels bridge the two. When grids load or unload, `VoxelGrid.NotifyBoundaryChange(...)` invalidates neighbor caches only on the affected boundary slices instead of on every voxel.
+
+`VoxelGrid.Neighbors` remains a same-topology grid-slot map. Mixed topology
+queries use the world's spatial hash, derive a topology-aware candidate range
+per target grid, and final-filter by fixed-point AABB overlap. This avoids
+ambiguous direction slots and keeps sparse target grids configured-only.
 
 ## Coverage Architecture
 
