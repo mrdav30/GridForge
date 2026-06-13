@@ -3,6 +3,7 @@ using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
@@ -660,6 +661,109 @@ public class GridTracerTests : IDisposable
         Assert.Contains(new Vector3d(3, 1, 3), tracedPositions);
     }
 
+    [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void TraceLine_ShouldUseHexAxialInterpolation(HexOrientation orientation)
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                orientation);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(3, 0, 0));
+            VoxelIndex[] expected =
+            {
+                new(0, 0, 0),
+                new(1, 0, 0),
+                new(2, 0, 0),
+                new(3, 0, 0)
+            };
+
+            Assert.True(_world.TryAddGrid(configuration, out _));
+
+            Vector3d start = configuration.BoundsMin;
+            Vector3d end = configuration.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(expected[^1], metrics);
+
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(_world, start, end, includeEnd: true)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Equal(expected, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void GetCoveredVoxels_ShouldUseConservativeHexCoverageWhenAabbCornerIsOutsideHexFootprint()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1));
+            VoxelIndex expectedOrigin = new(0, 0, 0);
+            VoxelIndex expectedEast = new(1, 0, 0);
+
+            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Vector3d outsideHexFootprint = new(grid.BoundsMax.X, grid.BoundsMin.Y, grid.BoundsMin.Z);
+            VoxelIndex[] coveredIndices = GridTracer.GetCoveredVoxels(_world, grid.BoundsMin, outsideHexFootprint)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Contains(expectedOrigin, coveredIndices);
+            Assert.Contains(expectedEast, coveredIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void GetCoveredScanCells_ShouldUseConservativeHexCoverageWhenAabbCornerIsOutsideHexFootprint()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1), scanCellSize: 1);
+
+            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Vector3d outsideHexFootprint = new(grid.BoundsMax.X, grid.BoundsMin.Y, grid.BoundsMin.Z);
+            int[] coveredCellKeys = GridTracer.GetCoveredScanCells(_world, grid.BoundsMin, outsideHexFootprint)
+                .Select(cell => cell.CellKey)
+                .ToArray();
+
+            Assert.Contains(grid.GetScanCellKey(new VoxelIndex(0, 0, 0)), coveredCellKeys);
+            Assert.Contains(grid.GetScanCellKey(new VoxelIndex(1, 0, 0)), coveredCellKeys);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
     [Fact]
     public void GetCoveredVoxels_ShouldIgnoreStaleGridReferences()
     {
@@ -769,5 +873,26 @@ public class GridTracerTests : IDisposable
             max,
             scanCellSize,
             storageKind: GridStorageKind.Sparse);
+    }
+
+    private static GridConfiguration CreateHexConfiguration(
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize) =>
+        CreateHexConfiguration(Vector3d.Zero, metrics, maxIndex, scanCellSize);
+
+    private static GridConfiguration CreateHexConfiguration(
+        Vector3d boundsMin,
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        Vector3d boundsMax = boundsMin + HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        return new GridConfiguration(
+            boundsMin,
+            boundsMax,
+            scanCellSize,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics);
     }
 }

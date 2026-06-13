@@ -1,6 +1,7 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
@@ -101,6 +102,55 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(GridOccupantManager.TryRemoveVoxelOccupant(_world, voxel.WorldIndex, occupant));
         Assert.True(grid.TryRemoveVoxelOccupant(voxel.Index, secondOccupant));
         Assert.False(scanCell.IsOccupied);
+    }
+
+    [Fact]
+    public void OccupantManagerAndScanRadius_ShouldSupportHexCoverageTicketsAndExactDistance()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(2, 0, 0), scanCellSize: 4);
+
+        Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector3d scanCenter = grid.BoundsMin;
+        TestOccupant insideRadius = new(
+            grid.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(1, 0, 0), metrics),
+            6);
+        TestOccupant outsideRadiusSameScanCell = new(
+            grid.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(2, 0, 0), metrics),
+            6);
+
+        Assert.True(GridOccupantManager.TryRegister(_world, insideRadius));
+        Assert.True(GridOccupantManager.TryRegister(_world, outsideRadiusSameScanCell));
+        Assert.True(grid.TryGetVoxel(insideRadius.Position, out Voxel insideVoxel));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            insideRadius,
+            insideVoxel.WorldIndex,
+            out int ticket));
+        Assert.True(GridScanManager.TryGetVoxelOccupant(
+            _world,
+            insideVoxel.WorldIndex,
+            ticket,
+            out IVoxelOccupant ticketOccupant));
+
+        IVoxelOccupant[] results = GridScanManager.ScanRadius(
+                _world,
+                scanCenter,
+                new Fixed64(4),
+                groupCondition: groupId => groupId == 6)
+            .ToArray();
+
+        Assert.Same(insideRadius, ticketOccupant);
+        Assert.Contains(insideRadius, results);
+        Assert.DoesNotContain(outsideRadiusSameScanCell, results);
+
+        Assert.True(GridOccupantManager.TryDeregister(_world, insideRadius));
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world, insideRadius, insideVoxel.WorldIndex, out _));
     }
 
     [Fact]
@@ -943,6 +993,20 @@ public class ManagerCoverageTests : IDisposable
 
     private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max, int scanCellSize) =>
         new(min, max, scanCellSize, storageKind: GridStorageKind.Sparse);
+
+    private static GridConfiguration CreateHexConfiguration(
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        Vector3d boundsMax = HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        return new GridConfiguration(
+            Vector3d.Zero,
+            boundsMax,
+            scanCellSize,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics);
+    }
 
     private sealed class SharedIdOccupant : IVoxelOccupant
     {

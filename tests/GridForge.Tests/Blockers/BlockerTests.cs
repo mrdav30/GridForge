@@ -3,6 +3,7 @@ using FixedMathSharp.Bounds;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
 using GridForge.Grids.Tests;
 using GridForge.Spatial;
 using GridForge.Utility;
@@ -853,6 +854,78 @@ public class BlockerTests : IDisposable
         Assert.False(voxel.IsBlocked);
     }
 
+    [Fact]
+    public void BoundsBlocker_ShouldApplyAndRemoveCachedHexCoverageWhenAabbCornerIsOutsideHexFootprint()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1));
+
+        Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel origin));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel east));
+
+        Vector3d outsideHexFootprint = new(grid.BoundsMax.X, grid.BoundsMin.Y, grid.BoundsMin.Z);
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(grid.BoundsMin, outsideHexFootprint),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(origin.IsBlocked);
+        Assert.True(east.IsBlocked);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(origin.IsBlocked);
+        Assert.False(east.IsBlocked);
+    }
+
+    [Fact]
+    public void BoundsBlocker_ShouldApplyAcrossRectangularAndHexGridsInSameWorld()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(new Fixed64(2), Fixed64.One);
+        GridConfiguration rectangularConfiguration = new(
+            new Vector3d(-3, 0, 0),
+            new Vector3d(-1, 0, 0));
+        GridConfiguration hexConfiguration = CreateHexConfiguration(
+            new Vector3d(0, 0, 0),
+            metrics,
+            new VoxelIndex(1, 0, 0));
+
+        Assert.True(_world.TryAddGrid(rectangularConfiguration, out ushort rectangularGridIndex));
+        Assert.True(_world.TryAddGrid(hexConfiguration, out ushort hexGridIndex));
+
+        VoxelGrid rectangularGrid = _world.ActiveGrids[rectangularGridIndex];
+        VoxelGrid hexGrid = _world.ActiveGrids[hexGridIndex];
+        Assert.True(rectangularGrid.TryGetVoxel(new Vector3d(-2, 0, 0), out Voxel rectangularVoxel));
+        Assert.True(hexGrid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel hexVoxel));
+
+        Vector3d boundsMax = hexGrid.GetWorldPosition(new VoxelIndex(1, 0, 0));
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(new Vector3d(-2, 0, 0), boundsMax),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.True(rectangularVoxel.IsBlocked);
+        Assert.True(hexVoxel.IsBlocked);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(rectangularVoxel.IsBlocked);
+        Assert.False(hexVoxel.IsBlocked);
+    }
+
     private static object InvokeBlockerMethod(Blocker blocker, string methodName, params object[] arguments)
     {
         MethodInfo method = typeof(Blocker).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
@@ -863,4 +936,25 @@ public class BlockerTests : IDisposable
 
     private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max) =>
         new(min, max, storageKind: GridStorageKind.Sparse);
+
+    private static GridConfiguration CreateHexConfiguration(
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize) =>
+        CreateHexConfiguration(Vector3d.Zero, metrics, maxIndex, scanCellSize);
+
+    private static GridConfiguration CreateHexConfiguration(
+        Vector3d boundsMin,
+        GridTopologyMetrics metrics,
+        VoxelIndex maxIndex,
+        int scanCellSize = GridConfiguration.DefaultScanCellSize)
+    {
+        Vector3d boundsMax = boundsMin + HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        return new GridConfiguration(
+            boundsMin,
+            boundsMax,
+            scanCellSize,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics);
+    }
 }

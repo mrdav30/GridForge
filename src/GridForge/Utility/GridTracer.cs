@@ -7,11 +7,13 @@
 
 using FixedMathSharp;
 using GridForge.Grids;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
 using SwiftCollections.Utility;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace GridForge.Utility;
 
@@ -369,6 +371,17 @@ public static class GridTracer
         SwiftList<ScanCell> scanCells,
         SwiftHashSet<ScanCell> voxelRedundancyCheck)
     {
+        if (currentGrid.Topology.Kind == GridTopologyKind.HexPrism)
+        {
+            AddCoveredHexScanCellsForGrid(
+                currentGrid,
+                queryMin,
+                queryMax,
+                scanCells,
+                voxelRedundancyCheck);
+            return;
+        }
+
         if (!TryGetCoveredScanCellRange(
             currentGrid,
             queryMin,
@@ -705,6 +718,18 @@ public static class GridTracer
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
+        if (currentGrid.Topology.Kind == GridTopologyKind.HexPrism)
+        {
+            AddHexTraceLineGridVoxels(
+                currentGrid,
+                start,
+                end,
+                padding,
+                voxelList,
+                voxelRedundancyCheck);
+            return;
+        }
+
         TraceLinePlan plan = CreateTraceLinePlan(currentGrid, start, end, padding);
 
         for (Fixed64 i = Fixed64.Zero; i <= plan.Steps; i += Fixed64.One)
@@ -719,6 +744,107 @@ public static class GridTracer
                 continue;
 
             voxelList.Add(voxel!);
+        }
+    }
+
+    private static void AddHexTraceLineGridVoxels(
+        VoxelGrid currentGrid,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
+        SwiftList<Voxel> voxelList,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (!TryCreateHexTraceEndpoints(
+            currentGrid,
+            start,
+            end,
+            padding,
+            out VoxelIndex startIndex,
+            out VoxelIndex endIndex))
+        {
+            return;
+        }
+
+        int steps = CalculateHexTraceSteps(startIndex, endIndex);
+        if (steps == 0)
+        {
+            AddTraceVoxelByIndex(currentGrid, startIndex, voxelList, voxelRedundancyCheck);
+            return;
+        }
+
+        Fixed64 stepCount = new(steps);
+        for (int i = 0; i < steps; i++)
+        {
+            Fixed64 t = new Fixed64(i) / stepCount;
+            VoxelIndex traceIndex = InterpolateHexTraceIndex(startIndex, endIndex, t);
+            AddTraceVoxelByIndex(currentGrid, traceIndex, voxelList, voxelRedundancyCheck);
+        }
+    }
+
+    private static bool TryCreateHexTraceEndpoints(
+        VoxelGrid grid,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
+        out VoxelIndex startIndex,
+        out VoxelIndex endIndex)
+    {
+        startIndex = default;
+        endIndex = default;
+
+        (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(start, end, padding);
+        Vector3d traceStart = grid.FloorToGrid(CreateTraceEndpoint(
+            start,
+            end,
+            snappedMin,
+            snappedMax,
+            useMinWhenIncreasing: true));
+        Vector3d traceEnd = grid.FloorToGrid(CreateTraceEndpoint(
+            start,
+            end,
+            snappedMin,
+            snappedMax,
+            useMinWhenIncreasing: false));
+
+        return grid.TryGetVoxelIndex(traceStart, out startIndex)
+            && grid.TryGetVoxelIndex(traceEnd, out endIndex);
+    }
+
+    private static int CalculateHexTraceSteps(VoxelIndex start, VoxelIndex end)
+    {
+        int qDelta = System.Math.Abs(end.x - start.x);
+        int rDelta = System.Math.Abs(end.z - start.z);
+        int sDelta = System.Math.Abs((-end.x - end.z) - (-start.x - start.z));
+        int planarSteps = System.Math.Max(qDelta, System.Math.Max(rDelta, sDelta));
+        int verticalSteps = System.Math.Abs(end.y - start.y);
+        return System.Math.Max(planarSteps, verticalSteps);
+    }
+
+    private static VoxelIndex InterpolateHexTraceIndex(VoxelIndex start, VoxelIndex end, Fixed64 t)
+    {
+        Fixed64 q = Interpolate(new Fixed64(start.x), new Fixed64(end.x), t);
+        Fixed64 y = Interpolate(new Fixed64(start.y), new Fixed64(end.y), t);
+        Fixed64 r = Interpolate(new Fixed64(start.z), new Fixed64(end.z), t);
+        return HexCoordinateUtility.RoundAxial(q, y, r);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Fixed64 Interpolate(Fixed64 start, Fixed64 end, Fixed64 t) =>
+        start + (end - start) * t;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddTraceVoxelByIndex(
+        VoxelGrid grid,
+        VoxelIndex index,
+        SwiftList<Voxel> voxelList,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (grid.TryGetVoxel(index, out Voxel? voxel)
+            && voxel != null
+            && voxelRedundancyCheck.Add(voxel))
+        {
+            voxelList.Add(voxel);
         }
     }
 
@@ -855,6 +981,17 @@ public static class GridTracer
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
+        if (currentGrid.Topology.Kind == GridTopologyKind.HexPrism)
+        {
+            AddCoveredHexGridVoxels(
+                currentGrid,
+                queryMin,
+                queryMax,
+                voxelList,
+                voxelRedundancyCheck);
+            return;
+        }
+
         if (!TryGetCoveredVoxelIndexRange(
             currentGrid,
             queryMin,
@@ -866,6 +1003,159 @@ public static class GridTracer
         }
 
         currentGrid.AddVoxelsInIndexRange(minIndex, maxIndex, voxelList, voxelRedundancyCheck);
+    }
+
+    private static void AddCoveredHexGridVoxels(
+        VoxelGrid currentGrid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        SwiftList<Voxel> voxelList,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (!TryGetHexCoveredVoxelIndexRange(
+            currentGrid,
+            queryMin,
+            queryMax,
+            out VoxelIndex minIndex,
+            out VoxelIndex maxIndex))
+        {
+            return;
+        }
+
+        for (int x = minIndex.x; x <= maxIndex.x; x++)
+        {
+            for (int y = minIndex.y; y <= maxIndex.y; y++)
+            {
+                for (int z = minIndex.z; z <= maxIndex.z; z++)
+                {
+                    if (currentGrid.TryGetVoxel(x, y, z, out Voxel? voxel)
+                        && voxel != null
+                        && IsHexVoxelCenterInHorizontalCoverage(currentGrid, voxel, queryMin, queryMax)
+                        && voxelRedundancyCheck.Add(voxel))
+                    {
+                        voxelList.Add(voxel);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void AddCoveredHexScanCellsForGrid(
+        VoxelGrid currentGrid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        SwiftList<ScanCell> scanCells,
+        SwiftHashSet<ScanCell> scanCellRedundancyCheck)
+    {
+        if (!TryGetHexCoveredVoxelIndexRange(
+            currentGrid,
+            queryMin,
+            queryMax,
+            out VoxelIndex minIndex,
+            out VoxelIndex maxIndex))
+        {
+            return;
+        }
+
+        currentGrid.AddScanCellsInRange(
+            minIndex.x / currentGrid.ScanCellSize,
+            minIndex.y / currentGrid.ScanCellSize,
+            minIndex.z / currentGrid.ScanCellSize,
+            maxIndex.x / currentGrid.ScanCellSize,
+            maxIndex.y / currentGrid.ScanCellSize,
+            maxIndex.z / currentGrid.ScanCellSize,
+            scanCells,
+            scanCellRedundancyCheck);
+    }
+
+    private static bool TryGetHexCoveredVoxelIndexRange(
+        VoxelGrid grid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        out VoxelIndex minIndex,
+        out VoxelIndex maxIndex)
+    {
+        minIndex = default;
+        maxIndex = default;
+
+        Fixed64 horizontalExpansion = grid.Topology.Metrics.CellRadius;
+        Vector3d candidateMin = new(
+            queryMin.X - horizontalExpansion,
+            queryMin.Y,
+            queryMin.Z - horizontalExpansion);
+        Vector3d candidateMax = new(
+            queryMax.X + horizontalExpansion,
+            queryMax.Y,
+            queryMax.Z + horizontalExpansion);
+
+        if (!TryClipBoundsToGrid(grid, candidateMin, candidateMax, out Vector3d clippedMin, out Vector3d clippedMax))
+            return false;
+
+        Fixed64 qMin = Fixed64.MaxValue;
+        Fixed64 qMax = Fixed64.MinValue;
+        Fixed64 rMin = Fixed64.MaxValue;
+        Fixed64 rMax = Fixed64.MinValue;
+
+        IncludeHexAxialCorner(grid, clippedMin.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid, clippedMin.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid, clippedMax.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+        IncludeHexAxialCorner(grid, clippedMax.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
+
+        int xMin = System.Math.Max(0, qMin.FloorToInt() - 1);
+        int xMax = System.Math.Min(grid.Width - 1, qMax.CeilToInt() + 1);
+        int zMin = System.Math.Max(0, rMin.FloorToInt() - 1);
+        int zMax = System.Math.Min(grid.Length - 1, rMax.CeilToInt() + 1);
+        int yMin = System.Math.Max(
+            0,
+            ((clippedMin.Y - grid.BoundsMin.Y) / grid.Topology.Metrics.LayerHeight).FloorToInt());
+        int yMax = System.Math.Min(
+            grid.Height - 1,
+            ((clippedMax.Y - grid.BoundsMin.Y) / grid.Topology.Metrics.LayerHeight).CeilToInt());
+
+        if (xMin > xMax || yMin > yMax || zMin > zMax)
+            return false;
+
+        minIndex = new VoxelIndex(xMin, yMin, zMin);
+        maxIndex = new VoxelIndex(xMax, yMax, zMax);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void IncludeHexAxialCorner(
+        VoxelGrid grid,
+        Fixed64 x,
+        Fixed64 z,
+        ref Fixed64 qMin,
+        ref Fixed64 qMax,
+        ref Fixed64 rMin,
+        ref Fixed64 rMax)
+    {
+        HexCoordinateUtility.WorldOffsetToAxial(
+            x - grid.BoundsMin.X,
+            z - grid.BoundsMin.Z,
+            grid.Topology.Metrics,
+            out Fixed64 q,
+            out Fixed64 r);
+
+        qMin = FixedMath.Min(qMin, q);
+        qMax = FixedMath.Max(qMax, q);
+        rMin = FixedMath.Min(rMin, r);
+        rMax = FixedMath.Max(rMax, r);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsHexVoxelCenterInHorizontalCoverage(
+        VoxelGrid grid,
+        Voxel voxel,
+        Vector3d queryMin,
+        Vector3d queryMax)
+    {
+        Fixed64 horizontalExpansion = grid.Topology.Metrics.CellRadius;
+        Vector3d position = voxel.WorldPosition;
+        return position.X >= queryMin.X - horizontalExpansion
+            && position.X <= queryMax.X + horizontalExpansion
+            && position.Z >= queryMin.Z - horizontalExpansion
+            && position.Z <= queryMax.Z + horizontalExpansion;
     }
 
     private static IEnumerable<ScanCell> GetCoveredScanCellsIterator(

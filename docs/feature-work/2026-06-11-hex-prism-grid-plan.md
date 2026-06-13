@@ -535,22 +535,29 @@ Likely files:
 
 Checklist:
 
-- [ ] Move covered-voxel enumeration behind topology-aware methods.
-- [ ] Move covered-scan-cell enumeration behind topology-aware methods.
-- [ ] Implement hex line tracing through axial/cube interpolation and deterministic rounding.
-- [ ] Implement conservative hex bounds coverage for world-space bounds.
-- [ ] Ensure blockers apply to all covered hex-prism voxels and remove by token correctly.
-- [ ] Ensure cached blocker removal via `WorldVoxelIndex` works for hex grids.
-- [ ] Ensure occupant registration, deregistration, ticket lookup, and radius scan work on hex grids.
-- [ ] Ensure radius scans still apply exact fixed-point distance checks after scan-cell candidate enumeration.
-- [ ] Add tests for line traces across flat-top and pointy-top hex grids.
-- [ ] Add tests for blockers spanning rectangular and hex grids in the same world.
+- [x] Move covered-voxel enumeration behind topology-aware methods.
+- [x] Move covered-scan-cell enumeration behind topology-aware methods.
+- [x] Implement hex line tracing through axial/cube interpolation and deterministic rounding.
+- [x] Implement conservative hex bounds coverage for world-space bounds.
+- [x] Ensure blockers apply to all covered hex-prism voxels and remove by token correctly.
+- [x] Ensure cached blocker removal via `WorldVoxelIndex` works for hex grids.
+- [x] Ensure occupant registration, deregistration, ticket lookup, and radius scan work on hex grids.
+- [x] Ensure radius scans still apply exact fixed-point distance checks after scan-cell candidate enumeration.
+- [x] Add tests for line traces across flat-top and pointy-top hex grids.
+- [x] Add tests for blockers spanning rectangular and hex grids in the same world.
+
+Implementation notes:
+
+- `GridTracer` keeps rectangular coverage on the existing index-range path and routes hex-prism coverage through axial candidate ranges.
+- Hex bounds coverage is conservative: the broad phase expands X/Z by the hex cell radius, projects the candidate AABB corners into axial space, and filters covered voxels by horizontal cell-radius reach. Scan-cell coverage uses the same candidate range and leaves occupant radius checks to the existing exact fixed-point narrow phase.
+- Hex line tracing now samples deterministic axial/cube interpolation between snapped grid endpoints and preserves the existing `includeEnd` behavior by leaving terminal voxel insertion to the shared endpoint path.
+- Blockers and scans continue to call tracer APIs without caller-side topology branching. Cached blocker removal still relies on `WorldVoxelIndex`.
 
 Exit criteria:
 
-- [ ] `GridTracer`, blockers, occupants, and scans do not require caller-side topology branching.
-- [ ] Hex coverage is deterministic, documented, and benchmark-ready.
-- [ ] Rectangular coverage remains unchanged.
+- [x] `GridTracer`, blockers, occupants, and scans do not require caller-side topology branching.
+- [x] Hex coverage is deterministic, documented, and benchmark-ready.
+- [x] Rectangular coverage remains unchanged.
 
 Validation:
 
@@ -558,6 +565,15 @@ Validation:
 dotnet build GridForge.slnx --configuration Debug
 dotnet test GridForge.slnx --configuration Debug --no-build
 ```
+
+Results: focused Phase 4 coverage passed 7/7, including flat-top and pointy-top
+hex line traces, conservative hex voxel/scan-cell bounds coverage, cached hex
+blocker removal, mixed rectangular/hex blocker coverage, and hex occupant
+ticket/radius scan behavior. Broader `GridTracer|Blocker|ManagerCoverage|ScanCell|HexPrismGrid`
+coverage passed 123/123. Full `Debug` build passed with 0 warnings and 0
+errors, full `Debug` tests passed 276/276, `ReleaseLean` build passed with 0
+warnings and 0 errors, `ReleaseLean` tests passed 278/278, and
+`git diff --check` reported no whitespace errors.
 
 ## Phase 5: Performance Hardening And Benchmarks
 
