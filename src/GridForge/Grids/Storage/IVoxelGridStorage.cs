@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
 using System.Collections.Generic;
@@ -22,6 +23,13 @@ internal interface IVoxelGridStorage
     void Reset(VoxelGrid grid);
 
     bool TryGetVoxel(int x, int y, int z, out Voxel? result);
+
+    bool TryGetClosestVoxel(
+        VoxelGrid grid,
+        VoxelIndex closestIndex,
+        Vector3d position,
+        out Voxel? result,
+        out Fixed64 distanceSquared);
 
     bool TryGetScanCell(int key, out ScanCell? result);
 

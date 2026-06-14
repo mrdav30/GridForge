@@ -793,6 +793,38 @@ public class VoxelGrid
     }
 
     /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to the supplied world position.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The world position to resolve.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestVoxel(Vector3d position, out Voxel? result) =>
+        TryGetClosestVoxel(position, out result, out _);
+
+    internal bool TryGetClosestVoxel(
+        Vector3d position,
+        out Voxel? result,
+        out Fixed64 distanceSquared)
+    {
+        result = null;
+        distanceSquared = Fixed64.MaxValue;
+
+        if (!IsActive)
+        {
+            GridForgeLogger.Channel.Warn($"This Grid is not currently allocated.");
+            return false;
+        }
+
+        if (_storage == null || ConfiguredVoxelCount == 0)
+            return false;
+
+        VoxelIndex closestIndex = Topology.GetClosestVoxelIndex(BoundsMin, Width, Height, Length, position);
+        return _storage.TryGetClosestVoxel(this, closestIndex, position, out result, out distanceSquared);
+    }
+
+    /// <summary>
     /// Retrieves a <see cref="Voxel"/> from a 2D XZ-plane world position on the default world Y layer.
     /// </summary>
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
@@ -813,6 +845,29 @@ public class VoxelGrid
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetVoxel(Vector2d position, Fixed64 layerY, out Voxel? result) =>
         TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the default world Y layer.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestVoxel(Vector2d position, out Voxel? result) =>
+        TryGetClosestVoxel(position, default, out result);
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the supplied world Y layer.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestVoxel(Vector2d position, Fixed64 layerY, out Voxel? result) =>
+        TryGetClosestVoxel(GridPlane2d.ToWorld(position, layerY), out result);
 
     /// <summary>
     /// Computes the scan cell key for a given world position.

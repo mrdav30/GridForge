@@ -58,8 +58,8 @@ GridForge is published in two build variants:
 
 | Package | Use when |
 | --- | --- |
-| `GridForge` | You want the default package with `MemoryPack`, `FixedMathSharp`, and `SwiftCollections`. |
-| `GridForge.Lean` | You want the same core voxel-grid API without the direct `MemoryPack` dependency, using `FixedMathSharp.Lean` and `SwiftCollections.Lean`. |
+| `GridForge` | You want the default package with `MemoryPack`, `FixedMathSharp`, `SwiftCollections`, and the fixed-point SwiftCollections query companion. |
+| `GridForge.Lean` | You want the same core voxel-grid API without the direct `MemoryPack` dependency, using the lean FixedMathSharp and SwiftCollections package family. |
 
 Install the lean package with:
 
@@ -102,6 +102,13 @@ if (world.TryGetGridAndVoxel(position, out VoxelGrid resolvedGrid, out Voxel vox
     Console.WriteLine($"World position: {voxel.WorldPosition}");
 }
 ```
+
+Use the `TryGetClosest...` lookup variants when a query should snap to the
+nearest grid bounds or nearest physical voxel center instead of requiring the
+position to fall inside an existing voxel. Sparse closest-voxel queries only
+consider configured physical voxels. In mixed-topology worlds, pass the
+optional `GridTopologyKind` argument to `GridWorld` closest queries to restrict
+candidate grids to rectangular-prism or hex-prism topology.
 
 For flat XZ simulations, lookup APIs also accept `Vector2d` positions. In
 GridForge, `Vector2d(x, z)` maps to world `Vector3d(x, layerY, z)`, with

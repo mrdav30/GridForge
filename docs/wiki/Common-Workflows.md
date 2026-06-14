@@ -105,10 +105,16 @@ Choose the lookup based on what you need:
 - `world.TryGetGrid(...)`
 - `world.TryGetVoxel(...)`
 - `world.TryGetGridAndVoxel(...)`
+- `world.TryGetClosestGrid(...)` when you need the nearest registered grid bounds
+- `world.TryGetClosestVoxel(...)` when you need the nearest physical voxel center
+- `world.TryGetClosestGridAndVoxel(...)` when you need both the nearest physical voxel and its owner
 
 For flat XZ simulations, these lookup helpers also accept `Vector2d` positions.
 `Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and `layerY`
-selects the world Y layer. Omitting `layerY` resolves on world Y `0`.
+selects the world Y layer. Omitting `layerY` resolves on world Y `0`. The
+`GridWorld` closest-grid and closest-voxel overloads also accept an optional
+`GridTopologyKind` filter when a mixed-topology world should only consider
+rectangular-prism or hex-prism grids.
 
 ```csharp
 Vector2d flatPosition = new Vector2d(2, -3);
@@ -122,6 +128,23 @@ if (world.TryGetGridAndVoxel(flatPosition, (Fixed64)1, out VoxelGrid flatGrid, o
 {
     Console.WriteLine($"Grid: {flatGrid.GridIndex}");
     Console.WriteLine($"Voxel: {flatVoxel.Index}");
+}
+
+Vector3d freePosition = Vector3d.FromDouble(2.75, 0, -3.25);
+if (world.TryGetClosestGridAndVoxel(freePosition, out VoxelGrid closestGrid, out Voxel closestVoxel))
+{
+    Console.WriteLine($"Closest grid: {closestGrid.GridIndex}");
+    Console.WriteLine($"Closest voxel center: {closestVoxel.WorldPosition}");
+}
+
+if (world.TryGetClosestGridAndVoxel(
+    freePosition,
+    out VoxelGrid closestHexGrid,
+    out Voxel closestHexVoxel,
+    GridTopologyKind.HexPrism))
+{
+    Console.WriteLine($"Closest hex grid: {closestHexGrid.GridIndex}");
+    Console.WriteLine($"Closest hex voxel center: {closestHexVoxel.WorldPosition}");
 }
 ```
 

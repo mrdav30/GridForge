@@ -107,6 +107,28 @@ internal sealed class HexPrismTopology : IGridTopology
         return true;
     }
 
+    public VoxelIndex GetClosestVoxelIndex(
+        Vector3d boundsMin,
+        int width,
+        int height,
+        int length,
+        Vector3d position)
+    {
+        HexCoordinateUtility.WorldOffsetToAxial(
+            position.X - boundsMin.X,
+            position.Z - boundsMin.Z,
+            Metrics,
+            out Fixed64 q,
+            out Fixed64 r);
+        HexCoordinateUtility.RoundCube(q, r, out int roundedQ, out int roundedR);
+
+        int roundedY = ((position.Y - boundsMin.Y) / Metrics.LayerHeight).RoundToInt();
+        return new VoxelIndex(
+            FixedMath.Clamp(roundedQ, 0, width - 1),
+            FixedMath.Clamp(roundedY, 0, height - 1),
+            FixedMath.Clamp(roundedR, 0, length - 1));
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d GetWorldPosition(Vector3d boundsMin, VoxelIndex index) =>
         boundsMin + HexCoordinateUtility.AxialToWorldOffset(index, Metrics);

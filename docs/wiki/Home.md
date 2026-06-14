@@ -56,7 +56,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Target frameworks: `netstandard2.1`, `net8.0`
 - Test framework: xUnit v3
 - Benchmark framework: BenchmarkDotNet
-- Key packages: `FixedMathSharp`, `SwiftCollections`, and optional `MemoryPack`
+- Key packages: `FixedMathSharp`, `SwiftCollections`, `SwiftCollections.FixedMathSharp`, and optional `MemoryPack`
 - Packaging note: `GeneratePackageOnBuild` is enabled, so library builds also emit NuGet packages
 
 ## The Core Mental Model

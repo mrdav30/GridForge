@@ -57,6 +57,7 @@ The standard package currently depends on:
 
 - `FixedMathSharp`
 - `SwiftCollections`
+- `SwiftCollections.FixedMathSharp`
 - `MemoryPack`
 - `System.Text.Json` for the `netstandard2.1` target only
 
@@ -64,6 +65,7 @@ The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
 
 - `FixedMathSharp.Lean`
 - `SwiftCollections.Lean`
+- `SwiftCollections.FixedMathSharp.Lean`
 - the `GRIDFORGE_DISABLE_MEMORYPACK` compilation symbol
 
 Both package variants expose the same core voxel-grid API.

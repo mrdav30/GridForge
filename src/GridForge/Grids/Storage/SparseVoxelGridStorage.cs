@@ -5,8 +5,10 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Query;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -33,6 +35,8 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
     private int _scanHeight;
     private int _scanLength;
     private int _scanLayerSize;
+    private SwiftFixedBVH<Voxel>? _closestVoxelTree;
+    private int[]? _closestQueryStack;
 
     public void Initialize(VoxelGrid grid, VoxelIndex[] configuredVoxels)
     {
@@ -53,6 +57,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             ScanCells = Pools.ScanCellMapPool.Rent();
             _blocks = Pools.SparseVoxelBlockMapPool.Rent();
             _voxels = ArrayPool<Voxel>.Shared.Rent(ConfiguredVoxelCount);
+            _closestVoxelTree = new SwiftFixedBVH<Voxel>(GetClosestVoxelTreeCapacity(ConfiguredVoxelCount));
 
             for (int i = 0; i < configuredVoxels.Length; i++)
             {
@@ -67,7 +72,9 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
                     ScanCells.Add(cellKey, block.ScanCell!);
                 }
 
-                _voxels[i] = block.AddPreparedVoxel(grid, index);
+                Voxel voxel = block.AddPreparedVoxel(grid, index);
+                _voxels[i] = voxel;
+                AddVoxelToClosestTree(voxel, ConfiguredVoxelCount);
             }
         }
         finally
@@ -81,6 +88,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         ReleaseBlocks(grid);
         ReleaseScanCells();
         ReleaseVoxelCache();
+        ReleaseClosestVoxelTree();
 
         ConfiguredVoxelCount = 0;
     }
@@ -98,6 +106,28 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         return cellKey >= 0
             && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
             && block.TryGetVoxel(index, out result);
+    }
+
+    public bool TryGetClosestVoxel(
+        VoxelGrid grid,
+        VoxelIndex closestIndex,
+        Vector3d position,
+        out Voxel? result,
+        out Fixed64 distanceSquared)
+    {
+        result = null;
+        distanceSquared = Fixed64.MaxValue;
+
+        if (_voxels == null || ConfiguredVoxelCount == 0)
+            return false;
+
+        if (TryGetVoxel(closestIndex.x, closestIndex.y, closestIndex.z, out result))
+        {
+            distanceSquared = (result!.WorldPosition - position).MagnitudeSquared;
+            return true;
+        }
+
+        return TryGetClosestVoxelFromTree(position, out result, out distanceSquared);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -143,6 +173,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         }
 
         AddVoxelToCache(voxel!);
+        AddVoxelToClosestTree(voxel!, ConfiguredVoxelCount + 1);
         ConfiguredVoxelCount++;
         return true;
     }
@@ -162,6 +193,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         }
 
         RemoveVoxelFromCache(index);
+        RemoveVoxelFromClosestTree(voxel!);
         ConfiguredVoxelCount--;
 
         if (block.Count == 0)
@@ -267,6 +299,24 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         _voxels![insertIndex] = voxel;
     }
 
+    private void AddVoxelToClosestTree(Voxel voxel, int targetVoxelCount)
+    {
+        _closestVoxelTree ??= new SwiftFixedBVH<Voxel>(GetClosestVoxelTreeCapacity(targetVoxelCount));
+        _closestVoxelTree.EnsureCapacity(GetClosestVoxelTreeCapacity(targetVoxelCount));
+        _closestVoxelTree.Insert(voxel, CreateVoxelPointBounds(voxel));
+        EnsureClosestQueryStackCapacity(_closestVoxelTree.NodePool.Length);
+    }
+
+    private void RemoveVoxelFromClosestTree(Voxel voxel)
+    {
+        if (_closestVoxelTree == null)
+            return;
+
+        _closestVoxelTree.Remove(voxel);
+        if (_closestVoxelTree.Count == 0)
+            ReleaseClosestVoxelTree();
+    }
+
     private void RemoveVoxelFromCache(VoxelIndex index)
     {
         if (_voxels == null || !TryFindVoxelCacheIndex(index, out int voxelArrayIndex))
@@ -329,6 +379,173 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
 
         voxelArrayIndex = min;
         return false;
+    }
+
+    private bool TryGetClosestVoxelFromTree(
+        Vector3d position,
+        out Voxel? result,
+        out Fixed64 distanceSquared)
+    {
+        result = null;
+        distanceSquared = Fixed64.MaxValue;
+
+        if (_closestVoxelTree == null || _closestVoxelTree.Count == 0)
+            return false;
+
+        int rootNodeIndex = _closestVoxelTree.RootNodeIndex;
+        if (rootNodeIndex < 0)
+            return false;
+
+        SwiftBVHNode<Voxel, FixedBoundVolume>[] nodes = _closestVoxelTree.NodePool;
+        EnsureClosestQueryStackCapacity(nodes.Length);
+
+        int[] stack = _closestQueryStack!;
+        int stackCount = 0;
+        stack[stackCount++] = rootNodeIndex;
+
+        while (stackCount > 0)
+        {
+            int nodeIndex = stack[--stackCount];
+            ref SwiftBVHNode<Voxel, FixedBoundVolume> node = ref nodes[nodeIndex];
+            if (!node.IsAllocated)
+                continue;
+
+            Fixed64 nodeDistanceSquared = GetDistanceSquaredToBounds(position, node.Bounds);
+            if (nodeDistanceSquared > distanceSquared)
+                continue;
+
+            if (node.IsLeaf)
+            {
+                Voxel candidate = node.Value;
+                Fixed64 candidateDistanceSquared = (candidate.WorldPosition - position).MagnitudeSquared;
+                if (result == null
+                    || candidateDistanceSquared < distanceSquared
+                    || (candidateDistanceSquared == distanceSquared
+                        && CompareVoxelIndices(candidate.Index, result.Index) < 0))
+                {
+                    result = candidate;
+                    distanceSquared = candidateDistanceSquared;
+                }
+
+                continue;
+            }
+
+            PushClosestChildrenFirst(position, nodes, node, stack, ref stackCount, distanceSquared);
+        }
+
+        return result != null;
+    }
+
+    private static void PushClosestChildrenFirst(
+        Vector3d position,
+        SwiftBVHNode<Voxel, FixedBoundVolume>[] nodes,
+        SwiftBVHNode<Voxel, FixedBoundVolume> node,
+        int[] stack,
+        ref int stackCount,
+        Fixed64 bestDistanceSquared)
+    {
+        int leftIndex = node.LeftChildIndex;
+        int rightIndex = node.RightChildIndex;
+
+        if (leftIndex < 0)
+        {
+            PushChildIfWithinBest(position, nodes, rightIndex, stack, ref stackCount, bestDistanceSquared);
+            return;
+        }
+
+        if (rightIndex < 0)
+        {
+            PushChildIfWithinBest(position, nodes, leftIndex, stack, ref stackCount, bestDistanceSquared);
+            return;
+        }
+
+        Fixed64 leftDistanceSquared = GetDistanceSquaredToBounds(position, nodes[leftIndex].Bounds);
+        Fixed64 rightDistanceSquared = GetDistanceSquaredToBounds(position, nodes[rightIndex].Bounds);
+
+        if (leftDistanceSquared <= rightDistanceSquared)
+        {
+            PushChildIfWithinBest(rightIndex, rightDistanceSquared, stack, ref stackCount, bestDistanceSquared);
+            PushChildIfWithinBest(leftIndex, leftDistanceSquared, stack, ref stackCount, bestDistanceSquared);
+        }
+        else
+        {
+            PushChildIfWithinBest(leftIndex, leftDistanceSquared, stack, ref stackCount, bestDistanceSquared);
+            PushChildIfWithinBest(rightIndex, rightDistanceSquared, stack, ref stackCount, bestDistanceSquared);
+        }
+    }
+
+    private static void PushChildIfWithinBest(
+        Vector3d position,
+        SwiftBVHNode<Voxel, FixedBoundVolume>[] nodes,
+        int childIndex,
+        int[] stack,
+        ref int stackCount,
+        Fixed64 bestDistanceSquared)
+    {
+        if (childIndex < 0)
+            return;
+
+        Fixed64 childDistanceSquared = GetDistanceSquaredToBounds(position, nodes[childIndex].Bounds);
+        PushChildIfWithinBest(childIndex, childDistanceSquared, stack, ref stackCount, bestDistanceSquared);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void PushChildIfWithinBest(
+        int childIndex,
+        Fixed64 childDistanceSquared,
+        int[] stack,
+        ref int stackCount,
+        Fixed64 bestDistanceSquared)
+    {
+        if (childDistanceSquared <= bestDistanceSquared)
+            stack[stackCount++] = childIndex;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static FixedBoundVolume CreateVoxelPointBounds(Voxel voxel) =>
+        new(voxel.WorldPosition, voxel.WorldPosition);
+
+    private static Fixed64 GetDistanceSquaredToBounds(Vector3d position, FixedBoundVolume bounds)
+    {
+        Fixed64 x = GetAxisDistance(position.X, bounds.Min.X, bounds.Max.X);
+        Fixed64 y = GetAxisDistance(position.Y, bounds.Min.Y, bounds.Max.Y);
+        Fixed64 z = GetAxisDistance(position.Z, bounds.Min.Z, bounds.Max.Z);
+        return x * x + y * y + z * z;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Fixed64 GetAxisDistance(Fixed64 value, Fixed64 min, Fixed64 max)
+    {
+        if (value < min)
+            return min - value;
+
+        return value > max ? value - max : Fixed64.Zero;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int GetClosestVoxelTreeCapacity(int voxelCapacity)
+    {
+        if (voxelCapacity <= 1)
+            return 1;
+
+        return voxelCapacity > int.MaxValue / 2
+            ? int.MaxValue
+            : voxelCapacity << 1;
+    }
+
+    private void EnsureClosestQueryStackCapacity(int minCapacity)
+    {
+        if (minCapacity <= 0)
+            minCapacity = 1;
+
+        if (_closestQueryStack != null && _closestQueryStack.Length >= minCapacity)
+            return;
+
+        int[] replacement = ArrayPool<int>.Shared.Rent(minCapacity);
+        if (_closestQueryStack != null)
+            ArrayPool<int>.Shared.Return(_closestQueryStack);
+
+        _closestQueryStack = replacement;
     }
 
     private void ReleaseBlock(VoxelGrid grid, int cellKey, SparseVoxelBlock block)
@@ -428,5 +645,16 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         _scanHeight = 0;
         _scanLength = 0;
         _scanLayerSize = 0;
+    }
+
+    private void ReleaseClosestVoxelTree()
+    {
+        _closestVoxelTree?.Clear();
+        _closestVoxelTree = null;
+
+        if (_closestQueryStack != null)
+            ArrayPool<int>.Shared.Return(_closestQueryStack);
+
+        _closestQueryStack = null;
     }
 }

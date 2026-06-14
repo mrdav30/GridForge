@@ -109,6 +109,15 @@ sparse cells.
 `TryGetVoxel(...)` and `TryGetGridAndVoxel(...)` require a physical voxel. They
 return `false` when the addressed sparse voxel was not configured.
 
+`TryGetClosestVoxel(...)` and `TryGetClosestGridAndVoxel(...)` snap to the
+nearest physical voxel center. For sparse grids, missing address-space cells are
+ignored and only configured voxels participate. `TryGetClosestGrid(...)` is
+separate: it resolves the nearest registered grid bounds, even when that grid is
+sparse and the nearest physical voxel belongs to another grid. In
+mixed-topology worlds, `GridWorld` closest query methods can take an optional
+`GridTopologyKind` filter so only rectangular-prism or hex-prism grids
+participate.
+
 ```csharp
 Vector3d missingPosition = new Vector3d(1, 0, 1);
 

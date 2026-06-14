@@ -87,6 +87,17 @@ internal sealed class RectangularPrismTopology : IGridTopology
             && (uint)result.z < (uint)length;
     }
 
+    public VoxelIndex GetClosestVoxelIndex(
+        Vector3d boundsMin,
+        int width,
+        int height,
+        int length,
+        Vector3d position) =>
+        new(
+            GetClosestAxisIndex(position.X - boundsMin.X, Metrics.CellWidth, width),
+            GetClosestAxisIndex(position.Y - boundsMin.Y, Metrics.LayerHeight, height),
+            GetClosestAxisIndex(position.Z - boundsMin.Z, Metrics.CellLength, length));
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d GetWorldPosition(Vector3d boundsMin, VoxelIndex index) =>
          new(boundsMin.X + index.x * Metrics.CellWidth,
@@ -195,5 +206,9 @@ internal sealed class RectangularPrismTopology : IGridTopology
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 CeilToCellOrigin(Fixed64 coordinate, Fixed64 cellSize) =>
         (coordinate.Abs() / cellSize).CeilToInt() * cellSize * coordinate.Sign();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int GetClosestAxisIndex(Fixed64 offset, Fixed64 cellSize, int size) =>
+        FixedMath.Clamp((offset / cellSize).RoundToInt(), 0, size - 1);
 
 }

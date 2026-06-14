@@ -99,6 +99,10 @@ Dense grids configure every voxel in the normalized address space. Sparse grids
 use the same bounds as an address space but only configured voxels physically
 exist. Missing sparse voxels are intentional absence for lookup, tracing,
 blockers, occupants, partitions, scan cells, and neighbor resolution.
+Closest-voxel lookup is center-based and only considers physical voxels, while
+closest-grid lookup is based on registered grid bounds. `GridWorld` closest
+query methods can also take an optional `GridTopologyKind` filter when
+mixed-topology worlds should resolve only rectangular-prism or hex-prism grids.
 
 A single `GridWorld` can own rectangular-prism and hex-prism grids together.
 Ordinary world/grid/voxel queries do not require callers to branch on topology.

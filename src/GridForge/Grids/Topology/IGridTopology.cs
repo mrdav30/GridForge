@@ -43,6 +43,13 @@ internal interface IGridTopology
         Vector3d position,
         out VoxelIndex result);
 
+    VoxelIndex GetClosestVoxelIndex(
+        Vector3d boundsMin,
+        int width,
+        int height,
+        int length,
+        Vector3d position);
+
     Vector3d GetWorldPosition(Vector3d boundsMin, VoxelIndex index);
 
     Vector3d GetWorldOffset((int x, int y, int z) offset);

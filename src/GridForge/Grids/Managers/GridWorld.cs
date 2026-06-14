@@ -700,6 +700,75 @@ public sealed class GridWorld : IDisposable
         TryGetGrid(GridPlane2d.ToWorld(position, layerY), out outGrid);
 
     /// <summary>
+    /// Retrieves the active grid whose bounds are nearest to the supplied world position.
+    /// </summary>
+    /// <param name="position">The world position to resolve.</param>
+    /// <param name="outGrid">The closest grid, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a closest active grid was resolved; otherwise false.</returns>
+    public bool TryGetClosestGrid(
+        Vector3d position,
+        out VoxelGrid? outGrid,
+        GridTopologyKind? topologyKind = null)
+    {
+        outGrid = null;
+        if (!CanResolveActiveGrid())
+            return false;
+
+        Fixed64 closestDistanceSquared = Fixed64.MaxValue;
+        foreach (VoxelGrid candidateGrid in ActiveGrids)
+        {
+            if (candidateGrid == null
+                || !candidateGrid.IsActive
+                || !MatchesTopologyKind(candidateGrid, topologyKind))
+            {
+                continue;
+            }
+
+            Fixed64 distanceSquared = GetDistanceSquaredToBounds(position, candidateGrid.BoundsMin, candidateGrid.BoundsMax);
+            if (outGrid == null
+                || distanceSquared < closestDistanceSquared
+                || (distanceSquared == closestDistanceSquared && candidateGrid.GridIndex < outGrid.GridIndex))
+            {
+                outGrid = candidateGrid;
+                closestDistanceSquared = distanceSquared;
+            }
+        }
+
+        return outGrid != null;
+    }
+
+    /// <summary>
+    /// Retrieves the active grid whose bounds are nearest to a 2D XZ-plane world position on the default world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="outGrid">The closest grid, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a closest active grid was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestGrid(
+        Vector2d position,
+        out VoxelGrid? outGrid,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestGrid(position, default, out outGrid, topologyKind);
+
+    /// <summary>
+    /// Retrieves the active grid whose bounds are nearest to a 2D XZ-plane world position on the supplied world Y layer.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="outGrid">The closest grid, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a closest active grid was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestGrid(
+        Vector2d position,
+        Fixed64 layerY,
+        out VoxelGrid? outGrid,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestGrid(GridPlane2d.ToWorld(position, layerY), out outGrid, topologyKind);
+
+    /// <summary>
     /// Retrieves a grid by a world-scoped voxel identity.
     /// </summary>
     /// <param name="worldVoxelIndex">The voxel identity whose grid should be resolved.</param>
@@ -767,6 +836,111 @@ public sealed class GridWorld : IDisposable
          TryGetGridAndVoxel(GridPlane2d.ToWorld(position, layerY), out outGrid, out outVoxel);
 
     /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to the supplied world position and the grid that owns it.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The world position to resolve.</param>
+    /// <param name="outGrid">The grid that owns the closest physical voxel, if found.</param>
+    /// <param name="outVoxel">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    public bool TryGetClosestGridAndVoxel(
+        Vector3d position,
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel,
+        GridTopologyKind? topologyKind = null)
+    {
+        outGrid = null;
+        outVoxel = null;
+        if (!CanResolveActiveGrid())
+            return false;
+
+        Fixed64 closestDistanceSquared = Fixed64.MaxValue;
+        if (TryGetClosestGrid(position, out VoxelGrid? closestBoundsGrid, topologyKind)
+            && closestBoundsGrid!.ConfiguredVoxelCount != 0
+            && closestBoundsGrid.TryGetClosestVoxel(position, out outVoxel, out closestDistanceSquared))
+        {
+            outGrid = closestBoundsGrid;
+        }
+
+        foreach (VoxelGrid candidateGrid in ActiveGrids)
+        {
+            if (candidateGrid == null
+                || !candidateGrid.IsActive
+                || candidateGrid.ConfiguredVoxelCount == 0
+                || !MatchesTopologyKind(candidateGrid, topologyKind))
+            {
+                continue;
+            }
+            if (ReferenceEquals(candidateGrid, outGrid))
+                continue;
+
+            Fixed64 boundsDistanceSquared = GetDistanceSquaredToBounds(position, candidateGrid.BoundsMin, candidateGrid.BoundsMax);
+            if (outVoxel != null && boundsDistanceSquared > closestDistanceSquared)
+                continue;
+
+            if (!candidateGrid.TryGetClosestVoxel(
+                position,
+                out Voxel? candidateVoxel,
+                out Fixed64 candidateDistanceSquared))
+            {
+                continue;
+            }
+
+            if (IsBetterClosestVoxel(
+                candidateDistanceSquared,
+                candidateGrid,
+                candidateVoxel!,
+                closestDistanceSquared,
+                outGrid,
+                outVoxel))
+            {
+                outGrid = candidateGrid;
+                outVoxel = candidateVoxel;
+                closestDistanceSquared = candidateDistanceSquared;
+            }
+        }
+
+        return outVoxel != null;
+    }
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the default world Y layer and the grid that owns it.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="outGrid">The grid that owns the closest physical voxel, if found.</param>
+    /// <param name="outVoxel">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestGridAndVoxel(
+        Vector2d position,
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestGridAndVoxel(position, default, out outGrid, out outVoxel, topologyKind);
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the supplied world Y layer and the grid that owns it.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="outGrid">The grid that owns the closest physical voxel, if found.</param>
+    /// <param name="outVoxel">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestGridAndVoxel(
+        Vector2d position,
+        Fixed64 layerY,
+        out VoxelGrid? outGrid,
+        out Voxel? outVoxel,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestGridAndVoxel(GridPlane2d.ToWorld(position, layerY), out outGrid, out outVoxel, topologyKind);
+
+    /// <summary>
     /// Retrieves the grid and voxel for a given voxel identity.
     /// </summary>
     /// <param name="worldVoxelIndex">The voxel identity to resolve.</param>
@@ -825,6 +999,59 @@ public sealed class GridWorld : IDisposable
     {
         return TryGetVoxel(GridPlane2d.ToWorld(position, layerY), out result);
     }
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to the supplied world position.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The world position to resolve.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    public bool TryGetClosestVoxel(
+        Vector3d position,
+        out Voxel? result,
+        GridTopologyKind? topologyKind = null)
+    {
+        result = null;
+        if (!TryGetClosestGridAndVoxel(position, out _, out Voxel? closestVoxel, topologyKind))
+            return false;
+
+        result = closestVoxel;
+        return true;
+    }
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the default world Y layer.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestVoxel(
+        Vector2d position,
+        out Voxel? result,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestVoxel(position, default, out result, topologyKind);
+
+    /// <summary>
+    /// Retrieves the physical voxel whose center is nearest to a 2D XZ-plane world position on the supplied world Y layer.
+    /// Sparse grids only consider configured physical voxels.
+    /// </summary>
+    /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
+    /// <param name="result">The closest physical voxel, if found.</param>
+    /// <param name="topologyKind">Optional topology filter. When supplied, only grids using the requested topology are considered.</param>
+    /// <returns>True if a physical voxel was resolved; otherwise false.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryGetClosestVoxel(
+        Vector2d position,
+        Fixed64 layerY,
+        out Voxel? result,
+        GridTopologyKind? topologyKind = null) =>
+        TryGetClosestVoxel(GridPlane2d.ToWorld(position, layerY), out result, topologyKind);
 
     /// <summary>
     /// Retrieves a voxel from a world-scoped voxel identity.
@@ -941,6 +1168,59 @@ public sealed class GridWorld : IDisposable
             AddOverlappingGridsFromCell(targetGrid, cellIndex, overlappingGrids);
 
         return overlappingGrids;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool MatchesTopologyKind(VoxelGrid grid, GridTopologyKind? topologyKind) =>
+        !topologyKind.HasValue || grid.TopologyKind == topologyKind.Value;
+
+    private static bool IsBetterClosestVoxel(
+        Fixed64 candidateDistanceSquared,
+        VoxelGrid candidateGrid,
+        Voxel candidateVoxel,
+        Fixed64 closestDistanceSquared,
+        VoxelGrid? closestGrid,
+        Voxel? closestVoxel)
+    {
+        if (closestVoxel == null || closestGrid == null)
+            return true;
+
+        if (candidateDistanceSquared != closestDistanceSquared)
+            return candidateDistanceSquared < closestDistanceSquared;
+
+        int gridCompare = candidateGrid.GridIndex.CompareTo(closestGrid.GridIndex);
+        return gridCompare != 0
+            ? gridCompare < 0
+            : CompareVoxelIndices(candidateVoxel.Index, closestVoxel.Index) < 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Fixed64 GetDistanceSquaredToBounds(Vector3d position, Vector3d boundsMin, Vector3d boundsMax)
+    {
+        Fixed64 x = GetAxisDistanceToBounds(position.X, boundsMin.X, boundsMax.X);
+        Fixed64 y = GetAxisDistanceToBounds(position.Y, boundsMin.Y, boundsMax.Y);
+        Fixed64 z = GetAxisDistanceToBounds(position.Z, boundsMin.Z, boundsMax.Z);
+        return x * x + y * y + z * z;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Fixed64 GetAxisDistanceToBounds(Fixed64 coordinate, Fixed64 min, Fixed64 max)
+    {
+        if (coordinate < min)
+            return min - coordinate;
+
+        return coordinate > max ? coordinate - max : Fixed64.Zero;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int CompareVoxelIndices(VoxelIndex left, VoxelIndex right)
+    {
+        int result = left.x.CompareTo(right.x);
+        if (result != 0)
+            return result;
+
+        result = left.y.CompareTo(right.y);
+        return result != 0 ? result : left.z.CompareTo(right.z);
     }
 
     private bool CanResolveGrid(int index)

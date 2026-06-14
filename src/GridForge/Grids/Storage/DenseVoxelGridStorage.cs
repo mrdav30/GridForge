@@ -61,6 +61,21 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         return result?.IsAllocated == true;
     }
 
+    public bool TryGetClosestVoxel(
+        VoxelGrid grid,
+        VoxelIndex closestIndex,
+        Vector3d position,
+        out Voxel? result,
+        out Fixed64 distanceSquared)
+    {
+        distanceSquared = Fixed64.MaxValue;
+        if (!TryGetVoxel(closestIndex.x, closestIndex.y, closestIndex.z, out result))
+            return false;
+
+        distanceSquared = (result!.WorldPosition - position).MagnitudeSquared;
+        return true;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(int key, out ScanCell? result)
     {
