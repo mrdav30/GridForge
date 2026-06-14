@@ -22,7 +22,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// Predefined offsets for a rectangular-prism 3x3x3 neighbor structure, excluding the center position.
     /// </summary>
-    public static readonly (int x, int y, int z)[] Offsets = new (int x, int y, int z)[26]
+    public static ReadOnlySpan<(int x, int y, int z)> Offsets => OffsetValues;
+
+    private static readonly (int x, int y, int z)[] OffsetValues = new (int x, int y, int z)[26]
     {
         (-1, 0, 0),
         (0, 0, -1),
@@ -57,7 +59,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 26 neighbor directions excluding None.
     /// </summary>
-    public static readonly RectangularDirection[] All =
+    public static ReadOnlySpan<RectangularDirection> All => AllValues;
+
+    private static readonly RectangularDirection[] AllValues =
     {
         RectangularDirection.West,
         RectangularDirection.South,
@@ -90,7 +94,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// The 6 face-adjacent rectangular-prism directions.
     /// </summary>
-    public static readonly RectangularDirection[] Primary =
+    public static ReadOnlySpan<RectangularDirection> Primary => PrimaryValues;
+
+    private static readonly RectangularDirection[] PrimaryValues =
     {
         RectangularDirection.West,
         RectangularDirection.South,
@@ -103,7 +109,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 6 perpendicular neighbor directions excluding None.
     /// </summary>
-    public static readonly RectangularDirection[] Perpendicular =
+    public static ReadOnlySpan<RectangularDirection> Perpendicular => PerpendicularValues;
+
+    private static readonly RectangularDirection[] PerpendicularValues =
     {
         RectangularDirection.West,
         RectangularDirection.South,
@@ -116,7 +124,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 8 same-layer XZ-plane directions excluding None.
     /// </summary>
-    public static readonly RectangularDirection[] Planar =
+    public static ReadOnlySpan<RectangularDirection> Planar => PlanarValues;
+
+    private static readonly RectangularDirection[] PlanarValues =
     {
         RectangularDirection.West,
         RectangularDirection.South,
@@ -131,7 +141,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 2 vertical directions.
     /// </summary>
-    public static readonly RectangularDirection[] Vertical =
+    public static ReadOnlySpan<RectangularDirection> Vertical => VerticalValues;
+
+    private static readonly RectangularDirection[] VerticalValues =
     {
         RectangularDirection.Below,
         RectangularDirection.Above
@@ -140,7 +152,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 9 neighbor directions on the layer below.
     /// </summary>
-    public static readonly RectangularDirection[] BelowLayer =
+    public static ReadOnlySpan<RectangularDirection> BelowLayer => BelowLayerValues;
+
+    private static readonly RectangularDirection[] BelowLayerValues =
     {
         RectangularDirection.Below,
         RectangularDirection.BelowWest,
@@ -156,7 +170,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 9 neighbor directions on the layer above.
     /// </summary>
-    public static readonly RectangularDirection[] AboveLayer =
+    public static ReadOnlySpan<RectangularDirection> AboveLayer => AboveLayerValues;
+
+    private static readonly RectangularDirection[] AboveLayerValues =
     {
         RectangularDirection.Above,
         RectangularDirection.AboveWest,
@@ -172,7 +188,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 16 non-vertical directions on the layers above and below.
     /// </summary>
-    public static readonly RectangularDirection[] VerticalDiagonal =
+    public static ReadOnlySpan<RectangularDirection> VerticalDiagonal => VerticalDiagonalValues;
+
+    private static readonly RectangularDirection[] VerticalDiagonalValues =
     {
         RectangularDirection.BelowWest,
         RectangularDirection.BelowSouth,
@@ -195,7 +213,9 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 20 diagonal neighbor directions excluding None.
     /// </summary>
-    public static readonly RectangularDirection[] Diagonal =
+    public static ReadOnlySpan<RectangularDirection> Diagonal => DiagonalValues;
+
+    private static readonly RectangularDirection[] DiagonalValues =
     {
         RectangularDirection.SouthWest,
         RectangularDirection.NorthWest,
@@ -289,9 +309,9 @@ public static class RectangularDirectionUtility
         RectangularDirection[] lookup = new RectangularDirection[OffsetLookupSize];
         Array.Fill(lookup, RectangularDirection.None);
 
-        for (int i = 0; i < Offsets.Length; i++)
+        for (int i = 0; i < OffsetValues.Length; i++)
         {
-            if (TryGetOffsetLookupKey(Offsets[i], out int lookupKey))
+            if (TryGetOffsetLookupKey(OffsetValues[i], out int lookupKey))
                 lookup[lookupKey] = (RectangularDirection)i;
         }
 

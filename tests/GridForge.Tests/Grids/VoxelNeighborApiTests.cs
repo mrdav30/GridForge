@@ -173,6 +173,25 @@ public sealed class VoxelNeighborApiTests : IDisposable
         Assert.Null(typeof(Voxel).GetField("_isNeighborCacheValid", Flags));
     }
 
+    [Fact]
+    public void DirectionUtilities_ShouldNotExposeMutablePublicArrayMembers()
+    {
+        AssertNoPublicStaticArrayMembers(typeof(RectangularDirectionUtility));
+        AssertNoPublicStaticArrayMembers(typeof(HexDirectionUtility));
+    }
+
+    private static void AssertNoPublicStaticArrayMembers(Type type)
+    {
+        const BindingFlags Flags = BindingFlags.Public | BindingFlags.Static;
+
+        Assert.DoesNotContain(
+            type.GetFields(Flags),
+            field => field.FieldType.IsArray);
+        Assert.DoesNotContain(
+            type.GetProperties(Flags),
+            property => property.PropertyType.IsArray);
+    }
+
     private static GridConfiguration CreateHexConfiguration(
         Vector3d boundsMin,
         GridTopologyMetrics metrics,

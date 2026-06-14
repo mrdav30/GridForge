@@ -3,6 +3,7 @@ using GridForge.Configuration;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -285,16 +286,22 @@ public class HexPrismGridTests
         Assert.Equal(7, HexDirectionUtility.AboveLayer.Length);
         Assert.Equal(12, HexDirectionUtility.VerticalDiagonal.Length);
 
+        HexDirection[] planar = CopyToArray(HexDirectionUtility.Planar);
+        HexDirection[] vertical = CopyToArray(HexDirectionUtility.Vertical);
+        HexDirection[] belowLayer = CopyToArray(HexDirectionUtility.BelowLayer);
+        HexDirection[] aboveLayer = CopyToArray(HexDirectionUtility.AboveLayer);
+        HexDirection[] verticalDiagonal = CopyToArray(HexDirectionUtility.VerticalDiagonal);
+
         Assert.Equal(
-            HexDirectionUtility.Planar.Concat(HexDirectionUtility.Vertical).ToArray(),
-            HexDirectionUtility.Primary);
+            planar.Concat(vertical).ToArray(),
+            CopyToArray(HexDirectionUtility.Primary));
         Assert.Equal(
-            HexDirectionUtility.Planar.Concat(HexDirectionUtility.BelowLayer).Concat(HexDirectionUtility.AboveLayer).ToArray(),
-            HexDirectionUtility.All);
-        Assert.DoesNotContain(HexDirection.Below, HexDirectionUtility.VerticalDiagonal);
-        Assert.DoesNotContain(HexDirection.Above, HexDirectionUtility.VerticalDiagonal);
-        Assert.Contains(HexDirection.AboveQPositive, HexDirectionUtility.AboveLayer);
-        Assert.Contains(HexDirection.BelowQNegativeRPositive, HexDirectionUtility.BelowLayer);
+            planar.Concat(belowLayer).Concat(aboveLayer).ToArray(),
+            CopyToArray(HexDirectionUtility.All));
+        Assert.DoesNotContain(HexDirection.Below, verticalDiagonal);
+        Assert.DoesNotContain(HexDirection.Above, verticalDiagonal);
+        Assert.Contains(HexDirection.AboveQPositive, aboveLayer);
+        Assert.Contains(HexDirection.BelowQNegativeRPositive, belowLayer);
     }
 
     [Fact]
@@ -345,6 +352,13 @@ public class HexPrismGridTests
         GridTopologyMetrics metrics,
         VoxelIndex maxIndex) =>
         CreateHexConfiguration(Vector3d.Zero, metrics, maxIndex);
+
+    private static T[] CopyToArray<T>(ReadOnlySpan<T> values)
+    {
+        T[] copy = new T[values.Length];
+        values.CopyTo(copy);
+        return copy;
+    }
 
     private static GridConfiguration CreateHexConfiguration(
         Vector3d boundsMin,

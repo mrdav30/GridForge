@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial;
@@ -17,7 +18,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// Hex-prism neighbor offsets in deterministic direction order.
     /// </summary>
-    public static readonly VoxelIndex[] Offsets =
+    public static ReadOnlySpan<VoxelIndex> Offsets => OffsetValues;
+
+    private static readonly VoxelIndex[] OffsetValues =
     {
         new(1, 0, 0),
         new(1, 0, -1),
@@ -44,7 +47,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 20 hex-prism neighbor directions excluding None.
     /// </summary>
-    public static readonly HexDirection[] All =
+    public static ReadOnlySpan<HexDirection> All => AllValues;
+
+    private static readonly HexDirection[] AllValues =
     {
         HexDirection.QPositive,
         HexDirection.QPositiveRNegative,
@@ -71,7 +76,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// The 8 face-adjacent hex-prism directions.
     /// </summary>
-    public static readonly HexDirection[] Primary =
+    public static ReadOnlySpan<HexDirection> Primary => PrimaryValues;
+
+    private static readonly HexDirection[] PrimaryValues =
     {
         HexDirection.QPositive,
         HexDirection.QPositiveRNegative,
@@ -86,7 +93,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 6 planar axial hex directions.
     /// </summary>
-    public static readonly HexDirection[] Planar =
+    public static ReadOnlySpan<HexDirection> Planar => PlanarValues;
+
+    private static readonly HexDirection[] PlanarValues =
     {
         HexDirection.QPositive,
         HexDirection.QPositiveRNegative,
@@ -99,7 +108,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 2 vertical hex-prism directions.
     /// </summary>
-    public static readonly HexDirection[] Vertical =
+    public static ReadOnlySpan<HexDirection> Vertical => VerticalValues;
+
+    private static readonly HexDirection[] VerticalValues =
     {
         HexDirection.Below,
         HexDirection.Above
@@ -108,7 +119,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 7 neighbor directions on the layer below.
     /// </summary>
-    public static readonly HexDirection[] BelowLayer =
+    public static ReadOnlySpan<HexDirection> BelowLayer => BelowLayerValues;
+
+    private static readonly HexDirection[] BelowLayerValues =
     {
         HexDirection.Below,
         HexDirection.BelowQPositive,
@@ -122,7 +135,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 7 neighbor directions on the layer above.
     /// </summary>
-    public static readonly HexDirection[] AboveLayer =
+    public static ReadOnlySpan<HexDirection> AboveLayer => AboveLayerValues;
+
+    private static readonly HexDirection[] AboveLayerValues =
     {
         HexDirection.Above,
         HexDirection.AboveQPositive,
@@ -136,7 +151,9 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 12 non-vertical directions on the layers above and below.
     /// </summary>
-    public static readonly HexDirection[] VerticalDiagonal =
+    public static ReadOnlySpan<HexDirection> VerticalDiagonal => VerticalDiagonalValues;
+
+    private static readonly HexDirection[] VerticalDiagonalValues =
     {
         HexDirection.BelowQPositive,
         HexDirection.BelowQPositiveRNegative,
@@ -156,7 +173,7 @@ public static class HexDirectionUtility
     /// Gets the topology-local index offset for a hex direction.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static VoxelIndex GetOffset(HexDirection direction) => Offsets[(int)direction];
+    public static VoxelIndex GetOffset(HexDirection direction) => OffsetValues[(int)direction];
 
     /// <summary>
     /// True for planar axial directions.

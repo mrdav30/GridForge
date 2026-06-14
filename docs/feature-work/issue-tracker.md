@@ -36,39 +36,7 @@ runtime and tests.
 
 ## Active Issues
 
-### 2026-06-14: Direction Utility Arrays Are Public And Mutable
-
-Status: open.
-
-Source: feature-roadmap implementation review.
-
-Affected files:
-
-- `src/GridForge/Spatial/RectangularDirectionUtility.cs`
-- `src/GridForge/Spatial/HexDirectionUtility.cs`
-- `src/GridForge/Grids/Topology/RectangularPrismTopology.cs`
-- `src/GridForge/Grids/Topology/HexPrismTopology.cs`
-
-Concern:
-
-`RectangularDirectionUtility` and `HexDirectionUtility` expose direction sets as
-public `static readonly` arrays. The field references are readonly, but array
-contents remain mutable. Because topology code reads those arrays for neighbor
-slot counts, offsets, boundary ranges, and hex slot resolution, consumer code
-can accidentally corrupt core neighbor behavior process-wide.
-
-Recommended fix:
-
-Replace the public mutable arrays with immutable/read-only accessors, or keep
-private internal arrays for runtime topology behavior and expose a safe public
-enumeration surface. Update direction utility tests and docs at the same time.
-
-Recommended verification:
-
-```bash
-dotnet test GridForge.slnx --configuration Debug --filter "DirectionUtility|Neighbor|HexPrismGrid|VoxelGrid"
-dotnet test GridForge.slnx --configuration ReleaseLean --no-build
-```
+- None currently.
 
 ## Performance Investigation Queue
 
@@ -79,4 +47,46 @@ confirmed runtime defect. Current queue:
 
 ## Resolved Issues
 
-- None currently.
+### 2026-06-14: Direction Utility Arrays Are Public And Mutable
+
+Status: resolved on 2026-06-14.
+
+Source: feature-roadmap implementation review.
+
+Affected files:
+
+- `src/GridForge/Spatial/RectangularDirectionUtility.cs`
+- `src/GridForge/Spatial/HexDirectionUtility.cs`
+- `tests/GridForge.Tests/Grids/VoxelNeighborApiTests.cs`
+- `tests/GridForge.Tests/Grids/Voxel.Tests.cs`
+- `tests/GridForge.Tests/Grids/HexPrismGrid.Tests.cs`
+
+Concern:
+
+`RectangularDirectionUtility` and `HexDirectionUtility` exposed direction sets as
+public `static readonly` arrays. The field references were readonly, but array
+contents remained mutable. Because topology code reads those direction sets for
+neighbor slot counts, offsets, boundary ranges, and hex slot resolution,
+consumer code could accidentally corrupt core neighbor behavior process-wide.
+
+Resolution:
+
+- Replaced the public mutable array fields with allocation-free
+  `ReadOnlySpan<T>` properties backed by private arrays.
+- Kept runtime lookup paths indexed and deterministic without exposing mutable
+  global array references.
+- Added a reflection regression test that rejects public static array fields or
+  properties on both direction utility types.
+- Scanned `src/GridForge` and `tests/GridForge.Tests` for similar public mutable
+  array exposure; no additional public array fields or array-returning
+  properties were found.
+
+Verification:
+
+```bash
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Debug --filter "FullyQualifiedName~DirectionUtilities_ShouldNotExposeMutablePublicArrayMembers"
+dotnet test GridForge.slnx --configuration Debug --filter "DirectionUtility|Neighbor|HexPrismGrid|VoxelGrid"
+dotnet build GridForge.slnx --configuration ReleaseLean
+dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+dotnet test GridForge.slnx --configuration Debug --no-build
+```

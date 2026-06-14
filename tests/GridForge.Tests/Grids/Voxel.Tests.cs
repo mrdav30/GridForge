@@ -26,6 +26,13 @@ public class VoxelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    private static T[] CopyToArray<T>(ReadOnlySpan<T> values)
+    {
+        T[] copy = new T[values.Length];
+        values.CopyTo(copy);
+        return copy;
+    }
+
     [Fact]
     public void Voxel_ShouldInitializeCorrectly()
     {
@@ -466,7 +473,9 @@ public class VoxelTests : IDisposable
         Assert.Equal(16, RectangularDirectionUtility.VerticalDiagonal.Length);
         Assert.Equal(20, RectangularDirectionUtility.Diagonal.Length);
 
-        Assert.Equal(RectangularDirectionUtility.Perpendicular, RectangularDirectionUtility.Primary);
+        Assert.Equal(
+            CopyToArray(RectangularDirectionUtility.Perpendicular),
+            CopyToArray(RectangularDirectionUtility.Primary));
         Assert.Equal(
             new[]
             {
@@ -479,14 +488,17 @@ public class VoxelTests : IDisposable
                 RectangularDirection.SouthEast,
                 RectangularDirection.NorthEast
             },
-            RectangularDirectionUtility.Planar);
+            CopyToArray(RectangularDirectionUtility.Planar));
+        RectangularDirection[] belowLayer = CopyToArray(RectangularDirectionUtility.BelowLayer);
+        RectangularDirection[] aboveLayer = CopyToArray(RectangularDirectionUtility.AboveLayer);
+        RectangularDirection[] verticalDiagonal = CopyToArray(RectangularDirectionUtility.VerticalDiagonal);
         Assert.Equal(
-            RectangularDirectionUtility.BelowLayer.Skip(1)
-                .Concat(RectangularDirectionUtility.AboveLayer.Skip(1))
+            belowLayer.Skip(1)
+                .Concat(aboveLayer.Skip(1))
                 .ToArray(),
-            RectangularDirectionUtility.VerticalDiagonal);
-        Assert.DoesNotContain(RectangularDirection.Below, RectangularDirectionUtility.VerticalDiagonal);
-        Assert.DoesNotContain(RectangularDirection.Above, RectangularDirectionUtility.VerticalDiagonal);
+            verticalDiagonal);
+        Assert.DoesNotContain(RectangularDirection.Below, verticalDiagonal);
+        Assert.DoesNotContain(RectangularDirection.Above, verticalDiagonal);
     }
 
     [Fact]
@@ -504,7 +516,7 @@ public class VoxelTests : IDisposable
         var actualDirections = neighbors
             .Select(result => result.Direction)
             .ToList();
-        var expectedDirections = RectangularDirectionUtility.All
+        var expectedDirections = CopyToArray(RectangularDirectionUtility.All)
             .Where(direction =>
             {
                 (int x, int y, int z) offset = RectangularDirectionUtility.Offsets[(int)direction];
