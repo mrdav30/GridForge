@@ -10,6 +10,7 @@ using GridForge.Grids;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
+using SwiftCollections.Pool;
 using System;
 
 namespace GridForge.Blockers;
@@ -145,7 +146,7 @@ public abstract class Blocker : IBlocker
             return;
         }
 
-        if (!foundCoverage)
+        if (!IsBlocking)
             BlockageToken = default;
     }
 
@@ -195,21 +196,38 @@ public abstract class Blocker : IBlocker
     {
         hasCoverage = true;
         bool foundCoverage = false;
+        SwiftList<WorldVoxelIndex>? appliedVoxels = CacheCoveredVoxels
+            ? _cachedCoveredVoxels
+            : SwiftListPool<WorldVoxelIndex>.Shared.Rent();
 
-        foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
+        try
         {
-            if (covered.Voxels.Count <= 0)
-                continue;
+            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
+            {
+                if (covered.Voxels.Count <= 0)
+                    continue;
 
-            foundCoverage = true;
-            _watchedGridIndices.Add(covered.Grid.GridIndex);
-            ApplyBlockageToVoxels(covered, ref hasCoverage);
+                foundCoverage = true;
+                _watchedGridIndices.Add(covered.Grid.GridIndex);
+                ApplyBlockageToVoxels(covered, appliedVoxels!, ref hasCoverage);
+            }
+
+            if (!hasCoverage)
+                RollbackAppliedBlockage(appliedVoxels!);
+
+            return foundCoverage;
         }
-
-        return foundCoverage;
+        finally
+        {
+            if (!CacheCoveredVoxels)
+                SwiftListPool<WorldVoxelIndex>.Shared.Release(appliedVoxels!);
+        }
     }
 
-    private void ApplyBlockageToVoxels(GridVoxelSet covered, ref bool hasCoverage)
+    private void ApplyBlockageToVoxels(
+        GridVoxelSet covered,
+        SwiftList<WorldVoxelIndex> appliedVoxels,
+        ref bool hasCoverage)
     {
         foreach (Voxel voxel in covered.Voxels)
         {
@@ -219,9 +237,16 @@ public abstract class Blocker : IBlocker
                 continue;
             }
 
-            if (CacheCoveredVoxels)
-                _cachedCoveredVoxels!.Add(voxel.WorldIndex);
+            appliedVoxels.Add(voxel.WorldIndex);
         }
+    }
+
+    private void RollbackAppliedBlockage(SwiftList<WorldVoxelIndex> appliedVoxels)
+    {
+        foreach (WorldVoxelIndex voxelIndex in appliedVoxels)
+            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, BlockageToken);
+
+        appliedVoxels.Clear();
     }
 
     private void RemoveAppliedBlockage()

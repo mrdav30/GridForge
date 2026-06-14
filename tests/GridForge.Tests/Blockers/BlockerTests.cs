@@ -784,6 +784,31 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
+    public void Blocker_ShouldRollbackAppliedVoxelsWhenCoveragePartiallyRejectsObstacle()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel freeVoxel));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel occupiedVoxel));
+        Assert.True(grid.TryAddVoxelOccupant(occupiedVoxel, new TestOccupant(occupiedVoxel.WorldPosition)));
+
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)),
+            cacheCoveredVoxels: true);
+
+        blocker.ApplyBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.False(freeVoxel.IsBlocked);
+        Assert.False(occupiedVoxel.IsBlocked);
+        Assert.Equal(0, grid.ObstacleCount);
+    }
+
+    [Fact]
     public void Blocker_ShouldIgnoreUnrelatedGridAddAndRemovalEvents()
     {
         GridConfiguration watchedGrid = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));

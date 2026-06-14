@@ -110,6 +110,6 @@ This behavior is the same for 3D coverage and layer-locked `Vector2d` coverage.
 This is one of the most important practical details:
 
 - `GridVoxelSet.Voxels` is backed by pooled storage
-- the tracer releases those pooled lists after yielding each grouped result
+- the tracer releases those pooled lists when the enumeration is disposed or completes
 
 Callers should treat grouped voxel lists as transient and consume them immediately inside the enumeration.

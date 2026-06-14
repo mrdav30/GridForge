@@ -10,6 +10,7 @@ using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Utility;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Topology;
@@ -362,35 +363,7 @@ internal static class VoxelNeighborResolver
         if (count <= 1)
             return;
 
-        Voxel[] items = voxels.InnerArray;
-        for (int i = 1; i < count; i++)
-        {
-            Voxel value = items[i];
-            int previous = i - 1;
-
-            while (previous >= 0 && CompareVoxelIndex(items[previous], value) > 0)
-            {
-                items[previous + 1] = items[previous];
-                previous--;
-            }
-
-            items[previous + 1] = value;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int CompareVoxelIndex(Voxel left, Voxel right)
-    {
-        VoxelIndex leftIndex = left.Index;
-        VoxelIndex rightIndex = right.Index;
-        int comparison = leftIndex.x.CompareTo(rightIndex.x);
-        if (comparison != 0)
-            return comparison;
-
-        comparison = leftIndex.y.CompareTo(rightIndex.y);
-        return comparison != 0
-            ? comparison
-            : leftIndex.z.CompareTo(rightIndex.z);
+        Array.Sort(voxels.InnerArray, 0, count, VoxelIndexComparer.Instance);
     }
 
     private sealed class NeighborResolverScratch
@@ -408,6 +381,33 @@ internal static class VoxelNeighborResolver
             ProcessedGridIds.Clear();
             CandidateVoxels.Clear();
             ProcessedVoxels.Clear();
+        }
+    }
+
+    private sealed class VoxelIndexComparer : IComparer<Voxel>
+    {
+        public static readonly VoxelIndexComparer Instance = new();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Compare(Voxel? left, Voxel? right)
+        {
+            if (ReferenceEquals(left, right))
+                return 0;
+            if (left == null)
+                return -1;
+            if (right == null)
+                return 1;
+
+            VoxelIndex leftIndex = left.Index;
+            VoxelIndex rightIndex = right.Index;
+            int comparison = leftIndex.x.CompareTo(rightIndex.x);
+            if (comparison != 0)
+                return comparison;
+
+            comparison = leftIndex.y.CompareTo(rightIndex.y);
+            return comparison != 0
+                ? comparison
+                : leftIndex.z.CompareTo(rightIndex.z);
         }
     }
 }
