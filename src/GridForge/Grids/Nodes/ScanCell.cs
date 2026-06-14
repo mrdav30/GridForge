@@ -145,7 +145,10 @@ public class ScanCell
         WorldVoxelIndex index,
         int ticket)
     {
-        if (!IsOccupied || _voxelOccupants?.TryGetValue(index, out var bucket) != true)
+        if (!IsOccupied)
+            return false;
+
+        if (!_voxelOccupants!.TryGetValue(index, out var bucket))
             return false;
 
         if (!bucket.TryRemoveAt(ticket))

@@ -179,12 +179,14 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             return false;
 
         int cellKey = grid.GetScanCellKey(index);
-        if (cellKey < 0
-            || !_blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
-            || !block!.TryRemoveVoxel(grid, index, out voxel))
-        {
+        if (cellKey < 0)
             return false;
-        }
+
+        if (!_blocks.TryGetValue(cellKey, out SparseVoxelBlock? block))
+            return false;
+
+        if (!block!.TryRemoveVoxel(grid, index, out voxel))
+            return false;
 
         RemoveVoxelFromCache(index);
         RemoveVoxelFromClosestTree(voxel!);
@@ -400,9 +402,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             {
                 Voxel candidate = node.Value;
                 Fixed64 candidateDistanceSquared = (candidate.WorldPosition - position).MagnitudeSquared;
-                if (candidateDistanceSquared < distanceSquared
-                    || (candidateDistanceSquared == distanceSquared
-                        && candidate.Index.CompareTo(result!.Index) < 0))
+                if (IsBetterClosestVoxel(candidate, candidateDistanceSquared, result, distanceSquared))
                 {
                     result = candidate;
                     distanceSquared = candidateDistanceSquared;
@@ -415,6 +415,22 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         }
 
         return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsBetterClosestVoxel(
+        Voxel candidate,
+        Fixed64 candidateDistanceSquared,
+        Voxel? current,
+        Fixed64 currentDistanceSquared)
+    {
+        if (current == null)
+            return true;
+
+        if (candidateDistanceSquared != currentDistanceSquared)
+            return candidateDistanceSquared < currentDistanceSquared;
+
+        return candidate.Index.CompareTo(current.Index) < 0;
     }
 
     private static void PushClosestChildrenFirst(

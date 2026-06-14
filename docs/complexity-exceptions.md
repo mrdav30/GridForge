@@ -8,10 +8,8 @@ cyclomatic-complexity review threshold.
 - Review threshold: cyclomatic complexity greater than 10.
 - Risk threshold: CRAP score greater than 30 requires immediate test hardening
   or refactoring.
-- Current status: the coverage/CRAP report generated on 2026-06-14 has no
-  methods above CRAP 30.
-- Source report:
-  `TestResults/coverage-analysis/raw/0fbb7c73-ed84-4d1f-ad02-b9292a5c6deb/coverage.cobertura.xml`.
+- Current status: the coverage/CRAP report generated on 2026-06-14 has 100%
+  line and branch coverage with no methods above CRAP 30.
 
 Complexity exceptions are acceptable when the method is compiler-generated
 iterator machinery, deterministic fixed-order comparison, or hot fixed-shape
@@ -29,6 +27,7 @@ coverage drops, behavior changes, or benchmarks show a different bottleneck.
 | `GridForge.Grids.Topology.VoxelNeighborResolver` | `ResolveContactNeighbors(Voxel, VoxelGrid, SwiftList<Voxel>?, bool, VoxelNeighborScope, Fixed64?)` | 18 | 100% line | Hot neighbor query path combines scope handling, tolerance expansion, pooled scratch rental, and early-exit behavior without allocations. | Neighbor scopes change, profiling shows resolver overhead, or an allocation-free split keeps the same traversal cost. |
 | `GridForge.Grids.Storage.SparseVoxelGridStorage` | `AddScanCellsInRange(...)` | 16 | 100% line | Tight scan-cell range traversal over sparse blocks avoids materializing candidate keys. | Sparse scan-cell layout changes or benchmarks support a lower-branch traversal. |
 | `GridForge.Utility.GridTracer` | `AddCoveredHexGridVoxels(...)` | 14 | 100% line | Hex coverage walks bounded axial ranges directly and filters by voxel-center coverage without temporary geometry objects. | Hex coverage rules change or a benchmarked lookup table reduces branches without allocations. |
+| `GridForge.Grids.Topology.GridTopologyFactory` | `TryCreate(GridConfiguration, out IGridTopology?)` | 14 | 100% line | Topology creation keeps enum dispatch and metrics validation together so invalid topology requests fail before allocation. | Topology kinds expand or metrics validation moves to topology-specific constructors. |
 | `GridForge.Grids.ScanCell/<GetConditionalOccupants>d__32` | `MoveNext()` | 14 | 100% line | Compiler-generated iterator state machine for lazy conditional occupant enumeration. | The lazy API is replaced by an allocation-free `Into` API. |
 | `GridForge.Grids.Storage.SparseVoxelGridStorage` | `AddVoxelsInIndexRange(VoxelIndex, VoxelIndex, SwiftList<Voxel>, SwiftHashSet<Voxel>)` | 14 | 100% line | Sparse voxel range traversal visits only intersecting sparse blocks and appends through caller-owned redundancy storage. | Sparse block indexing changes or range scans become a measured bottleneck. |
 | `GridForge.Grids.ScanCell` | `AddOccupantsWithinRadius2dTo<T>(...)` | 14 | 100% line | Typed scan-cell filtering keeps type, group, radius, and occupant predicates in one pass over occupant buckets. | Typed scan allocation or predicate cost shows up in profiling. |
@@ -38,12 +37,12 @@ coverage drops, behavior changes, or benchmarks show a different bottleneck.
 | `GridForge.Grids.GridEventInfo` | `.ctor(...)` | 12 | 100% line | Event payload construction keeps all deterministic identity and affected-bound fields explicit. | Event payload shape changes or construction becomes generated. |
 | `GridForge.Grids.GridOccupantManager` | `CompareTrackedOccupancies(TrackedOccupancy, TrackedOccupancy)` | 12 | 100% line | Deterministic multi-key ordering avoids comparer allocation and makes snapshot precedence auditable. | Snapshot ordering changes or a source-shared comparer becomes available without runtime cost. |
 | `GridForge.Grids.ScanCell` | `AddOccupantsWithinRadius2dTo(...)` | 12 | 100% line | Untyped 2D radius filtering keeps distance, group, and occupant predicates in one pass. | Scan filtering changes or profiling shows predicate overhead. |
-| `GridForge.Grids.Storage.SparseVoxelGridStorage` | `TryGetClosestVoxelFromTree(Vector3d, out Voxel?, out Fixed64)` | 12 | 100% line | BVH nearest search uses stack pruning and deterministic tie-breaking without heap allocations. | BVH internals change or closest sparse queries become a measured hotspot. |
 | `GridForge.Grids.GridWorld` | `TryGetClosestGrid(Vector3d, out VoxelGrid?, GridTopologyKind?)` | 12 | 100% line | Closest-grid lookup stays single-pass over active grids and relies on deterministic bucket order for equal-distance ties. | Active-grid iteration order changes or topology filtering expands. |
 
 ## Review Notes
 
-- CRAP status from the 2026-06-14 run: `FLAGGED_METHODS:0`.
+- Coverage and CRAP status from the 2026-06-14 run: `line-rate 1`,
+  `branch-rate 1`, and `FLAGGED_METHODS:0`.
 - Generated iterator `MoveNext` methods should be reviewed through the source
   iterator body first; do not rewrite public lazy APIs only to reduce generated
   complexity.

@@ -419,6 +419,10 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(new VoxelGrid(), hexGrid));
         Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(hexGrid, new VoxelGrid()));
         Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(hexGrid, rectangularGrid));
+        Assert.False(InvokeTryGetNeighborSlot(new VoxelGrid(), rectangularGrid, out int detachedSlot));
+        Assert.Equal(-1, detachedSlot);
+        Assert.False(InvokeTryGetNeighborSlot(rectangularGrid, new VoxelGrid(), out int missingNeighborSlot));
+        Assert.Equal(-1, missingNeighborSlot);
         Assert.False(new VoxelGrid().TryGetNeighborSlot(RectangularDirection.East, out _));
         Assert.False(new VoxelGrid().TryGetNeighborSlot(HexDirection.QPositive, out _));
         Assert.True(rectangularGrid.TryGetNeighborSlot(RectangularDirection.East, out _));
@@ -434,6 +438,7 @@ public class VoxelGridTests : IDisposable
     [Fact]
     public void GridNeighborManagement_ShouldRejectInvalidAndDuplicateRelationshipsAndReleaseLastNeighborSet()
     {
+        using DiagnosticCaptureScope diagnostics = new();
         VoxelGrid centerGrid = CreateStandaloneGrid(
             10,
             new Vector3d(0, 0, 0),
@@ -470,6 +475,7 @@ public class VoxelGridTests : IDisposable
             Assert.Null(centerGrid.Neighbors);
             Assert.Equal(0, centerGrid.NeighborCount);
             Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, eastGrid));
+            Assert.Contains(diagnostics.Messages, message => message.Message.Contains("unused neighbor collection"));
         }
         finally
         {
@@ -482,6 +488,32 @@ public class VoxelGridTests : IDisposable
             secondEastGrid.World?.Dispose();
             sameCenterGrid.World?.Dispose();
         }
+    }
+
+    [Fact]
+    public void DiagnosticsEnabled_ShouldLogVoxelGridGuardPaths()
+    {
+        using DiagnosticCaptureScope diagnostics = new();
+        VoxelGrid inactiveGrid = new();
+
+        Assert.False(inactiveGrid.IsValidVoxelIndex(0, 0, 0));
+        Assert.False(inactiveGrid.TryGetVoxelIndex(Vector3d.Zero, out _));
+        Assert.False(inactiveGrid.TryGetClosestVoxel(Vector3d.Zero, out _));
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Assert.False(grid.IsValidVoxelIndex(-1, 0, 0));
+        Assert.False(grid.TryGetVoxelIndex(new Vector3d(99, 0, 99), out _));
+        Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(int.MaxValue, 0, 0)));
+
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not currently active"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not currently allocated"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not valid for this grid"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("does not fall in the bounds"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Scan Cell overlay"));
     }
 
     [Fact]
@@ -801,6 +833,7 @@ public class VoxelGridTests : IDisposable
         BoundsKey firstKey = first.ToBoundsKey();
         BoundsKey secondKey = second.ToBoundsKey();
         BoundsKey differentKey = new(new Vector3d(1, 0, 1), new Vector3d(5, 0, 5));
+        GridConfiguration reversedBounds = new(new Vector3d(5, 1, 5), new Vector3d(1, -1, 1));
 
         Assert.Equal(first.GetHashCode(), second.GetHashCode());
         Assert.Equal(first.BoundsMin, firstKey.BoundsMin);
@@ -808,6 +841,8 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(firstKey, secondKey);
         Assert.Equal(firstKey.GetHashCode(), secondKey.GetHashCode());
         Assert.NotEqual(firstKey, differentKey);
+        Assert.Equal(new Vector3d(1, -1, 1), reversedBounds.BoundsMin);
+        Assert.Equal(new Vector3d(5, 1, 5), reversedBounds.BoundsMax);
     }
 
     private static TheoryData<RectangularDirection, VoxelIndex> CreateBoundaryDirectionCases()
@@ -882,6 +917,22 @@ public class VoxelGridTests : IDisposable
 
         Assert.NotNull(removeNeighborMethod);
         return (bool)removeNeighborMethod.Invoke(grid, new object[] { neighborGrid });
+    }
+
+    private static bool InvokeTryGetNeighborSlot(VoxelGrid grid, VoxelGrid neighborGrid, out int slot)
+    {
+        MethodInfo method = typeof(VoxelGrid).GetMethod(
+            "TryGetNeighborSlot",
+            BindingFlags.Static | BindingFlags.NonPublic,
+            null,
+            new[] { typeof(VoxelGrid), typeof(VoxelGrid), typeof(int).MakeByRefType() },
+            null);
+
+        Assert.NotNull(method);
+        object[] arguments = { grid, neighborGrid, -1 };
+        bool result = (bool)method.Invoke(null, arguments);
+        slot = (int)arguments[2];
+        return result;
     }
 
     private static uint InvokeIncrementVersion(VoxelGrid grid)

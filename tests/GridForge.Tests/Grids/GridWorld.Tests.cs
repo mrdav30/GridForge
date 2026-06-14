@@ -44,9 +44,127 @@ public class GridWorldTests
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 0);
         using GridWorld negativeWorld = GridWorldTestFactory.CreateWorld(spatialGridCellSize: -8);
+        using GridWorld positiveWorld = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 4);
 
         Assert.Equal(GridWorld.DefaultSpatialGridCellSize, world.SpatialGridCellSize);
         Assert.Equal(GridWorld.DefaultSpatialGridCellSize, negativeWorld.SpatialGridCellSize);
+        Assert.Equal(4, positiveWorld.SpatialGridCellSize);
+
+        (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) =
+            positiveWorld.GetSpatialGridCellBounds(new Vector3d(8, 8, 8), new Vector3d(0, -8, 0));
+
+        Assert.True(xMin <= xMax);
+        Assert.True(yMin <= yMax);
+        Assert.True(zMin <= zMax);
+    }
+
+    [Fact]
+    public void DiagnosticsEnabled_ShouldLogGridWorldConfigurationAndTopologyGuards()
+    {
+        using DiagnosticCaptureScope diagnostics = new();
+
+        _ = new GridConfiguration(new Vector3d(5, 1, 5), new Vector3d(1, -1, 1));
+        using GridWorld invalidSpatialWorld = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 0);
+
+        GridConfiguration invalidRectangularMetrics = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            topologyKind: GridTopologyKind.RectangularPrism,
+            topologyMetrics: new GridTopologyMetrics(
+                Fixed64.Zero,
+                Fixed64.Zero,
+                Fixed64.One,
+                Fixed64.One));
+        GridConfiguration invalidHexMetrics = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: GridTopologyMetrics.Hex(Fixed64.Zero, Fixed64.One));
+        GridConfiguration invalidTopology = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            topologyKind: (GridTopologyKind)int.MaxValue);
+
+        Assert.False(GridWorld.TryNormalizeConfiguration(invalidRectangularMetrics, out _, out _, out _));
+        Assert.False(GridWorld.TryNormalizeConfiguration(invalidHexMetrics, out _, out _, out _));
+        Assert.False(GridWorld.TryNormalizeConfiguration(invalidTopology, out _, out _, out _));
+        Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(int.MaxValue, 2, 2)));
+
+        GridConfiguration sparseConfiguration = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(1, 0, 1),
+            storageKind: GridStorageKind.Sparse);
+        using GridWorld sparseWorld = GridWorldTestFactory.CreateWorld();
+        Assert.False(sparseWorld.TryAddGrid(sparseConfiguration, new bool[3, 1, 2], out _));
+        Assert.False(sparseWorld.TryAddGrid(sparseConfiguration, new[] { new VoxelIndex(99, 0, 0) }, out _));
+
+        using GridWorld duplicateWorld = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
+        GridConfiguration duplicateConfiguration = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        Assert.True(duplicateWorld.TryAddGrid(duplicateConfiguration, out ushort duplicateIndex));
+        Assert.False(duplicateWorld.TryAddGrid(duplicateConfiguration, out ushort existingIndex));
+        Assert.Equal(duplicateIndex, existingIndex);
+        Assert.False(duplicateWorld.TryGetGrid(-1, out _));
+        Assert.False(duplicateWorld.TryGetGrid(1, out _));
+        Assert.False(duplicateWorld.TryGetGrid(new Vector3d(25, 0, 25), out _));
+
+        using GridWorld capacityWorld = GridWorldTestFactory.CreateWorld();
+        try
+        {
+            for (int i = 0; i < GridWorld.MaxGrids; i++)
+                capacityWorld.ActiveGrids.Add(null);
+
+            Assert.False(capacityWorld.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        }
+        finally
+        {
+            capacityWorld.ActiveGrids.Clear();
+        }
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        inactiveWorld.Reset();
+        inactiveWorld.IncrementGridVersion(0);
+        Assert.False(inactiveWorld.TryAddGrid(duplicateConfiguration, out _));
+        Assert.False(inactiveWorld.TryGetGrid(0, out _));
+        Assert.False(inactiveWorld.TryGetGrid(Vector3d.Zero, out _));
+        Assert.Empty(inactiveWorld.FindOverlappingGrids(new VoxelGrid()));
+
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("GridMin was greater"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Spatial grid cell size"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Rectangular-prism topology"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Hex-prism topology"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not implemented"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("voxel address space"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("mask dimensions"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Sparse voxel index"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("already been allocated"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("out-of-bounds"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("has not been allocated"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("No grid contains position"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("No more grids"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot reset"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot increment"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot add grids"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot resolve grids"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot resolve positions"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("Cannot resolve overlaps"));
+    }
+
+    [Fact]
+    public void DiagnosticsDisabled_ShouldSkipGridWorldErrorGuardFormatting()
+    {
+        using DiagnosticCaptureScope diagnostics = new(SwiftCollections.Diagnostics.DiagnosticLevel.None);
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+
+        Assert.False(inactiveWorld.TryAddGrid(configuration, out _));
+
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Assert.False(world.TryGetGrid(-1, out _));
+        Assert.False(world.TryGetGrid(0, out _));
+        Assert.Empty(diagnostics.Messages);
     }
 
     [Fact]
@@ -194,6 +312,7 @@ public class GridWorldTests
             out ushort validIndex));
         Assert.NotEqual(ushort.MaxValue, validIndex);
 
+        Assert.True(InvokeTryValidateGridDimensions(new GridDimensions(1, 1, 1)));
         Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(int.MaxValue, 2, 2)));
         Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(46340, 46340, 2)));
     }
@@ -212,7 +331,7 @@ public class GridWorldTests
             world,
             new Vector3d(0, 0, 0),
             new Vector3d(1, 0, 1));
-        GridWorldTestFactory.AddGrid(
+        VoxelGrid secondGrid = GridWorldTestFactory.AddGrid(
             world,
             new Vector3d(10, 0, 10),
             new Vector3d(11, 0, 11));
@@ -220,9 +339,16 @@ public class GridWorldTests
         Assert.False(world.TryGetGrid(-1, out _));
         Assert.False(world.TryGetGrid(3, out _));
         Assert.False(world.TryGetGrid(GridWorld.MaxGrids, out _));
+        Assert.True(world.TryGetGrid(secondGrid.GridIndex, out VoxelGrid secondByIndex));
+        Assert.Same(secondGrid, secondByIndex);
         Assert.False(world.TryGetVoxel(
             new WorldVoxelIndex(world.SpawnToken, firstGrid.GridIndex, firstGrid.SpawnToken, new VoxelIndex(99, 0, 99)),
             out _));
+
+        world.SpatialGridHash[world.GetSpatialGridKey(new Vector3d(10, 0, 10))].Add(ushort.MaxValue);
+        Assert.True(world.TryGetGrid(new Vector3d(10, 0, 10), out VoxelGrid secondByPosition));
+        Assert.Same(secondGrid, secondByPosition);
+
         Assert.True(world.TryRemoveGrid(firstGrid.GridIndex));
         Assert.False(world.TryGetGrid(firstGrid.GridIndex, out _));
         Assert.False(world.TryGetGrid(new Vector3d(25, 0, 25), out _));
@@ -278,7 +404,9 @@ public class GridWorldTests
         inactiveWorld.Dispose();
 
         inactiveWorld.Reset();
+        inactiveWorld.IncrementGridVersion(0);
         Assert.False(inactiveWorld.TryRemoveGrid(0));
+        Assert.Empty(inactiveWorld.FindOverlappingGrids(new VoxelGrid()));
 
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 2);
         VoxelGrid grid = GridWorldTestFactory.AddGrid(

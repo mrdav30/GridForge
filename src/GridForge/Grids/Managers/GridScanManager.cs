@@ -364,9 +364,13 @@ public static class GridScanManager
     /// </summary>
     public static IEnumerable<IVoxelOccupant> GetOccupants(GridWorld world, WorldVoxelIndex index)
     {
-        return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            ? grid!.GetOccupants(voxel!)
-            : Enumerable.Empty<IVoxelOccupant>();
+        if (world == null)
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        if (!world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel))
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        return grid!.GetOccupants(voxel!);
     }
 
     /// <summary>
@@ -394,9 +398,13 @@ public static class GridScanManager
     /// </summary>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Voxel voxel)
     {
-        return voxel.IsOccupied
-            && grid.TryGetScanCell(voxel.ScanCellKey, out ScanCell? scanCell)
-            && scanCell!.IsOccupied
+        if (!voxel.IsOccupied)
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        if (!grid.TryGetScanCell(voxel.ScanCellKey, out ScanCell? scanCell))
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        return scanCell!.IsOccupied
             ? scanCell.GetOccupants()
             : Enumerable.Empty<IVoxelOccupant>();
     }
@@ -410,9 +418,13 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            ? grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition)
-            : Enumerable.Empty<IVoxelOccupant>();
+        if (world == null)
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        if (!world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel))
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        return grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition);
     }
 
     /// <summary>
@@ -452,10 +464,13 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        return targetVoxel != null
-            && targetVoxel.IsOccupied
-            && grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell)
-            && scanCell!.IsOccupied
+        if (targetVoxel == null || !targetVoxel.IsOccupied)
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        if (!grid.TryGetScanCell(targetVoxel.ScanCellKey, out ScanCell? scanCell))
+            return Enumerable.Empty<IVoxelOccupant>();
+
+        return scanCell!.IsOccupied
             ? scanCell.GetConditionalOccupants(occupantCondition, groupCondition)
             : Enumerable.Empty<IVoxelOccupant>();
     }

@@ -213,6 +213,10 @@ public class BlockerTests : IDisposable
             new FixedBoundArea(Vector3d.Zero, Vector3d.Zero));
 
         blocker.RemoveBlockage();
+
+        Assert.False(blocker.IsBlocking);
+        Assert.True(blocker.IsActive);
+        Assert.Equal(default, blocker.BlockageToken);
     }
 
     [Fact]
@@ -589,6 +593,9 @@ public class BlockerTests : IDisposable
             _world,
             new FixedBoundArea(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)),
             cacheCoveredVoxels: false);
+
+        blocker.SetCacheCoveredVoxels(true);
+        Assert.True(blocker.CacheCoveredVoxels);
 
         blocker.SetCacheCoveredVoxels(true);
         Assert.True(blocker.CacheCoveredVoxels);

@@ -102,7 +102,7 @@ public sealed class StorageGuardTests
             new GridConfiguration(
                 Vector3d.Zero,
                 new Vector3d(3, 0, 3),
-                scanCellSize: 4,
+                scanCellSize: 2,
                 storageKind: GridStorageKind.Sparse),
             out ushort gridIndex));
         VoxelGrid grid = world.ActiveGrids[gridIndex];
@@ -120,6 +120,10 @@ public sealed class StorageGuardTests
         Assert.Null(duplicate);
         Assert.False(storage.TryRemoveVoxel(grid, new VoxelIndex(-1, 0, 0), out Voxel invalidRemoved));
         Assert.Null(invalidRemoved);
+        Assert.False(storage.TryRemoveVoxel(grid, new VoxelIndex(-2, 0, 0), out Voxel invalidCellRemoved));
+        Assert.Null(invalidCellRemoved);
+        Assert.False(storage.TryRemoveVoxel(grid, new VoxelIndex(2, 0, 0), out Voxel missingBlock));
+        Assert.Null(missingBlock);
         Assert.False(storage.TryRemoveVoxel(grid, new VoxelIndex(1, 0, 0), out Voxel missing));
         Assert.Null(missing);
 
@@ -131,6 +135,10 @@ public sealed class StorageGuardTests
         storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(1, 0, 0), voxels, voxelRedundancy);
         Assert.Single(voxels);
         Assert.Same(added, voxels[0]);
+
+        storage.AddVoxelsInIndexRange(new VoxelIndex(-4, 0, 0), new VoxelIndex(-1, 0, 0), voxels, voxelRedundancy);
+        storage.AddVoxelsInIndexRange(new VoxelIndex(4, 0, 0), new VoxelIndex(4, 0, 0), voxels, voxelRedundancy);
+        Assert.Single(voxels);
 
         Assert.True(storage.TryRemoveVoxel(grid, new VoxelIndex(0, 0, 0), out Voxel removed));
         Assert.Same(added, removed);
@@ -153,6 +161,21 @@ public sealed class StorageGuardTests
         Assert.Equal(1, InvokeGetClosestVoxelTreeCapacity(1));
         Assert.Equal(4, InvokeGetClosestVoxelTreeCapacity(2));
         Assert.Equal(int.MaxValue, InvokeGetClosestVoxelTreeCapacity(int.MaxValue));
+
+        Voxel candidate = CreateInitializedVoxel(new VoxelIndex(0, 0, 0));
+        Voxel current = CreateInitializedVoxel(new VoxelIndex(1, 0, 0));
+
+        try
+        {
+            Assert.True(InvokeIsBetterClosestVoxel(candidate, Fixed64.Zero, null, Fixed64.One));
+            Assert.True(InvokeIsBetterClosestVoxel(candidate, Fixed64.Zero, current, Fixed64.One));
+            Assert.False(InvokeIsBetterClosestVoxel(current, Fixed64.One, candidate, Fixed64.One));
+        }
+        finally
+        {
+            candidate.Reset();
+            current.Reset();
+        }
     }
 
     [Fact]
@@ -234,5 +257,31 @@ public sealed class StorageGuardTests
 
         method.Invoke(null, arguments);
         stackCount = (int)arguments[3];
+    }
+
+    private static bool InvokeIsBetterClosestVoxel(
+        Voxel candidate,
+        Fixed64 candidateDistanceSquared,
+        Voxel current,
+        Fixed64 currentDistanceSquared)
+    {
+        MethodInfo method = typeof(SparseVoxelGridStorage).GetMethod(
+            "IsBetterClosestVoxel",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find SparseVoxelGridStorage.IsBetterClosestVoxel.");
+
+        return (bool)method.Invoke(null, new object[] { candidate, candidateDistanceSquared, current, currentDistanceSquared });
+    }
+
+    private static Voxel CreateInitializedVoxel(VoxelIndex index)
+    {
+        Voxel voxel = new Voxel();
+        voxel.Initialize(
+            new WorldVoxelIndex(1, 1, 1, index),
+            new Vector3d(index.x, index.y, index.z),
+            scanCellKey: 0,
+            isBoundaryVoxel: false,
+            gridVersion: 1);
+        return voxel;
     }
 }

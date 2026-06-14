@@ -362,10 +362,13 @@ public abstract class Blocker : IBlocker
             return;
 
         CacheCoveredVoxels = cache;
-        if (cache && _cachedCoveredVoxels == null)
+        if (cache)
+        {
             _cachedCoveredVoxels = new SwiftList<WorldVoxelIndex>();
-        else if (!cache)
-            _cachedCoveredVoxels = null;
+            return;
+        }
+
+        _cachedCoveredVoxels = null;
     }
 
     /// <summary>

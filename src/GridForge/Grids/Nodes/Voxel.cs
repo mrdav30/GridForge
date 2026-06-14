@@ -519,9 +519,13 @@ public class Voxel : IEquatable<Voxel>
     public bool HasNeighbor(
         VoxelGrid ownerGrid,
         VoxelNeighborScope scope = VoxelNeighborScope.All,
-        Fixed64? tolerance = null) =>
-        IsValidOwnerGrid(ownerGrid)
-        && VoxelNeighborResolver.HasContactNeighbor(this, ownerGrid, scope, tolerance);
+        Fixed64? tolerance = null)
+    {
+        if (!IsValidOwnerGrid(ownerGrid))
+            return false;
+
+        return VoxelNeighborResolver.HasContactNeighbor(this, ownerGrid, scope, tolerance);
+    }
 
     /// <summary>
     /// Retrieves the rectangular-prism neighbor voxel in the supplied topology-local direction.
@@ -536,8 +540,10 @@ public class Voxel : IEquatable<Voxel>
         out Voxel? neighbor)
     {
         neighbor = null;
-        return IsValidOwnerGrid(ownerGrid)
-            && VoxelNeighborResolver.TryGetNeighbor(this, ownerGrid, direction, out neighbor);
+        if (!IsValidOwnerGrid(ownerGrid))
+            return false;
+
+        return VoxelNeighborResolver.TryGetNeighbor(this, ownerGrid, direction, out neighbor);
     }
 
     /// <summary>
@@ -553,8 +559,10 @@ public class Voxel : IEquatable<Voxel>
         out Voxel? neighbor)
     {
         neighbor = null;
-        return IsValidOwnerGrid(ownerGrid)
-            && VoxelNeighborResolver.TryGetNeighbor(this, ownerGrid, direction, out neighbor);
+        if (!IsValidOwnerGrid(ownerGrid))
+            return false;
+
+        return VoxelNeighborResolver.TryGetNeighbor(this, ownerGrid, direction, out neighbor);
     }
 
     /// <summary>

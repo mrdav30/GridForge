@@ -31,6 +31,32 @@ public class HexPrismGridTests
         Assert.False(world.TryAddGrid(zeroLayerHeight, out _));
     }
 
+    [Fact]
+    public void HexPrismTopology_ShouldNormalizePaddingAndClampNegativeDimensions()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        HexPrismTopology topology = new(metrics);
+
+        (Vector3d unpaddedMin, Vector3d unpaddedMax) =
+            topology.NormalizeBounds(Vector3d.Zero, Vector3d.Zero, Fixed64.Zero);
+        (Vector3d paddedMin, Vector3d paddedMax) =
+            topology.NormalizeBounds(Vector3d.Zero, Vector3d.Zero, Fixed64.One);
+        GridDimensions dimensions = topology.CalculateDimensions(new Vector3d(2, 0, 2), Vector3d.Zero);
+
+        Assert.Equal(Vector3d.Zero, unpaddedMin);
+        Assert.Equal(Vector3d.Zero, unpaddedMax);
+        Assert.True(paddedMin.X < unpaddedMin.X);
+        Assert.True(paddedMin.Z < unpaddedMin.Z);
+        Assert.True(paddedMax.X > unpaddedMax.X);
+        Assert.True(paddedMax.Z > unpaddedMax.Z);
+        Assert.Equal(1, dimensions.Width);
+        Assert.Equal(1, dimensions.Height);
+        Assert.Equal(1, dimensions.Length);
+    }
+
     [Theory]
     [InlineData(HexOrientation.PointyTop)]
     [InlineData(HexOrientation.FlatTop)]

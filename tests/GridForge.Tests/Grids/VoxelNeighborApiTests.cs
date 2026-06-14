@@ -115,6 +115,10 @@ public sealed class VoxelNeighborApiTests : IDisposable
         source.GetNeighborsInto(grid, results, VoxelNeighborScope.All, tolerance: new Fixed64(20));
 
         Assert.Contains(expectedNeighbor, results.ToArray());
+
+        results.Clear();
+        source.GetNeighborsInto(grid, results, VoxelNeighborScope.All, tolerance: Fixed64.Zero);
+        Assert.Contains(expectedNeighbor, results.ToArray());
     }
 
     [Fact]
@@ -165,6 +169,10 @@ public sealed class VoxelNeighborApiTests : IDisposable
         Assert.True(hexGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel hexVoxel));
 
         Assert.False(rectangularVoxel.TryGetNeighbor(rectangularGrid, RectangularDirection.East, out _));
+        Assert.False(rectangularVoxel.TryGetNeighbor(rectangularGrid, (RectangularDirection)int.MaxValue, out _));
+        Assert.False(hexVoxel.TryGetNeighbor(hexGrid, (HexDirection)int.MaxValue, out _));
+        Assert.False(rectangularVoxel.HasNeighbor(new VoxelGrid()));
+        Assert.False(hexVoxel.TryGetNeighbor(new VoxelGrid(), HexDirection.QPositive, out _));
 
         SwiftList<Voxel> contacts = new SwiftList<Voxel>();
         rectangularVoxel.GetNeighborsInto(rectangularGrid, contacts, VoxelNeighborScope.MixedTopologyGrids);
@@ -282,6 +290,8 @@ public sealed class VoxelNeighborApiTests : IDisposable
     [Fact]
     public void DirectionUtilities_ShouldNotExposeMutablePublicArrayMembers()
     {
+        Assert.True(RectangularDirectionUtility.Offsets.Length > 0);
+        Assert.True(HexDirectionUtility.Offsets.Length > 0);
         AssertNoPublicStaticArrayMembers(typeof(RectangularDirectionUtility));
         AssertNoPublicStaticArrayMembers(typeof(HexDirectionUtility));
     }

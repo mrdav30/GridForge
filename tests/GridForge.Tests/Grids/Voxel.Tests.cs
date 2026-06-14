@@ -207,6 +207,10 @@ public class VoxelTests : IDisposable
         Assert.False(voxel.TryGetPartition<TestPartition>(out _));
         Assert.Null(voxel.GetPartitionOrDefault<TestPartition>());
         Assert.False(voxel.TryRemovePartition<TestPartition>());
+
+        using DiagnosticCaptureScope diagnostics = new();
+        Assert.False(voxel.TryRemovePartition<TestPartition>());
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not found"));
     }
 
     [Fact]

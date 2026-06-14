@@ -42,8 +42,10 @@ internal static class VoxelNeighborResolver
         out Voxel? neighbor)
     {
         neighbor = null;
-        return ownerGrid.TryGetNeighborSlot(direction, out int slot)
-            && TryGetNeighborFromSlot(source, ownerGrid, slot, out neighbor);
+        if (!ownerGrid.TryGetNeighborSlot(direction, out int slot))
+            return false;
+
+        return TryGetNeighborFromSlot(source, ownerGrid, slot, out neighbor);
     }
 
     internal static bool TryGetNeighbor(
@@ -53,8 +55,10 @@ internal static class VoxelNeighborResolver
         out Voxel? neighbor)
     {
         neighbor = null;
-        return ownerGrid.TryGetNeighborSlot(direction, out int slot)
-            && TryGetNeighborFromSlot(source, ownerGrid, slot, out neighbor);
+        if (!ownerGrid.TryGetNeighborSlot(direction, out int slot))
+            return false;
+
+        return TryGetNeighborFromSlot(source, ownerGrid, slot, out neighbor);
     }
 
     internal static void AddRectangularNeighbors(

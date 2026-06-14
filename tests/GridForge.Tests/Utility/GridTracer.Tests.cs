@@ -10,6 +10,7 @@ using SwiftCollections;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -972,6 +973,99 @@ public class GridTracerTests : IDisposable
         }
     }
 
+    [Fact]
+    public void TraceLine_PrivateIndexAppend_ShouldSkipMissingAndDuplicateHexVoxels()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            VoxelIndex originIndex = new(0, 0, 0);
+            VoxelIndex missingIndex = new(1, 0, 0);
+            GridConfiguration configuration = CreateSparseHexConfiguration(metrics, new VoxelIndex(1, 0, 0));
+
+            Assert.True(_world.TryAddGrid(configuration, new[] { originIndex }, out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            SwiftList<Voxel> voxels = new();
+            SwiftHashSet<Voxel> redundancy = new();
+
+            InvokeAddTraceVoxelByIndex(grid, missingIndex, voxels, redundancy);
+            Assert.Empty(voxels);
+
+            InvokeAddTraceVoxelByIndex(grid, originIndex, voxels, redundancy);
+            InvokeAddTraceVoxelByIndex(grid, originIndex, voxels, redundancy);
+
+            Assert.Single(voxels);
+            Assert.Equal(originIndex, voxels[0].Index);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void HexCoveragePredicate_ShouldRejectCentersOutsideEachHorizontalBoundary()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1));
+
+            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
+
+            Vector3d center = voxel.WorldPosition;
+
+            Assert.True(InvokeIsHexVoxelCenterInHorizontalCoverage(
+                voxel,
+                center.X,
+                center.X,
+                center.Z,
+                center.Z));
+            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
+                voxel,
+                center.X + Fixed64.One,
+                center.X + Fixed64.One,
+                center.Z,
+                center.Z));
+            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
+                voxel,
+                center.X - Fixed64.One,
+                center.X - Fixed64.One,
+                center.Z,
+                center.Z));
+            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
+                voxel,
+                center.X,
+                center.X,
+                center.Z + Fixed64.One,
+                center.Z + Fixed64.One));
+            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
+                voxel,
+                center.X,
+                center.X,
+                center.Z - Fixed64.One,
+                center.Z - Fixed64.One));
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
     private void AddStaleSpatialGridReference(Vector3d position, ushort staleIndex)
     {
         int cellIndex = _world.GetSpatialGridKey(position);
@@ -1005,6 +1099,37 @@ public class GridTracerTests : IDisposable
             cells.Add((scanCell.GridIndex, scanCell.CellKey));
 
         return cells.ToArray();
+    }
+
+    private static void InvokeAddTraceVoxelByIndex(
+        VoxelGrid grid,
+        VoxelIndex index,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<Voxel> redundancy)
+    {
+        MethodInfo method = typeof(GridTracer).GetMethod(
+            "AddTraceVoxelByIndex",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridTracer.AddTraceVoxelByIndex.");
+
+        method.Invoke(null, new object[] { grid, index, voxels, redundancy });
+    }
+
+    private static bool InvokeIsHexVoxelCenterInHorizontalCoverage(
+        Voxel voxel,
+        Fixed64 coverageMinX,
+        Fixed64 coverageMaxX,
+        Fixed64 coverageMinZ,
+        Fixed64 coverageMaxZ)
+    {
+        MethodInfo method = typeof(GridTracer).GetMethod(
+            "IsHexVoxelCenterInHorizontalCoverage",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find GridTracer.IsHexVoxelCenterInHorizontalCoverage.");
+
+        return (bool)method.Invoke(
+            null,
+            new object[] { voxel, coverageMinX, coverageMaxX, coverageMinZ, coverageMaxZ });
     }
 
     private static GridConfiguration CreateSparseConfig(

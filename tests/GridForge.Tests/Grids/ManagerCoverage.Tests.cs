@@ -541,6 +541,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(GridObstacleManager.TryAddObstacle(_world, missingIndex, validToken));
         Assert.False(grid.TryAddObstacle(new Vector3d(99, 0, 99), validToken));
         Assert.False(grid.TryRemoveObstacle(new Vector3d(99, 0, 99), validToken));
+        Assert.False(grid.TryRemoveObstacle(emptyVoxel, validToken));
 
         Assert.True(grid.TryAddVoxelOccupant(occupiedVoxel, occupant));
         Assert.False(grid.TryAddObstacle(occupiedVoxel, validToken));
@@ -554,6 +555,41 @@ public class ManagerCoverageTests : IDisposable
 
         Assert.Equal(obstacleCountBeforeNoOpClear, grid.ObstacleCount);
         Assert.True(grid.TryRemoveObstacle(occupiedVoxel, validToken));
+    }
+
+    [Fact]
+    public void DiagnosticsEnabled_ShouldLogObstacleAndOccupantGuardPaths()
+    {
+        using DiagnosticCaptureScope diagnostics = new();
+
+        _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector3d position = new(1, 0, 1);
+        BoundsKey token = new(position, position);
+        TestOccupant occupant = new(position, 1);
+        TestOccupant staleOccupant = new(position, 2);
+        Guid sharedId = Guid.NewGuid();
+        SharedIdOccupant primaryOccupant = new(sharedId, position, 3);
+        SharedIdOccupant collidingOccupant = new(sharedId, position, 4);
+
+        Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
+        Assert.False(grid.TryRemoveObstacle(voxel, token));
+
+        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+        WorldVoxelIndex occupiedIndex = GridOccupantManager.GetOccupiedIndices(_world, occupant).Single();
+        Assert.False(GridOccupantManager.TryAddVoxelOccupant(_world, occupiedIndex, occupant));
+        Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+
+        Assert.False(grid.TryRemoveVoxelOccupant(voxel, staleOccupant));
+
+        Assert.True(grid.TryAddVoxelOccupant(voxel, primaryOccupant));
+        Assert.False(grid.TryAddVoxelOccupant(voxel, collidingOccupant));
+
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("No obstacle to remove"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("already registered"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("unused active scan cells"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("is not registered"));
+        Assert.Contains(diagnostics.Messages, message => message.Message.Contains("id collision"));
     }
 
     [Fact]
@@ -621,6 +657,25 @@ public class ManagerCoverageTests : IDisposable
         Assert.Empty(grid.GetConditionalOccupants(voxel));
 
         voxel.OccupantCount = 0;
+
+        Voxel staleScanCellVoxel = new();
+        staleScanCellVoxel.Initialize(
+            new WorldVoxelIndex(_world.SpawnToken, grid.GridIndex, grid.SpawnToken, new VoxelIndex(0, 0, 0)),
+            Vector3d.Zero,
+            scanCellKey: int.MaxValue,
+            isBoundaryVoxel: false,
+            grid.Version);
+        staleScanCellVoxel.OccupantCount = 1;
+
+        try
+        {
+            Assert.Empty(grid.GetOccupants(staleScanCellVoxel));
+            Assert.Empty(grid.GetConditionalOccupants(staleScanCellVoxel));
+        }
+        finally
+        {
+            staleScanCellVoxel.Reset(grid);
+        }
     }
 
     [Fact]

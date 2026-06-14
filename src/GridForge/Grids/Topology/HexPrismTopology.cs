@@ -264,13 +264,13 @@ internal sealed class HexPrismTopology : IGridTopology
             out Fixed64 qMax,
             out Fixed64 rMax);
 
-        int maxQ = HexCoordinateUtility.CeilToIntWithTolerance(qMax);
-        int maxR = HexCoordinateUtility.CeilToIntWithTolerance(rMax);
+        int maxQ = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(qMax, Fixed64.Zero));
+        int maxR = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(rMax, Fixed64.Zero));
 
         return new VoxelIndex(
-            maxQ < 0 ? 0 : maxQ,
+            maxQ,
             0,
-            maxR < 0 ? 0 : maxR);
+            maxR);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

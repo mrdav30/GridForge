@@ -36,47 +36,7 @@ runtime and tests.
 
 ## Active Issues
 
-### 2026-06-14: Coverlet Branch Instrumentation Still Reports Guard-Target Branch Misses
-
-Status: active.
-
-Source: release coverage hardening pass.
-
-Affected files:
-
-- `tests/GridForge.Tests/coverlet.runsettings`
-- Guard-heavy runtime paths in `src/GridForge/Grids`, `src/GridForge/Blockers`,
-  `src/GridForge/Utility`, and `src/GridForge/Configuration`.
-
-Concern:
-
-The 2026-06-14 coverage run reached 100% line, method, and full-method
-coverage with zero CRAP scores above 30, but Coverlet still reports 97.0%
-branch coverage (`1882/1939`) with 57 uncovered branch points. The remaining
-branch points are concentrated on tested guard/log targets and short-circuit
-targets such as inactive-world guards, duplicate/invalid input warnings,
-topology factory warnings, blocker watcher no-ops, sparse storage pruning, and
-trace de-duplication. Several of these public behaviors now have direct tests,
-and additional dead branches were removed, but the branch target entries remain
-reported.
-
-Recommended follow-up:
-
-- Reproduce the remaining branch list from
-  `TestResults/coverage-analysis/raw/0fbb7c73-ed84-4d1f-ad02-b9292a5c6deb/coverage.opencover.xml`.
-- Compare Coverlet branch mapping against an alternate collector or a minimal
-  reduced example for multiline guard blocks.
-- Decide whether to refactor guard/log statements into branch-mapping-friendly
-  helpers, use a different branch-coverage collector for release gates, or keep
-  a documented branch exception while preserving the current runtime shape.
-
-Recommended verification:
-
-```bash
-dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Debug --settings tests/GridForge.Tests/coverlet.runsettings --results-directory TestResults/coverage-analysis/raw --collect:"XPlat Code Coverage"
-TestResults/coverage-analysis/.tools/reportgenerator -reports:<coverage.cobertura.xml> -targetdir:TestResults/coverage-analysis/reports -reporttypes:"TextSummary;MarkdownSummaryGithub;CsvSummary"
-pwsh -NoProfile -ExecutionPolicy Bypass -File /mnt/c/Users/david/.codex/skills/coverage-analysis/scripts/Compute-CrapScores.ps1 -CoberturaPath <coverage.cobertura.xml> -CrapThreshold 30 -TopN 40
-```
+- None currently.
 
 ## Performance Investigation Queue
 
@@ -86,6 +46,59 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### 2026-06-14: Coverlet Branch Instrumentation Guard-Target Misses
+
+Status: resolved on 2026-06-14.
+
+Source: release coverage hardening pass.
+
+Affected files:
+
+- `src/GridForge/Blockers/Blocker.cs`
+- Guard-heavy runtime paths in `src/GridForge/Grids`, `src/GridForge/Utility`,
+  and `src/GridForge/Configuration`.
+- Closest matching tests under `tests/GridForge.Tests`.
+- `docs/complexity-exceptions.md`
+
+Concern:
+
+The initial 2026-06-14 coverage run reached 100% line, method, and full-method
+coverage with zero CRAP scores above 30, but Coverlet still reported 97.0%
+branch coverage (`1882/1939`) with 57 uncovered branch points. The remaining
+branch points were concentrated on tested guard/log targets and short-circuit
+targets such as inactive-world guards, duplicate/invalid input warnings,
+topology factory warnings, blocker watcher no-ops, sparse storage pruning, and
+trace de-duplication.
+
+Resolution:
+
+- Removed a dead blocker cache-allocation branch and simplified several
+  short-circuit hot-path guards into sequential checks.
+- Trimmed a dead nullable scan-cell occupant map path after the occupied-cell
+  invariant is established.
+- Added focused diagnostics-enabled and diagnostics-disabled tests for guard
+  logging paths so interpolated diagnostic handlers are covered without changing
+  runtime logging defaults.
+- Added focused tests for stale scan-cell state, sparse storage miss classes,
+  closest-voxel tie comparison, topology normalization clamps, trace
+  de-duplication, hex coverage boundaries, and neighbor resolver guard paths.
+- Updated `docs/complexity-exceptions.md` for the current >10 complexity list.
+
+Verification:
+
+```bash
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Debug --settings tests/GridForge.Tests/coverlet.runsettings --results-directory TestResults/coverage-analysis/current/raw --collect:"XPlat Code Coverage"
+pwsh -NoProfile -File /mnt/c/Users/david/.codex/skills/coverage-analysis/scripts/Compute-CrapScores.ps1 -CoberturaPath TestResults/coverage-analysis/current/raw/84fddac1-5b69-47d9-b472-420ea8940f5b/coverage.cobertura.xml -CrapThreshold 30 -TopN 20
+```
+
+Evidence:
+
+- Coverage report:
+  `TestResults/coverage-analysis/current/raw/84fddac1-5b69-47d9-b472-420ea8940f5b/coverage.cobertura.xml`
+- Result: `line-rate 1`, `branch-rate 1`, `5269/5269` lines,
+  `1943/1943` branches.
+- CRAP result: `TOTAL_METHODS:695`, `FLAGGED_METHODS:0`.
 
 ### 2026-06-14: Direction Utility Arrays Are Public And Mutable
 
