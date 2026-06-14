@@ -155,22 +155,16 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
 
         EnsureStorageMaps();
 
-        bool createdBlock = false;
         if (!_blocks!.TryGetValue(cellKey, out SparseVoxelBlock? block))
         {
             block = Pools.SparseVoxelBlockPool.Rent();
             block.Initialize(grid, cellKey, capacity: 1);
             _blocks.Add(cellKey, block);
             ScanCells!.Add(cellKey, block.ScanCell!);
-            createdBlock = true;
         }
 
         if (!block!.TryAddVoxel(grid, index, out voxel))
-        {
-            if (createdBlock)
-                ReleaseBlock(grid, cellKey, block);
             return false;
-        }
 
         AddVoxelToCache(voxel!);
         AddVoxelToClosestTree(voxel!, ConfiguredVoxelCount + 1);
@@ -309,27 +303,24 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
 
     private void RemoveVoxelFromClosestTree(Voxel voxel)
     {
-        if (_closestVoxelTree == null)
-            return;
-
-        _closestVoxelTree.Remove(voxel);
+        _closestVoxelTree!.Remove(voxel);
         if (_closestVoxelTree.Count == 0)
             ReleaseClosestVoxelTree();
     }
 
     private void RemoveVoxelFromCache(VoxelIndex index)
     {
-        if (_voxels == null || !TryFindVoxelCacheIndex(index, out int voxelArrayIndex))
-            return;
+        Voxel[] voxels = _voxels!;
+        TryFindVoxelCacheIndex(index, out int voxelArrayIndex);
 
         int moveCount = ConfiguredVoxelCount - voxelArrayIndex - 1;
         if (moveCount > 0)
-            Array.Copy(_voxels, voxelArrayIndex + 1, _voxels, voxelArrayIndex, moveCount);
+            Array.Copy(voxels, voxelArrayIndex + 1, voxels, voxelArrayIndex, moveCount);
 
-        _voxels[ConfiguredVoxelCount - 1] = null!;
+        voxels[ConfiguredVoxelCount - 1] = null!;
         if (ConfiguredVoxelCount == 1)
         {
-            ArrayPool<Voxel>.Shared.Return(_voxels, clearArray: true);
+            ArrayPool<Voxel>.Shared.Return(voxels, clearArray: true);
             _voxels = null;
         }
     }
@@ -356,15 +347,14 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
     private bool TryFindVoxelCacheIndex(VoxelIndex index, out int voxelArrayIndex)
     {
         voxelArrayIndex = 0;
-        if (_voxels == null)
-            return false;
+        Voxel[] voxels = _voxels!;
 
         int min = 0;
         int max = ConfiguredVoxelCount - 1;
         while (min <= max)
         {
             int mid = min + ((max - min) >> 1);
-            int compare = CompareVoxelIndices(_voxels[mid].Index, index);
+            int compare = voxels[mid].Index.CompareTo(index);
             if (compare == 0)
             {
                 voxelArrayIndex = mid;
@@ -389,12 +379,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         result = null;
         distanceSquared = Fixed64.MaxValue;
 
-        if (_closestVoxelTree == null || _closestVoxelTree.Count == 0)
-            return false;
-
-        int rootNodeIndex = _closestVoxelTree.RootNodeIndex;
-        if (rootNodeIndex < 0)
-            return false;
+        int rootNodeIndex = _closestVoxelTree!.RootNodeIndex;
 
         SwiftBVHNode<Voxel, FixedBoundVolume>[] nodes = _closestVoxelTree.NodePool;
         EnsureClosestQueryStackCapacity(nodes.Length);
@@ -407,9 +392,6 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         {
             int nodeIndex = stack[--stackCount];
             ref SwiftBVHNode<Voxel, FixedBoundVolume> node = ref nodes[nodeIndex];
-            if (!node.IsAllocated)
-                continue;
-
             Fixed64 nodeDistanceSquared = GetDistanceSquaredToBounds(position, node.Bounds);
             if (nodeDistanceSquared > distanceSquared)
                 continue;
@@ -418,10 +400,9 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             {
                 Voxel candidate = node.Value;
                 Fixed64 candidateDistanceSquared = (candidate.WorldPosition - position).MagnitudeSquared;
-                if (result == null
-                    || candidateDistanceSquared < distanceSquared
+                if (candidateDistanceSquared < distanceSquared
                     || (candidateDistanceSquared == distanceSquared
-                        && CompareVoxelIndices(candidate.Index, result.Index) < 0))
+                        && candidate.Index.CompareTo(result!.Index) < 0))
                 {
                     result = candidate;
                     distanceSquared = candidateDistanceSquared;
@@ -433,7 +414,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             PushClosestChildrenFirst(position, nodes, node, stack, ref stackCount, distanceSquared);
         }
 
-        return result != null;
+        return true;
     }
 
     private static void PushClosestChildrenFirst(
@@ -446,18 +427,6 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
     {
         int leftIndex = node.LeftChildIndex;
         int rightIndex = node.RightChildIndex;
-
-        if (leftIndex < 0)
-        {
-            PushChildIfWithinBest(position, nodes, rightIndex, stack, ref stackCount, bestDistanceSquared);
-            return;
-        }
-
-        if (rightIndex < 0)
-        {
-            PushChildIfWithinBest(position, nodes, leftIndex, stack, ref stackCount, bestDistanceSquared);
-            return;
-        }
 
         Fixed64 leftDistanceSquared = GetDistanceSquaredToBounds(position, nodes[leftIndex].Bounds);
         Fixed64 rightDistanceSquared = GetDistanceSquaredToBounds(position, nodes[rightIndex].Bounds);
@@ -472,21 +441,6 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             PushChildIfWithinBest(leftIndex, leftDistanceSquared, stack, ref stackCount, bestDistanceSquared);
             PushChildIfWithinBest(rightIndex, rightDistanceSquared, stack, ref stackCount, bestDistanceSquared);
         }
-    }
-
-    private static void PushChildIfWithinBest(
-        Vector3d position,
-        SwiftBVHNode<Voxel, FixedBoundVolume>[] nodes,
-        int childIndex,
-        int[] stack,
-        ref int stackCount,
-        Fixed64 bestDistanceSquared)
-    {
-        if (childIndex < 0)
-            return;
-
-        Fixed64 childDistanceSquared = GetDistanceSquaredToBounds(position, nodes[childIndex].Bounds);
-        PushChildIfWithinBest(childIndex, childDistanceSquared, stack, ref stackCount, bestDistanceSquared);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -535,9 +489,6 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
 
     private void EnsureClosestQueryStackCapacity(int minCapacity)
     {
-        if (minCapacity <= 0)
-            minCapacity = 1;
-
         if (_closestQueryStack != null && _closestQueryStack.Length >= minCapacity)
             return;
 
@@ -550,8 +501,8 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
 
     private void ReleaseBlock(VoxelGrid grid, int cellKey, SparseVoxelBlock block)
     {
-        ScanCells?.Remove(cellKey);
-        _blocks?.Remove(cellKey);
+        ScanCells!.Remove(cellKey);
+        _blocks!.Remove(cellKey);
         block.Reset(grid);
         Pools.SparseVoxelBlockPool.Release(block);
     }
@@ -561,28 +512,11 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         if (ConfiguredVoxelCount != 0)
             return;
 
-        if (_blocks != null)
-        {
-            Pools.SparseVoxelBlockMapPool.Release(_blocks);
-            _blocks = null;
-        }
+        Pools.SparseVoxelBlockMapPool.Release(_blocks!);
+        _blocks = null;
 
-        if (ScanCells != null)
-        {
-            Pools.ScanCellMapPool.Release(ScanCells);
-            ScanCells = null;
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int CompareVoxelIndices(VoxelIndex left, VoxelIndex right)
-    {
-        int result = left.x.CompareTo(right.x);
-        if (result != 0)
-            return result;
-
-        result = left.y.CompareTo(right.y);
-        return result != 0 ? result : left.z.CompareTo(right.z);
+        Pools.ScanCellMapPool.Release(ScanCells!);
+        ScanCells = null;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

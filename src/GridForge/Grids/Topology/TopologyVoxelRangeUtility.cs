@@ -58,7 +58,6 @@ internal static class TopologyVoxelRangeUtility
             return false;
         }
 
-        OrderVoxelIndexRange(ref minIndex, ref maxIndex);
         return true;
     }
 
@@ -108,9 +107,6 @@ internal static class TopologyVoxelRangeUtility
             grid.Height - 1,
             ((clippedMax.Y - grid.BoundsMin.Y) / layerHeight).CeilToInt());
 
-        if (xMin > xMax || yMin > yMax || zMin > zMax)
-            return false;
-
         minIndex = new VoxelIndex(xMin, yMin, zMin);
         maxIndex = new VoxelIndex(xMax, yMax, zMax);
         return true;
@@ -140,16 +136,6 @@ internal static class TopologyVoxelRangeUtility
         clippedMin = new Vector3d(xMin, yMin, zMin);
         clippedMax = new Vector3d(xMax, yMax, zMax);
         return true;
-    }
-
-    private static void OrderVoxelIndexRange(ref VoxelIndex min, ref VoxelIndex max)
-    {
-        if (min.x > max.x)
-            (min.x, max.x) = (max.x, min.x);
-        if (min.y > max.y)
-            (min.y, max.y) = (max.y, min.y);
-        if (min.z > max.z)
-            (min.z, max.z) = (max.z, min.z);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

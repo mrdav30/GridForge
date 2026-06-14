@@ -206,6 +206,16 @@ public class BlockerTests : IDisposable
     }
 
     [Fact]
+    public void Blocker_RemoveBeforeApply_ShouldNoOpWithoutRegisteredWatcher()
+    {
+        BoundsBlocker blocker = new(
+            _world,
+            new FixedBoundArea(Vector3d.Zero, Vector3d.Zero));
+
+        blocker.RemoveBlockage();
+    }
+
+    [Fact]
     public void MultipleBlockers_ShouldStackCorrectly()
     {
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-40, 0, -40), new Vector3d(-30, 0, -30)), out ushort gridIndex);
@@ -557,6 +567,10 @@ public class BlockerTests : IDisposable
         Assert.True(blocker.IsBlocking);
         Assert.True(voxel.IsBlocked);
 
+        blocker.ToggleStatus(true);
+        Assert.True(blocker.IsBlocking);
+        Assert.True(voxel.IsBlocked);
+
         blocker.ToggleStatus(false);
         Assert.False(blocker.IsBlocking);
         Assert.False(voxel.IsBlocked);
@@ -850,6 +864,9 @@ public class BlockerTests : IDisposable
 
         bool shouldReact = (bool)InvokeBlockerMethod(blocker, "ShouldReactToGridAdded", overlappingEvent);
         bool shouldReactToRemovedGrid = (bool)InvokeBlockerMethod(blocker, "ShouldReactToGridRemoved", overlappingEvent);
+        InvokeBlockerMethod(blocker, "HandleActiveGridAdded", overlappingEvent);
+        InvokeBlockerMethod(blocker, "HandleActiveGridRemoved", overlappingEvent);
+        InvokeBlockerMethod(blocker, "HandleActiveGridChanged", overlappingEvent);
         InvokeBlockerMethod(blocker, "ReapplyBlockage");
         InvokeBlockerMethod(blocker, "RegisterGridWatcher");
         _world.Reset();

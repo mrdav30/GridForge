@@ -189,21 +189,6 @@ public sealed class ClosestQueryTests : IDisposable
     }
 
     [Fact]
-    public void VoxelGrid_TryGetClosestVoxel_ShouldReturnFalseForMismatchedTopologyFilter()
-    {
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(Vector3d.Zero, new Vector3d(2, 0, 0)),
-            out ushort gridIndex));
-        VoxelGrid grid = _world.ActiveGrids[gridIndex];
-
-        Assert.True(grid.TryGetClosestVoxel(Vector3d.Zero, out Voxel matchingVoxel, GridTopologyKind.RectangularPrism));
-        Assert.Equal(new VoxelIndex(0, 0, 0), matchingVoxel.Index);
-
-        Assert.False(grid.TryGetClosestVoxel(Vector3d.Zero, out Voxel mismatchedVoxel, GridTopologyKind.HexPrism));
-        Assert.Null(mismatchedVoxel);
-    }
-
-    [Fact]
     public void GridWorld_TryGetClosestGridAndVoxel_ShouldChooseClosestPhysicalVoxelAcrossGrids()
     {
         GridConfiguration largeSparseConfiguration = new(
@@ -236,6 +221,76 @@ public sealed class ClosestQueryTests : IDisposable
     }
 
     [Fact]
+    public void GridWorld_TryGetClosestGridAndVoxel_ShouldBreakVoxelDistanceTiesByGridIndex()
+    {
+        GridConfiguration lowerIndexConfiguration = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(1, 0, 0),
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(_world.TryAddGrid(
+            lowerIndexConfiguration,
+            new[] { new VoxelIndex(0, 0, 0) },
+            out ushort lowerGridIndex));
+
+        GridConfiguration closerBoundsConfiguration = new(
+            new Vector3d(1, 0, 0),
+            new Vector3d(3, 0, 0),
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(_world.TryAddGrid(
+            closerBoundsConfiguration,
+            new[] { new VoxelIndex(2, 0, 0) },
+            out ushort higherGridIndex));
+
+        VoxelGrid lowerGrid = _world.ActiveGrids[lowerGridIndex];
+        VoxelGrid higherGrid = _world.ActiveGrids[higherGridIndex];
+        Vector3d query = Vector3d.FromDouble(1.5, 0, 0);
+
+        Assert.True(_world.TryGetClosestGrid(query, out VoxelGrid closestBoundsGrid));
+        Assert.Same(higherGrid, closestBoundsGrid);
+
+        Assert.True(_world.TryGetClosestGridAndVoxel(query, out VoxelGrid resolvedGrid, out Voxel closestVoxel));
+        Assert.Same(lowerGrid, resolvedGrid);
+        Assert.Equal(new VoxelIndex(0, 0, 0), closestVoxel.Index);
+    }
+
+    [Fact]
+    public void GridWorld_TryGetClosestGridAndVoxel_ShouldSkipEmptyClosestBoundsGrid()
+    {
+        GridConfiguration emptySparseConfiguration = new(
+            Vector3d.Zero,
+            new Vector3d(2, 0, 0),
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(_world.TryAddGrid(emptySparseConfiguration, out ushort emptyGridIndex));
+
+        GridConfiguration configuredSparseConfiguration = new(
+            new Vector3d(4, 0, 0),
+            new Vector3d(4, 0, 0),
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(_world.TryAddGrid(
+            configuredSparseConfiguration,
+            new[] { new VoxelIndex(0, 0, 0) },
+            out ushort configuredGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(100, 0, 0),
+                new Vector3d(100, 0, 0),
+                storageKind: GridStorageKind.Sparse),
+            new[] { new VoxelIndex(0, 0, 0) },
+            out _));
+
+        VoxelGrid emptyGrid = _world.ActiveGrids[emptyGridIndex];
+        VoxelGrid configuredGrid = _world.ActiveGrids[configuredGridIndex];
+        Vector3d query = new Vector3d(1, 0, 0);
+
+        Assert.True(_world.TryGetClosestGrid(query, out VoxelGrid closestBoundsGrid));
+        Assert.Same(emptyGrid, closestBoundsGrid);
+
+        Assert.True(_world.TryGetClosestGridAndVoxel(query, out VoxelGrid resolvedGrid, out Voxel closestVoxel));
+        Assert.Same(configuredGrid, resolvedGrid);
+        Assert.Equal(new VoxelIndex(0, 0, 0), closestVoxel.Index);
+    }
+
+    [Fact]
     public void ClosestQuery2DOverloads_ShouldProjectToRequestedLayer()
     {
         GridConfiguration configuration = new(
@@ -249,11 +304,11 @@ public sealed class ClosestQueryTests : IDisposable
         Assert.True(grid.TryGetClosestVoxel(position, layerY, out Voxel gridVoxel));
         Assert.Equal(new VoxelIndex(1, 0, 0), gridVoxel.Index);
 
-        Assert.True(grid.TryGetClosestVoxel(position, layerY, out Voxel filteredGridVoxel, GridTopologyKind.RectangularPrism));
-        Assert.Same(gridVoxel, filteredGridVoxel);
+        Assert.True(grid.TryGetClosestVoxel(position, out Voxel defaultLayerGridVoxel));
+        Assert.Same(gridVoxel, defaultLayerGridVoxel);
 
-        Assert.False(grid.TryGetClosestVoxel(position, layerY, out Voxel mismatchedGridVoxel, GridTopologyKind.HexPrism));
-        Assert.Null(mismatchedGridVoxel);
+        Assert.True(_world.TryGetClosestGrid(position, out VoxelGrid defaultLayerWorldGrid));
+        Assert.Same(grid, defaultLayerWorldGrid);
 
         Assert.True(_world.TryGetClosestGrid(position, layerY, out VoxelGrid worldGrid));
         Assert.Same(grid, worldGrid);
@@ -264,8 +319,15 @@ public sealed class ClosestQueryTests : IDisposable
         Assert.True(_world.TryGetClosestVoxel(position, layerY, out Voxel worldVoxel));
         Assert.Same(gridVoxel, worldVoxel);
 
+        Assert.True(_world.TryGetClosestVoxel(position, out Voxel defaultLayerWorldVoxel));
+        Assert.Same(defaultLayerGridVoxel, defaultLayerWorldVoxel);
+
         Assert.True(_world.TryGetClosestVoxel(position, layerY, out Voxel filteredWorldVoxel, GridTopologyKind.RectangularPrism));
         Assert.Same(gridVoxel, filteredWorldVoxel);
+
+        Assert.True(_world.TryGetClosestGridAndVoxel(position, out VoxelGrid defaultLayerResolvedGrid, out Voxel defaultLayerResolvedVoxel));
+        Assert.Same(grid, defaultLayerResolvedGrid);
+        Assert.Same(defaultLayerGridVoxel, defaultLayerResolvedVoxel);
 
         Assert.True(_world.TryGetClosestGridAndVoxel(position, layerY, out VoxelGrid resolvedGrid, out Voxel resolvedVoxel));
         Assert.Same(grid, resolvedGrid);
@@ -279,6 +341,30 @@ public sealed class ClosestQueryTests : IDisposable
             GridTopologyKind.RectangularPrism));
         Assert.Same(grid, filteredResolvedGrid);
         Assert.Same(gridVoxel, filteredResolvedVoxel);
+    }
+
+    [Fact]
+    public void ClosestQueries_ShouldReturnFalseWhenWorldOrGridIsInactive()
+    {
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+
+        Assert.False(inactiveWorld.TryGetClosestGrid(Vector3d.Zero, out VoxelGrid inactiveGrid));
+        Assert.False(inactiveWorld.TryGetClosestVoxel(Vector3d.Zero, out Voxel inactiveVoxel));
+        Assert.False(inactiveWorld.TryGetClosestGridAndVoxel(Vector3d.Zero, out VoxelGrid inactivePairGrid, out Voxel inactivePairVoxel));
+        Assert.Null(inactiveGrid);
+        Assert.Null(inactiveVoxel);
+        Assert.Null(inactivePairGrid);
+        Assert.Null(inactivePairVoxel);
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Assert.True(_world.TryRemoveGrid(gridIndex));
+        Assert.False(grid.TryGetClosestVoxel(Vector3d.Zero, out Voxel removedGridVoxel));
+        Assert.Null(removedGridVoxel);
     }
 
     [Fact]

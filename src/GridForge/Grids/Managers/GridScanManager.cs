@@ -565,8 +565,14 @@ public static class GridScanManager
             for (int i = 0; i < scanCells.Count; i++)
             {
                 ScanCell scanCell = scanCells[i];
-                if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
-                    scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+                if (scanCell.IsOccupied)
+                    scanCell.AddOccupantsWithinRadius2dTo(
+                        results,
+                        center,
+                        GetScanCellLocalLayerY(world, scanCell, layerY),
+                        squaredRadius,
+                        occupantCondition,
+                        groupCondition);
             }
         }
         finally
@@ -618,8 +624,14 @@ public static class GridScanManager
         for (int i = 0; i < scratch.ScanCells.Count; i++)
         {
             ScanCell scanCell = scratch.ScanCells[i];
-            if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
-                scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+            if (scanCell.IsOccupied)
+                scanCell.AddOccupantsWithinRadius2dTo(
+                    results,
+                    center,
+                    GetScanCellLocalLayerY(world, scanCell, layerY),
+                    squaredRadius,
+                    occupantCondition,
+                    groupCondition);
         }
     }
 
@@ -675,8 +687,14 @@ public static class GridScanManager
             for (int i = 0; i < scanCells.Count; i++)
             {
                 ScanCell scanCell = scanCells[i];
-                if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
-                    scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+                if (scanCell.IsOccupied)
+                    scanCell.AddOccupantsWithinRadius2dTo(
+                        results,
+                        center,
+                        GetScanCellLocalLayerY(world, scanCell, layerY),
+                        squaredRadius,
+                        occupantCondition,
+                        groupCondition);
             }
         }
         finally
@@ -728,27 +746,26 @@ public static class GridScanManager
         for (int i = 0; i < scratch.ScanCells.Count; i++)
         {
             ScanCell scanCell = scratch.ScanCells[i];
-            if (scanCell.IsOccupied && TryGetScanCellLocalLayerY(world, scanCell, layerY, out int localLayerY))
-                scanCell.AddOccupantsWithinRadius2dTo(results, center, localLayerY, squaredRadius, occupantCondition, groupCondition);
+            if (scanCell.IsOccupied)
+                scanCell.AddOccupantsWithinRadius2dTo(
+                    results,
+                    center,
+                    GetScanCellLocalLayerY(world, scanCell, layerY),
+                    squaredRadius,
+                    occupantCondition,
+                    groupCondition);
         }
     }
 
-    private static bool TryGetScanCellLocalLayerY(
+    private static int GetScanCellLocalLayerY(
         GridWorld world,
         ScanCell scanCell,
-        Fixed64 layerY,
-        out int localLayerY)
+        Fixed64 layerY)
     {
-        localLayerY = -1;
-        if (!world.TryGetGrid(scanCell.GridIndex, out VoxelGrid? grid))
-            return false;
-
+        world.TryGetGrid(scanCell.GridIndex, out VoxelGrid? grid);
         Vector3d layerProbe = new(grid!.BoundsMin.X, layerY, grid.BoundsMin.Z);
-        if (!grid.TryGetVoxelIndex(layerProbe, out VoxelIndex layerIndex))
-            return false;
-
-        localLayerY = layerIndex.y;
-        return (uint)localLayerY < (uint)grid.Height;
+        grid.TryGetVoxelIndex(layerProbe, out VoxelIndex layerIndex);
+        return layerIndex.y;
     }
 
     #endregion

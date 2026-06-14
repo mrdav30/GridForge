@@ -9,7 +9,6 @@ using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Storage;
@@ -101,7 +100,7 @@ internal sealed class SparseVoxelBlock
         {
             int mid = min + ((max - min) >> 1);
             Voxel voxel = _voxels[mid];
-            int compare = CompareVoxelIndices(voxel.Index, index);
+            int compare = voxel.Index.CompareTo(index);
 
             if (compare == 0)
             {
@@ -151,15 +150,6 @@ internal sealed class SparseVoxelBlock
         return voxel;
     }
 
-    public IEnumerable<Voxel> EnumerateVoxels()
-    {
-        if (_voxels == null)
-            yield break;
-
-        for (int i = 0; i < _count; i++)
-            yield return _voxels[i];
-    }
-
     public void AddVoxelsInIndexRange(
         VoxelIndex min,
         VoxelIndex max,
@@ -204,17 +194,6 @@ internal sealed class SparseVoxelBlock
         ScanCell = null;
         _voxels = null;
         _count = 0;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int CompareVoxelIndices(VoxelIndex left, VoxelIndex right)
-    {
-        int result = left.x.CompareTo(right.x);
-        if (result != 0)
-            return result;
-
-        result = left.y.CompareTo(right.y);
-        return result != 0 ? result : left.z.CompareTo(right.z);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -149,8 +149,15 @@ public readonly partial struct GridTopologyMetrics : IEquatable<GridTopologyMetr
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsValid(
         GridTopologyKind topologyKind,
-        GridTopologyMetrics metrics) => topologyKind == GridTopologyKind.RectangularPrism
-            || (metrics.CellRadius > Fixed64.Zero && metrics.LayerHeight > Fixed64.Zero);
+        GridTopologyMetrics metrics) => topologyKind switch
+        {
+            GridTopologyKind.RectangularPrism => metrics.CellWidth > Fixed64.Zero
+                && metrics.LayerHeight > Fixed64.Zero
+                && metrics.CellLength > Fixed64.Zero,
+            GridTopologyKind.HexPrism => metrics.CellRadius > Fixed64.Zero
+                && metrics.LayerHeight > Fixed64.Zero,
+            _ => false
+        };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 ResolvePositive(Fixed64 value) =>

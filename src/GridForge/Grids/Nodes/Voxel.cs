@@ -477,7 +477,7 @@ public class Voxel : IEquatable<Voxel>
     public T? GetPartitionOrDefault<T>() where T : class, IVoxelPartition
     {
         lock (_partitionLock)
-            return _partitionProvider?.TryGet(out T? partition) ?? false
+            return _partitionProvider.TryGet(out T? partition)
                 ? partition
                 : null;
     }

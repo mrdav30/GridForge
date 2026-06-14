@@ -82,9 +82,7 @@ internal sealed class RectangularPrismTopology : IGridTopology
             ((position.X - boundsMin.X) / Metrics.CellWidth).FloorToInt(),
             ((position.Y - boundsMin.Y) / Metrics.LayerHeight).FloorToInt(),
             ((position.Z - boundsMin.Z) / Metrics.CellLength).FloorToInt());
-        return (uint)result.x < (uint)width
-            && (uint)result.y < (uint)height
-            && (uint)result.z < (uint)length;
+        return true;
     }
 
     public VoxelIndex GetClosestVoxelIndex(

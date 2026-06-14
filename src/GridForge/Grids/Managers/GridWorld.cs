@@ -45,6 +45,9 @@ public sealed class GridWorld : IDisposable
 
     #region Properties
 
+    private static readonly Comparison<VoxelIndex> CompareVoxelIndices =
+        static (left, right) => left.CompareTo(right);
+
     /// <summary>
     /// The size of a spatial hash cell used for grid lookup in this world.
     /// </summary>
@@ -271,10 +274,11 @@ public sealed class GridWorld : IDisposable
         if (!CanAddGrid())
             return false;
 
-        if (!TryNormalizeConfiguration(configuration, out GridConfiguration normalizedConfiguration))
-            return false;
-
-        if (!TryGetConfigurationDimensions(normalizedConfiguration, out GridDimensions dimensions)
+        if (!TryNormalizeConfiguration(
+                configuration,
+                out GridConfiguration normalizedConfiguration,
+                out IGridTopology topology,
+                out GridDimensions dimensions)
             || !TryValidateGridDimensions(dimensions))
         {
             return false;
@@ -304,7 +308,7 @@ public sealed class GridWorld : IDisposable
             allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
-            newGrid.Initialize(this, allocatedIndex, normalizedConfiguration, preparedVoxels);
+            newGrid.Initialize(this, allocatedIndex, normalizedConfiguration, topology, preparedVoxels);
             UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
             RegisterGridSpatialCells(newGrid, allocatedIndex);
 
@@ -370,7 +374,7 @@ public sealed class GridWorld : IDisposable
             return false;
         }
 
-        if ((uint)ActiveGrids.Count > MaxGrids)
+        if ((uint)ActiveGrids.Count >= MaxGrids)
         {
             GridForgeLogger.Channel.Warn($"No more grids can be added at this time.");
             return false;
@@ -396,24 +400,8 @@ public sealed class GridWorld : IDisposable
         return TryPrepareConfiguredVoxelIndices(configuredVoxels, dimensions, out preparedVoxels);
     }
 
-    private static bool TryGetConfigurationDimensions(GridConfiguration configuration, out GridDimensions dimensions)
-    {
-        dimensions = default;
-        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
-            return false;
-
-        dimensions = topology!.CalculateDimensions(configuration.BoundsMin, configuration.BoundsMax);
-        return true;
-    }
-
     private static bool TryValidateGridDimensions(GridDimensions dimensions)
     {
-        if (dimensions.Width <= 0 || dimensions.Height <= 0 || dimensions.Length <= 0)
-        {
-            GridForgeLogger.Channel.Warn($"Grid dimensions must be positive.");
-            return false;
-        }
-
         long layerSize = (long)dimensions.Width * dimensions.Height;
         if (layerSize > int.MaxValue || layerSize * dimensions.Length > int.MaxValue)
         {
@@ -500,7 +488,7 @@ public sealed class GridWorld : IDisposable
             return true;
 
         preparedVoxels = indices.ToArray();
-        Array.Sort(preparedVoxels, VoxelIndexComparer.Instance);
+        Array.Sort(preparedVoxels, CompareVoxelIndices);
         CompactPreparedVoxels(ref preparedVoxels);
         return true;
     }
@@ -547,7 +535,7 @@ public sealed class GridWorld : IDisposable
         Fixed64 maxCellEdge = Fixed64.Zero;
         foreach (VoxelGrid grid in ActiveGrids)
         {
-            if (grid != null && grid.IsActive && grid.Topology.MaxCellEdge > maxCellEdge)
+            if (grid.Topology.MaxCellEdge > maxCellEdge)
                 maxCellEdge = grid.Topology.MaxCellEdge;
         }
 
@@ -718,17 +706,14 @@ public sealed class GridWorld : IDisposable
         Fixed64 closestDistanceSquared = Fixed64.MaxValue;
         foreach (VoxelGrid candidateGrid in ActiveGrids)
         {
-            if (candidateGrid == null
-                || !candidateGrid.IsActive
+            if (!candidateGrid.IsActive
                 || !MatchesTopologyKind(candidateGrid, topologyKind))
             {
                 continue;
             }
 
             Fixed64 distanceSquared = GetDistanceSquaredToBounds(position, candidateGrid.BoundsMin, candidateGrid.BoundsMax);
-            if (outGrid == null
-                || distanceSquared < closestDistanceSquared
-                || (distanceSquared == closestDistanceSquared && candidateGrid.GridIndex < outGrid.GridIndex))
+            if (outGrid == null || distanceSquared < closestDistanceSquared)
             {
                 outGrid = candidateGrid;
                 closestDistanceSquared = distanceSquared;
@@ -779,7 +764,7 @@ public sealed class GridWorld : IDisposable
         result = null;
         if (worldVoxelIndex.WorldSpawnToken != SpawnToken
             || !TryGetGrid(worldVoxelIndex.GridIndex, out VoxelGrid? resolvedGrid)
-            || worldVoxelIndex.GridSpawnToken != resolvedGrid?.SpawnToken)
+            || worldVoxelIndex.GridSpawnToken != resolvedGrid!.SpawnToken)
         {
             return false;
         }
@@ -802,7 +787,7 @@ public sealed class GridWorld : IDisposable
     {
         outVoxel = null;
         return TryGetGrid(position, out outGrid)
-            && outGrid?.TryGetVoxel(position, out outVoxel) == true;
+            && outGrid!.TryGetVoxel(position, out outVoxel);
     }
 
     /// <summary>
@@ -879,13 +864,10 @@ public sealed class GridWorld : IDisposable
             if (outVoxel != null && boundsDistanceSquared > closestDistanceSquared)
                 continue;
 
-            if (!candidateGrid.TryGetClosestVoxel(
+            candidateGrid.TryGetClosestVoxel(
                 position,
                 out Voxel? candidateVoxel,
-                out Fixed64 candidateDistanceSquared))
-            {
-                continue;
-            }
+                out Fixed64 candidateDistanceSquared);
 
             if (IsBetterClosestVoxel(
                 candidateDistanceSquared,
@@ -954,7 +936,7 @@ public sealed class GridWorld : IDisposable
     {
         result = null;
         return TryGetGrid(worldVoxelIndex, out outGrid)
-            && outGrid?.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result) == true;
+            && outGrid!.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result);
     }
 
     /// <summary>
@@ -969,7 +951,7 @@ public sealed class GridWorld : IDisposable
     {
         result = null;
         return TryGetGrid(position, out VoxelGrid? grid)
-            && grid?.TryGetVoxel(position, out result) == true;
+            && grid!.TryGetVoxel(position, out result);
     }
 
     /// <summary>
@@ -1065,21 +1047,27 @@ public sealed class GridWorld : IDisposable
     {
         result = null;
         return TryGetGrid(worldVoxelIndex, out VoxelGrid? grid)
-            && grid?.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result) == true;
+            && grid!.TryGetVoxel(worldVoxelIndex.VoxelIndex, out result);
     }
 
     #endregion
 
     #region Internal Helpers
 
-    internal static bool TryNormalizeConfiguration(GridConfiguration configuration, out GridConfiguration normalizedConfiguration)
+    internal static bool TryNormalizeConfiguration(
+        GridConfiguration configuration,
+        out GridConfiguration normalizedConfiguration,
+        out IGridTopology topology,
+        out GridDimensions dimensions)
     {
         normalizedConfiguration = default;
-        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
+        topology = null!;
+        dimensions = default;
+        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? createdTopology))
             return false;
 
         (Vector3d boundsMin, Vector3d boundsMax) =
-            topology!.NormalizeBounds(configuration.BoundsMin, configuration.BoundsMax);
+            createdTopology!.NormalizeBounds(configuration.BoundsMin, configuration.BoundsMax);
 
         normalizedConfiguration = new GridConfiguration(
             boundsMin,
@@ -1088,6 +1076,8 @@ public sealed class GridWorld : IDisposable
             configuration.TopologyKind,
             configuration.TopologyMetrics,
             configuration.StorageKind);
+        topology = createdTopology;
+        dimensions = topology.CalculateDimensions(boundsMin, boundsMax);
         return true;
     }
 
@@ -1188,10 +1178,7 @@ public sealed class GridWorld : IDisposable
         if (candidateDistanceSquared != closestDistanceSquared)
             return candidateDistanceSquared < closestDistanceSquared;
 
-        int gridCompare = candidateGrid.GridIndex.CompareTo(closestGrid.GridIndex);
-        return gridCompare != 0
-            ? gridCompare < 0
-            : CompareVoxelIndices(candidateVoxel.Index, closestVoxel.Index) < 0;
+        return candidateGrid.GridIndex < closestGrid.GridIndex;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1210,17 +1197,6 @@ public sealed class GridWorld : IDisposable
             return min - coordinate;
 
         return coordinate > max ? coordinate - max : Fixed64.Zero;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int CompareVoxelIndices(VoxelIndex left, VoxelIndex right)
-    {
-        int result = left.x.CompareTo(right.x);
-        if (result != 0)
-            return result;
-
-        result = left.y.CompareTo(right.y);
-        return result != 0 ? result : left.z.CompareTo(right.z);
     }
 
     private bool CanResolveGrid(int index)
@@ -1482,22 +1458,6 @@ public sealed class GridWorld : IDisposable
             (position.Y.Abs() / SpatialGridCellSize).FloorToInt() * position.Y.Sign(),
             (position.Z.Abs() / SpatialGridCellSize).FloorToInt() * position.Z.Sign()
         );
-    }
-
-    private sealed class VoxelIndexComparer : IComparer<VoxelIndex>
-    {
-        public static readonly VoxelIndexComparer Instance = new();
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int Compare(VoxelIndex left, VoxelIndex right)
-        {
-            int result = left.x.CompareTo(right.x);
-            if (result != 0)
-                return result;
-
-            result = left.y.CompareTo(right.y);
-            return result != 0 ? result : left.z.CompareTo(right.z);
-        }
     }
 
     #endregion

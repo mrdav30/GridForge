@@ -36,7 +36,47 @@ runtime and tests.
 
 ## Active Issues
 
-- None currently.
+### 2026-06-14: Coverlet Branch Instrumentation Still Reports Guard-Target Branch Misses
+
+Status: active.
+
+Source: release coverage hardening pass.
+
+Affected files:
+
+- `tests/GridForge.Tests/coverlet.runsettings`
+- Guard-heavy runtime paths in `src/GridForge/Grids`, `src/GridForge/Blockers`,
+  `src/GridForge/Utility`, and `src/GridForge/Configuration`.
+
+Concern:
+
+The 2026-06-14 coverage run reached 100% line, method, and full-method
+coverage with zero CRAP scores above 30, but Coverlet still reports 97.0%
+branch coverage (`1882/1939`) with 57 uncovered branch points. The remaining
+branch points are concentrated on tested guard/log targets and short-circuit
+targets such as inactive-world guards, duplicate/invalid input warnings,
+topology factory warnings, blocker watcher no-ops, sparse storage pruning, and
+trace de-duplication. Several of these public behaviors now have direct tests,
+and additional dead branches were removed, but the branch target entries remain
+reported.
+
+Recommended follow-up:
+
+- Reproduce the remaining branch list from
+  `TestResults/coverage-analysis/raw/0fbb7c73-ed84-4d1f-ad02-b9292a5c6deb/coverage.opencover.xml`.
+- Compare Coverlet branch mapping against an alternate collector or a minimal
+  reduced example for multiline guard blocks.
+- Decide whether to refactor guard/log statements into branch-mapping-friendly
+  helpers, use a different branch-coverage collector for release gates, or keep
+  a documented branch exception while preserving the current runtime shape.
+
+Recommended verification:
+
+```bash
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Debug --settings tests/GridForge.Tests/coverlet.runsettings --results-directory TestResults/coverage-analysis/raw --collect:"XPlat Code Coverage"
+TestResults/coverage-analysis/.tools/reportgenerator -reports:<coverage.cobertura.xml> -targetdir:TestResults/coverage-analysis/reports -reporttypes:"TextSummary;MarkdownSummaryGithub;CsvSummary"
+pwsh -NoProfile -ExecutionPolicy Bypass -File /mnt/c/Users/david/.codex/skills/coverage-analysis/scripts/Compute-CrapScores.ps1 -CoberturaPath <coverage.cobertura.xml> -CrapThreshold 30 -TopN 40
+```
 
 ## Performance Investigation Queue
 

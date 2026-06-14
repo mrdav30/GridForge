@@ -19,6 +19,12 @@ internal static class GridTopologyFactory
         {
             case GridTopologyKind.RectangularPrism:
                 {
+                    if (!GridTopologyMetrics.IsValid(configuration.TopologyKind, configuration.TopologyMetrics))
+                    {
+                        GridForgeLogger.Channel.Warn($"Rectangular-prism topology requires positive cell width, layer height, and cell length.");
+                        return false;
+                    }
+
                     topology = new RectangularPrismTopology(configuration.TopologyMetrics);
                     return true;
                 }

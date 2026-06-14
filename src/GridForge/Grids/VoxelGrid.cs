@@ -226,40 +226,27 @@ public class VoxelGrid
     /// <param name="world">The world that will own this grid.</param>
     /// <param name="gridIndex">The unique index of this grid in the world.</param>
     /// <param name="configuration">The normalized configuration settings for the grid.</param>
+    /// <param name="topology">The validated topology instance for this grid.</param>
     /// <param name="configuredVoxels">The validated sparse voxel indices to materialize.</param>
     internal void Initialize(
         GridWorld world,
         ushort gridIndex,
         GridConfiguration configuration,
+        IGridTopology topology,
         VoxelIndex[] configuredVoxels)
     {
-        if (IsActive)
-        {
-            GridForgeLogger.Channel.Warn($"Grid at {nameof(gridIndex)} is already active.");
-            return;
-        }
-
         Version = 1;
 
         World = world;
         GridIndex = gridIndex;
 
         Configuration = configuration;
-        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? topology))
-        {
-            World = null;
-            GridIndex = ushort.MaxValue;
-            Configuration = default;
-            Version = 0;
-            return;
-        }
-
         _topology = topology;
 
         SpawnToken = GetHashCode();
 
         // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid.
-        GridDimensions dimensions = topology!.CalculateDimensions(BoundsMin, BoundsMax);
+        GridDimensions dimensions = topology.CalculateDimensions(BoundsMin, BoundsMax);
         Width = dimensions.Width;
         Height = dimensions.Height;
         Length = dimensions.Length;
@@ -288,7 +275,7 @@ public class VoxelGrid
         if (!IsActive)
             return;
 
-        _storage?.Reset(this);
+        _storage!.Reset(this);
         _storage = null;
 
         // Just in case since voxels should have already cleared any registered obstacles.
@@ -326,12 +313,7 @@ public class VoxelGrid
             return;
 
         foreach (SwiftHashSet<int> neighbors in Neighbors.Values)
-        {
-            if (neighbors == null)
-                continue;
-
             SwiftHashSetPool<int>.Shared.Release(neighbors);
-        }
 
         Neighbors = null;
         NeighborCount = 0;
@@ -579,7 +561,7 @@ public class VoxelGrid
             SwiftHashSet<int> neighborSet = values[i];
             foreach (int neighborIndex in neighborSet)
             {
-                if (World != null && World.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
+                if (World!.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
                 {
                     yield return neighborGrid!;
                 }
@@ -676,7 +658,7 @@ public class VoxelGrid
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsVoxelAllocated(int x, int y, int z) =>
-        IsValidVoxelIndex(x, y, z) && _storage?.TryGetVoxel(x, y, z, out _) == true;
+        IsValidVoxelIndex(x, y, z) && _storage!.TryGetVoxel(x, y, z, out _);
 
     /// <summary>
     /// Checks whether a physical voxel is configured at the supplied grid-local index.
@@ -705,7 +687,7 @@ public class VoxelGrid
 
         uint gridVersion = IncrementVersion();
         voxel!.CachedGridVersion = gridVersion;
-        World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelAdded, voxelIndex, voxel.WorldPosition);
+        World!.NotifyActiveGridChange(this, GridEventKind.SparseVoxelAdded, voxelIndex, voxel.WorldPosition);
         return true;
     }
 
@@ -726,11 +708,10 @@ public class VoxelGrid
         }
 
         Vector3d affectedPosition = voxel!.WorldPosition;
-        if (!_sparseStorage.TryRemoveVoxel(this, voxelIndex, out _))
-            return false;
+        _sparseStorage.TryRemoveVoxel(this, voxelIndex, out _);
 
         IncrementVersion();
-        World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelRemoved, voxelIndex, affectedPosition);
+        World!.NotifyActiveGridChange(this, GridEventKind.SparseVoxelRemoved, voxelIndex, affectedPosition);
         return true;
     }
 
@@ -757,7 +738,7 @@ public class VoxelGrid
         if (!IsValidVoxelIndex(x, y, z))
             return false;
 
-        return _storage?.TryGetVoxel(x, y, z, out result) == true;
+        return _storage!.TryGetVoxel(x, y, z, out result);
     }
 
     /// <summary>
@@ -817,11 +798,11 @@ public class VoxelGrid
             return false;
         }
 
-        if (_storage == null || ConfiguredVoxelCount == 0)
+        if (ConfiguredVoxelCount == 0)
             return false;
 
         VoxelIndex closestIndex = Topology.GetClosestVoxelIndex(BoundsMin, Width, Height, Length, position);
-        return _storage.TryGetClosestVoxel(this, closestIndex, position, out result, out distanceSquared);
+        return _storage!.TryGetClosestVoxel(this, closestIndex, position, out result, out distanceSquared);
     }
 
     /// <summary>
@@ -979,8 +960,8 @@ public class VoxelGrid
 
         foreach (int activeCellKey in ActiveScanCells!)
         {
-            if (_storage!.TryGetScanCell(activeCellKey, out ScanCell? scanCell) && scanCell != null)
-                yield return scanCell;
+            if (_storage!.TryGetScanCell(activeCellKey, out ScanCell? scanCell))
+                yield return scanCell!;
         }
     }
 

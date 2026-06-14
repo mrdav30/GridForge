@@ -207,7 +207,7 @@ public static class GridObstacleManager
 
         lock (grid.ObstacleSyncRoot)
         {
-            if (targetVoxel.ObstacleTracker?.Remove(obstacleSpawnToken) != true)
+            if (!targetVoxel.ObstacleTracker!.Remove(obstacleSpawnToken))
                 return false;
 
             if (--targetVoxel.ObstacleCount <= 0)
@@ -292,7 +292,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstacleAdded(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        grid.World?.NotifyActiveGridChange(grid);
+        grid.World!.NotifyActiveGridChange(grid);
     }
 
     /// <summary>
@@ -326,7 +326,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstacleRemoved(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        grid.World?.NotifyActiveGridChange(grid);
+        grid.World!.NotifyActiveGridChange(grid);
     }
 
     /// <summary>
@@ -359,7 +359,7 @@ public static class GridObstacleManager
         targetVoxel.NotifyObstaclesCleared(eventInfo);
 
         targetVoxel.CachedGridVersion = gridVersion;
-        grid.World?.NotifyActiveGridChange(grid);
+        grid.World!.NotifyActiveGridChange(grid);
     }
 
     #endregion

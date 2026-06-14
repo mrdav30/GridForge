@@ -69,6 +69,86 @@ public sealed class VoxelNeighborApiTests : IDisposable
     }
 
     [Fact]
+    public void GetNeighborsInto_ShouldHandleNoneScopeAndSourceGridShortCircuit()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
+            out ushort gridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(10, 0, 0)),
+            out ushort isolatedGridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        VoxelGrid isolatedGrid = _world.ActiveGrids[isolatedGridIndex];
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel sourceGridNeighbor));
+        Assert.True(isolatedGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel isolated));
+
+        SwiftList<Voxel> results = new SwiftList<Voxel>();
+        results.Add(sourceGridNeighbor);
+
+        source.GetNeighborsInto(grid, results, VoxelNeighborScope.None);
+        Assert.Empty(results);
+        Assert.False(source.HasNeighbor(grid, VoxelNeighborScope.None));
+
+        Assert.True(source.HasNeighbor(grid, VoxelNeighborScope.SourceGrid));
+        source.GetNeighborsInto(grid, results, VoxelNeighborScope.SourceGrid);
+        Assert.Single(results);
+        Assert.Same(sourceGridNeighbor, results[0]);
+        Assert.False(isolated.HasNeighbor(isolatedGrid, VoxelNeighborScope.SourceGrid));
+    }
+
+    [Fact]
+    public void GetNeighborsInto_ShouldSkipStaleSpatialCandidates()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
+            out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel expectedNeighbor));
+        int spatialCell = _world.GetSpatialGridKey(source.WorldPosition);
+        _world.SpatialGridHash[spatialCell].Add(ushort.MaxValue);
+
+        SwiftList<Voxel> results = new SwiftList<Voxel>();
+        source.GetNeighborsInto(grid, results, VoxelNeighborScope.All, tolerance: new Fixed64(20));
+
+        Assert.Contains(expectedNeighbor, results.ToArray());
+    }
+
+    [Fact]
+    public void NeighborListEntryPoints_ShouldClearAndReturnForInvalidOwnerGrid()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
+            out ushort ownerGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(10, 0, 0)),
+            out ushort otherGridIndex));
+
+        VoxelGrid ownerGrid = _world.ActiveGrids[ownerGridIndex];
+        VoxelGrid otherGrid = _world.ActiveGrids[otherGridIndex];
+        Assert.True(ownerGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
+        Assert.True(ownerGrid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel existing));
+
+        SwiftList<Voxel> neighbors = new SwiftList<Voxel>();
+        neighbors.Add(existing);
+        source.GetNeighborsInto(otherGrid, neighbors);
+        Assert.Empty(neighbors);
+
+        SwiftList<(RectangularDirection Direction, Voxel Voxel)> rectangular = new SwiftList<(RectangularDirection Direction, Voxel Voxel)>();
+        rectangular.Add((RectangularDirection.East, existing));
+        source.GetRectangularNeighborsInto(otherGrid, rectangular);
+        Assert.Empty(rectangular);
+
+        SwiftList<(HexDirection Direction, Voxel Voxel)> hex = new SwiftList<(HexDirection Direction, Voxel Voxel)>();
+        hex.Add((HexDirection.QPositive, existing));
+        source.GetHexNeighborsInto(otherGrid, hex);
+        Assert.Empty(hex);
+    }
+
+    [Fact]
     public void TryGetNeighbor_ShouldKeepDirectedLookupSameTopologyOnly()
     {
         Assert.True(_world.TryAddGrid(
@@ -138,6 +218,32 @@ public sealed class VoxelNeighborApiTests : IDisposable
             Assert.Equal(RectangularDirectionUtility.All[i], results[i].Direction);
             Assert.NotSame(voxel, results[i].Voxel);
         }
+    }
+
+    [Fact]
+    public void DirectionLabeledNeighborQueries_ShouldIgnoreMismatchedTopology()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort rectangularGridIndex));
+        GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(new Vector3d(4, 0, 0), hexMetrics, new VoxelIndex(0, 0, 0)),
+            out ushort hexGridIndex));
+
+        VoxelGrid rectangularGrid = _world.ActiveGrids[rectangularGridIndex];
+        VoxelGrid hexGrid = _world.ActiveGrids[hexGridIndex];
+        Assert.True(rectangularGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel rectangularVoxel));
+        Assert.True(hexGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel hexVoxel));
+
+        SwiftList<(RectangularDirection Direction, Voxel Voxel)> rectangularResults = new();
+        SwiftList<(HexDirection Direction, Voxel Voxel)> hexResults = new();
+
+        hexVoxel.GetRectangularNeighborsInto(hexGrid, rectangularResults);
+        rectangularVoxel.GetHexNeighborsInto(rectangularGrid, hexResults);
+
+        Assert.Empty(rectangularResults);
+        Assert.Empty(hexResults);
     }
 
     [Fact]

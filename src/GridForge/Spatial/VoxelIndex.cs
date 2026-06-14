@@ -16,7 +16,7 @@ namespace GridForge.Spatial;
 /// Rectangular-prism grids interpret the fields as X, Y, and Z. Hex-prism
 /// grids interpret them as axial Q, vertical layer, and axial R.
 /// </summary>
-public struct VoxelIndex : IEquatable<VoxelIndex>
+public struct VoxelIndex : IEquatable<VoxelIndex>, IComparable<VoxelIndex>
 {
     #region Properties
 
@@ -104,6 +104,17 @@ public struct VoxelIndex : IEquatable<VoxelIndex>
         return x == other.x
             && y == other.y
             && z == other.z;
+    }
+
+    /// <inheritdoc/>
+    public readonly int CompareTo(VoxelIndex other)
+    {
+        int result = x.CompareTo(other.x);
+        if (result != 0)
+            return result;
+
+        result = y.CompareTo(other.y);
+        return result != 0 ? result : z.CompareTo(other.z);
     }
 
     /// <inheritdoc/>

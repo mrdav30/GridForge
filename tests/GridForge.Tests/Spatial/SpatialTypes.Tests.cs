@@ -37,6 +37,20 @@ public class SpatialTypesTests
     }
 
     [Fact]
+    public void VoxelIndex_ShouldCompareByXThenYThenZ()
+    {
+        VoxelIndex origin = new(0, 0, 0);
+        VoxelIndex same = new(0, 0, 0);
+
+        Assert.Equal(0, origin.CompareTo(same));
+        Assert.True(origin.CompareTo(new VoxelIndex(1, 0, 0)) < 0);
+        Assert.True(new VoxelIndex(1, 0, 0).CompareTo(origin) > 0);
+        Assert.True(new VoxelIndex(1, 0, 0).CompareTo(new VoxelIndex(1, 1, 0)) < 0);
+        Assert.True(new VoxelIndex(1, 1, 0).CompareTo(new VoxelIndex(1, 1, 1)) < 0);
+        Assert.True(new VoxelIndex(1, 1, 2).CompareTo(new VoxelIndex(1, 1, 1)) > 0);
+    }
+
+    [Fact]
     public void WorldVoxelIndex_ShouldSupportEqualityOperatorsAndObjectComparison()
     {
         WorldVoxelIndex first = new(17, 2, 99, new VoxelIndex(1, 2, 3));
@@ -110,6 +124,174 @@ public class SpatialTypesTests
         Assert.Equal(defaultRectangular.GetHashCode(), differentScanSize.GetHashCode());
         Assert.NotEqual(defaultRectangular.ToGridKey(), halfCellRectangular.ToGridKey());
         Assert.NotEqual(defaultRectangular.GetHashCode(), halfCellRectangular.GetHashCode());
+    }
+
+    [Fact]
+    public void GridConfigurationKey_ShouldSupportObjectEqualityAndOperators()
+    {
+        GridConfiguration configuration = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(4, 0, 4),
+            topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One));
+        GridConfigurationKey key = configuration.ToGridKey();
+        GridConfigurationKey same = configuration.ToGridKey();
+        GridConfigurationKey different = new(
+            configuration.BoundsMin,
+            configuration.BoundsMax,
+            GridTopologyKind.HexPrism,
+            GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One));
+        object boxed = same;
+
+        Assert.True(key.Equals(boxed));
+        Assert.False(key.Equals("not a key"));
+        Assert.True(key == same);
+        Assert.False(key != same);
+        Assert.False(key == different);
+        Assert.True(key != different);
+    }
+
+    [Fact]
+    public void GridTopologyMetrics_ShouldSupportObjectEqualityAndOperators()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, new Fixed64(2), HexOrientation.FlatTop);
+        GridTopologyMetrics same = GridTopologyMetrics.Hex(Fixed64.One, new Fixed64(2), HexOrientation.FlatTop);
+        GridTopologyMetrics different = GridTopologyMetrics.Hex(new Fixed64(2), new Fixed64(2), HexOrientation.FlatTop);
+        object boxed = same;
+
+        Assert.True(metrics.Equals(boxed));
+        Assert.False(metrics.Equals("not metrics"));
+        Assert.True(metrics == same);
+        Assert.False(metrics != same);
+        Assert.False(metrics == different);
+        Assert.True(metrics != different);
+    }
+
+    [Fact]
+    public void GridTopologyMetrics_ShouldValidateRequiredDimensionsByTopologyKind()
+    {
+        MethodInfo isValid = typeof(GridTopologyMetrics).GetMethod(
+            "IsValid",
+            BindingFlags.Static | BindingFlags.NonPublic,
+            null,
+            new[] { typeof(GridTopologyKind), typeof(GridTopologyMetrics) },
+            null);
+
+        Assert.NotNull(isValid);
+        Assert.True(InvokeIsValid(isValid, GridTopologyKind.RectangularPrism, GridTopologyMetrics.Rectangular(Fixed64.One)));
+        Assert.False(InvokeIsValid(
+            isValid,
+            GridTopologyKind.RectangularPrism,
+            new GridTopologyMetrics(
+                Fixed64.Zero,
+                Fixed64.Zero,
+                Fixed64.One,
+                Fixed64.One)));
+        Assert.False(InvokeIsValid(
+            isValid,
+            GridTopologyKind.RectangularPrism,
+            new GridTopologyMetrics(
+                Fixed64.Zero,
+                Fixed64.One,
+                Fixed64.Zero,
+                Fixed64.One)));
+        Assert.False(InvokeIsValid(
+            isValid,
+            GridTopologyKind.RectangularPrism,
+            new GridTopologyMetrics(
+                Fixed64.Zero,
+                Fixed64.One,
+                Fixed64.One,
+                Fixed64.Zero)));
+        Assert.True(InvokeIsValid(isValid, GridTopologyKind.HexPrism, GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One)));
+        Assert.False(InvokeIsValid(isValid, GridTopologyKind.HexPrism, GridTopologyMetrics.Hex(Fixed64.Zero, Fixed64.One)));
+        Assert.False(InvokeIsValid(isValid, GridTopologyKind.HexPrism, GridTopologyMetrics.Hex(Fixed64.One, Fixed64.Zero)));
+        Assert.False(InvokeIsValid(isValid, (GridTopologyKind)int.MaxValue, GridTopologyMetrics.Rectangular(Fixed64.One)));
+    }
+
+    [Fact]
+    public void DirectionUtilities_ShouldClassifyDirectionsAndBoundaryRanges()
+    {
+        Assert.True(RectangularDirectionUtility.IsPerpendicularNeighbor(RectangularDirection.West));
+        Assert.False(RectangularDirectionUtility.IsPerpendicularNeighbor(RectangularDirection.SouthWest));
+        Assert.True(RectangularDirectionUtility.IsDiagonalNeighbor(RectangularDirection.SouthWest));
+        Assert.False(RectangularDirectionUtility.IsDiagonalNeighbor(RectangularDirection.Above));
+        Assert.Equal(RectangularDirection.NorthEast, RectangularDirectionUtility.GetDirectionFromOffset((1, 0, 1)));
+        Assert.Equal(RectangularDirection.None, RectangularDirectionUtility.GetDirectionFromOffset((2, 0, 0)));
+        Assert.Equal((0, 0), RectangularDirectionUtility.GetBoundaryRange(-1, 5));
+        Assert.Equal((4, 4), RectangularDirectionUtility.GetBoundaryRange(1, 5));
+        Assert.Equal((0, 4), RectangularDirectionUtility.GetBoundaryRange(0, 5));
+
+        Assert.True(HexDirectionUtility.IsPlanar(HexDirection.QPositive));
+        Assert.False(HexDirectionUtility.IsPlanar(HexDirection.Above));
+        Assert.True(HexDirectionUtility.IsVertical(HexDirection.Below));
+        Assert.True(HexDirectionUtility.IsVertical(HexDirection.Above));
+        Assert.False(HexDirectionUtility.IsVertical(HexDirection.QPositive));
+        Assert.Equal(RectangularDirection.None, RectangularDirectionUtility.GetDirectionFromOffset((2, 0, 0)));
+    }
+
+    [Fact]
+    public void RectangularTopology_ShouldResolveBoundaryRangesForDirectionSlots()
+    {
+        RectangularPrismTopology topology = new RectangularPrismTopology(
+            GridTopologyMetrics.Rectangular(Fixed64.One));
+        (Vector3d unpaddedMin, Vector3d unpaddedMax) = topology.NormalizeBounds(
+            Vector3d.FromDouble(0.25, 0.25, 0.25),
+            Vector3d.FromDouble(0.75, 0.75, 0.75),
+            Fixed64.Zero);
+        (Vector3d paddedMin, Vector3d paddedMax) = topology.NormalizeBounds(
+            Vector3d.FromDouble(0.25, 0.25, 0.25),
+            Vector3d.FromDouble(0.75, 0.75, 0.75),
+            Fixed64.Half);
+
+        topology.GetBoundaryRange(
+            (int)RectangularDirection.NorthEast,
+            width: 4,
+            height: 3,
+            length: 5,
+            out int xStart,
+            out int xEnd,
+            out int yStart,
+            out int yEnd,
+            out int zStart,
+            out int zEnd);
+
+        Assert.Equal(Vector3d.Zero, unpaddedMin);
+        Assert.Equal(Vector3d.One, unpaddedMax);
+        Assert.Equal(Vector3d.Zero, paddedMin);
+        Assert.Equal(new Vector3d(2, 2, 2), paddedMax);
+        Assert.Equal(3, xStart);
+        Assert.Equal(3, xEnd);
+        Assert.Equal(0, yStart);
+        Assert.Equal(2, yEnd);
+        Assert.Equal(4, zStart);
+        Assert.Equal(4, zEnd);
+    }
+
+    [Fact]
+    public void HexCoordinateUtility_ShouldRoundDominantCubeAxisAndCeilOutsideTolerance()
+    {
+        HexCoordinateUtility.RoundCube((Fixed64)0.51, (Fixed64)0.2, out int qAdjusted, out int rFromQ);
+        Assert.Equal(1, qAdjusted);
+        Assert.Equal(0, rFromQ);
+
+        HexCoordinateUtility.RoundCube((Fixed64)0.2, (Fixed64)0.51, out int qFromR, out int rAdjusted);
+        Assert.Equal(0, qFromR);
+        Assert.Equal(1, rAdjusted);
+
+        Assert.Equal(2, HexCoordinateUtility.CeilToIntWithTolerance((Fixed64)1.25));
+    }
+
+    [Fact]
+    public void TopologyVoxelRangeUtility_ShouldRejectInactiveGrid()
+    {
+        Assert.False(TopologyVoxelRangeUtility.TryGetCandidateRange(
+            new VoxelGrid(),
+            Vector3d.Zero,
+            Vector3d.Zero,
+            out VoxelIndex minIndex,
+            out VoxelIndex maxIndex));
+        Assert.Equal(default, minIndex);
+        Assert.Equal(default, maxIndex);
     }
 
     [Fact]
@@ -293,4 +475,7 @@ public class SpatialTypesTests
 
         return (IEnumerable<object>)partitionsProperty.GetValue(provider);
     }
+
+    private static bool InvokeIsValid(MethodInfo isValid, GridTopologyKind kind, GridTopologyMetrics metrics) =>
+        (bool)isValid.Invoke(null, new object[] { kind, metrics });
 }

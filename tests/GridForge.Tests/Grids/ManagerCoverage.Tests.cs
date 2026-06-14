@@ -579,6 +579,9 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(grid.TryRemoveVoxelOccupant(new VoxelIndex(-1, 0, 0), new TestOccupant(emptyPosition)));
 
         Assert.Empty(GridScanManager.ScanRadius<TestOccupant>(_world, new Vector3d(99, 0, 99), (Fixed64)1).ToArray());
+        Assert.Empty(GridScanManager.GetVoxelOccupantsByType<TestOccupant>((GridWorld)null, default));
+        Assert.Empty(GridScanManager.GetOccupants((GridWorld)null, default));
+        Assert.Empty(GridScanManager.GetConditionalOccupants((GridWorld)null, default));
         Assert.Empty(GridScanManager.GetVoxelOccupantsByType<TestOccupant>(_world, missingGlobalIndex));
         Assert.Empty(grid.GetVoxelOccupantsByType<TestOccupant>(new Vector3d(99, 0, 99)));
         Assert.Empty(grid.GetVoxelOccupantsByType<TestOccupant>(new VoxelIndex(-1, 0, 0)));
@@ -586,6 +589,7 @@ public class ManagerCoverageTests : IDisposable
 
         Assert.False(grid.TryGetVoxelOccupant(emptyVoxel, 0, out IVoxelOccupant missingOccupant));
         Assert.Null(missingOccupant);
+        Assert.Empty(grid.GetConditionalOccupants(emptyVoxel));
         Assert.False(grid.TryGetVoxelOccupant(new Vector3d(99, 0, 99), 0, out IVoxelOccupant missingPositionOccupant));
         Assert.Null(missingPositionOccupant);
         Assert.True(grid.TryGetVoxelOccupant(localOccupant.Position, localTicket, out IVoxelOccupant byPositionOccupant));
@@ -600,6 +604,23 @@ public class ManagerCoverageTests : IDisposable
         Assert.Empty(grid.GetConditionalOccupants(new Vector3d(99, 0, 99)));
         Assert.Empty(grid.GetConditionalOccupants(new VoxelIndex(-1, 0, 0)));
         Assert.Empty(grid.GetConditionalOccupants((Voxel)null));
+    }
+
+    [Fact]
+    public void ScanManager_ShouldReturnEmptyWhenVoxelOccupancyStateIsStale()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
+
+        voxel.OccupantCount = 1;
+
+        Assert.Empty(grid.GetOccupants(voxel));
+        Assert.Empty(grid.GetConditionalOccupants(voxel));
+
+        voxel.OccupantCount = 0;
     }
 
     [Fact]
@@ -755,8 +776,56 @@ public class ManagerCoverageTests : IDisposable
         Assert.Single(typedResults);
         Assert.Same(targetOccupant, typedResults[0]);
 
+        GridScanManager.ScanRadiusInto(
+            _world,
+            Vector2d.Zero,
+            (Fixed64)3,
+            untypedResults,
+            layerY: (Fixed64)9);
+        Assert.Empty(untypedResults);
+
+        GridScanManager.ScanRadiusInto<TestOccupant>(
+            _world,
+            Vector2d.Zero,
+            (Fixed64)3,
+            typedResults,
+            layerY: (Fixed64)9);
+        Assert.Empty(typedResults);
+
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
         inactiveWorld.Dispose();
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(null, Vector3d.Zero, Fixed64.One, untypedResults);
+        GridScanManager.ScanRadiusInto<TestOccupant>(null, Vector3d.Zero, Fixed64.One, typedResults);
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(null, Vector3d.Zero, Fixed64.One, untypedResults, scratch);
+        GridScanManager.ScanRadiusInto<TestOccupant>(null, Vector3d.Zero, Fixed64.One, typedResults, scratch);
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(null, Vector2d.Zero, Fixed64.One, untypedResults);
+        GridScanManager.ScanRadiusInto<TestOccupant>(null, Vector2d.Zero, Fixed64.One, typedResults);
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(null, Vector2d.Zero, Fixed64.One, untypedResults, scratch);
+        GridScanManager.ScanRadiusInto<TestOccupant>(null, Vector2d.Zero, Fixed64.One, typedResults, scratch);
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
         untypedResults.Add(targetOccupant);
         typedResults.Add(targetOccupant);
 
@@ -771,6 +840,15 @@ public class ManagerCoverageTests : IDisposable
 
         GridScanManager.ScanRadiusInto(inactiveWorld, Vector3d.Zero, Fixed64.One, untypedResults);
         GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector3d.Zero, Fixed64.One, typedResults, scratch);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+
+        untypedResults.Add(targetOccupant);
+        typedResults.Add(targetOccupant);
+
+        GridScanManager.ScanRadiusInto(inactiveWorld, Vector2d.Zero, Fixed64.One, untypedResults, scratch);
+        GridScanManager.ScanRadiusInto<TestOccupant>(inactiveWorld, Vector2d.Zero, Fixed64.One, typedResults);
 
         Assert.Empty(untypedResults);
         Assert.Empty(typedResults);
@@ -929,6 +1007,42 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryRemoveVoxelOccupant(staleSpawnOccupant));
         Assert.Empty(GridOccupantManager.GetOccupiedIndices(_world, staleGridOccupant));
         Assert.Empty(GridOccupantManager.GetOccupiedIndices(_world, staleSpawnOccupant));
+    }
+
+    [Fact]
+    public void GridOccupantManager_ShouldHandleNullWorldDetachedGridAndOccupiedScanCellRelease()
+    {
+        TestOccupant detachedOccupant = new(Vector3d.Zero, 20);
+
+        GridOccupantManager.ForgetTrackedOccupancies(null, new[] { detachedOccupant }, default);
+        Assert.False(new VoxelGrid().TryRemoveVoxelOccupant(detachedOccupant));
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0), scanCellSize: 1),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant firstOccupant = new(new Vector3d(0, 0, 0), 21);
+        TestOccupant secondOccupant = new(new Vector3d(1, 0, 0), 22);
+        TestOccupant staleTrackedOccupant = new(new Vector3d(0, 0, 0), 23);
+
+        Assert.True(grid.TryAddVoxelOccupant(firstOccupant));
+        Assert.True(grid.TryAddVoxelOccupant(secondOccupant));
+        Assert.True(grid.TryGetVoxel(firstOccupant.Position, out Voxel firstVoxel));
+        Assert.False(grid.TryRemoveVoxelOccupant(firstVoxel, new TestOccupant(firstOccupant.Position, 24)));
+        Assert.True(InvokeTryTrackOccupancy(grid.World!, staleTrackedOccupant, firstVoxel.WorldIndex, 12345));
+        Assert.False(InvokeTryTrackOccupancy(grid.World!, staleTrackedOccupant, firstVoxel.WorldIndex, 12346));
+        Assert.False(grid.TryRemoveVoxelOccupant(firstVoxel, staleTrackedOccupant));
+        Assert.False(InvokeForgetTrackedOccupancy(
+            grid.World!,
+            staleTrackedOccupant,
+            new WorldVoxelIndex(grid.World!.SpawnToken, grid.GridIndex, grid.SpawnToken, new VoxelIndex(99, 0, 99))));
+        Assert.True(InvokeForgetTrackedOccupancy(grid.World!, staleTrackedOccupant, firstVoxel.WorldIndex));
+        Assert.True(grid.TryRemoveVoxelOccupant(firstOccupant));
+        Assert.True(grid.IsOccupied);
+        Assert.NotNull(grid.ActiveScanCells);
+        Assert.True(grid.TryRemoveVoxelOccupant(secondOccupant));
+        Assert.False(grid.IsOccupied);
+        Assert.Null(grid.ActiveScanCells);
     }
 
     [Fact]

@@ -341,7 +341,7 @@ public static class GridOccupantManager
 
     internal static void ClearTrackedOccupancies(GridWorld world)
     {
-        if (world == null || !TryGetWorldRegistry(world, out WorldOccupancyRegistry? registry))
+        if (!TryGetWorldRegistry(world, out WorldOccupancyRegistry? registry))
             return;
 
         lock (registry!.SyncRoot)
@@ -350,7 +350,7 @@ public static class GridOccupantManager
 
     internal static void ReleaseTrackedOccupancies(GridWorld world)
     {
-        if (world == null || !_occupancyRegistries.TryRemove(world, out WorldOccupancyRegistry? registry))
+        if (!_occupancyRegistries.TryRemove(world, out WorldOccupancyRegistry? registry))
             return;
 
         lock (registry.SyncRoot)
@@ -436,9 +436,6 @@ public static class GridOccupantManager
         WorldVoxelIndex index,
         int ticket)
     {
-        if (world == null)
-            return false;
-
         WorldOccupancyRegistry registry = GetWorldRegistry(world);
         lock (registry.SyncRoot)
         {
@@ -741,7 +738,7 @@ public static class GridOccupantManager
     private static bool TryGetWorldRegistry(GridWorld world, out WorldOccupancyRegistry? registry)
     {
         registry = null;
-        return world != null && _occupancyRegistries.TryGetValue(world, out registry);
+        return _occupancyRegistries.TryGetValue(world, out registry);
     }
 
     #endregion

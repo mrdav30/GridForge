@@ -123,9 +123,9 @@ public readonly partial struct GridConfiguration
 
         ScanCellSize = scanCellSize > 0 ? scanCellSize : DefaultScanCellSize;
         TopologyKind = topologyKind;
-        TopologyMetrics = GridTopologyMetrics.Normalize(
-            topologyKind,
-            topologyMetrics);
+        TopologyMetrics = topologyMetrics == default
+            ? GridTopologyMetrics.Normalize(topologyKind, topologyMetrics)
+            : topologyMetrics;
         StorageKind = storageKind;
     }
 

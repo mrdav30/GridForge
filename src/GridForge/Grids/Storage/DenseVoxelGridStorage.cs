@@ -58,7 +58,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
     public bool TryGetVoxel(int x, int y, int z, out Voxel? result)
     {
         result = Voxels![x, y, z];
-        return result?.IsAllocated == true;
+        return result!.IsAllocated;
     }
 
     public bool TryGetClosestVoxel(
@@ -68,10 +68,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         out Voxel? result,
         out Fixed64 distanceSquared)
     {
-        distanceSquared = Fixed64.MaxValue;
-        if (!TryGetVoxel(closestIndex.x, closestIndex.y, closestIndex.z, out result))
-            return false;
-
+        result = Voxels![closestIndex.x, closestIndex.y, closestIndex.z];
         distanceSquared = (result!.WorldPosition - position).MagnitudeSquared;
         return true;
     }
@@ -94,9 +91,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
             {
                 for (int z = 0; z < _length; z++)
                 {
-                    Voxel voxel = Voxels[x, y, z];
-                    if (voxel != null)
-                        yield return voxel;
+                    yield return Voxels[x, y, z];
                 }
             }
         }
@@ -118,7 +113,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                 for (int z = min.z; z <= max.z; z++)
                 {
                     Voxel voxel = Voxels[x, y, z];
-                    if (voxel != null && redundancy.Add(voxel))
+                    if (redundancy.Add(voxel))
                         results.Add(voxel);
                 }
             }
@@ -148,10 +143,9 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                     int scanCellKey = grid.GetScanCellKey(x, y, z);
                     if (scanCellKey >= 0
                         && ScanCells.TryGetValue(scanCellKey, out ScanCell? scanCell)
-                        && scanCell != null
                         && redundancy.Add(scanCell))
                     {
-                        results.Add(scanCell);
+                        results.Add(scanCell!);
                     }
                 }
             }
@@ -217,9 +211,6 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                 for (int z = 0; z < _length; z++)
                 {
                     Voxel voxel = Voxels[x, y, z];
-                    if (voxel == null)
-                        continue;
-
                     voxel.Reset(grid);
                     Pools.VoxelPool.Release(voxel);
                 }
@@ -235,10 +226,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
             return;
 
         foreach (ScanCell cell in ScanCells.Values)
-        {
-            if (cell != null)
-                Pools.ScanCellPool.Release(cell);
-        }
+            Pools.ScanCellPool.Release(cell);
 
         Pools.ScanCellMapPool.Release(ScanCells);
         ScanCells = null;

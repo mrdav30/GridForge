@@ -258,13 +258,9 @@ public static class RectangularDirectionUtility
     /// </summary>
     public static RectangularDirection GetDirectionFromOffset((int x, int y, int z) offset)
     {
-        if (!TryGetOffsetLookupKey(offset, out int lookupKey))
-        {
-            GridForgeLogger.DebugChannel.Info($"Invalid rectangular offset: {offset}. Offsets must be in the range [-1, 1] for each axis.");
-            return RectangularDirection.None;
-        }
-
-        return DirectionLookup[lookupKey];
+        return TryGetOffsetLookupKey(offset, out int lookupKey)
+            ? DirectionLookup[lookupKey]
+            : RectangularDirection.None;
     }
 
     /// <summary>
@@ -311,8 +307,8 @@ public static class RectangularDirectionUtility
 
         for (int i = 0; i < OffsetValues.Length; i++)
         {
-            if (TryGetOffsetLookupKey(OffsetValues[i], out int lookupKey))
-                lookup[lookupKey] = (RectangularDirection)i;
+            TryGetOffsetLookupKey(OffsetValues[i], out int lookupKey);
+            lookup[lookupKey] = (RectangularDirection)i;
         }
 
         return lookup;

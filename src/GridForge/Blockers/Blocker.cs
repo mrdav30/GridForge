@@ -146,8 +146,7 @@ public abstract class Blocker : IBlocker
             return;
         }
 
-        if (!IsBlocking)
-            BlockageToken = default;
+        BlockageToken = default;
     }
 
     /// <summary>
@@ -204,9 +203,6 @@ public abstract class Blocker : IBlocker
         {
             foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
             {
-                if (covered.Voxels.Count <= 0)
-                    continue;
-
                 foundCoverage = true;
                 _watchedGridIndices.Add(covered.Grid.GridIndex);
                 ApplyBlockageToVoxels(covered, appliedVoxels!, ref hasCoverage);

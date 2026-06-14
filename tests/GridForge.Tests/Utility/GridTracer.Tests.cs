@@ -495,6 +495,8 @@ public class GridTracerTests : IDisposable
         Assert.Empty(GridTracer.GetCoveredVoxels(inactiveWorld, Vector3d.Zero, Vector3d.Zero));
         Assert.Empty(GridTracer.GetCoveredScanCells(null, Vector3d.Zero, Vector3d.Zero));
         Assert.Empty(GridTracer.GetCoveredScanCells(inactiveWorld, Vector3d.Zero, Vector3d.Zero));
+        Assert.Empty(GridTracer.GetCoveredVoxels(_world, Vector3d.Zero, Vector3d.Zero, Fixed64.Zero));
+        Assert.Empty(GridTracer.GetCoveredScanCells(_world, Vector3d.Zero, Vector3d.Zero, Fixed64.Zero));
     }
 
     [Fact]
@@ -551,6 +553,27 @@ public class GridTracerTests : IDisposable
 
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
         inactiveWorld.Dispose();
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            null,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results);
+
+        Assert.Empty(results);
+
+        results.Add(staleCell);
+
+        GridTracer.GetCoveredScanCellsInto(
+            null,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            scratch);
+
+        Assert.Empty(results);
+
         results.Add(staleCell);
 
         GridTracer.GetCoveredScanCellsInto(
@@ -694,6 +717,88 @@ public class GridTracerTests : IDisposable
                 .ToArray();
 
             Assert.Equal(expected, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldReturnSingleHexVoxelWhenEndpointsMatch()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1));
+
+            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Vector3d start = grid.BoundsMin;
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(_world, start, start, includeEnd: false)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Equal(new[] { new VoxelIndex(0, 0, 0) }, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void HexCoverageQueries_ShouldSkipCandidateGridWhenBoundsDoNotOverlap()
+    {
+        ResetWorld(spatialGridCellSize: 1024);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1), scanCellSize: 1);
+
+            Assert.True(_world.TryAddGrid(configuration, out _));
+
+            Vector3d queryMin = new Vector3d(100, 0, 100);
+            Vector3d queryMax = new Vector3d(101, 0, 101);
+
+            Assert.Empty(GridTracer.GetCoveredVoxels(_world, queryMin, queryMax).ToArray());
+            Assert.Empty(GridTracer.GetCoveredScanCells(_world, queryMin, queryMax).ToArray());
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void GetCoveredScanCells_ShouldSkipRectangularCandidateGridWhenBoundsDoNotOverlap()
+    {
+        ResetWorld(spatialGridCellSize: 1024);
+
+        try
+        {
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 1), scanCellSize: 1),
+                out _));
+
+            ScanCell[] scanCells = GridTracer.GetCoveredScanCells(
+                    _world,
+                    new Vector3d(100, 0, 100),
+                    new Vector3d(101, 0, 101))
+                .ToArray();
+
+            Assert.Empty(scanCells);
         }
         finally
         {

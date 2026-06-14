@@ -599,24 +599,7 @@ public static class GridTracer
 
         (xMin, yMin, zMin) = grid.SnapToScanCell(clippedMin);
         (xMax, yMax, zMax) = grid.SnapToScanCell(clippedMax);
-        OrderScanCellRange(ref xMin, ref yMin, ref zMin, ref xMax, ref yMax, ref zMax);
         return true;
-    }
-
-    private static void OrderScanCellRange(
-        ref int xMin,
-        ref int yMin,
-        ref int zMin,
-        ref int xMax,
-        ref int yMax,
-        ref int zMax)
-    {
-        if (xMin > xMax)
-            (xMin, xMax) = (xMax, xMin);
-        if (yMin > yMax)
-            (yMin, yMax) = (yMax, yMin);
-        if (zMin > zMax)
-            (zMin, zMax) = (zMax, zMin);
     }
 
     private static void AddTraceLineVoxelsForCell(
@@ -697,16 +680,13 @@ public static class GridTracer
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
-        if (!TryCreateHexTraceEndpoints(
+        CreateHexTraceEndpoints(
             currentGrid,
             start,
             end,
             padding,
             out VoxelIndex startIndex,
-            out VoxelIndex endIndex))
-        {
-            return;
-        }
+            out VoxelIndex endIndex);
 
         int steps = CalculateHexTraceSteps(startIndex, endIndex);
         if (steps == 0)
@@ -724,7 +704,7 @@ public static class GridTracer
         }
     }
 
-    private static bool TryCreateHexTraceEndpoints(
+    private static void CreateHexTraceEndpoints(
         VoxelGrid grid,
         Vector3d start,
         Vector3d end,
@@ -732,9 +712,6 @@ public static class GridTracer
         out VoxelIndex startIndex,
         out VoxelIndex endIndex)
     {
-        startIndex = default;
-        endIndex = default;
-
         (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(start, end, padding);
         Vector3d traceStart = grid.FloorToGrid(CreateTraceEndpoint(
             start,
@@ -749,8 +726,8 @@ public static class GridTracer
             snappedMax,
             useMinWhenIncreasing: false));
 
-        return grid.TryGetVoxelIndex(traceStart, out startIndex)
-            && grid.TryGetVoxelIndex(traceEnd, out endIndex);
+        grid.TryGetVoxelIndex(traceStart, out startIndex);
+        grid.TryGetVoxelIndex(traceEnd, out endIndex);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -785,10 +762,9 @@ public static class GridTracer
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
         if (grid.TryGetVoxel(index, out Voxel? voxel)
-            && voxel != null
-            && voxelRedundancyCheck.Add(voxel))
+            && voxelRedundancyCheck.Add(voxel!))
         {
-            voxelList.Add(voxel);
+            voxelList.Add(voxel!);
         }
     }
 
@@ -979,16 +955,15 @@ public static class GridTracer
                 for (int z = minIndex.z; z <= maxIndex.z; z++)
                 {
                     if (currentGrid.TryGetVoxel(x, y, z, out Voxel? voxel)
-                        && voxel != null
                         && IsHexVoxelCenterInHorizontalCoverage(
-                            voxel,
+                            voxel!,
                             coverageMinX,
                             coverageMaxX,
                             coverageMinZ,
                             coverageMaxZ)
-                        && voxelRedundancyCheck.Add(voxel))
+                        && voxelRedundancyCheck.Add(voxel!))
                     {
-                        voxelList.Add(voxel);
+                        voxelList.Add(voxel!);
                     }
                 }
             }

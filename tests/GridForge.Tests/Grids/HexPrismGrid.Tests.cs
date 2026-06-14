@@ -339,6 +339,106 @@ public class HexPrismGridTests
         Assert.Same(hexGrid, resolvedHex);
     }
 
+    [Theory]
+    [InlineData(2, 0, 0, HexDirection.QPositive)]
+    [InlineData(2, -1, 0, HexDirection.QPositiveRNegative)]
+    [InlineData(0, -2, 0, HexDirection.RNegative)]
+    [InlineData(-2, 0, 0, HexDirection.QNegative)]
+    [InlineData(-2, 1, 0, HexDirection.QNegativeRPositive)]
+    [InlineData(0, 2, 0, HexDirection.RPositive)]
+    [InlineData(0, 0, 1, HexDirection.Above)]
+    [InlineData(2, 0, 1, HexDirection.AboveQPositive)]
+    [InlineData(-2, 1, -1, HexDirection.BelowQNegativeRPositive)]
+    public void HexTopology_ShouldNormalizeWorldDeltasToNeighborSlots(int q, int r, int y, HexDirection expected)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        HexPrismTopology topology = new(metrics);
+        Vector3d worldDelta = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(q, 0, r), metrics)
+            + new Vector3d(0, y, 0);
+
+        Assert.True(topology.TryGetNeighborSlotFromWorldDelta(worldDelta, out int slot));
+        Assert.Equal((int)expected, slot);
+    }
+
+    [Fact]
+    public void HexTopology_ShouldRejectNonAdjacentVerticalPlanarDelta()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        HexPrismTopology topology = new(metrics);
+        Vector3d worldDelta = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(1, 0, 1), metrics)
+            + new Vector3d(0, 1, 0);
+
+        Assert.False(topology.TryGetNeighborSlotFromWorldDelta(worldDelta, out int slot));
+        Assert.Equal(-1, slot);
+    }
+
+    [Fact]
+    public void HexTopology_ShouldRejectZeroPlanarNeighborDelta()
+    {
+        HexPrismTopology topology = new HexPrismTopology(
+            GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One));
+
+        Assert.False(topology.TryGetNeighborSlotFromWorldDelta(Vector3d.Zero, out int slot));
+        Assert.Equal(-1, slot);
+    }
+
+    [Fact]
+    public void HexGrid_ShouldExposeBoundaryRangesSnappingAndCeilingThroughTopology()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        VoxelIndex maxIndex = new(3, 3, 3);
+        GridConfiguration configuration = new(
+            Vector3d.Zero,
+            HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics),
+            scanCellSize: 2,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics);
+
+        Assert.True(world.TryAddGrid(configuration, out ushort gridIndex));
+
+        VoxelGrid grid = world.ActiveGrids[gridIndex];
+        HexPrismTopology topology = new(metrics);
+        Vector3d center = grid.GetWorldPosition(new VoxelIndex(3, 3, 3));
+        Vector3d oneOneOffset = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(1, 0, 1), metrics);
+        (Vector3d paddedMin, Vector3d paddedMax) = topology.NormalizeBounds(
+            new Vector3d(0, 0, 0),
+            oneOneOffset,
+            Fixed64.Half);
+        GridDimensions clampedDimensions = topology.CalculateDimensions(
+            new Vector3d(0, 0, 0),
+            new Vector3d(-1, 0, -1));
+
+        Assert.Equal(Vector3d.FromDouble(-0.5, 0, -0.5), paddedMin);
+        Assert.True(paddedMax.X > oneOneOffset.X);
+        Assert.Equal(1, clampedDimensions.Width);
+        Assert.Equal(1, clampedDimensions.Height);
+        Assert.Equal(1, clampedDimensions.Length);
+        Assert.Equal((1, 1, 1), grid.SnapToScanCell(center));
+        Assert.Equal(center, grid.CeilToGrid(center));
+
+        Assert.True(grid.IsFacingBoundary(new VoxelIndex(3, 2, 0), HexDirection.QPositiveRNegative));
+        Assert.False(grid.IsFacingBoundary(new VoxelIndex(2, 2, 0), HexDirection.QPositiveRNegative));
+        Assert.True(grid.IsFacingBoundary(new VoxelIndex(0, 0, 3), HexDirection.BelowQNegativeRPositive));
+        Assert.True(grid.IsFacingBoundary(new VoxelIndex(1, 3, 1), HexDirection.Above));
+
+        topology.GetBoundaryRange(
+            (int)HexDirection.QPositiveRNegative,
+            grid.Width,
+            grid.Height,
+            grid.Length,
+            out int xStart,
+            out int xEnd,
+            out int yStart,
+            out int yEnd,
+            out int zStart,
+            out int zEnd);
+
+        Assert.Equal((3, 3), (xStart, xEnd));
+        Assert.Equal((0, 3), (yStart, yEnd));
+        Assert.Equal((0, 0), (zStart, zEnd));
+    }
+
     private static GridConfiguration CreateHexConfiguration(
         Fixed64 radius,
         Fixed64 layerHeight,

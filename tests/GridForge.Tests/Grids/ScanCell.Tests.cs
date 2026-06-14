@@ -651,6 +651,28 @@ public class ScanCellTests : IDisposable
         Assert.Null(grid.ActiveScanCells);
     }
 
+    [Fact]
+    public void Radius2dQueries_ShouldNoOpWhenScanCellIsUninitialized()
+    {
+        ScanCell scanCell = new ScanCell();
+        SwiftList<IVoxelOccupant> untypedResults = new SwiftList<IVoxelOccupant>();
+        SwiftList<TestOccupant> typedResults = new SwiftList<TestOccupant>();
+
+        scanCell.AddOccupantsWithinRadius2dTo(
+            untypedResults,
+            Vector3d.Zero,
+            localLayerY: 0,
+            squaredRadius: Fixed64.One);
+        scanCell.AddOccupantsWithinRadius2dTo<TestOccupant>(
+            typedResults,
+            Vector3d.Zero,
+            localLayerY: 0,
+            squaredRadius: Fixed64.One);
+
+        Assert.Empty(untypedResults);
+        Assert.Empty(typedResults);
+    }
+
     private static void InvokeReset(ScanCell scanCell)
     {
         MethodInfo method = typeof(ScanCell).GetMethod("Reset", BindingFlags.Instance | BindingFlags.NonPublic)

@@ -3,6 +3,7 @@ using GridForge.Configuration;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
+using SwiftCollections;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -101,32 +102,39 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void StorageKindAndDenseBacking_ShouldReflectActiveStorageStrategy()
+    {
+        VoxelGrid inactiveGrid = new VoxelGrid();
+        Assert.Equal(GridStorageKind.Dense, inactiveGrid.StorageKind);
+        Assert.Equal(0, inactiveGrid.ConfiguredVoxelCount);
+        Assert.Null(inactiveGrid.Voxels);
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort denseIndex));
+        VoxelGrid denseGrid = _world.ActiveGrids[denseIndex];
+        Assert.Equal(GridStorageKind.Dense, denseGrid.StorageKind);
+        Assert.NotNull(denseGrid.Voxels);
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(10, 0, 0),
+                new Vector3d(11, 0, 1),
+                storageKind: GridStorageKind.Sparse),
+            new[] { new VoxelIndex(0, 0, 0) },
+            out ushort sparseIndex));
+        VoxelGrid sparseGrid = _world.ActiveGrids[sparseIndex];
+        Assert.Equal(GridStorageKind.Sparse, sparseGrid.StorageKind);
+        Assert.Null(sparseGrid.Voxels);
+    }
+
+    [Fact]
     public void DenseStorageBoundary_ShouldKeepDenseCollectionsOutOfPublicSurface()
     {
         const BindingFlags PublicInstance = BindingFlags.Instance | BindingFlags.Public;
 
         Assert.Null(typeof(VoxelGrid).GetProperty("Voxels", PublicInstance));
         Assert.Null(typeof(VoxelGrid).GetProperty("ScanCells", PublicInstance));
-    }
-
-    [Fact]
-    public void Initialize_ShouldReturnEarlyWhenGridIsAlreadyActive()
-    {
-        GridConfiguration initialConfig = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
-        GridConfiguration secondConfig = new(new Vector3d(50, 0, 50), new Vector3d(51, 0, 51));
-
-        Assert.True(_world.TryAddGrid(initialConfig, out ushort gridIndex));
-        VoxelGrid grid = _world.ActiveGrids[gridIndex];
-        int originalSpawnToken = grid.SpawnToken;
-        ushort originalIndex = grid.GridIndex;
-
-        InvokeGridInitialize(grid, grid.World!, 999, secondConfig);
-
-        Assert.True(grid.IsActive);
-        Assert.Equal(originalIndex, grid.GridIndex);
-        Assert.Equal(originalSpawnToken, grid.SpawnToken);
-        Assert.Equal(initialConfig.BoundsMin, grid.BoundsMin);
-        Assert.Equal(initialConfig.BoundsMax, grid.BoundsMax);
     }
 
     [Fact]
@@ -294,8 +302,11 @@ public class VoxelGridTests : IDisposable
         Assert.True(grid.IsVoxelAllocated(maxIndex.x, maxIndex.y, maxIndex.z));
 
         Assert.False(grid.TryGetVoxelIndex(Vector3d.FromDouble(2.01, 0, 2), out _));
+        Assert.False(grid.TryGetVoxelIndex(Vector3d.FromDouble(2, 0.01, 2), out _));
         Assert.False(grid.TryGetVoxelIndex(Vector3d.FromDouble(2, 0, 2.01), out _));
         Assert.False(grid.IsVoxelAllocated(3, 0, 2));
+        Assert.False(grid.IsVoxelAllocated(2, 1, 2));
+        Assert.False(grid.IsVoxelAllocated(2, 0, 3));
         Assert.False(grid.TryGetVoxel(new VoxelIndex(3, 0, 2), out _));
     }
 
@@ -347,9 +358,77 @@ public class VoxelGridTests : IDisposable
 
         Assert.Equal(-1, grid.GetScanCellKey(new Vector3d(8, 0, 8)));
         Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(99, 0, 99)));
+        Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(-3, 0, 0)));
         Assert.False(grid.TryGetScanCell(-1, out _));
         Assert.False(grid.TryGetScanCell(999, out _));
         Assert.False(grid.TryGetScanCell(new VoxelIndex(99, 0, 99), out _));
+    }
+
+    [Fact]
+    public void InactiveGridQueries_ShouldReturnGracefulDefaultsAcrossForwardingSurfaces()
+    {
+        VoxelGrid inactiveGrid = new();
+        SwiftList<Voxel> voxels = new SwiftList<Voxel>();
+        SwiftHashSet<Voxel> voxelRedundancy = new SwiftHashSet<Voxel>();
+        SwiftList<ScanCell> scanCells = new SwiftList<ScanCell>();
+        SwiftHashSet<ScanCell> scanCellRedundancy = new SwiftHashSet<ScanCell>();
+
+        Assert.Equal(0, inactiveGrid.NeighborSlotCount);
+        Assert.Null(inactiveGrid.TopologyKind);
+        Assert.Null(inactiveGrid.ScanCells);
+        Assert.False(inactiveGrid.IsInBounds(Vector3d.Zero));
+        Assert.False(inactiveGrid.IsValidVoxelIndex(0, 0, 0));
+        Assert.False(inactiveGrid.TryGetVoxelIndex(Vector3d.Zero, out _));
+        Assert.False(inactiveGrid.IsVoxelAllocated(0, 0, 0));
+        Assert.False(inactiveGrid.TryGetVoxel(0, 0, 0, out _));
+        Assert.Empty(inactiveGrid.EnumerateVoxels());
+        Assert.False(inactiveGrid.TryGetClosestVoxel(Vector3d.Zero, out _));
+        Assert.False(inactiveGrid.TryGetScanCell(0, out _));
+        Assert.Empty(inactiveGrid.GetActiveScanCells());
+
+        inactiveGrid.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(0, 0, 0), voxels, voxelRedundancy);
+        inactiveGrid.AddScanCellsInRange(0, 0, 0, 0, 0, 0, scanCells, scanCellRedundancy);
+        InvokeGridReset(inactiveGrid);
+
+        Assert.Empty(voxels);
+        Assert.Empty(scanCells);
+    }
+
+    [Fact]
+    public void TopologySpecificNeighborQueries_ShouldReturnDefaultsForInactiveMismatchedAndInvalidSlots()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
+            out ushort rectangularIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(10, 0, 10),
+                new Vector3d(12, 0, 12),
+                topologyKind: GridTopologyKind.HexPrism,
+                topologyMetrics: GridTopologyMetrics.Hex(new Fixed64(1), Fixed64.One)),
+            out ushort hexIndex));
+
+        VoxelGrid rectangularGrid = _world.ActiveGrids[rectangularIndex];
+        VoxelGrid hexGrid = _world.ActiveGrids[hexIndex];
+
+        Assert.Equal(RectangularDirection.None, VoxelGrid.GetRectangularNeighborDirection(new VoxelGrid(), new VoxelGrid()));
+        Assert.Equal(RectangularDirection.None, VoxelGrid.GetRectangularNeighborDirection(new VoxelGrid(), rectangularGrid));
+        Assert.Equal(RectangularDirection.None, VoxelGrid.GetRectangularNeighborDirection(rectangularGrid, new VoxelGrid()));
+        Assert.Equal(RectangularDirection.None, VoxelGrid.GetRectangularNeighborDirection(rectangularGrid, hexGrid));
+        Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(new VoxelGrid(), new VoxelGrid()));
+        Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(new VoxelGrid(), hexGrid));
+        Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(hexGrid, new VoxelGrid()));
+        Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(hexGrid, rectangularGrid));
+        Assert.False(new VoxelGrid().TryGetNeighborSlot(RectangularDirection.East, out _));
+        Assert.False(new VoxelGrid().TryGetNeighborSlot(HexDirection.QPositive, out _));
+        Assert.True(rectangularGrid.TryGetNeighborSlot(RectangularDirection.East, out _));
+        Assert.False(rectangularGrid.TryGetNeighborSlot((RectangularDirection)int.MaxValue, out _));
+        Assert.False(rectangularGrid.TryGetNeighborSlot(HexDirection.QPositive, out _));
+        Assert.False(hexGrid.TryGetNeighborSlot(RectangularDirection.East, out _));
+        Assert.True(hexGrid.TryGetNeighborSlot(HexDirection.QPositive, out _));
+        Assert.False(hexGrid.TryGetNeighborSlot((HexDirection)int.MaxValue, out _));
+        Assert.False(hexGrid.IsFacingBoundary(new VoxelIndex(0, 0, 0), RectangularDirection.East));
+        Assert.False(rectangularGrid.IsFacingBoundary(new VoxelIndex(0, 0, 0), HexDirection.QPositive));
     }
 
     [Fact]
@@ -377,11 +456,16 @@ public class VoxelGridTests : IDisposable
             Assert.False(InvokeTryAddGridNeighbor(centerGrid, sameCenterGrid));
             Assert.True(InvokeTryAddGridNeighbor(centerGrid, eastGrid));
             Assert.False(InvokeTryAddGridNeighbor(centerGrid, eastGrid));
+            Assert.True(InvokeTryAddGridNeighbor(centerGrid, secondEastGrid));
             Assert.True(centerGrid.IsConjoined);
-            Assert.Equal(1, centerGrid.NeighborCount);
+            Assert.Equal(2, centerGrid.NeighborCount);
             Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, sameCenterGrid));
-            Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, secondEastGrid));
             Assert.True(InvokeTryRemoveGridNeighbor(centerGrid, eastGrid));
+            Assert.True(centerGrid.IsConjoined);
+            Assert.NotNull(centerGrid.Neighbors);
+            Assert.Equal(1, centerGrid.NeighborCount);
+            Assert.False(InvokeTryRemoveGridNeighbor(centerGrid, eastGrid));
+            Assert.True(InvokeTryRemoveGridNeighbor(centerGrid, secondEastGrid));
             Assert.False(centerGrid.IsConjoined);
             Assert.Null(centerGrid.Neighbors);
             Assert.Equal(0, centerGrid.NeighborCount);
@@ -398,6 +482,27 @@ public class VoxelGridTests : IDisposable
             secondEastGrid.World?.Dispose();
             sameCenterGrid.World?.Dispose();
         }
+    }
+
+    [Fact]
+    public void TopologySpecificNeighborDirections_ShouldRejectMismatchedTopologyPairs()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort rectangularIndex));
+        GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        GridConfiguration hexConfiguration = new(
+            new Vector3d(1, 0, 0),
+            new Vector3d(1, 0, 0),
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: hexMetrics);
+        Assert.True(_world.TryAddGrid(hexConfiguration, out ushort hexIndex));
+
+        VoxelGrid rectangularGrid = _world.ActiveGrids[rectangularIndex];
+        VoxelGrid hexGrid = _world.ActiveGrids[hexIndex];
+
+        Assert.Equal(RectangularDirection.None, VoxelGrid.GetRectangularNeighborDirection(rectangularGrid, hexGrid));
+        Assert.Equal(HexDirection.None, VoxelGrid.GetHexNeighborDirection(rectangularGrid, hexGrid));
     }
 
     [Fact]
@@ -737,11 +842,16 @@ public class VoxelGridTests : IDisposable
             "Initialize",
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
-            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration), typeof(VoxelIndex[]) },
+            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration), typeof(IGridTopology), typeof(VoxelIndex[]) },
             null);
 
         Assert.NotNull(initializeMethod);
-        initializeMethod.Invoke(grid, new object[] { world, globalIndex, configuration, Array.Empty<VoxelIndex>() });
+        Assert.True(GridWorld.TryNormalizeConfiguration(
+            configuration,
+            out GridConfiguration normalizedConfiguration,
+            out IGridTopology topology,
+            out _));
+        initializeMethod.Invoke(grid, new object[] { world, globalIndex, normalizedConfiguration, topology, Array.Empty<VoxelIndex>() });
     }
 
     private static void InvokeGridReset(VoxelGrid grid)

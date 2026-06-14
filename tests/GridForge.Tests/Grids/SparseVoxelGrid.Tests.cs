@@ -232,6 +232,43 @@ public class SparseVoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void SparseGrid_RuntimeAdds_ShouldGrowSingleBlockAndKeepVoxelCacheSorted()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(31, 0, 0), scanCellSize: 64);
+
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryAddVoxel(new VoxelIndex(10, 0, 0), out _));
+        Assert.True(grid.TryAddVoxel(new VoxelIndex(0, 0, 0), out _));
+
+        for (int x = 1; x <= 20; x++)
+        {
+            if (x == 10)
+                continue;
+
+            Assert.True(grid.TryAddVoxel(new VoxelIndex(x, 0, 0), out _));
+        }
+
+        VoxelIndex[] actual = grid
+            .EnumerateVoxels()
+            .Select(voxel => voxel.Index)
+            .ToArray();
+
+        Assert.Equal(21, grid.ConfiguredVoxelCount);
+        Assert.Equal(
+            Enumerable.Range(0, 21).Select(x => new VoxelIndex(x, 0, 0)).ToArray(),
+            actual);
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(20, 0, 0), out Voxel lastVoxel));
+        Assert.Equal(new Vector3d(20, 0, 0), lastVoxel.WorldPosition);
+
+        Assert.True(grid.TryRemoveVoxel(new VoxelIndex(0, 0, 0)));
+        Assert.Equal(
+            Enumerable.Range(1, 20).Select(x => new VoxelIndex(x, 0, 0)).ToArray(),
+            grid.EnumerateVoxels().Select(voxel => voxel.Index).ToArray());
+    }
+
+    [Fact]
     public void SparseHexGrid_ShouldAddAndRemoveAxialVoxelAtRuntime()
     {
         GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
@@ -404,6 +441,19 @@ public class SparseVoxelGridTests : IDisposable
         Assert.True(grid.TryGetVoxel(new Vector3d(11, 0, 10), out Voxel secondVoxel));
         Assert.Equal(new VoxelIndex(1, 0, 0), secondVoxel.Index);
         Assert.False(grid.TryGetVoxel(new Vector3d(10, 0, 10), out _));
+    }
+
+    [Fact]
+    public void SparseGrid_ShouldAllowEmptyBooleanMask()
+    {
+        GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        bool[,,] configured = new bool[2, 1, 2];
+
+        Assert.True(_world.TryAddGrid(config, configured, out ushort gridIndex));
+
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.Equal(0, grid.ConfiguredVoxelCount);
+        Assert.Empty(grid.EnumerateVoxels());
     }
 
     [Fact]
