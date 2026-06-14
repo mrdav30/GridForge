@@ -15,7 +15,7 @@ benchmarks, and documentation.
 
 ### 1. Mixed-Topology Voxel Neighbor Bridging
 
-Status: phases 1-6 completed on 2026-06-13; phases 7-9 remain after the
+Status: phases 1-7 completed on 2026-06-14; phases 8-9 remain after the
 neighbor API and resolver hardening review.
 
 Intent: decide whether rectangular-prism and hex-prism grids should ever expose
@@ -33,6 +33,9 @@ Current state:
 - Direct mixed voxel-neighbor bridging is now exposed through
   `GetNeighborsInto(...)` / `HasNeighbor(...)` with `VoxelNeighborScope`
   instead of mixed-only public method names.
+- Hex directed lookup now uses orientation-neutral axial `HexDirection` names
+  such as `QPositive`, `QPositiveRNegative`, and `RNegative` rather than
+  compass-style names.
 - The public contract now makes "which neighbors touch this voxel?" easy to ask
   without forcing callers to remember which topology-specific API applies.
 
@@ -72,10 +75,9 @@ Preferred design:
   topology-local voxel index. Do not rely on hash-set iteration order.
 - Keep sparse semantics intact: missing sparse voxels are absent and are never
   materialized by bridge queries.
-- Rename `HexDirection` values away from world-compass labels and toward
-  orientation-neutral axial labels. The current values are axial offsets, so
-  names such as `East` read too pointy-top/world-compass-specific when
-  `FlatTop` is also supported.
+- `HexDirection` values use orientation-neutral axial labels instead of
+  world-compass labels. The values are axial offsets, so names such as
+  `QPositive` and `RNegative` describe both `PointyTop` and `FlatTop` grids.
 
 Approaches considered:
 
@@ -389,18 +391,17 @@ Result:
 
 #### Phase 7: Direction Semantics And Validation Refresh
 
-Status: planned; scope and resolver validation was partially completed during
-phases 5-6, while the `HexDirection` rename remains.
+Status: completed on 2026-06-14.
 
 Goal: make hex direction naming orientation-neutral and prove the unified API
 does not regress rectangular, hex, sparse, or mixed neighbor behavior.
 
 Tasks:
 
-- [ ] Rename `HexDirection` values from compass-style names to axial-offset
+- [x] Rename `HexDirection` values from compass-style names to axial-offset
   names such as `QPositive`, `QPositiveRNegative`, `RNegative`, `QNegative`,
   `QNegativeRPositive`, and `RPositive`, plus matching above/below variants.
-- [ ] Update `HexDirectionUtility` arrays, subsets, XML docs, tests, and
+- [x] Update `HexDirectionUtility` arrays, subsets, XML docs, tests, and
   examples to use the new axial names.
 - [x] Add tests for `VoxelNeighborScope.SourceGrid`,
   `VoxelNeighborScope.SameTopologyGrids`, `VoxelNeighborScope.MixedTopologyGrids`,
@@ -430,6 +431,20 @@ Exit criteria:
   intuition.
 - Unified contact lookup and directed lookup are both covered by focused tests.
 - Existing mixed-topology phase 1-4 behavior is preserved through the new API.
+
+Result:
+
+- `HexDirection` now uses axial labels for planar and layer-offset directions:
+  `QPositive`, `QPositiveRNegative`, `RNegative`, `QNegative`,
+  `QNegativeRPositive`, `RPositive`, and matching `Below...` / `Above...`
+  variants.
+- `Below` and `Above` remain direct vertical directions.
+- `HexDirectionUtility` deterministic arrays and subset helpers now expose the
+  axial names without changing slot order or topology-local offsets.
+- Focused tests cover axial naming, deterministic subset composition,
+  direction-labeled hex neighbor enumeration, same-topology conjoined hex
+  lookup, and sparse/mixed neighbor validation through the existing unified API
+  matrix.
 
 #### Phase 8: Performance Hardening
 
@@ -467,8 +482,8 @@ Exit criteria:
 
 #### Phase 9: Documentation And Plan Closure
 
-Status: partially completed; API docs were aligned with phases 1-4, while final
-API docs, benchmark documentation, and plan closure remain tied to phases 5-8.
+Status: partially completed; API and direction docs were aligned through phase
+7, while final benchmark documentation and plan closure remain tied to phase 8.
 
 Goal: document the final contact-vs-directed neighbor contract without implying
 fake direction mappings across topology families.

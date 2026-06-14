@@ -186,6 +186,7 @@ Neighbor handling is split into two related but distinct problems:
 - `Voxel.GetNeighborsInto(...)` asks which physical voxels touch the source voxel, with `VoxelNeighborScope` selecting source-grid, same-topology grid, mixed-topology grid, or all contacts.
 - `Voxel.TryGetNeighbor(...)` exposes exact directed lookup through `RectangularDirection` and `HexDirection` overloads.
 - Rectangular full-neighbor lookup covers 26 directions. Hex full-neighbor lookup covers 20 directions, with `Primary`, `Planar`, `Vertical`, layer, and vertical-diagonal subsets exposed through the direction utilities.
+- Hex direction names describe axial offsets (`QPositive`, `RNegative`, etc.) rather than world compass directions so pointy-top and flat-top grids share one unambiguous API.
 - `Voxel.GetRectangularNeighborsInto(...)` and `Voxel.GetHexNeighborsInto(...)` fill caller-owned storage with direction-labeled same-topology results.
 
 `VoxelGrid.Neighbors` remains a same-topology grid-slot accelerator, but public

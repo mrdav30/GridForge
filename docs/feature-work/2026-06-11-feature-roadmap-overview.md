@@ -158,8 +158,8 @@ occupants, scans, benchmark-backed performance hardening, docs, and release
 alignment are complete. Sparse hex-prism validation was completed in the hex
 follow-up plan. Mixed-topology neighbor bridging now has a tested contact-query
 implementation. The breaking neighbor API hardening and resolver/cache removal
-are complete; the follow-up plan now tracks remaining hex direction naming,
-performance, and release-alignment work.
+are complete. Hex directions now use orientation-neutral axial names; the
+follow-up plan now tracks remaining performance and release-alignment work.
 
 Why:
 

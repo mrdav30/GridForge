@@ -46,26 +46,26 @@ public static class HexDirectionUtility
     /// </summary>
     public static readonly HexDirection[] All =
     {
-        HexDirection.East,
-        HexDirection.NorthEast,
-        HexDirection.NorthWest,
-        HexDirection.West,
-        HexDirection.SouthWest,
-        HexDirection.SouthEast,
+        HexDirection.QPositive,
+        HexDirection.QPositiveRNegative,
+        HexDirection.RNegative,
+        HexDirection.QNegative,
+        HexDirection.QNegativeRPositive,
+        HexDirection.RPositive,
         HexDirection.Below,
-        HexDirection.BelowEast,
-        HexDirection.BelowNorthEast,
-        HexDirection.BelowNorthWest,
-        HexDirection.BelowWest,
-        HexDirection.BelowSouthWest,
-        HexDirection.BelowSouthEast,
+        HexDirection.BelowQPositive,
+        HexDirection.BelowQPositiveRNegative,
+        HexDirection.BelowRNegative,
+        HexDirection.BelowQNegative,
+        HexDirection.BelowQNegativeRPositive,
+        HexDirection.BelowRPositive,
         HexDirection.Above,
-        HexDirection.AboveEast,
-        HexDirection.AboveNorthEast,
-        HexDirection.AboveNorthWest,
-        HexDirection.AboveWest,
-        HexDirection.AboveSouthWest,
-        HexDirection.AboveSouthEast
+        HexDirection.AboveQPositive,
+        HexDirection.AboveQPositiveRNegative,
+        HexDirection.AboveRNegative,
+        HexDirection.AboveQNegative,
+        HexDirection.AboveQNegativeRPositive,
+        HexDirection.AboveRPositive
     };
 
     /// <summary>
@@ -73,12 +73,12 @@ public static class HexDirectionUtility
     /// </summary>
     public static readonly HexDirection[] Primary =
     {
-        HexDirection.East,
-        HexDirection.NorthEast,
-        HexDirection.NorthWest,
-        HexDirection.West,
-        HexDirection.SouthWest,
-        HexDirection.SouthEast,
+        HexDirection.QPositive,
+        HexDirection.QPositiveRNegative,
+        HexDirection.RNegative,
+        HexDirection.QNegative,
+        HexDirection.QNegativeRPositive,
+        HexDirection.RPositive,
         HexDirection.Below,
         HexDirection.Above
     };
@@ -88,12 +88,12 @@ public static class HexDirectionUtility
     /// </summary>
     public static readonly HexDirection[] Planar =
     {
-        HexDirection.East,
-        HexDirection.NorthEast,
-        HexDirection.NorthWest,
-        HexDirection.West,
-        HexDirection.SouthWest,
-        HexDirection.SouthEast
+        HexDirection.QPositive,
+        HexDirection.QPositiveRNegative,
+        HexDirection.RNegative,
+        HexDirection.QNegative,
+        HexDirection.QNegativeRPositive,
+        HexDirection.RPositive
     };
 
     /// <summary>
@@ -111,12 +111,12 @@ public static class HexDirectionUtility
     public static readonly HexDirection[] BelowLayer =
     {
         HexDirection.Below,
-        HexDirection.BelowEast,
-        HexDirection.BelowNorthEast,
-        HexDirection.BelowNorthWest,
-        HexDirection.BelowWest,
-        HexDirection.BelowSouthWest,
-        HexDirection.BelowSouthEast
+        HexDirection.BelowQPositive,
+        HexDirection.BelowQPositiveRNegative,
+        HexDirection.BelowRNegative,
+        HexDirection.BelowQNegative,
+        HexDirection.BelowQNegativeRPositive,
+        HexDirection.BelowRPositive
     };
 
     /// <summary>
@@ -125,12 +125,12 @@ public static class HexDirectionUtility
     public static readonly HexDirection[] AboveLayer =
     {
         HexDirection.Above,
-        HexDirection.AboveEast,
-        HexDirection.AboveNorthEast,
-        HexDirection.AboveNorthWest,
-        HexDirection.AboveWest,
-        HexDirection.AboveSouthWest,
-        HexDirection.AboveSouthEast
+        HexDirection.AboveQPositive,
+        HexDirection.AboveQPositiveRNegative,
+        HexDirection.AboveRNegative,
+        HexDirection.AboveQNegative,
+        HexDirection.AboveQNegativeRPositive,
+        HexDirection.AboveRPositive
     };
 
     /// <summary>
@@ -138,18 +138,18 @@ public static class HexDirectionUtility
     /// </summary>
     public static readonly HexDirection[] VerticalDiagonal =
     {
-        HexDirection.BelowEast,
-        HexDirection.BelowNorthEast,
-        HexDirection.BelowNorthWest,
-        HexDirection.BelowWest,
-        HexDirection.BelowSouthWest,
-        HexDirection.BelowSouthEast,
-        HexDirection.AboveEast,
-        HexDirection.AboveNorthEast,
-        HexDirection.AboveNorthWest,
-        HexDirection.AboveWest,
-        HexDirection.AboveSouthWest,
-        HexDirection.AboveSouthEast
+        HexDirection.BelowQPositive,
+        HexDirection.BelowQPositiveRNegative,
+        HexDirection.BelowRNegative,
+        HexDirection.BelowQNegative,
+        HexDirection.BelowQNegativeRPositive,
+        HexDirection.BelowRPositive,
+        HexDirection.AboveQPositive,
+        HexDirection.AboveQPositiveRNegative,
+        HexDirection.AboveRNegative,
+        HexDirection.AboveQNegative,
+        HexDirection.AboveQNegativeRPositive,
+        HexDirection.AboveRPositive
     };
 
     /// <summary>
@@ -163,7 +163,7 @@ public static class HexDirectionUtility
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPlanar(HexDirection direction) =>
-        (uint)direction <= (uint)HexDirection.SouthEast;
+        (uint)direction <= (uint)HexDirection.RPositive;
 
     /// <summary>
     /// True for vertical layer directions.

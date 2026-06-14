@@ -107,6 +107,9 @@ Voxel contact queries use one primary `GetNeighborsInto(...)` API with
 grid, or all contact neighbors. Directed lookup stays topology-specific through
 `TryGetNeighbor(...)` overloads that accept `RectangularDirection` or
 `HexDirection`, so rectangular and hex direction slots stay unambiguous.
+Hex directions use axial labels such as `QPositive`, `QPositiveRNegative`,
+and `RNegative` so the same directed API reads correctly for both `PointyTop`
+and `FlatTop` grids.
 
 ## `Voxel`
 

@@ -127,26 +127,26 @@ public class HexPrismGridTests
         VoxelIndex centerIndex = new(1, 1, 1);
         HexDirection[] expectedDirections =
         {
-            HexDirection.East,
-            HexDirection.NorthEast,
-            HexDirection.NorthWest,
-            HexDirection.West,
-            HexDirection.SouthWest,
-            HexDirection.SouthEast,
+            HexDirection.QPositive,
+            HexDirection.QPositiveRNegative,
+            HexDirection.RNegative,
+            HexDirection.QNegative,
+            HexDirection.QNegativeRPositive,
+            HexDirection.RPositive,
             HexDirection.Below,
-            HexDirection.BelowEast,
-            HexDirection.BelowNorthEast,
-            HexDirection.BelowNorthWest,
-            HexDirection.BelowWest,
-            HexDirection.BelowSouthWest,
-            HexDirection.BelowSouthEast,
+            HexDirection.BelowQPositive,
+            HexDirection.BelowQPositiveRNegative,
+            HexDirection.BelowRNegative,
+            HexDirection.BelowQNegative,
+            HexDirection.BelowQNegativeRPositive,
+            HexDirection.BelowRPositive,
             HexDirection.Above,
-            HexDirection.AboveEast,
-            HexDirection.AboveNorthEast,
-            HexDirection.AboveNorthWest,
-            HexDirection.AboveWest,
-            HexDirection.AboveSouthWest,
-            HexDirection.AboveSouthEast
+            HexDirection.AboveQPositive,
+            HexDirection.AboveQPositiveRNegative,
+            HexDirection.AboveRNegative,
+            HexDirection.AboveQNegative,
+            HexDirection.AboveQNegativeRPositive,
+            HexDirection.AboveRPositive
         };
         VoxelIndex[] expectedOffsets =
         {
@@ -210,11 +210,11 @@ public class HexPrismGridTests
         voxel.GetHexNeighborsInto(grid, neighbors);
 
         Assert.Equal(5, neighbors.Count);
-        Assert.Equal(HexDirection.East, neighbors[0].Direction);
-        Assert.Equal(HexDirection.SouthEast, neighbors[1].Direction);
+        Assert.Equal(HexDirection.QPositive, neighbors[0].Direction);
+        Assert.Equal(HexDirection.RPositive, neighbors[1].Direction);
         Assert.Equal(HexDirection.Above, neighbors[2].Direction);
-        Assert.Equal(HexDirection.AboveEast, neighbors[3].Direction);
-        Assert.Equal(HexDirection.AboveSouthEast, neighbors[4].Direction);
+        Assert.Equal(HexDirection.AboveQPositive, neighbors[3].Direction);
+        Assert.Equal(HexDirection.AboveRPositive, neighbors[4].Direction);
     }
 
     [Fact]
@@ -228,24 +228,24 @@ public class HexPrismGridTests
 
         VoxelGrid firstGrid = world.ActiveGrids[firstGridIndex];
         Assert.True(firstGrid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel boundaryVoxel));
-        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out _));
+        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.QPositive, out _));
 
         Vector3d secondMin = boundaryVoxel.WorldPosition + HexCoordinateUtility.AxialToWorldOffset(
-            HexDirectionUtility.GetOffset(HexDirection.East),
+            HexDirectionUtility.GetOffset(HexDirection.QPositive),
             metrics);
         GridConfiguration secondConfiguration = CreateHexConfiguration(secondMin, metrics, new VoxelIndex(1, 0, 1));
 
         Assert.True(world.TryAddGrid(secondConfiguration, out ushort secondGridIndex));
 
         Assert.Equal(1, firstGrid.NeighborCount);
-        Assert.Equal(HexDirection.East, VoxelGrid.GetHexNeighborDirection(firstGrid, world.ActiveGrids[secondGridIndex]));
-        Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.East));
-        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out Voxel resolvedNeighbor));
+        Assert.Equal(HexDirection.QPositive, VoxelGrid.GetHexNeighborDirection(firstGrid, world.ActiveGrids[secondGridIndex]));
+        Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.QPositive));
+        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.QPositive, out Voxel resolvedNeighbor));
         Assert.Equal(new VoxelIndex(0, 0, 0), resolvedNeighbor.Index);
 
         Assert.True(world.TryRemoveGrid(secondGridIndex));
 
-        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out _));
+        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.QPositive, out _));
     }
 
     [Fact]
@@ -261,16 +261,16 @@ public class HexPrismGridTests
         Assert.True(firstGrid.TryGetVoxel(new VoxelIndex(1, 1, 0), out Voxel boundaryVoxel));
 
         Vector3d secondMin = boundaryVoxel.WorldPosition + HexCoordinateUtility.AxialToWorldOffset(
-            HexDirectionUtility.GetOffset(HexDirection.AboveEast),
+            HexDirectionUtility.GetOffset(HexDirection.AboveQPositive),
             metrics);
         GridConfiguration secondConfiguration = CreateHexConfiguration(secondMin, metrics, new VoxelIndex(1, 1, 1));
 
         Assert.True(world.TryAddGrid(secondConfiguration, out ushort secondGridIndex));
 
         VoxelGrid secondGrid = world.ActiveGrids[secondGridIndex];
-        Assert.Equal(HexDirection.AboveEast, VoxelGrid.GetHexNeighborDirection(firstGrid, secondGrid));
-        Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.AboveEast));
-        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.AboveEast, out Voxel neighbor));
+        Assert.Equal(HexDirection.AboveQPositive, VoxelGrid.GetHexNeighborDirection(firstGrid, secondGrid));
+        Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.AboveQPositive));
+        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.AboveQPositive, out Voxel neighbor));
         Assert.Equal(new VoxelIndex(0, 0, 0), neighbor.Index);
     }
 
@@ -293,8 +293,21 @@ public class HexPrismGridTests
             HexDirectionUtility.All);
         Assert.DoesNotContain(HexDirection.Below, HexDirectionUtility.VerticalDiagonal);
         Assert.DoesNotContain(HexDirection.Above, HexDirectionUtility.VerticalDiagonal);
-        Assert.Contains(HexDirection.AboveEast, HexDirectionUtility.AboveLayer);
-        Assert.Contains(HexDirection.BelowSouthWest, HexDirectionUtility.BelowLayer);
+        Assert.Contains(HexDirection.AboveQPositive, HexDirectionUtility.AboveLayer);
+        Assert.Contains(HexDirection.BelowQNegativeRPositive, HexDirectionUtility.BelowLayer);
+    }
+
+    [Fact]
+    public void HexDirectionUtility_ShouldUseOrientationNeutralAxialNames()
+    {
+        Assert.Equal(new VoxelIndex(1, 0, 0), HexDirectionUtility.GetOffset(HexDirection.QPositive));
+        Assert.Equal(new VoxelIndex(1, 0, -1), HexDirectionUtility.GetOffset(HexDirection.QPositiveRNegative));
+        Assert.Equal(new VoxelIndex(0, 0, -1), HexDirectionUtility.GetOffset(HexDirection.RNegative));
+        Assert.Equal(new VoxelIndex(-1, 0, 0), HexDirectionUtility.GetOffset(HexDirection.QNegative));
+        Assert.Equal(new VoxelIndex(-1, 0, 1), HexDirectionUtility.GetOffset(HexDirection.QNegativeRPositive));
+        Assert.Equal(new VoxelIndex(0, 0, 1), HexDirectionUtility.GetOffset(HexDirection.RPositive));
+        Assert.Equal(new VoxelIndex(1, -1, 0), HexDirectionUtility.GetOffset(HexDirection.BelowQPositive));
+        Assert.Equal(new VoxelIndex(1, 1, -1), HexDirectionUtility.GetOffset(HexDirection.AboveQPositiveRNegative));
     }
 
     [Fact]

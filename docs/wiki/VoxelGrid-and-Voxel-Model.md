@@ -112,6 +112,10 @@ neighborhood. Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood:
 on the layer above. `RectangularDirectionUtility` and `HexDirectionUtility`
 also expose deterministic subsets such as `Primary`, `Planar`, `Vertical`,
 layer groups, and vertical diagonals.
+Hex direction names are axial rather than compass-based: for example,
+`QPositive`, `QPositiveRNegative`, `RNegative`, and their `Below...` /
+`Above...` variants describe topology-local offsets consistently for both
+pointy-top and flat-top hex grids.
 
 For sparse grids, missing local neighbors are absent even when their indices are
 inside the grid bounds. Boundary neighbor lookup can still cross into

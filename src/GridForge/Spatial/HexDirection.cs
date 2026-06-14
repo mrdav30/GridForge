@@ -19,34 +19,34 @@ public enum HexDirection
     None = -1,
 
     /// <summary>
-    /// Axial offset (+1, 0).
+    /// Axial offset (Q + 1, R unchanged).
     /// </summary>
-    East = 0,
+    QPositive = 0,
 
     /// <summary>
-    /// Axial offset (+1, -1).
+    /// Axial offset (Q + 1, R - 1).
     /// </summary>
-    NorthEast = 1,
+    QPositiveRNegative = 1,
 
     /// <summary>
-    /// Axial offset (0, -1).
+    /// Axial offset (Q unchanged, R - 1).
     /// </summary>
-    NorthWest = 2,
+    RNegative = 2,
 
     /// <summary>
-    /// Axial offset (-1, 0).
+    /// Axial offset (Q - 1, R unchanged).
     /// </summary>
-    West = 3,
+    QNegative = 3,
 
     /// <summary>
-    /// Axial offset (-1, +1).
+    /// Axial offset (Q - 1, R + 1).
     /// </summary>
-    SouthWest = 4,
+    QNegativeRPositive = 4,
 
     /// <summary>
-    /// Axial offset (0, +1).
+    /// Axial offset (Q unchanged, R + 1).
     /// </summary>
-    SouthEast = 5,
+    RPositive = 5,
 
     /// <summary>
     /// Vertical offset (0, -1, 0).
@@ -54,34 +54,34 @@ public enum HexDirection
     Below = 6,
 
     /// <summary>
-    /// Vertical offset (+1, -1, 0).
+    /// Vertical offset (Q + 1, layer - 1, R unchanged).
     /// </summary>
-    BelowEast = 7,
+    BelowQPositive = 7,
 
     /// <summary>
-    /// Vertical offset (+1, -1, -1).
+    /// Vertical offset (Q + 1, layer - 1, R - 1).
     /// </summary>
-    BelowNorthEast = 8,
+    BelowQPositiveRNegative = 8,
 
     /// <summary>
-    /// Vertical offset (0, -1, -1).
+    /// Vertical offset (Q unchanged, layer - 1, R - 1).
     /// </summary>
-    BelowNorthWest = 9,
+    BelowRNegative = 9,
 
     /// <summary>
-    /// Vertical offset (-1, -1, 0).
+    /// Vertical offset (Q - 1, layer - 1, R unchanged).
     /// </summary>
-    BelowWest = 10,
+    BelowQNegative = 10,
 
     /// <summary>
-    /// Vertical offset (-1, -1, +1).
+    /// Vertical offset (Q - 1, layer - 1, R + 1).
     /// </summary>
-    BelowSouthWest = 11,
+    BelowQNegativeRPositive = 11,
 
     /// <summary>
-    /// Vertical offset (0, -1, +1).
+    /// Vertical offset (Q unchanged, layer - 1, R + 1).
     /// </summary>
-    BelowSouthEast = 12,
+    BelowRPositive = 12,
 
     /// <summary>
     /// Vertical offset (0, +1, 0).
@@ -89,32 +89,32 @@ public enum HexDirection
     Above = 13,
 
     /// <summary>
-    /// Vertical offset (+1, +1, 0).
+    /// Vertical offset (Q + 1, layer + 1, R unchanged).
     /// </summary>
-    AboveEast = 14,
+    AboveQPositive = 14,
 
     /// <summary>
-    /// Vertical offset (+1, +1, -1).
+    /// Vertical offset (Q + 1, layer + 1, R - 1).
     /// </summary>
-    AboveNorthEast = 15,
+    AboveQPositiveRNegative = 15,
 
     /// <summary>
-    /// Vertical offset (0, +1, -1).
+    /// Vertical offset (Q unchanged, layer + 1, R - 1).
     /// </summary>
-    AboveNorthWest = 16,
+    AboveRNegative = 16,
 
     /// <summary>
-    /// Vertical offset (-1, +1, 0).
+    /// Vertical offset (Q - 1, layer + 1, R unchanged).
     /// </summary>
-    AboveWest = 17,
+    AboveQNegative = 17,
 
     /// <summary>
-    /// Vertical offset (-1, +1, +1).
+    /// Vertical offset (Q - 1, layer + 1, R + 1).
     /// </summary>
-    AboveSouthWest = 18,
+    AboveQNegativeRPositive = 18,
 
     /// <summary>
-    /// Vertical offset (0, +1, +1).
+    /// Vertical offset (Q unchanged, layer + 1, R + 1).
     /// </summary>
-    AboveSouthEast = 19
+    AboveRPositive = 19
 }
