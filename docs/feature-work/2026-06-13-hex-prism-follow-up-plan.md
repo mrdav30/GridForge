@@ -448,14 +448,14 @@ Result:
 
 #### Phase 8: Performance Hardening
 
-Status: planned.
+Status: completed on 2026-06-14.
 
 Goal: make sure unified neighbor discovery is useful without turning a voxel
 neighbor query into a broad world scan.
 
 Tasks:
 
-- Add benchmark cases for the unified resolver:
+- [x] Add benchmark cases for the unified resolver:
   - local source-grid only neighbors
   - same-topology conjoined-grid neighbors
   - no mixed candidates nearby
@@ -463,27 +463,50 @@ Tasks:
   - one flat-top hex mixed candidate
   - many candidate grids in nearby spatial hash cells
   - sparse target with mostly missing candidate cells
-- Verify candidate grid collection stays bounded by spatial hash coverage, not
+- [x] Verify candidate grid collection stays bounded by spatial hash coverage, not
   total active grid count.
-- Verify hot paths avoid LINQ and avoid allocations when callers use
+- [x] Verify hot paths avoid LINQ and avoid allocations when callers use
   `GetNeighborsInto(...)`, `GetRectangularNeighborsInto(...)`, and
   `GetHexNeighborsInto(...)`.
-- Compare the unified resolver against the removed per-voxel cache behavior if
+- [x] Compare the unified resolver against the removed per-voxel cache behavior if
   a prior benchmark exists, or capture a new baseline before considering any
   replacement cache.
-- Only add caching if benchmark data proves the uncached resolver is too slow.
+- [x] Only add caching if benchmark data proves the uncached resolver is too slow.
   Any new cache must have explicit invalidation for grid load/unload, sparse
   mutation, and topology-specific footprint changes.
 
+Result:
+
+- Added `NeighborLookupBenchmarks` coverage for source-grid contacts,
+  same-topology contacts, empty mixed-scope queries, pointy-top and flat-top
+  mixed contacts, many nearby candidate grids, sparse mostly-missing targets,
+  and rectangular/hex direction-labeled caller-owned result paths.
+- Replaced per-query shared-pool scratch rentals inside
+  `VoxelNeighborResolver` contact lookup with thread-local scratch storage and
+  a reentrant fallback. This keeps the public API allocation-conscious without
+  adding caller-visible cache controls.
+- Kept source-grid contact neighbors in deterministic topology-slot order and
+  sorted cross-grid candidate voxels only where spatial-range collection can
+  produce non-directional ordering.
+- BenchmarkDotNet ShortRun on 2026-06-14 showed the unified contact cases
+  bounded by spatial-hash candidate coverage with sub-KB managed allocation per
+  benchmark operation after warmup. Mixed pointy-top and flat-top contact
+  scenarios measured near 2 ms in the short-run matrix; many nearby candidate
+  grids remained the expected upper-bound case.
+- No replacement neighbor cache was added. The measured uncached resolver does
+  not justify cache invalidation complexity for grid load/unload, sparse
+  mutation, and topology footprint changes.
+
 Exit criteria:
 
-- Benchmarks either show the uncached unified resolver is acceptable or capture
-  a measured reason to add a new dedicated neighbor cache.
+- Benchmarks show the uncached unified resolver is acceptable for the current
+  scenarios, so no new dedicated neighbor cache is planned.
 
 #### Phase 9: Documentation And Plan Closure
 
 Status: partially completed; API and direction docs were aligned through phase
-7, while final benchmark documentation and plan closure remain tied to phase 8.
+7, and benchmark documentation was aligned through phase 8. Final plan closure
+remains.
 
 Goal: document the final contact-vs-directed neighbor contract without implying
 fake direction mappings across topology families.

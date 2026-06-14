@@ -91,10 +91,11 @@ Locked shared decisions:
 - Hex examples default to `PointyTop`; `FlatTop` remains fully supported.
 - Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood; `HexDirectionUtility.Primary` keeps the 6 planar axial neighbors plus above/below available as the face-adjacent subset.
 - Missing sparse voxels are intentional absence, not default empty cells.
-- Voxel neighbor discovery is being hardened around contact queries versus
-  directed topology-local lookup. Cross-topology contact bridging is supported
-  as one-to-many footprint overlap, while directed neighbor lookup remains
-  topology-local.
+- Voxel neighbor discovery is hardened around contact queries versus directed
+  topology-local lookup. Cross-topology contact bridging is supported as
+  one-to-many footprint overlap, directed neighbor lookup remains
+  topology-local, and `neighbor-lookup` benchmarks cover the unified resolver
+  matrix.
 
 ### 3. Rectangular Topology Extraction
 

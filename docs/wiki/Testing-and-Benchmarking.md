@@ -105,8 +105,12 @@ The `hex-prism-topology` alias covers rectangular baseline lookup, pointy/flat
 hex lookup, projection, construction, line tracing, bounds coverage, blockers,
 occupants, radius scans, and mixed rectangular/hex world lookup.
 
-The `neighbor-lookup` alias covers stateless boundary neighbor lookup through
-the unified resolver.
+The `neighbor-lookup` alias covers stateless directed boundary lookup plus the
+unified neighbor resolver matrix: source-grid contacts, same-topology conjoined
+contacts, no mixed candidates nearby, pointy-top and flat-top mixed contacts,
+many nearby spatial-hash candidate grids, sparse targets with mostly missing
+candidate cells, and rectangular/hex direction-labeled caller-owned result
+paths.
 
 ## Benchmark Environment Behavior
 

@@ -8,15 +8,17 @@
 using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
-using SwiftCollections.Pool;
 using SwiftCollections.Utility;
-using System.Collections.Generic;
+using System;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Topology;
 
 internal static class VoxelNeighborResolver
 {
+    [ThreadStatic]
+    private static NeighborResolverScratch? _contactScratch;
+
     internal static void AddContactNeighbors(
         Voxel source,
         VoxelGrid ownerGrid,
@@ -107,10 +109,11 @@ internal static class VoxelNeighborResolver
             : Fixed64.Zero;
         TopologyVoxelAabb sourceBounds = TopologyVoxelAabb.FromVoxel(ownerGrid, source);
         TopologyVoxelAabb queryBounds = sourceBounds.Expand(toleranceValue);
-        SwiftList<ushort> candidateGridIds = SwiftListPool<ushort>.Shared.Rent();
-        SwiftHashSet<ushort> processedGridIds = SwiftHashSetPool<ushort>.Shared.Rent();
-        SwiftList<Voxel> candidateVoxels = SwiftListPool<Voxel>.Shared.Rent();
-        SwiftHashSet<Voxel> processedVoxels = SwiftHashSetPool<Voxel>.Shared.Rent();
+        NeighborResolverScratch scratch = RentContactScratch();
+        SwiftList<ushort> candidateGridIds = scratch.CandidateGridIds;
+        SwiftHashSet<ushort> processedGridIds = scratch.ProcessedGridIds;
+        SwiftList<Voxel> voxelCandidates = scratch.CandidateVoxels;
+        SwiftHashSet<Voxel> processedVoxels = scratch.ProcessedVoxels;
 
         try
         {
@@ -118,7 +121,8 @@ internal static class VoxelNeighborResolver
             if ((scope & VoxelNeighborScope.SourceGrid) != 0 && processedGridIds.Add(ownerGrid.GridIndex))
                 candidateGridIds.Add(ownerGrid.GridIndex);
 
-            candidateGridIds.Sort();
+            if (candidateGridIds.Count > 1)
+                candidateGridIds.Sort();
 
             for (int i = 0; i < candidateGridIds.Count; i++)
             {
@@ -130,11 +134,11 @@ internal static class VoxelNeighborResolver
                 if (!IsCandidateInScope(ownerGrid, candidateGrid, scope))
                     continue;
 
-                candidateVoxels.Clear();
-                processedVoxels.Clear();
+                voxelCandidates.Clear();
+                bool shouldSortCandidates = false;
                 if (candidateGridId == ownerGrid.GridIndex)
                 {
-                    AddSourceGridContactNeighbors(source, ownerGrid, candidateVoxels);
+                    AddSourceGridContactNeighbors(source, ownerGrid, voxelCandidates);
                 }
                 else if (TopologyVoxelRangeUtility.TryGetCandidateRange(
                              candidateGrid,
@@ -142,19 +146,21 @@ internal static class VoxelNeighborResolver
                              out VoxelIndex minIndex,
                              out VoxelIndex maxIndex))
                 {
-                    candidateGrid.AddVoxelsInIndexRange(minIndex, maxIndex, candidateVoxels, processedVoxels);
+                    processedVoxels.Clear();
+                    candidateGrid.AddVoxelsInIndexRange(minIndex, maxIndex, voxelCandidates, processedVoxels);
+                    shouldSortCandidates = true;
                 }
                 else
                 {
                     continue;
                 }
 
-                if (candidateVoxels.Count > 1)
-                    candidateVoxels.Sort(VoxelIndexComparer.Instance);
+                if (shouldSortCandidates)
+                    SortByVoxelIndex(voxelCandidates);
 
-                for (int voxelIndex = 0; voxelIndex < candidateVoxels.Count; voxelIndex++)
+                for (int voxelIndex = 0; voxelIndex < voxelCandidates.Count; voxelIndex++)
                 {
-                    Voxel candidateVoxel = candidateVoxels[voxelIndex];
+                    Voxel candidateVoxel = voxelCandidates[voxelIndex];
                     if (ReferenceEquals(source, candidateVoxel))
                         continue;
 
@@ -173,10 +179,7 @@ internal static class VoxelNeighborResolver
         }
         finally
         {
-            SwiftHashSetPool<Voxel>.Shared.Release(processedVoxels);
-            SwiftListPool<Voxel>.Shared.Release(candidateVoxels);
-            SwiftHashSetPool<ushort>.Shared.Release(processedGridIds);
-            SwiftListPool<ushort>.Shared.Release(candidateGridIds);
+            ReleaseContactScratch(scratch);
         }
     }
 
@@ -197,11 +200,10 @@ internal static class VoxelNeighborResolver
             return false;
         }
 
-        AddSourceGridContactNeighbors(source, ownerGrid, results!);
-        if (results!.Count > 1)
-            results.Sort(VoxelIndexComparer.Instance);
+        SwiftList<Voxel> resultList = results!;
+        AddSourceGridContactNeighbors(source, ownerGrid, resultList);
 
-        return results.Count > 0;
+        return resultList.Count > 0;
     }
 
     private static void AddSourceGridContactNeighbors(
@@ -246,6 +248,7 @@ internal static class VoxelNeighborResolver
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetNeighborFromSlot(
         Voxel source,
         VoxelGrid ownerGrid,
@@ -259,6 +262,7 @@ internal static class VoxelNeighborResolver
         return TryResolveNeighborAtOffset(source, ownerGrid, ownerGrid.GetNeighborOffset(slot), out neighbor);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetLocalNeighborFromSlot(
         Voxel source,
         VoxelGrid ownerGrid,
@@ -332,29 +336,78 @@ internal static class VoxelNeighborResolver
             : (scope & VoxelNeighborScope.MixedTopologyGrids) != 0;
     }
 
-    private sealed class VoxelIndexComparer : IComparer<Voxel>
+    private static NeighborResolverScratch RentContactScratch()
     {
-        public static readonly VoxelIndexComparer Instance = new();
-
-        public int Compare(Voxel? left, Voxel? right)
+        NeighborResolverScratch scratch = _contactScratch ??= new NeighborResolverScratch();
+        if (scratch.IsInUse)
         {
-            if (ReferenceEquals(left, right))
-                return 0;
-            if (left == null)
-                return -1;
-            if (right == null)
-                return 1;
+            NeighborResolverScratch fallback = new NeighborResolverScratch();
+            fallback.IsInUse = true;
+            return fallback;
+        }
 
-            VoxelIndex leftIndex = left.Index;
-            VoxelIndex rightIndex = right.Index;
-            int comparison = leftIndex.x.CompareTo(rightIndex.x);
-            if (comparison != 0)
-                return comparison;
+        scratch.IsInUse = true;
+        return scratch;
+    }
 
-            comparison = leftIndex.y.CompareTo(rightIndex.y);
-            return comparison != 0
-                ? comparison
-                : leftIndex.z.CompareTo(rightIndex.z);
+    private static void ReleaseContactScratch(NeighborResolverScratch scratch)
+    {
+        scratch.Clear();
+        scratch.IsInUse = false;
+    }
+
+    private static void SortByVoxelIndex(SwiftList<Voxel> voxels)
+    {
+        int count = voxels.Count;
+        if (count <= 1)
+            return;
+
+        Voxel[] items = voxels.InnerArray;
+        for (int i = 1; i < count; i++)
+        {
+            Voxel value = items[i];
+            int previous = i - 1;
+
+            while (previous >= 0 && CompareVoxelIndex(items[previous], value) > 0)
+            {
+                items[previous + 1] = items[previous];
+                previous--;
+            }
+
+            items[previous + 1] = value;
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int CompareVoxelIndex(Voxel left, Voxel right)
+    {
+        VoxelIndex leftIndex = left.Index;
+        VoxelIndex rightIndex = right.Index;
+        int comparison = leftIndex.x.CompareTo(rightIndex.x);
+        if (comparison != 0)
+            return comparison;
+
+        comparison = leftIndex.y.CompareTo(rightIndex.y);
+        return comparison != 0
+            ? comparison
+            : leftIndex.z.CompareTo(rightIndex.z);
+    }
+
+    private sealed class NeighborResolverScratch
+    {
+        public readonly SwiftList<ushort> CandidateGridIds = new();
+        public readonly SwiftHashSet<ushort> ProcessedGridIds = new();
+        public readonly SwiftList<Voxel> CandidateVoxels = new();
+        public readonly SwiftHashSet<Voxel> ProcessedVoxels = new();
+
+        public bool IsInUse;
+
+        public void Clear()
+        {
+            CandidateGridIds.Clear();
+            ProcessedGridIds.Clear();
+            CandidateVoxels.Clear();
+            ProcessedVoxels.Clear();
         }
     }
 }
