@@ -4,29 +4,24 @@ using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Spatial;
 using System;
-using System.Collections.Generic;
 
 namespace GridForge.Benchmarks;
 
 [MemoryDiagnoser]
 [Config(typeof(InProcessShortRunConfig))]
-public class NeighborCacheBenchmarks
+public class NeighborLookupBenchmarks
 {
+    private const int LookupCount = 128;
+
     private NeighborLookup[] _lookups;
     private GridWorld _world;
 
     public int Rounds { get; set; } = 128;
 
-    [IterationSetup(Target = nameof(ResolveBoundaryNeighbors_WithoutCache))]
-    public void SetupUncachedIteration()
+    [IterationSetup(Target = nameof(ResolveBoundaryNeighbors))]
+    public void SetupIteration()
     {
-        InitializeScenario(primeCache: false);
-    }
-
-    [IterationSetup(Target = nameof(ResolveBoundaryNeighbors_WithCache))]
-    public void SetupCachedIteration()
-    {
-        InitializeScenario(primeCache: true);
+        InitializeScenario();
     }
 
     [IterationCleanup]
@@ -35,21 +30,14 @@ public class NeighborCacheBenchmarks
         BenchmarkEnvironment.ResetWorld();
     }
 
-    [Benchmark(Baseline = true, Description = "Boundary neighbor lookups without cache")]
-    [BenchmarkCategory("Memory", "Caching", "Neighbors")]
-    public int ResolveBoundaryNeighbors_WithoutCache()
+    [Benchmark(Baseline = true, Description = "Boundary neighbor lookups")]
+    [BenchmarkCategory("Memory", "Neighbors")]
+    public int ResolveBoundaryNeighbors()
     {
-        return ExecuteLookups(useCache: false);
+        return ExecuteLookups();
     }
 
-    [Benchmark(Description = "Boundary neighbor lookups with cache")]
-    [BenchmarkCategory("Memory", "Caching", "Neighbors")]
-    public int ResolveBoundaryNeighbors_WithCache()
-    {
-        return ExecuteLookups(useCache: true);
-    }
-
-    private void InitializeScenario(bool primeCache)
+    private void InitializeScenario()
     {
         _world = BenchmarkEnvironment.PrepareWorld();
 
@@ -82,46 +70,34 @@ public class NeighborCacheBenchmarks
 
         VoxelGrid centerGrid = _world.ActiveGrids[centerIndex];
         _lookups = BuildLookups(centerGrid);
-
-        if (primeCache)
-        {
-            for (int i = 0; i < _lookups.Length; i++)
-            {
-                if (!_lookups[i].Voxel.TryGetRectangularNeighbor(
-                    _lookups[i].OwnerGrid,
-                    _lookups[i].Direction,
-                    out _,
-                    useCache: true))
-                {
-                    throw new InvalidOperationException(
-                        $"Unable to prime cached lookup {i} for direction {_lookups[i].Direction}.");
-                }
-            }
-        }
     }
 
     private static NeighborLookup[] BuildLookups(VoxelGrid centerGrid)
     {
-        List<NeighborLookup> lookups = new();
+        NeighborLookup[] lookups = new NeighborLookup[LookupCount];
+        int index = 0;
 
         for (int z = 0; z <= 31; z++)
         {
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, z), RectangularDirection.East));
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, z), RectangularDirection.West));
+            lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, z), RectangularDirection.East);
+            lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, z), RectangularDirection.West);
         }
 
         for (int x = 1; x < 31; x++)
         {
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 31), RectangularDirection.North));
-            lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 0), RectangularDirection.South));
+            lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 31), RectangularDirection.North);
+            lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, x, 0), RectangularDirection.South);
         }
 
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 31), RectangularDirection.NorthEast));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 31), RectangularDirection.NorthWest));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 0), RectangularDirection.SouthEast));
-        lookups.Add(new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 0), RectangularDirection.SouthWest));
+        lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 31), RectangularDirection.NorthEast);
+        lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 31), RectangularDirection.NorthWest);
+        lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 31, 0), RectangularDirection.SouthEast);
+        lookups[index++] = new NeighborLookup(centerGrid, GetVoxel(centerGrid, 0, 0), RectangularDirection.SouthWest);
 
-        return lookups.ToArray();
+        if (index != LookupCount)
+            throw new InvalidOperationException($"Expected {LookupCount} neighbor lookups, but built {index}.");
+
+        return lookups;
     }
 
     private static Voxel GetVoxel(VoxelGrid centerGrid, int x, int z)
@@ -133,7 +109,7 @@ public class NeighborCacheBenchmarks
         return voxel;
     }
 
-    private int ExecuteLookups(bool useCache)
+    private int ExecuteLookups()
     {
         int hitCount = 0;
 
@@ -141,11 +117,10 @@ public class NeighborCacheBenchmarks
         {
             for (int i = 0; i < _lookups.Length; i++)
             {
-                if (_lookups[i].Voxel.TryGetRectangularNeighbor(
+                if (_lookups[i].Voxel.TryGetNeighbor(
                     _lookups[i].OwnerGrid,
                     _lookups[i].Direction,
-                    out _,
-                    useCache))
+                    out _))
                     hitCount++;
             }
         }

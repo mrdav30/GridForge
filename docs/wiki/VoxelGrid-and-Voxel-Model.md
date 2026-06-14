@@ -87,18 +87,22 @@ A voxel carries:
 - `OccupantCount`
 - partition storage through `PartitionProvider<IVoxelPartition>`
 - boundary awareness
-- cached neighbors
 - `CachedGridVersion`
 
 ## Neighbor Model
 
 Neighbor handling spans both `VoxelGrid` and `Voxel`.
 
-- `VoxelGrid.Neighbors` stores neighboring grid ids by topology-local neighbor slot.
-- `Voxel` exposes rectangular lookup through `TryGetRectangularNeighbor(...)` and `GetRectangularNeighbors(...)`.
-- `Voxel` exposes hex lookup through `TryGetHexNeighbor(...)` and `GetHexNeighbors(...)`.
-- `Voxel` exposes mixed rectangular/hex contact lookup through
-  `GetMixedTopologyNeighborsInto(...)` and `HasMixedTopologyNeighbor(...)`.
+- `VoxelGrid.Neighbors` stores same-topology neighboring grid ids by topology-local neighbor slot.
+- `Voxel.GetNeighborsInto(...)` fills caller-owned storage with physical
+  contact neighbors from the source grid, same-topology grids, mixed-topology
+  grids, or all of them through `VoxelNeighborScope`.
+- `Voxel.HasNeighbor(...)` performs the same contact query as a fast boolean
+  check.
+- `Voxel.TryGetNeighbor(...)` has rectangular and hex overloads for exact
+  same-topology directed lookup.
+- `Voxel.GetRectangularNeighborsInto(...)` and `Voxel.GetHexNeighborsInto(...)`
+  fill caller-owned storage with direction-labeled same-topology neighbors.
 
 If a local voxel lookup fails at the edge of a grid, the voxel resolves the matching world-space neighbor through its owning world.
 
@@ -115,18 +119,20 @@ configured voxels on neighboring grids.
 
 Mixed rectangular/hex grids can coexist in one `GridWorld`. Direction-based
 neighbor APIs remain same-topology only because rectangular and hex direction
-sets do not have a stable one-to-one mapping. When behavior intentionally
-crosses topology families, use the mixed-topology contact query:
+sets do not have a stable one-to-one mapping. When behavior intentionally asks
+"which physical voxels touch this voxel?", use the contact query:
 
 ```csharp
-SwiftList<Voxel> mixedNeighbors = new SwiftList<Voxel>();
-voxel.GetMixedTopologyNeighborsInto(grid, mixedNeighbors);
+SwiftList<Voxel> neighbors = new SwiftList<Voxel>();
+voxel.GetNeighborsInto(grid, neighbors, VoxelNeighborScope.All);
 ```
 
-The mixed query treats voxel footprint AABBs as the deterministic contact
-model. It returns zero, one, or many physical voxels from grids with a different
-topology, in deterministic grid/index order. Sparse target grids return only
-configured voxels; missing sparse cells are not materialized.
+The contact query treats voxel footprint AABBs as the deterministic contact
+model. It returns zero, one, or many physical voxels in deterministic grid/index
+order. Sparse target grids return only configured voxels; missing sparse cells
+are not materialized. Per-voxel neighbor result caches are not part of the
+public model; sparse mutation and grid load/unload are reflected by resolving
+against current world and grid state.
 
 ## Reset And Reuse
 

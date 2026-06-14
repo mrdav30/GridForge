@@ -145,16 +145,10 @@ public class SparseVoxelGridBenchmarks
         _scanScratch.Clear();
     }
 
-    [IterationSetup(Target = nameof(ResolveDenseToSparseNeighbors_Uncached))]
-    public void SetupDenseSparseNeighborUncachedIteration()
+    [IterationSetup(Target = nameof(ResolveDenseToSparseNeighbors))]
+    public void SetupDenseSparseNeighborIteration()
     {
-        InitializeDenseSparseNeighborScenario(primeCache: false);
-    }
-
-    [IterationSetup(Target = nameof(ResolveDenseToSparseNeighbors_Cached))]
-    public void SetupDenseSparseNeighborCachedIteration()
-    {
-        InitializeDenseSparseNeighborScenario(primeCache: true);
+        InitializeDenseSparseNeighborScenario();
     }
 
     [IterationCleanup]
@@ -310,18 +304,11 @@ public class SparseVoxelGridBenchmarks
         return ExecuteSparseRadiusScanInto();
     }
 
-    [Benchmark(Description = "Dense to sparse conjoined neighbor lookups without cache")]
+    [Benchmark(Description = "Dense to sparse conjoined neighbor lookups")]
     [BenchmarkCategory("Sparse", "Neighbors")]
-    public int ResolveDenseToSparseNeighbors_Uncached()
+    public int ResolveDenseToSparseNeighbors()
     {
-        return ExecuteDenseToSparseNeighborLookups(useCache: false);
-    }
-
-    [Benchmark(Description = "Dense to sparse conjoined neighbor lookups with cache")]
-    [BenchmarkCategory("Sparse", "Neighbors")]
-    public int ResolveDenseToSparseNeighbors_Cached()
-    {
-        return ExecuteDenseToSparseNeighborLookups(useCache: true);
+        return ExecuteDenseToSparseNeighborLookups();
     }
 
     private int ConstructGrid(GridConfiguration configuration, VoxelIndex[] configuredVoxels)
@@ -407,7 +394,7 @@ public class SparseVoxelGridBenchmarks
         return count;
     }
 
-    private void InitializeDenseSparseNeighborScenario(bool primeCache)
+    private void InitializeDenseSparseNeighborScenario()
     {
         _world = BenchmarkEnvironment.PrepareWorld();
 
@@ -431,11 +418,9 @@ public class SparseVoxelGridBenchmarks
         _grid = _world.ActiveGrids[denseGridIndex];
         _neighborVoxels = CreateDenseEastBoundaryVoxels(_grid);
 
-        if (primeCache)
-            ExecuteDenseToSparseNeighborLookups(useCache: true);
     }
 
-    private int ExecuteDenseToSparseNeighborLookups(bool useCache)
+    private int ExecuteDenseToSparseNeighborLookups()
     {
         int hitCount = 0;
 
@@ -443,7 +428,7 @@ public class SparseVoxelGridBenchmarks
         {
             for (int i = 0; i < _neighborVoxels.Length; i++)
             {
-                if (_neighborVoxels[i].TryGetRectangularNeighbor(_grid, RectangularDirection.East, out _, useCache))
+                if (_neighborVoxels[i].TryGetNeighbor(_grid, RectangularDirection.East, out _))
                     hitCount++;
             }
         }

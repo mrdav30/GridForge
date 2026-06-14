@@ -54,7 +54,10 @@ Hex-prism topology coverage includes:
 - flat-top and pointy-top projection and inverse projection
 - exact cube-coordinate rounding at hex boundaries
 - mixed rectangular/hex world lookup
-- topology-specific rectangular and hex neighbor APIs
+- unified voxel contact queries across source-grid, same-topology, and
+  mixed-topology scopes
+- exact topology-specific directed neighbor overloads for rectangular and hex
+  grids
 - mixed-topology voxel contact queries for pointy-top and flat-top hex grids
 - hex line tracing and conservative bounds coverage
 - hex blocker apply/remove behavior
@@ -91,6 +94,7 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
 ```
 
 The `sparse-voxel-grid` alias covers sparse construction density, configured and
@@ -100,6 +104,9 @@ registration, radius scans, neighbor lookup, and dense comparison scenarios.
 The `hex-prism-topology` alias covers rectangular baseline lookup, pointy/flat
 hex lookup, projection, construction, line tracing, bounds coverage, blockers,
 occupants, radius scans, and mixed rectangular/hex world lookup.
+
+The `neighbor-lookup` alias covers stateless boundary neighbor lookup through
+the unified resolver.
 
 ## Benchmark Environment Behavior
 

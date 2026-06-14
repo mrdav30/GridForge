@@ -157,9 +157,9 @@ rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
 occupants, scans, benchmark-backed performance hardening, docs, and release
 alignment are complete. Sparse hex-prism validation was completed in the hex
 follow-up plan. Mixed-topology neighbor bridging now has a tested contact-query
-implementation. The follow-up plan now tracks the breaking API hardening needed
-to unify neighbor discovery around contact queries versus directed
-topology-local lookup before final performance and release alignment.
+implementation. The breaking neighbor API hardening and resolver/cache removal
+are complete; the follow-up plan now tracks remaining hex direction naming,
+performance, and release-alignment work.
 
 Why:
 
@@ -186,7 +186,7 @@ use the sparse plan for implementation details.
 
 Why:
 
-- Runtime mutation interacts with blockers, obstacle state, occupant state, partition state, scan-cell lifetime, storage release, and neighbor-cache invalidation.
+- Runtime mutation interacts with blockers, obstacle state, occupant state, partition state, scan-cell lifetime, storage release, and neighbor lookup.
 - Those behaviors are easier to specify once topology and storage responsibilities are stable.
 
 Target outcome:

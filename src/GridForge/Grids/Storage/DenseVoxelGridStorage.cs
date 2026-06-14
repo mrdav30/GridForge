@@ -143,27 +143,6 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         }
     }
 
-    public void InvalidateBoundaryVoxels(
-        int xStart,
-        int xEnd,
-        int yStart,
-        int yEnd,
-        int zStart,
-        int zEnd)
-    {
-        if (Voxels == null)
-            return;
-
-        for (int x = xStart; x <= xEnd; x++)
-        {
-            for (int y = yStart; y <= yEnd; y++)
-            {
-                for (int z = zStart; z <= zEnd; z++)
-                    Voxels[x, y, z]?.InvalidateNeighborCache();
-            }
-        }
-    }
-
     private void GenerateScanCells(VoxelGrid grid)
     {
         ScanCells = Pools.ScanCellMapPool.Rent();

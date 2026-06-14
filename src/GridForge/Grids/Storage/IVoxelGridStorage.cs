@@ -43,12 +43,4 @@ internal interface IVoxelGridStorage
         int zMax,
         SwiftList<ScanCell> results,
         SwiftHashSet<ScanCell> redundancy);
-
-    void InvalidateBoundaryVoxels(
-        int xStart,
-        int xEnd,
-        int yStart,
-        int yEnd,
-        int zStart,
-        int zEnd);
 }

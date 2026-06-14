@@ -2,6 +2,7 @@ using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
+using SwiftCollections;
 using System.Linq;
 using Xunit;
 
@@ -114,7 +115,7 @@ public class HexPrismGridTests
     }
 
     [Fact]
-    public void GetHexNeighbors_ShouldReturnDeterministicExpandedNeighborOrder()
+    public void GetHexNeighborsInto_ShouldReturnDeterministicExpandedNeighborOrder()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
         GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
@@ -173,14 +174,15 @@ public class HexPrismGridTests
 
         Assert.True(grid.TryGetVoxel(centerIndex, out Voxel voxel));
 
-        var neighbors = voxel.GetHexNeighbors(grid, useCache: false).ToArray();
+        SwiftList<(HexDirection Direction, Voxel Voxel)> neighbors = new();
+        voxel.GetHexNeighborsInto(grid, neighbors);
 
-        Assert.Equal(expectedOffsets.Length, neighbors.Length);
+        Assert.Equal(expectedOffsets.Length, neighbors.Count);
 
         for (int i = 0; i < expectedOffsets.Length; i++)
         {
-            HexDirection direction = neighbors[i].Item1;
-            Voxel neighbor = neighbors[i].Item2;
+            HexDirection direction = neighbors[i].Direction;
+            Voxel neighbor = neighbors[i].Voxel;
             VoxelIndex expectedIndex = new(
                 centerIndex.x + expectedOffsets[i].x,
                 centerIndex.y + expectedOffsets[i].y,
@@ -193,7 +195,7 @@ public class HexPrismGridTests
     }
 
     [Fact]
-    public void GetHexNeighbors_ShouldSkipMissingCornerNeighbors()
+    public void GetHexNeighborsInto_ShouldSkipMissingCornerNeighbors()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
         GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
@@ -204,18 +206,19 @@ public class HexPrismGridTests
         VoxelGrid grid = world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
 
-        var neighbors = voxel.GetHexNeighbors(grid, useCache: false).ToArray();
+        SwiftList<(HexDirection Direction, Voxel Voxel)> neighbors = new();
+        voxel.GetHexNeighborsInto(grid, neighbors);
 
-        Assert.Equal(5, neighbors.Length);
-        Assert.Equal(HexDirection.East, neighbors[0].Item1);
-        Assert.Equal(HexDirection.SouthEast, neighbors[1].Item1);
-        Assert.Equal(HexDirection.Above, neighbors[2].Item1);
-        Assert.Equal(HexDirection.AboveEast, neighbors[3].Item1);
-        Assert.Equal(HexDirection.AboveSouthEast, neighbors[4].Item1);
+        Assert.Equal(5, neighbors.Count);
+        Assert.Equal(HexDirection.East, neighbors[0].Direction);
+        Assert.Equal(HexDirection.SouthEast, neighbors[1].Direction);
+        Assert.Equal(HexDirection.Above, neighbors[2].Direction);
+        Assert.Equal(HexDirection.AboveEast, neighbors[3].Direction);
+        Assert.Equal(HexDirection.AboveSouthEast, neighbors[4].Direction);
     }
 
     [Fact]
-    public void TryGetHexNeighbor_ShouldRefreshBoundaryCacheWhenSameTopologyGridLoadsAndUnloads()
+    public void TryGetNeighbor_ShouldReflectSameTopologyHexGridLoadAndUnload()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
         GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
@@ -225,7 +228,7 @@ public class HexPrismGridTests
 
         VoxelGrid firstGrid = world.ActiveGrids[firstGridIndex];
         Assert.True(firstGrid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel boundaryVoxel));
-        Assert.False(boundaryVoxel.TryGetHexNeighbor(firstGrid, HexDirection.East, out _, useCache: true));
+        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out _));
 
         Vector3d secondMin = boundaryVoxel.WorldPosition + HexCoordinateUtility.AxialToWorldOffset(
             HexDirectionUtility.GetOffset(HexDirection.East),
@@ -237,16 +240,16 @@ public class HexPrismGridTests
         Assert.Equal(1, firstGrid.NeighborCount);
         Assert.Equal(HexDirection.East, VoxelGrid.GetHexNeighborDirection(firstGrid, world.ActiveGrids[secondGridIndex]));
         Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.East));
-        Assert.True(boundaryVoxel.TryGetHexNeighbor(firstGrid, HexDirection.East, out Voxel cachedNeighbor, useCache: true));
-        Assert.Equal(new VoxelIndex(0, 0, 0), cachedNeighbor.Index);
+        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out Voxel resolvedNeighbor));
+        Assert.Equal(new VoxelIndex(0, 0, 0), resolvedNeighbor.Index);
 
         Assert.True(world.TryRemoveGrid(secondGridIndex));
 
-        Assert.False(boundaryVoxel.TryGetHexNeighbor(firstGrid, HexDirection.East, out _, useCache: true));
+        Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.East, out _));
     }
 
     [Fact]
-    public void TryGetHexNeighbor_ShouldResolveExpandedNeighborAcrossConjoinedLayerBoundary()
+    public void TryGetNeighbor_ShouldResolveExpandedHexNeighborAcrossConjoinedLayerBoundary()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
         GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
@@ -267,7 +270,7 @@ public class HexPrismGridTests
         VoxelGrid secondGrid = world.ActiveGrids[secondGridIndex];
         Assert.Equal(HexDirection.AboveEast, VoxelGrid.GetHexNeighborDirection(firstGrid, secondGrid));
         Assert.True(firstGrid.Neighbors!.ContainsKey((int)HexDirection.AboveEast));
-        Assert.True(boundaryVoxel.TryGetHexNeighbor(firstGrid, HexDirection.AboveEast, out Voxel neighbor, useCache: true));
+        Assert.True(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.AboveEast, out Voxel neighbor));
         Assert.Equal(new VoxelIndex(0, 0, 0), neighbor.Index);
     }
 

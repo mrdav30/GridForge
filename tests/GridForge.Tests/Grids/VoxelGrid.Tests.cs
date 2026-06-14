@@ -504,23 +504,6 @@ public class VoxelGridTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
         Assert.False(grid.IsFacingBoundary(new VoxelIndex(0, 0, 0), (RectangularDirection)(-2)));
-
-        grid.NotifyBoundaryChange((RectangularDirection)(-2));
-        grid.NotifyBoundaryChange((RectangularDirection)999);
-    }
-
-    [Fact]
-    public void NotifyBoundaryChange_ShouldSkipNullBoundarySlots()
-    {
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1)),
-            out ushort gridIndex));
-        VoxelGrid grid = _world.ActiveGrids[gridIndex];
-        grid.Voxels[0, 0, 0] = null;
-
-        grid.NotifyBoundaryChange(RectangularDirection.West);
-
-        Assert.Null(grid.Voxels[0, 0, 0]);
     }
 
     [Fact]

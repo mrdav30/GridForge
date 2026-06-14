@@ -103,15 +103,15 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(hexGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel hexVoxel));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        rectangularVoxel.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        rectangularVoxel.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
 
-        Assert.True(rectangularVoxel.HasMixedTopologyNeighbor(rectangularGrid));
+        Assert.True(rectangularVoxel.HasNeighbor(rectangularGrid, VoxelNeighborScope.MixedTopologyGrids));
         Assert.Single(results);
         Assert.Same(hexVoxel, results[0]);
 
-        hexVoxel.GetMixedTopologyNeighborsInto(hexGrid, results);
+        hexVoxel.GetNeighborsInto(hexGrid, results, VoxelNeighborScope.MixedTopologyGrids);
 
-        Assert.True(hexVoxel.HasMixedTopologyNeighbor(hexGrid));
+        Assert.True(hexVoxel.HasNeighbor(hexGrid, VoxelNeighborScope.MixedTopologyGrids));
         Assert.Single(results);
         Assert.Same(rectangularVoxel, results[0]);
         Assert.Equal(0, rectangularGrid.NeighborCount);
@@ -138,7 +138,7 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(hexGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetMixedTopologyNeighborsInto(hexGrid, results);
+        source.GetNeighborsInto(hexGrid, results, VoxelNeighborScope.MixedTopologyGrids);
         VoxelIndex[] actual = results
             .Select(voxel => voxel.Index)
             .ToArray();
@@ -168,9 +168,9 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(rectangularGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
 
-        Assert.False(source.HasMixedTopologyNeighbor(rectangularGrid));
+        Assert.False(source.HasNeighbor(rectangularGrid, VoxelNeighborScope.MixedTopologyGrids));
         Assert.Empty(results);
     }
 
@@ -201,7 +201,7 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(hexGrid.TryGetVoxel(configuredHexIndex, out Voxel configuredHex));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
 
         Assert.Single(results);
         Assert.Same(configuredHex, results[0]);
@@ -233,21 +233,21 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(rectangularGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
         Assert.Empty(results);
 
         Assert.True(hexGrid.TryAddVoxel(configuredHexIndex, out Voxel addedHex));
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
         Assert.Single(results);
         Assert.Same(addedHex, results[0]);
 
         Assert.True(hexGrid.TryRemoveVoxel(configuredHexIndex));
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
         Assert.Empty(results);
 
         Assert.True(hexGrid.TryAddVoxel(configuredHexIndex, out _));
         Assert.True(_world.TryRemoveGrid(hexIndex));
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
         Assert.Empty(results);
     }
 
@@ -267,7 +267,7 @@ public sealed class MixedTopologyNeighborTests : IDisposable
         Assert.True(rectangularGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
 
         SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetMixedTopologyNeighborsInto(rectangularGrid, results);
+        source.GetNeighborsInto(rectangularGrid, results, VoxelNeighborScope.MixedTopologyGrids);
 
         Assert.Empty(results);
     }

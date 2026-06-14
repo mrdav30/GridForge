@@ -76,7 +76,7 @@ world-space input
 - cell-level obstacle state
 - attached partitions
 - boundary awareness
-- cached voxel-neighbor relationships
+- topology-aware neighbor query behavior
 
 ### `ScanCell` owns
 
@@ -182,19 +182,18 @@ GridForge uses both events and version numbers to express change.
 
 Neighbor handling is split into two related but distinct problems:
 
-- `VoxelGrid` tracks neighboring grids by topology-local neighbor slot, and each slot can contain more than one grid.
-- `Voxel` exposes rectangular lookup through `RectangularDirection` and hex lookup through `HexDirection`.
+- `VoxelGrid` tracks same-topology neighboring grids by topology-local neighbor slot, and each slot can contain more than one grid.
+- `Voxel.GetNeighborsInto(...)` asks which physical voxels touch the source voxel, with `VoxelNeighborScope` selecting source-grid, same-topology grid, mixed-topology grid, or all contacts.
+- `Voxel.TryGetNeighbor(...)` exposes exact directed lookup through `RectangularDirection` and `HexDirection` overloads.
 - Rectangular full-neighbor lookup covers 26 directions. Hex full-neighbor lookup covers 20 directions, with `Primary`, `Planar`, `Vertical`, layer, and vertical-diagonal subsets exposed through the direction utilities.
-- Mixed rectangular/hex lookup uses `GetMixedTopologyNeighborsInto(...)` and
-  `HasMixedTopologyNeighbor(...)`, returning one-to-many contacts from grids
-  that use a different topology.
+- `Voxel.GetRectangularNeighborsInto(...)` and `Voxel.GetHexNeighborsInto(...)` fill caller-owned storage with direction-labeled same-topology results.
 
-Boundary voxels bridge the two. When grids load or unload, `VoxelGrid.NotifyBoundaryChange(...)` invalidates neighbor caches only on the affected boundary slices instead of on every voxel.
-
-`VoxelGrid.Neighbors` remains a same-topology grid-slot map. Mixed topology
-queries use the world's spatial hash, derive a topology-aware candidate range
-per target grid, and final-filter by fixed-point AABB overlap. This avoids
-ambiguous direction slots and keeps sparse target grids configured-only.
+`VoxelGrid.Neighbors` remains a same-topology grid-slot accelerator, but public
+contact discovery is resolved by `VoxelNeighborResolver`. Contact queries use
+the world's spatial hash, derive a topology-aware candidate range per target
+grid, and final-filter by fixed-point AABB overlap. This avoids ambiguous
+direction slots, keeps sparse target grids configured-only, and reflects grid
+load/unload or sparse mutation without per-voxel neighbor caches.
 
 ## Coverage Architecture
 

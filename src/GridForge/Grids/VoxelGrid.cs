@@ -466,9 +466,6 @@ public class VoxelGrid
         NeighborCount++;
         IncrementVersion();
 
-        // Notify grid voxels that a new neighbor has been added
-        NotifyBoundaryChange(neighborSlot);
-
         return true;
     }
 
@@ -490,8 +487,6 @@ public class VoxelGrid
             Neighbors = null;
 
         IncrementVersion();
-
-        NotifyBoundaryChange(neighborSlot); // Notify voxels of the removed neighbor
 
         return true;
     }
@@ -519,52 +514,6 @@ public class VoxelGrid
         GridForgeLogger.Channel.Info($"Releasing unused neighbor collection.");
         SwiftHashSetPool<int>.Shared.Release(neighborSet);
         Neighbors!.Remove(neighborIndex);
-    }
-
-    /// <summary>
-    /// Notifies only the relevant boundary voxels when a neighboring grid is added or removed.
-    /// Instead of looping through all voxels, it targets specific boundary rows or columns.
-    /// </summary>
-    /// <param name="direction">The rectangular direction of the affected boundary.</param>
-    public void NotifyBoundaryChange(RectangularDirection direction)
-    {
-        if (!TryGetNeighborSlot(direction, out int slot))
-            return;
-
-        NotifyBoundaryChange(slot);
-    }
-
-    /// <summary>
-    /// Notifies only the relevant boundary voxels for a hex-prism direction.
-    /// </summary>
-    /// <param name="direction">The hex direction of the affected boundary.</param>
-    public void NotifyBoundaryChange(HexDirection direction)
-    {
-        if (!TryGetNeighborSlot(direction, out int slot))
-            return;
-
-        NotifyBoundaryChange(slot);
-    }
-
-    private void NotifyBoundaryChange(int slot)
-    {
-        SwiftThrowHelper.ThrowIfNull(_storage, nameof(_storage));
-        if ((uint)slot >= (uint)Topology.NeighborSlotCount)
-            return;
-
-        Topology.GetBoundaryRange(
-            slot,
-            Width,
-            Height,
-            Length,
-            out int xStart,
-            out int xEnd,
-            out int yStart,
-            out int yEnd,
-            out int zStart,
-            out int zEnd);
-
-        _storage!.InvalidateBoundaryVoxels(xStart, xEnd, yStart, yEnd, zStart, zEnd);
     }
 
     #endregion
@@ -756,7 +705,6 @@ public class VoxelGrid
 
         uint gridVersion = IncrementVersion();
         voxel!.CachedGridVersion = gridVersion;
-        InvalidateRuntimeVoxelMutationCaches(voxelIndex);
         World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelAdded, voxelIndex, voxel.WorldPosition);
         return true;
     }
@@ -782,7 +730,6 @@ public class VoxelGrid
             return false;
 
         IncrementVersion();
-        InvalidateRuntimeVoxelMutationCaches(voxelIndex);
         World?.NotifyActiveGridChange(this, GridEventKind.SparseVoxelRemoved, voxelIndex, affectedPosition);
         return true;
     }
@@ -799,47 +746,6 @@ public class VoxelGrid
         && voxel.ObstacleCount == 0
         && !voxel.IsPartioned
         && !voxel.HasEventSubscribers;
-
-    private void InvalidateRuntimeVoxelMutationCaches(VoxelIndex voxelIndex)
-    {
-        InvalidateLocalNeighborCachesAround(voxelIndex);
-        InvalidateNeighborGridBoundaryCaches(voxelIndex);
-    }
-
-    private void InvalidateLocalNeighborCachesAround(VoxelIndex voxelIndex)
-    {
-        int xStart = Math.Max(0, voxelIndex.x - 1);
-        int xEnd = Math.Min(Width - 1, voxelIndex.x + 1);
-        int yStart = Math.Max(0, voxelIndex.y - 1);
-        int yEnd = Math.Min(Height - 1, voxelIndex.y + 1);
-        int zStart = Math.Max(0, voxelIndex.z - 1);
-        int zEnd = Math.Min(Length - 1, voxelIndex.z + 1);
-
-        _storage?.InvalidateBoundaryVoxels(xStart, xEnd, yStart, yEnd, zStart, zEnd);
-    }
-
-    private void InvalidateNeighborGridBoundaryCaches(VoxelIndex voxelIndex)
-    {
-        GridWorld? world = World;
-        SwiftSparseMap<SwiftHashSet<int>>? neighbors = Neighbors;
-        if (world == null || neighbors == null || NeighborCount == 0 || !IsOnBoundary(voxelIndex))
-            return;
-
-        var neighborSets = neighbors.DenseValues;
-        int neighborSetCount = neighbors.Count;
-        for (int i = 0; i < neighborSetCount; i++)
-        {
-            SwiftHashSet<int> neighborSet = neighborSets[i];
-            foreach (int neighborIndex in neighborSet)
-            {
-                if (!world.TryGetGrid(neighborIndex, out VoxelGrid? neighborGrid))
-                    continue;
-
-                if (TryGetNeighborSlot(neighborGrid!, this, out int reciprocalSlot))
-                    neighborGrid!.NotifyBoundaryChange(reciprocalSlot);
-            }
-        }
-    }
 
     /// <summary>
     /// Retrieves the <see cref="Voxel"/> at the specified topology-local coordinates, if allocated.

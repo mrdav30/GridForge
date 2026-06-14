@@ -335,7 +335,7 @@ public class SparseVoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void SparseGrid_ShouldInvalidateLocalNeighborCachesWhenRuntimeVoxelsChange()
+    public void SparseGrid_ShouldReflectLocalNeighborLookupWhenRuntimeVoxelsChange()
     {
         GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
         VoxelIndex originIndex = new(0, 0, 0);
@@ -344,20 +344,20 @@ public class SparseVoxelGridTests : IDisposable
         Assert.True(_world.TryAddGrid(config, new[] { originIndex }, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(originIndex, out Voxel originVoxel));
-        Assert.False(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out _, useCache: true));
+        Assert.False(originVoxel.TryGetNeighbor(grid, RectangularDirection.East, out _));
 
         Assert.True(grid.TryAddVoxel(eastIndex, out Voxel eastVoxel));
 
-        Assert.True(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.True(originVoxel.TryGetNeighbor(grid, RectangularDirection.East, out Voxel resolvedNeighbor));
         Assert.Same(eastVoxel, resolvedNeighbor);
 
         Assert.True(grid.TryRemoveVoxel(eastIndex));
 
-        Assert.False(originVoxel.TryGetRectangularNeighbor(grid, RectangularDirection.East, out _, useCache: true));
+        Assert.False(originVoxel.TryGetNeighbor(grid, RectangularDirection.East, out _));
     }
 
     [Fact]
-    public void SparseGrid_ShouldInvalidateNeighborGridBoundaryCachesWhenRuntimeVoxelsChange()
+    public void SparseGrid_ShouldReflectNeighborGridLookupWhenRuntimeVoxelsChange()
     {
         GridConfiguration firstConfig = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(1, 0, 0));
         GridConfiguration secondConfig = CreateSparseConfig(new Vector3d(1, 0, 0), new Vector3d(2, 0, 0));
@@ -369,16 +369,16 @@ public class SparseVoxelGridTests : IDisposable
         VoxelGrid firstGrid = _world.ActiveGrids[firstGridIndex];
         VoxelGrid secondGrid = _world.ActiveGrids[secondGridIndex];
         Assert.True(firstGrid.TryGetVoxel(firstBoundaryIndex, out Voxel firstBoundaryVoxel));
-        Assert.False(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out _, useCache: true));
+        Assert.False(firstBoundaryVoxel.TryGetNeighbor(firstGrid, RectangularDirection.East, out _));
 
         Assert.True(secondGrid.TryAddVoxel(secondBoundaryIndex, out Voxel secondBoundaryVoxel));
 
-        Assert.True(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out Voxel resolvedNeighbor, useCache: true));
+        Assert.True(firstBoundaryVoxel.TryGetNeighbor(firstGrid, RectangularDirection.East, out Voxel resolvedNeighbor));
         Assert.Same(secondBoundaryVoxel, resolvedNeighbor);
 
         Assert.True(secondGrid.TryRemoveVoxel(secondBoundaryIndex));
 
-        Assert.False(firstBoundaryVoxel.TryGetRectangularNeighbor(firstGrid, RectangularDirection.East, out _, useCache: true));
+        Assert.False(firstBoundaryVoxel.TryGetNeighbor(firstGrid, RectangularDirection.East, out _));
     }
 
     [Fact]

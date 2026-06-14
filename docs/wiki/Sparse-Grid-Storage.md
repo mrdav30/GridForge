@@ -145,7 +145,7 @@ These APIs are sparse-only. Dense grids already contain every in-bounds voxel.
 Removal is deliberately conservative. It fails when the target voxel is missing
 or carries state that would make removal unsafe, such as occupants, obstacle
 tokens, partitions, or active voxel event subscribers. Successful add/remove
-operations update grid versioning, invalidate affected neighbor caches, and
+operations update grid versioning, keep stateless neighbor lookup current, and
 notify active world-grid watchers.
 
 When a sparse voxel is added under an active blocker, blocker reconciliation

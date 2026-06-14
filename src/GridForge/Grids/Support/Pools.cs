@@ -61,11 +61,6 @@ internal static class Pools
 
     #region Node Pooling
 
-    /// <summary>
-    /// Object pool for caching neighbor voxel arrays.
-    /// </summary>
-    public static readonly SwiftArrayPool<Voxel> VoxelNeighborPool = new();
-
     public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftBucket<IVoxelOccupant>> VoxelOccupantDictionaryPool = new();
 
     public static readonly SwiftObjectPool<SwiftBucket<IVoxelOccupant>> VoxelOccupantBucketPool = new(
@@ -84,7 +79,6 @@ internal static class Pools
         SparseVoxelBlockPool.Clear();
         SparseVoxelBlockCapacityPool.Clear();
         ScanCellPool.Clear();
-        VoxelNeighborPool.Clear();
         VoxelOccupantDictionaryPool.Clear();
         VoxelOccupantBucketPool.Clear();
     }

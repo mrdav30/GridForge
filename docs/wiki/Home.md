@@ -34,7 +34,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 | [Core Concepts](Core-Concepts.md) | Worlds, grids, voxels, scan cells, occupants, blockers, partitions, and snapped bounds |
 | [Common Workflows](Common-Workflows.md) | Create a world, register a grid, resolve a voxel, scan nearby space, apply a blocker |
 | [Architecture Overview](Architecture-Overview.md) | How the major subsystems fit together and where responsibilities live |
-| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) | Grid generation, voxel state, neighbor relationships, and cached data |
+| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) | Grid generation, voxel state, neighbor relationships, and query behavior |
 | [Sparse Grid Storage](Sparse-Grid-Storage.md) | Dense versus sparse semantics, configured voxels, runtime mutation, and query behavior |
 | [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Scan-cell overlay structure, neighborhood lookups, and query performance |
 | [GridTracer and Coverage](GridTracer-and-Coverage.md) | Line and bounds tracing, covered voxel sets, and multi-grid implications |
@@ -99,7 +99,7 @@ workflows stay world/grid/voxel based.
 | --- | --- |
 | `GridWorld` | Owns one world's spatial hash, active grids, events, and top-level lookups |
 | `VoxelGrid` | Owns a single grid's dimensions, topology metrics, physical voxel storage, scan cells, neighbor relationships, and versioned state |
-| `Voxel` | Represents one snapped cell and tracks occupants, obstacles, partitions, and cached neighbor data |
+| `Voxel` | Represents one snapped cell and tracks occupants, obstacles, partitions, and neighbor queries |
 | `ScanCell` | Overlay node used to accelerate neighborhood and area queries |
 | `GridTracer` | Converts lines and bounds into covered voxel sets across one or more grids in a world |
 | `GridObstacleManager` | Applies and clears obstacle state on voxels |

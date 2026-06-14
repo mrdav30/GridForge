@@ -234,30 +234,6 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         }
     }
 
-    public void InvalidateBoundaryVoxels(
-        int xStart,
-        int xEnd,
-        int yStart,
-        int yEnd,
-        int zStart,
-        int zEnd)
-    {
-        if (_voxels == null)
-            return;
-
-        for (int i = 0; i < ConfiguredVoxelCount; i++)
-        {
-            Voxel voxel = _voxels[i];
-            VoxelIndex index = voxel.Index;
-            if (index.x >= xStart && index.x <= xEnd
-                && index.y >= yStart && index.y <= yEnd
-                && index.z >= zStart && index.z <= zEnd)
-            {
-                voxel.InvalidateNeighborCache();
-            }
-        }
-    }
-
     private static void CountConfiguredVoxelsPerBlock(
         VoxelGrid grid,
         VoxelIndex[] configuredVoxels,

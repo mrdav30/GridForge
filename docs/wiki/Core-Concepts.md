@@ -102,10 +102,11 @@ blockers, occupants, partitions, scan cells, and neighbor resolution.
 
 A single `GridWorld` can own rectangular-prism and hex-prism grids together.
 Ordinary world/grid/voxel queries do not require callers to branch on topology.
-Voxel-neighbor APIs are topology-specific: rectangular grids use
-`RectangularDirection`, and hex grids use `HexDirection`. Mixed-topology grids
-use a separate contact query so rectangular and hex direction slots stay
-unambiguous.
+Voxel contact queries use one primary `GetNeighborsInto(...)` API with
+`VoxelNeighborScope` flags for source-grid, same-topology grid, mixed-topology
+grid, or all contact neighbors. Directed lookup stays topology-specific through
+`TryGetNeighbor(...)` overloads that accept `RectangularDirection` or
+`HexDirection`, so rectangular and hex direction slots stay unambiguous.
 
 ## `Voxel`
 
@@ -119,7 +120,7 @@ A voxel tracks:
 - obstacle count and obstacle tokens
 - occupant count
 - attached partitions
-- cached neighbor relationships
+- boundary and contact-neighbor query behavior
 - whether it is a boundary voxel
 
 ## `ScanCell`
