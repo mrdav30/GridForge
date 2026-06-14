@@ -155,7 +155,7 @@ The runtime is built around explicit world ownership:
   storage uses bounds as an address space and materializes only configured
   voxels; missing sparse voxels are intentional absence.
 - `Voxel` owns local and world-scoped identity, obstacle state, occupant count,
-  partitions, boundary awareness, world position, and cached neighbor data.
+  partitions, boundary awareness, world position, and neighbor query entrypoints.
 - `ScanCell` stores occupant buckets grouped by `WorldVoxelIndex` and ticketed
   occupant entries for efficient removal and exact lookup.
 - `GridTracer` converts lines and bounds into covered voxels or scan cells
@@ -210,7 +210,7 @@ Likely hotspots include:
 
 - `GridWorld.TryAddGrid`, `TryRemoveGrid`, lookup, spatial-hash registration,
   and neighbor updates.
-- `VoxelGrid` generation, reset, neighbor cache invalidation, and scan-cell
+- `VoxelGrid` generation, reset, same-topology neighbor linking, and scan-cell
   generation.
 - Dense and sparse voxel storage construction, lookup, enumeration, and runtime
   sparse add/remove.
@@ -328,7 +328,7 @@ for GitHub wiki publishing.
 - Decide whether the behavior belongs at world, grid, voxel, scan-cell, query,
   storage, topology, or manager level.
 - Check interactions with snapping, spatial hashing, pooling, versioning,
-  events, neighbor caches, storage kind, topology metrics, and identity tokens.
+  events, neighbor resolution, storage kind, topology metrics, and identity tokens.
 - Add or update tests under `tests/GridForge.Tests/Grids` or
   `tests/GridForge.Tests/Utility`.
 

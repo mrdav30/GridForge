@@ -1,5 +1,7 @@
 # Feature Roadmap Overview
 
+**Status:** Done
+
 > **For agentic workers:** Read this overview before implementing the linked battle plans. Each detailed plan remains the source of truth for its own phases, tests, risks, and documentation work.
 
 **Goal:** Coordinate the first major GridForge extensibility roadmap across 2D-friendly APIs, sparse voxel storage, and hex-prism topology without losing the current deterministic `GridWorld` / `VoxelGrid` / `Voxel` mental model.
@@ -12,9 +14,9 @@
 
 ## Roadmap Documents
 
-- [Vector2d Query API Battle Plan](done/2026-06-11-vector2d-query-api-plan.md)
-- [Sparse Voxel Grid Battle Plan](done/2026-06-11-sparse-voxel-grid-plan.md)
-- [Hex Prism Grid Battle Plan](done/2026-06-11-hex-prism-grid-plan.md)
+- [Vector2d Query API Battle Plan](2026-06-11-vector2d-query-api-plan.md)
+- [Sparse Voxel Grid Battle Plan](2026-06-11-sparse-voxel-grid-plan.md)
+- [Hex Prism Grid Battle Plan](2026-06-11-hex-prism-grid-plan.md)
 - [Hex Prism Follow-Up Plan](2026-06-13-hex-prism-follow-up-plan.md)
 
 ## North Star
@@ -83,10 +85,10 @@ Locked shared decisions:
 - Sparse grids are configured-voxel only. They support creation-time configured indices or masks plus explicit runtime sparse add/remove APIs.
 - Sparse grids stay within current `int` dimension and `Size` limits at first. Construction must validate overflow instead of silently wrapping.
 - `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the number of configured voxels.
-- Public dense storage exposure through `VoxelGrid.Voxels` should be replaced by storage-neutral deterministic enumeration APIs. Dense array access can remain internal to dense storage.
-- `GridWorld` does not own cell geometry after topology extraction. Replace `VoxelSize`, `DefaultVoxelSize`, and `VoxelResolution` with per-grid `GridConfiguration.TopologyMetrics` during the breaking API cleanup.
+- Public dense storage exposure through `VoxelGrid.Voxels` was replaced by storage-neutral deterministic enumeration APIs. Dense array access remains internal to dense storage.
+- `GridWorld` does not own cell geometry after topology extraction. `VoxelSize`, `DefaultVoxelSize`, and `VoxelResolution` were replaced by per-grid `GridConfiguration.TopologyMetrics` during the breaking API cleanup.
 - Rectangular default behavior is expressed by default rectangular topology metrics, not by a world-level voxel-size scalar. A rectangular convenience factory can set width, layer height, and length to the same fixed value for current cubic-grid behavior.
-- World-level snapping helpers named around `VoxelSize` should be replaced by topology-normalization helpers or rectangular-specific helper names during rectangular topology extraction.
+- World-level snapping helpers named around `VoxelSize` were replaced by topology-normalization helpers or rectangular-specific helper names during rectangular topology extraction.
 - `VoxelIndex` remains the single topology-local coordinate type for the first topology release: rectangular `(x, y, z)` and hex axial `(q, y, r)`.
 - Hex examples default to `PointyTop`; `FlatTop` remains fully supported.
 - Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood; `HexDirectionUtility.Primary` keeps the 6 planar axial neighbors plus above/below available as the face-adjacent subset.
@@ -151,16 +153,16 @@ Completed runtime follow-through:
 
 Implement hex-prism topology after rectangular topology and static sparse storage are stable.
 
-Status: completed on 2026-06-13. The plan is archived under
-`docs/feature-work/done`. Hex-prism construction, fixed-point projection,
-inverse projection, cube rounding, world/grid/voxel lookup, typed
-rectangular/hex neighbor APIs, topology-aware tracing, coverage, blockers,
-occupants, scans, benchmark-backed performance hardening, docs, and release
-alignment are complete. Sparse hex-prism validation was completed in the hex
-follow-up plan. Mixed-topology neighbor bridging now has a tested contact-query
-implementation. The breaking neighbor API hardening and resolver/cache removal
-are complete. Hex directions now use orientation-neutral axial names; the
-follow-up plan now tracks remaining performance and release-alignment work.
+Status: completed on 2026-06-14. The implementation plan and follow-up plan
+are archived under `docs/feature-work/done`. Hex-prism construction,
+fixed-point projection, inverse projection, cube rounding, world/grid/voxel
+lookup, typed rectangular/hex neighbor APIs, topology-aware tracing, coverage,
+blockers, occupants, scans, benchmark-backed performance hardening, docs, and
+release alignment are complete. Sparse hex-prism validation was completed in
+the hex follow-up plan. Mixed-topology neighbor bridging now has a tested,
+benchmarked contact-query implementation. The breaking neighbor API hardening,
+resolver/cache removal, and orientation-neutral axial `HexDirection` naming are
+complete.
 
 Why:
 

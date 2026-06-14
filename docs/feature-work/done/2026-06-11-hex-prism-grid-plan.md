@@ -17,13 +17,14 @@
 - Started: 2026-06-11
 - Release posture: Likely breaking if `GridConfiguration`, world-level cell-size/snapping APIs, rectangular/hex direction APIs, or `VoxelGrid.Voxels` public semantics change. The plan should bias toward clean boundaries over additive compatibility where the old API preserves the wrong architecture.
 - Backwards compatibility: Rectangular-prism grids must behave equivalently after topology extraction.
-- Current state: Done; rectangular topology extraction, hex-prism construction/lookup, typed rectangular/hex neighbor APIs, topology-aware query flows, benchmark-backed hex performance hardening, docs, and release alignment are complete.
+- Current state: Done; rectangular topology extraction, hex-prism construction/lookup, typed rectangular/hex directed neighbor APIs, unified contact-neighbor queries, topology-aware query flows, benchmark-backed hex performance hardening, docs, and release alignment are complete.
+- Follow-up completion: The hex follow-up plan completed sparse hex validation, mixed-topology contact queries, public neighbor API hardening, resolver/cache removal, and benchmark coverage on 2026-06-14.
 - Shared foundation decisions: Completed 2026-06-11 in coordination with the sparse-grid plan.
 
 ## Locked Decisions
 
 - This feature is about grid topology, not changing `Voxel` into separate cell classes.
-- `Voxel` remains the mutable cell model for obstacles, occupants, partitions, event hooks, identity, and cached neighbor data.
+- `Voxel` remains the mutable cell model for obstacles, occupants, partitions, event hooks, identity, and neighbor query entrypoints.
 - Rectangular grids are treated as rectangular-prism topology: square or rectangular footprint on XZ, optional Y layers.
 - Hex grids are treated as hex-prism topology: hexagonal footprint on XZ, optional Y layers.
 - General 3D honeycomb or arbitrary polyhedral cells are out of scope.
@@ -170,7 +171,7 @@ Vertical and layer neighbors:
 (+1, -1,  0) (+1, -1, -1) ( 0, -1, -1) (-1, -1,  0) (-1, -1, +1) ( 0, -1, +1)
 ```
 
-`GetHexNeighbors(...)` exposes all 20 directions: 6 same-layer planar
+`GetHexNeighborsInto(...)` exposes all 20 directions: 6 same-layer planar
 neighbors, 7 neighbors on the layer below, and 7 neighbors on the layer above.
 `HexDirectionUtility.Primary` exposes the 8 face-adjacent directions when a
 caller only wants planar movement plus direct above/below.
@@ -478,8 +479,8 @@ Checklist:
 - [x] Preserve existing rectangular direction ordering for rectangular grids through `RectangularDirection`.
 - [x] Add deterministic hex neighbor ordering for the full 20-cell hex-prism neighborhood.
 - [x] Preserve the 8 face-adjacent hex directions as `HexDirectionUtility.Primary`.
-- [x] Split public neighbor APIs into `Voxel.GetRectangularNeighbors(...)` / `TryGetRectangularNeighbor(...)` and `Voxel.GetHexNeighbors(...)` / `TryGetHexNeighbor(...)`.
-- [x] Invalidate boundary neighbor caches through topology-aware boundary ranges.
+- [x] Split public neighbor APIs into `Voxel.GetRectangularNeighborsInto(...)` / `Voxel.GetHexNeighborsInto(...)` direction-labeled paths plus `TryGetNeighbor(...)` overloads for rectangular and hex directions.
+- [x] Resolve boundary neighbor lookup through topology-aware boundary ranges.
 - [x] Validate same-topology conjoined neighbors for rectangular-to-rectangular and hex-to-hex grids.
 - [x] Validate mixed-topology overlap behavior. Recommended first release: allow world-level coexistence, but only same-topology conjoined voxel-neighbor bridging unless a mixed-topology mapping is explicitly designed.
 - [x] Add tests for missing neighbors, same-grid hex planar neighbors, vertical hex neighbors, hex grid boundary neighbors, and mixed rectangular/hex coexistence.
@@ -497,15 +498,15 @@ Progress notes:
 - `RectangularPrismTopology` now exposes the existing 26 rectangular offsets internally in their original order.
 - `HexPrismTopology` exposes 20 deterministic offsets: 6 same-layer planar neighbors, 7 below-layer neighbors, and 7 above-layer neighbors.
 - `RectangularDirectionUtility` and `HexDirectionUtility` expose deterministic subsets for `Primary`, `Planar`, `Vertical`, layer groups, and vertical diagonals.
-- `Voxel.GetRectangularNeighbors(...)`, `Voxel.TryGetRectangularNeighbor(...)`, `Voxel.GetHexNeighbors(...)`, and `Voxel.TryGetHexNeighbor(...)` expose topology-specific direction identity without asking callers to know neighbor slot indices.
+- `Voxel.GetRectangularNeighborsInto(...)`, `Voxel.GetHexNeighborsInto(...)`, and `Voxel.TryGetNeighbor(...)` overloads expose topology-specific direction identity without asking callers to know neighbor slot indices.
 - Grid neighbor sets are keyed internally by topology-local neighbor slot. Mixed rectangular/hex grids can coexist in one world but do not form voxel-neighbor bridges until an explicit mixed-topology mapping is designed.
-- Boundary cache invalidation now flows through topology-provided boundary ranges.
+- Boundary lookup now flows through topology-provided boundary ranges.
 
 Validation:
 
 ```bash
 dotnet build GridForge.slnx --configuration Debug
-dotnet test GridForge.slnx --configuration Debug --filter "GetHexNeighbors|TryGetHexNeighbor|HexDirectionUtility|RectangularDirectionUtility"
+dotnet test GridForge.slnx --configuration Debug --filter "Neighbor|HexDirectionUtility|RectangularDirectionUtility"
 dotnet test GridForge.slnx --configuration Debug --filter "HexPrismGrid|Voxel|VoxelGrid"
 dotnet test GridForge.slnx --configuration Debug --no-build
 dotnet build GridForge.slnx --configuration ReleaseLean
@@ -686,7 +687,7 @@ Implementation notes:
 - Updated tracing, blocker, scan, occupant, sparse, determinism, and benchmark docs so coverage, blocker, and scan behavior tell the same topology story.
 - Updated XML docs for `GridConfiguration`, `GridTopologyMetrics`, `VoxelIndex`, `HexDirection`, and `VoxelGrid` topology-local lookup APIs.
 - Updated package metadata to mention rectangular and hex-prism support and added hex package tags.
-- Extracted intentionally deferred work into `2026-06-13-hex-prism-follow-up-plan.md`: mixed-topology voxel-neighbor bridging and sparse hex-prism validation.
+- Extracted intentionally deferred work into `2026-06-13-hex-prism-follow-up-plan.md`: mixed-topology voxel-neighbor bridging and sparse hex-prism validation. The follow-up plan is now complete and archived.
 
 Exit criteria:
 

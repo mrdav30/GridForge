@@ -1,22 +1,21 @@
 # Hex Prism Follow-Up Plan
 
-**Status:** Active
+**Status:** Done
 
-**Goal:** Track topology work intentionally deferred from the first hex-prism
-release so the completed implementation plan can stay closed without losing
-future design context.
+**Goal:** Tracked topology work intentionally deferred from the first
+hex-prism release so the completed implementation plan could stay closed
+without losing design context.
 
 **Scope:** This plan is for follow-up validation and design work only. The first
 hex-prism release already supports rectangular and hex grids in one
 `GridWorld`, topology-aware lookup, tracing, blockers, occupants, scans,
 benchmarks, and documentation.
 
-## Deferred Work
+## Completed Work
 
 ### 1. Mixed-Topology Voxel Neighbor Bridging
 
-Status: phases 1-7 completed on 2026-06-14; phases 8-9 remain after the
-neighbor API and resolver hardening review.
+Status: completed on 2026-06-14.
 
 Intent: decide whether rectangular-prism and hex-prism grids should ever expose
 direct voxel-neighbor bridges across topology boundaries.
@@ -504,35 +503,43 @@ Exit criteria:
 
 #### Phase 9: Documentation And Plan Closure
 
-Status: partially completed; API and direction docs were aligned through phase
-7, and benchmark documentation was aligned through phase 8. Final plan closure
-remains.
+Status: completed on 2026-06-14.
 
 Goal: document the final contact-vs-directed neighbor contract without implying
 fake direction mappings across topology families.
 
 Tasks:
 
-- Update `docs/wiki/VoxelGrid-and-Voxel-Model.md` with the unified
+- [x] Update `docs/wiki/VoxelGrid-and-Voxel-Model.md` with the unified
   `GetNeighborsInto(...)` contact-query semantics and directed
   `TryGetNeighbor(...)` overload semantics.
-- Update `docs/wiki/Architecture-Overview.md` to distinguish same-topology
+- [x] Update `docs/wiki/Architecture-Overview.md` to distinguish same-topology
   grid-slot acceleration from public contact queries.
-- Update `docs/wiki/Core-Concepts.md` so users see one primary neighbor query
+- [x] Update `docs/wiki/Core-Concepts.md` so users see one primary neighbor query
   and topology-specific directed overloads.
-- Update `docs/wiki/Testing-and-Benchmarking.md` with the unified neighbor test
+- [x] Update `docs/wiki/Testing-and-Benchmarking.md` with the unified neighbor test
   and benchmark surfaces.
-- Update README only if the public API becomes important enough for the front
+- [x] Update README only if the public API becomes important enough for the front
   door.
-- Mark this follow-up plan `**Status:** Done` and move it under
+- [x] Mark this follow-up plan `**Status:** Done` and move it under
   `docs/feature-work/done` only after sparse hex validation and mixed topology
   bridging/API hardening are complete.
+
+Result:
+
+- `docs/wiki/VoxelGrid-and-Voxel-Model.md`, `docs/wiki/Architecture-Overview.md`,
+  and `docs/wiki/Core-Concepts.md` already describe the final
+  contact-query-versus-directed-lookup model from phases 5-7.
+- `docs/wiki/Testing-and-Benchmarking.md` was aligned in phase 8 with the
+  unified neighbor benchmark matrix.
+- README/AGENTS front-door wording was cleaned up to remove stale references to
+  cached neighbor state.
+- The completed follow-up plan is archived under `docs/feature-work/done`.
 
 Exit criteria:
 
 - Voxel neighbor discovery is implemented as a tested, benchmarked,
-  caller-friendly contact query plus exact directed lookup overloads, or the
-  plan explicitly records why a remaining piece should be deferred.
+  caller-friendly contact query plus exact directed lookup overloads.
 
 ### 2. Sparse Hex-Prism Validation
 

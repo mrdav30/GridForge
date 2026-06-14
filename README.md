@@ -161,7 +161,7 @@ GridForge tracks world-local grid slots, grid spawn tokens, and `WorldVoxelIndex
 | --- | --- |
 | `GridWorld` | Owns spatial hashing, active grids, lifecycle, events, and top-level lookup for one isolated world. |
 | `VoxelGrid` | Owns one grid's snapped bounds, topology metrics, physical voxel storage, scan cells, neighbor relationships, obstacle summary state, and versioning. |
-| `Voxel` | Represents one snapped cell with obstacle, occupant, partition, boundary, and cached neighbor state. |
+| `Voxel` | Represents one snapped cell with obstacle, occupant, partition, boundary, and neighbor query state. |
 | `ScanCell` | Groups voxels into query buckets so radius scans can skip empty regions. |
 | `GridTracer` | Converts lines and bounds into covered voxels or scan cells across the active grids in a world. |
 | `BoundsBlocker` | Applies and removes obstacle state over traced world-space bounds. |
