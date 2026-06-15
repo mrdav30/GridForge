@@ -33,8 +33,8 @@ package variants.
 - Release posture: additive public API under a new diagnostics namespace.
 - Backwards compatibility: no rendering API, no Unity dependency, no behavior
   changes to existing grid queries.
-- Current state: Phases 0-3 implemented; sparse-hole queries, dirty sessions,
-  benchmarks, and adapter docs remain.
+- Current state: Phases 0-4 implemented; dirty sessions, benchmarks, and
+  adapter docs remain.
 - Related completed work: sparse storage, hex-prism topology, mixed-topology
   contact helpers, `TopologyVoxelAabb`, and `TopologyVoxelRangeUtility`.
 
@@ -514,34 +514,34 @@ Files:
 
 Checklist:
 
-- [ ] Keep `PhysicalOnly` as the default address mode.
-- [ ] Implement `PhysicalAndMissing` for sparse grids by emitting configured
+- [x] Keep `PhysicalOnly` as the default address mode.
+- [x] Implement `PhysicalAndMissing` for sparse grids by emitting configured
   physical cells and missing address cells inside the bounded query range.
-- [ ] Implement `MissingOnly` for sparse grids by emitting only unconfigured
+- [x] Implement `MissingOnly` for sparse grids by emitting only unconfigured
   address cells inside the bounded query range.
-- [ ] Emit no missing cells for dense grids.
-- [ ] Require bounds or `AllowFullAddressSpaceScan` before scanning a sparse
+- [x] Emit no missing cells for dense grids.
+- [x] Require bounds or `AllowFullAddressSpaceScan` before scanning a sparse
   grid's full address space for holes.
-- [ ] Return `MissingAddressSpaceRequiresBounds` when a missing-cell query would
+- [x] Return `MissingAddressSpaceRequiresBounds` when a missing-cell query would
   otherwise scan a full sparse address space without opt-in.
-- [ ] Use `TopologyVoxelRangeUtility.TryGetCandidateRange(...)` to get
+- [x] Use `TopologyVoxelRangeUtility.TryGetCandidateRange(...)` to get
   rectangular and hex candidate ranges.
-- [ ] Use `VoxelGrid.ContainsVoxel(...)` to distinguish configured physical
+- [x] Use `VoxelGrid.ContainsVoxel(...)` to distinguish configured physical
   cells from missing sparse address cells.
-- [ ] Apply `MaxCells` to the combined physical plus missing output.
-- [ ] Report skipped cells when traversal stops at the max-cell budget.
-- [ ] Test `PhysicalAndMissing` includes configured and missing rectangular
+- [x] Apply `MaxCells` to the combined physical plus missing output.
+- [x] Report skipped cells when traversal stops at the max-cell budget.
+- [x] Test `PhysicalAndMissing` includes configured and missing rectangular
   cells within bounds.
-- [ ] Test `MissingOnly` excludes configured rectangular cells.
-- [ ] Test sparse hex missing address cells use axial `VoxelIndex(q, y, r)`
+- [x] Test `MissingOnly` excludes configured rectangular cells.
+- [x] Test sparse hex missing address cells use axial `VoxelIndex(q, y, r)`
   coordinates.
-- [ ] Test unbounded missing-cell queries require explicit opt-in.
-- [ ] Test full address-space opt-in respects `MaxCells`.
-- [ ] Test missing address descriptors do not resolve to physical voxels.
+- [x] Test unbounded missing-cell queries require explicit opt-in.
+- [x] Test full address-space opt-in respects `MaxCells`.
+- [x] Test missing address descriptors do not resolve to physical voxels.
 
 Exit criteria:
 
-- [ ] Tools can render "where voxels could be" for sparse rectangular and hex
+- [x] Tools can render "where voxels could be" for sparse rectangular and hex
   grids without changing runtime sparse semantics.
 
 Validation:
