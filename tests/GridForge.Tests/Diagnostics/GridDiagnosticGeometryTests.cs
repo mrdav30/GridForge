@@ -1,5 +1,4 @@
 using FixedMathSharp;
-using GridForge.Diagnostics;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;

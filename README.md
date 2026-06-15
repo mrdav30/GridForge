@@ -41,6 +41,7 @@ That means you can start with a single grid, add neighboring grids as the world 
 - Region coverage through `GridTracer`
 - Blocker and obstacle workflows for world-space blocked areas
 - Occupant and partition extension points for gameplay or simulation metadata
+- Engine-agnostic diagnostic cell, geometry, and dirty-change descriptors for tools and overlays
 - Allocation-conscious internals built on `SwiftCollections` pools and containers
 - Standard and lean package variants for different dependency needs
 
@@ -183,6 +184,7 @@ Start with the wiki:
 - [Getting Started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)
 - [Core Concepts](https://github.com/mrdav30/GridForge/wiki/Core-Concepts)
 - [Sparse Grid Storage](https://github.com/mrdav30/GridForge/wiki/Sparse-Grid-Storage)
+- [Grid Diagnostics and Geometry](https://github.com/mrdav30/GridForge/wiki/Grid-Diagnostics-and-Geometry)
 - [Common Workflows](https://github.com/mrdav30/GridForge/wiki/Common-Workflows)
 - [Architecture Overview](https://github.com/mrdav30/GridForge/wiki/Architecture-Overview)
 - [Recipes](https://github.com/mrdav30/GridForge/wiki/Recipes)
@@ -206,7 +208,7 @@ For benchmark discovery:
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
 ```
 
-Benchmarks are especially useful when changing pooling, tracing, grid registration, scan flow, or other allocation-sensitive paths. The `sparse-voxel-grid` alias covers sparse construction, lookup, coverage, blocker, scan, and dense comparison scenarios. The `hex-prism-topology` alias covers hex lookup, projection, construction, tracing, coverage, blockers, occupants, scans, and rectangular baseline comparison.
+Benchmarks are especially useful when changing pooling, tracing, grid registration, scan flow, diagnostics, or other allocation-sensitive paths. The `sparse-voxel-grid` alias covers sparse construction, lookup, coverage, blocker, scan, and dense comparison scenarios. The `hex-prism-topology` alias covers hex lookup, projection, construction, tracing, coverage, blockers, occupants, scans, and rectangular baseline comparison. The `grid-diagnostics` alias covers diagnostic traversal, sparse missing-address traversal, and `GetCellsInto` versus `VisitCells`.
 
 ## Contributing
 

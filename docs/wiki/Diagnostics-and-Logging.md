@@ -1,10 +1,22 @@
 # Diagnostics and Logging
 
-This page covers the small but important diagnostics surface in GridForge.
+This page covers the small but important logging diagnostics surface in
+GridForge.
 
 The main idea is simple:
 
 Use `GridForgeLogger` as the shared logging hook for the library and for debugging library behavior. Do not scatter ad hoc `Console.WriteLine(...)` calls through core code.
+
+GridForge also has a separate `GridForge.Diagnostics` namespace for
+tool-readable grid cell descriptors, topology geometry, sparse address-space
+views, and dirty tracking. Use [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md)
+when an adapter needs to inspect cells or build an overlay; use this page when
+code needs to emit messages.
+
+| Surface | Use For |
+| --- | --- |
+| `GridForgeLogger` | Runtime messages, warnings, and failure diagnostics |
+| `GridDiagnostics` | Cell traversal, diagnostic geometry, sparse-hole descriptors, and dirty adapter sessions |
 
 ## What `GridForgeLogger` Is
 
@@ -200,6 +212,7 @@ GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
 
 ## Read This Next
 
+- [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for cell descriptors, topology geometry, and adapter handoff
 - [Common Workflows](Common-Workflows.md) for small examples that may benefit from temporary info-level logging
 - [Testing and Benchmarking](Testing-and-Benchmarking.md) for validation-focused diagnostics habits
 - [Home](Home.md) for the repo-wide invariant that logging should stay centralized

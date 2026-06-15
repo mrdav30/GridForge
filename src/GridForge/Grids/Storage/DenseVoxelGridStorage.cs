@@ -97,6 +97,25 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         }
     }
 
+    public void VisitVoxels<TVisitor>(ref TVisitor visitor)
+        where TVisitor : struct, IVoxelStorageVisitor
+    {
+        if (Voxels == null)
+            return;
+
+        for (int x = 0; x < _width; x++)
+        {
+            for (int y = 0; y < _height; y++)
+            {
+                for (int z = 0; z < _length; z++)
+                {
+                    if (!visitor.Visit(Voxels[x, y, z]))
+                        return;
+                }
+            }
+        }
+    }
+
     public void AddVoxelsInIndexRange(
         VoxelIndex min,
         VoxelIndex max,

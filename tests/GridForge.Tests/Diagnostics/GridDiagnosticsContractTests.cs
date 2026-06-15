@@ -1,10 +1,9 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
-using GridForge.Diagnostics;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
-using GridForge.Grids.Topology;
 using GridForge.Grids.Tests;
+using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;

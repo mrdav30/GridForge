@@ -184,6 +184,30 @@ Coverage result lifetime is the same as dense coverage: grouped
 `GridVoxelSet.Voxels` lists are backed by pooled storage and should be consumed
 inside the enumeration that produced them.
 
+## Diagnostic Sparse Holes
+
+Runtime sparse queries stay configured-only by default. Diagnostic tooling can
+opt into missing address-space descriptors through `GridDiagnostics` when it
+needs to draw or inspect "where a sparse voxel could be" without materializing
+one.
+
+| Address Mode | Sparse Diagnostic Behavior |
+| --- | --- |
+| `PhysicalOnly` | Returns configured physical voxels only. This is the default. |
+| `PhysicalAndMissing` | Returns configured physical voxels plus missing address cells inside the bounded query range. |
+| `MissingOnly` | Returns only missing sparse address cells inside the bounded query range. |
+
+Missing sparse address cells use `GridDiagnosticCellKind.MissingSparseAddress`
+and include the `MissingSparseAddress` state flag. They are descriptors only:
+`GridDiagnostics.TryResolvePhysicalCell(...)` returns `false`, and ordinary
+`GridWorld.TryGetVoxel(...)` or `VoxelGrid.TryGetVoxel(...)` lookup still fails
+unless the sparse voxel is configured.
+
+Sparse-hole diagnostics require world-space bounds or
+`AllowFullAddressSpaceScan = true`. Queries also carry a `MaxCells` budget
+(`65536` by default), so large address spaces must opt into their cost
+explicitly.
+
 ## When To Choose Sparse
 
 Use sparse storage when:
@@ -210,6 +234,7 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 ## Read This Next
 
 - [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for physical voxel ownership
+- [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for sparse-hole diagnostic descriptors
 - [GridTracer and Coverage](GridTracer-and-Coverage.md) for coverage result behavior
 - [Blockers and Obstacles](Blockers-and-Obstacles.md) for blocker reconciliation
 - [Occupants and Partitions](Occupants-and-Partitions.md) for runtime state rules

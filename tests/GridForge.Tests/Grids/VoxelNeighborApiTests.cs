@@ -5,7 +5,6 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
-using System.Linq;
 using System.Reflection;
 using Xunit;
 

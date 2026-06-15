@@ -748,6 +748,11 @@ public class VoxelGrid
         _storage?.EnumerateVoxels() ?? Array.Empty<Voxel>();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void VisitVoxels<TVisitor>(ref TVisitor visitor)
+        where TVisitor : struct, IVoxelStorageVisitor =>
+        _storage?.VisitVoxels(ref visitor);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void AddVoxelsInIndexRange(
         VoxelIndex min,
         VoxelIndex max,

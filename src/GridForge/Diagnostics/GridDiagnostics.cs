@@ -11,7 +11,6 @@ using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
-using SwiftCollections.Utility;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Diagnostics;
@@ -212,21 +211,23 @@ public static class GridDiagnostics
             return GridDiagnosticQueryStatus.Completed;
         }
 
-        foreach (Voxel voxel in grid.EnumerateVoxels())
-        {
-            if (hasBounds && !IsVoxelInQueryBounds(grid, voxel, queryBounds, minIndex, maxIndex))
-                continue;
+        PhysicalCellVisitor<TVisitor> physicalVisitor = new(
+            world,
+            grid,
+            query,
+            hasBounds,
+            queryBounds,
+            minIndex,
+            maxIndex,
+            visitor,
+            cellCount,
+            skippedCellCount);
 
-            GridDiagnosticCellState state = GetCellState(voxel);
-            if (!MatchesStateFilters(state, query.RequiredStates, query.ExcludedStates))
-                continue;
-
-            GridDiagnosticCell cell = CreatePhysicalCell(world, grid, voxel, state);
-            if (!TryVisitCell(in cell, query.MaxCells, ref visitor, ref cellCount, ref skippedCellCount, out GridDiagnosticQueryStatus status))
-                return status;
-        }
-
-        return GridDiagnosticQueryStatus.Completed;
+        grid.VisitVoxels(ref physicalVisitor);
+        visitor = physicalVisitor.Visitor;
+        cellCount = physicalVisitor.CellCount;
+        skippedCellCount = physicalVisitor.SkippedCellCount;
+        return physicalVisitor.Status;
     }
 
     private static GridDiagnosticQueryStatus VisitSparseAddressCells<TVisitor>(
@@ -541,6 +542,67 @@ public static class GridDiagnostics
         {
             _results.Add(cell);
             return true;
+        }
+    }
+
+    private struct PhysicalCellVisitor<TVisitor> : IVoxelStorageVisitor
+        where TVisitor : struct, IGridDiagnosticCellVisitor
+    {
+        private readonly GridWorld _world;
+        private readonly VoxelGrid _grid;
+        private readonly GridDiagnosticQuery _query;
+        private readonly bool _hasBounds;
+        private readonly TopologyVoxelAabb _queryBounds;
+        private readonly VoxelIndex _minIndex;
+        private readonly VoxelIndex _maxIndex;
+
+        public TVisitor Visitor;
+        public int CellCount;
+        public int SkippedCellCount;
+        public GridDiagnosticQueryStatus Status;
+
+        public PhysicalCellVisitor(
+            GridWorld world,
+            VoxelGrid grid,
+            in GridDiagnosticQuery query,
+            bool hasBounds,
+            TopologyVoxelAabb queryBounds,
+            VoxelIndex minIndex,
+            VoxelIndex maxIndex,
+            TVisitor visitor,
+            int cellCount,
+            int skippedCellCount)
+        {
+            _world = world;
+            _grid = grid;
+            _query = query;
+            _hasBounds = hasBounds;
+            _queryBounds = queryBounds;
+            _minIndex = minIndex;
+            _maxIndex = maxIndex;
+            Visitor = visitor;
+            CellCount = cellCount;
+            SkippedCellCount = skippedCellCount;
+            Status = GridDiagnosticQueryStatus.Completed;
+        }
+
+        public bool Visit(Voxel voxel)
+        {
+            if (_hasBounds && !IsVoxelInQueryBounds(_grid, voxel, _queryBounds, _minIndex, _maxIndex))
+                return true;
+
+            GridDiagnosticCellState state = GetCellState(voxel);
+            if (!MatchesStateFilters(state, _query.RequiredStates, _query.ExcludedStates))
+                return true;
+
+            GridDiagnosticCell cell = CreatePhysicalCell(_world, _grid, voxel, state);
+            return TryVisitCell(
+                in cell,
+                _query.MaxCells,
+                ref Visitor,
+                ref CellCount,
+                ref SkippedCellCount,
+                out Status);
         }
     }
 }

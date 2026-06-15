@@ -16,6 +16,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 - Rectangular-prism and hex-prism topology behind the same `VoxelGrid` public model
 - Dense and sparse storage behind the same `VoxelGrid` query model
 - Obstacle, blocker, occupant, and partition workflows
+- Diagnostic cell descriptors, topology geometry, and dirty-change tracking for engine adapters
 - Allocation-conscious internals backed by pooling and `SwiftCollections`
 - Cross-target support for `netstandard2.1` and `net8.0`
 - Standard and lean package variants for `MemoryPack` and no-`MemoryPack` dependency profiles
@@ -41,6 +42,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 | [Blockers and Obstacles](Blockers-and-Obstacles.md) | `Blocker`, `BoundsBlocker`, obstacle propagation, stacked blockers, and removals |
 | [Occupants and Partitions](Occupants-and-Partitions.md) | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, and lifecycle rules |
 | [Diagnostics and Logging](Diagnostics-and-Logging.md) | `GridForgeLogger`, verbosity, tracing support, and safe debugging patterns |
+| [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) | Diagnostic cell queries, sparse-hole descriptors, topology geometry, and dirty sessions |
 | [Repository Layout and Build](Repository-Layout-and-Build.md) | Solution structure, package generation, CI expectations, and release notes |
 | [Testing and Benchmarking](Testing-and-Benchmarking.md) | xUnit layout, explicit-world fixtures, benchmark usage, and validation strategy |
 | [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Core invariants that must remain true across framework targets |
@@ -102,6 +104,7 @@ workflows stay world/grid/voxel based.
 | `Voxel` | Represents one snapped cell and tracks occupants, obstacles, partitions, and neighbor queries |
 | `ScanCell` | Overlay node used to accelerate neighborhood and area queries |
 | `GridTracer` | Converts lines and bounds into covered voxel sets across one or more grids in a world |
+| `GridDiagnostics` | Projects active grids into tool-friendly physical or sparse-address diagnostic cells |
 | `GridObstacleManager` | Applies and clears obstacle state on voxels |
 | `GridOccupantManager` | Adds, removes, and queries occupant state |
 | `GridScanManager` | Performs scan-driven spatial queries |
@@ -120,6 +123,7 @@ workflows stay world/grid/voxel based.
 | `src/GridForge/Grids/Support` | Event info types and pools |
 | `src/GridForge/Spatial` | Shared indices, directions, occupants, partitions, and awareness abstractions |
 | `src/GridForge/Blockers` | World-space blocker abstractions built on grid coverage |
+| `src/GridForge/Diagnostics` | Engine-agnostic diagnostic descriptors, query helpers, geometry helpers, and dirty sessions |
 | `src/GridForge/Utility` | Tracing and logging helpers |
 | `tests/GridForge.Tests/Grids` | Grid and manager behavior tests |
 | `tests/GridForge.Tests/Blockers` | Blocker coverage and removal tests |

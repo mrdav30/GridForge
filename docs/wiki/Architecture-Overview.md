@@ -17,7 +17,7 @@ GridForge is organized as a small set of cooperating layers:
 | Per-grid storage | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state |
 | Mutation services | `GridObstacleManager`, `GridOccupantManager`, `Blocker` | Safe state changes, events, and higher-level world-space mutations |
 | Query services | `GridScanManager`, `GridTracer` | Radius scans, filtered retrieval, line tracing, coverage enumeration |
-| Extension and diagnostics | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, `GridForgeLogger` | Domain integration, metadata hooks, logging and debugging |
+| Extension and diagnostics | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, `GridForgeLogger`, `GridDiagnostics` | Domain integration, metadata hooks, logging, diagnostic cell projection, and dirty tracking |
 
 ## Repository Layout By Responsibility
 
@@ -31,6 +31,7 @@ GridForge is organized as a small set of cooperating layers:
 | `src/GridForge/Grids/Support` | Pooled resources and event payload types |
 | `src/GridForge/Spatial` | Shared coordinate, direction, occupant, and partition abstractions |
 | `src/GridForge/Blockers` | World-space obstacle application on top of tracer coverage |
+| `src/GridForge/Diagnostics` | Engine-agnostic diagnostic descriptors, topology geometry, and dirty adapter sessions |
 | `src/GridForge/Support` | Cross-cutting query result groupings like `GridVoxelSet` |
 | `src/GridForge/Utility` | Tracing and logging infrastructure |
 

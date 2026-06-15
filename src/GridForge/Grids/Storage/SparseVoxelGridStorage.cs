@@ -146,6 +146,19 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             yield return _voxels[i];
     }
 
+    public void VisitVoxels<TVisitor>(ref TVisitor visitor)
+        where TVisitor : struct, IVoxelStorageVisitor
+    {
+        if (_voxels == null)
+            return;
+
+        for (int i = 0; i < ConfiguredVoxelCount; i++)
+        {
+            if (!visitor.Visit(_voxels[i]))
+                return;
+        }
+    }
+
     public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)
     {
         voxel = null;

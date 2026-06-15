@@ -10,7 +10,6 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
-using SwiftCollections.Utility;
 using System;
 using System.Runtime.CompilerServices;
 

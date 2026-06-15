@@ -38,6 +38,12 @@ without depending on a dense array layout, and use `ConfiguredVoxelCount` when
 code needs the physical-cell count. Dense grids report `Size`; sparse grids
 report the configured voxel count.
 
+For tools, overlays, debug visualizers, and adapter-side rendering, prefer
+`GridDiagnostics.VisitCells(...)` or `GridDiagnostics.GetCellsInto(...)` over
+custom loops. The diagnostic APIs preserve the same storage-neutral physical
+cell model, add topology geometry metadata, and can opt into sparse missing
+address descriptors when a tool needs to show address-space holes.
+
 ## Topology Model
 
 `VoxelGrid` keeps topology and storage as separate responsibilities.
@@ -69,6 +75,9 @@ Sparse grids preserve the same public grid model as dense grids:
 - `ContainsVoxel(...)` checks whether a physical voxel exists at a local index.
 - `TryAddVoxel(...)` and `TryRemoveVoxel(...)` are explicit sparse-only runtime
   mutation APIs.
+- `GridDiagnostics` can describe missing sparse address cells for bounded tool
+  views, but those descriptors are not runtime `Voxel` instances and do not
+  change lookup, tracing, blocker, occupant, partition, or neighbor behavior.
 
 Runtime sparse removal is intentionally conservative. It rejects voxels with
 occupants, obstacle tokens, partitions, or active voxel event subscribers so

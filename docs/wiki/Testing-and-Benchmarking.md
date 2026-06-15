@@ -94,6 +94,7 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
 ```
 
@@ -104,6 +105,12 @@ registration, radius scans, neighbor lookup, and dense comparison scenarios.
 The `hex-prism-topology` alias covers rectangular baseline lookup, pointy/flat
 hex lookup, projection, construction, line tracing, bounds coverage, blockers,
 occupants, radius scans, and mixed rectangular/hex world lookup.
+
+The `grid-diagnostics` alias covers dense and sparse rectangular physical
+queries, dense and sparse hex physical queries, bounded sparse missing-address
+queries, and `GetCellsInto` versus `VisitCells` traversal paths. See
+[Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for the API
+surface those benchmarks protect.
 
 The `neighbor-lookup` alias covers stateless directed boundary lookup plus the
 unified neighbor resolver matrix: source-grid contacts, same-topology conjoined

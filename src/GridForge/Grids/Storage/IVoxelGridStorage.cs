@@ -35,6 +35,9 @@ internal interface IVoxelGridStorage
 
     IEnumerable<Voxel> EnumerateVoxels();
 
+    void VisitVoxels<TVisitor>(ref TVisitor visitor)
+        where TVisitor : struct, IVoxelStorageVisitor;
+
     void AddVoxelsInIndexRange(
         VoxelIndex min,
         VoxelIndex max,

@@ -13,6 +13,7 @@ using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -348,6 +349,43 @@ public class GridDiagnosticsPhysicalQueryTests
         Assert.True(result.SkippedCellCount > 0);
     }
 
+    [Fact]
+    public void VisitCells_ShouldAvoidWarmPathAllocationsForPhysicalQueries()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 64);
+        GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(15, 0, 15));
+        GridConfiguration sparseConfiguration = CreateRectangularConfiguration(
+            new Vector3d(32, 0, 0),
+            new Vector3d(47, 0, 15),
+            GridStorageKind.Sparse);
+        Assert.True(world.TryAddGrid(
+            sparseConfiguration,
+            new[]
+            {
+                new VoxelIndex(0, 0, 0),
+                new VoxelIndex(4, 0, 4),
+                new VoxelIndex(8, 0, 8),
+                new VoxelIndex(12, 0, 12)
+            },
+            out _));
+        GridDiagnosticScratch scratch = new();
+        CountingVisitor visitor = new();
+
+        GridDiagnostics.VisitCells(world, GridDiagnosticQuery.AllPhysical(), ref visitor, scratch);
+        scratch.Clear();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 32; i++)
+        {
+            visitor = new CountingVisitor();
+            GridDiagnostics.VisitCells(world, GridDiagnosticQuery.AllPhysical(), ref visitor, scratch);
+            scratch.Clear();
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(allocated < 256, $"Expected warmed diagnostic visitor queries below 256 bytes, but allocated {allocated} bytes.");
+    }
+
     private static GridConfiguration CreateRectangularConfiguration(
         Vector3d min,
         Vector3d max,
@@ -409,6 +447,17 @@ public class GridDiagnosticsPhysicalQueryTests
             Count++;
             LastIndex = cell.Index;
             return Count < _stopAfter;
+        }
+    }
+
+    private struct CountingVisitor : IGridDiagnosticCellVisitor
+    {
+        public int Count;
+
+        public bool Visit(in GridDiagnosticCell cell)
+        {
+            Count++;
+            return true;
         }
     }
 }

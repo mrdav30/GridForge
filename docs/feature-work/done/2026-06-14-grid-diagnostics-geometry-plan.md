@@ -7,7 +7,7 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Active
+**Status:** Done
 
 **Goal:** Add an engine-agnostic diagnostic middle layer that lets tools inspect
 and render dense or sparse rectangular-prism and hex-prism grids without putting
@@ -33,7 +33,8 @@ package variants.
 - Release posture: additive public API under a new diagnostics namespace.
 - Backwards compatibility: no rendering API, no Unity dependency, no behavior
   changes to existing grid queries.
-- Current state: Phases 0-5 implemented; benchmarks and adapter docs remain.
+- Current state: Phases 0-7 implemented, documented, benchmarked, and
+  validated.
 - Related completed work: sparse storage, hex-prism topology, mixed-topology
   contact helpers, `TopologyVoxelAabb`, and `TopologyVoxelRangeUtility`.
 
@@ -67,8 +68,10 @@ an adapter consume without knowing GridForge's storage or topology internals?
   configure, return, or pretend to be real `Voxel` instances.
 - Sparse-hole enumeration must be bounded by a query range, layer slice,
   explicit maximum cell budget, or an explicit full-address-space opt-in.
-- Diagnostics should iterate storage-neutral physical voxels through
-  `VoxelGrid.EnumerateVoxels()`, not by assuming dense arrays.
+- Diagnostics should expose `VoxelGrid.EnumerateVoxels()` as the public
+  storage-neutral physical voxel traversal surface and use storage-neutral
+  visitor traversal for hot diagnostic query paths, not by assuming dense
+  arrays.
 - Geometry is topology-aware. Rectangular-prism and hex-prism cells share the
   same public diagnostic flow but emit different prism vertices and edge sets.
 - Diagnostic output uses `Fixed64`, `Vector3d`, `VoxelIndex`,
@@ -338,7 +341,9 @@ Checklist:
   commands.
 - [x] Confirm missing sparse address cells are opt-in and bounded.
 - [x] Confirm missing sparse address cells are not `Voxel` instances.
-- [x] Confirm physical traversal uses `VoxelGrid.EnumerateVoxels()`.
+- [x] Confirm physical traversal stays storage-neutral through
+  `VoxelGrid.EnumerateVoxels()` publicly and the internal visitor path for hot
+  diagnostics.
 - [x] Confirm bounded address traversal uses `TopologyVoxelRangeUtility`.
 - [x] Confirm dirty tracking listens to occupant events directly rather than
   depending only on grid version changes.
@@ -462,7 +467,9 @@ Checklist:
 
 - [x] Traverse active grids in deterministic `GridWorld.ActiveGrids` order.
 - [x] Apply optional grid index, topology, storage, and bounds filters.
-- [x] Use `VoxelGrid.EnumerateVoxels()` for physical cell traversal.
+- [x] Keep `VoxelGrid.EnumerateVoxels()` as the public storage-neutral physical
+  traversal surface and use the internal storage visitor for allocation-sensitive
+  diagnostic traversal.
 - [x] Build `GridDiagnosticCell` descriptors from each physical voxel without
   allocating.
 - [x] Derive cell state from `Voxel.IsOccupied`, `Voxel.IsBlocked`,
@@ -615,31 +622,37 @@ mode rather than accidentally becoming dense scans.
 Files:
 
 - Create: `tests/GridForge.Benchmarks/Memory/GridDiagnosticsBenchmarks.cs`
-- Modify: `tests/GridForge.Benchmarks/Program.cs`
+- Use: existing benchmark alias discovery in `tests/GridForge.Benchmarks`
 - Modify: `docs/wiki/Testing-and-Benchmarking.md`
+- Modify: `src/GridForge/Grids/Storage/IVoxelGridStorage.cs`
+- Create: `src/GridForge/Grids/Storage/IVoxelStorageVisitor.cs`
+- Modify: `src/GridForge/Grids/Storage/DenseVoxelGridStorage.cs`
+- Modify: `src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs`
+- Modify: `src/GridForge/Grids/VoxelGrid.cs`
+- Modify: `tests/GridForge.Tests/Diagnostics/GridDiagnosticsPhysicalQueryTests.cs`
 - Read: `tests/GridForge.Benchmarks/Memory/SparseVoxelGridBenchmarks.cs`
 - Read: `tests/GridForge.Benchmarks/Memory/HexPrismTopologyBenchmarks.cs`
 
 Checklist:
 
-- [ ] Add benchmark scenarios for dense rectangular physical query.
-- [ ] Add benchmark scenarios for sparse rectangular physical query.
-- [ ] Add benchmark scenarios for dense hex physical query.
-- [ ] Add benchmark scenarios for sparse hex physical query.
-- [ ] Add benchmark scenarios for bounded sparse missing-cell query.
-- [ ] Add benchmark scenarios comparing `GetCellsInto` and `VisitCells`.
-- [ ] Add a benchmark alias named `grid-diagnostics`.
-- [ ] Confirm physical sparse query cost follows configured voxel count.
-- [ ] Confirm missing-cell query cost follows bounded candidate range and
+- [x] Add benchmark scenarios for dense rectangular physical query.
+- [x] Add benchmark scenarios for sparse rectangular physical query.
+- [x] Add benchmark scenarios for dense hex physical query.
+- [x] Add benchmark scenarios for sparse hex physical query.
+- [x] Add benchmark scenarios for bounded sparse missing-cell query.
+- [x] Add benchmark scenarios comparing `GetCellsInto` and `VisitCells`.
+- [x] Add a benchmark alias named `grid-diagnostics`.
+- [x] Confirm physical sparse query cost follows configured voxel count.
+- [x] Confirm missing-cell query cost follows bounded candidate range and
   `MaxCells`.
-- [ ] Confirm warm-path query allocation is zero or limited to caller-owned
+- [x] Confirm warm-path query allocation is zero or limited to caller-owned
   buffer growth outside the measured core operation.
-- [ ] If a benchmark exposes a real hotspot, fix the query structure before
+- [x] If a benchmark exposes a real hotspot, fix the query structure before
   adding cache complexity.
 
 Exit criteria:
 
-- [ ] Benchmark evidence supports the public performance guidance.
+- [x] Benchmark evidence supports the public performance guidance.
 
 Validation:
 
@@ -668,26 +681,27 @@ Files:
 
 Checklist:
 
-- [ ] Document the difference between logging diagnostics and geometry
+- [x] Document the difference between logging diagnostics and geometry
   diagnostics.
-- [ ] Document `PhysicalOnly`, `PhysicalAndMissing`, and `MissingOnly`.
-- [ ] Document that missing sparse address cells are not runtime voxels.
-- [ ] Document bounds and max-cell budget requirements for sparse-hole views.
-- [ ] Document rectangular and hex geometry output shape.
-- [ ] Document how adapters should convert `Vector3d`/`Fixed64` to engine
+- [x] Document `PhysicalOnly`, `PhysicalAndMissing`, and `MissingOnly`.
+- [x] Document that missing sparse address cells are not runtime voxels.
+- [x] Document bounds and max-cell budget requirements for sparse-hole views.
+- [x] Document rectangular and hex geometry output shape.
+- [x] Document how adapters should convert `Vector3d`/`Fixed64` to engine
   floats at the adapter boundary.
-- [ ] Add a small example that fills a caller-owned `SwiftList<GridDiagnosticCell>`.
-- [ ] Add a small example that writes diagnostic vertices for one cell.
-- [ ] Add a Unity migration note that the old dense `Width * Height * Length`
-  loop should move to `GridDiagnostics.VisitCells(...)`.
-- [ ] Link the new wiki page from `Home`, `Diagnostics-and-Logging`, and
+- [x] Add a small example that fills a caller-owned `SwiftList<GridDiagnosticCell>`.
+- [x] Add a small example that writes diagnostic vertices for one cell.
+- [x] Leave a future v6-to-v7 `MIGRATION.MD` note that the old dense
+  `Width * Height * Length` loop should move to
+  `GridDiagnostics.VisitCells(...)`.
+- [x] Link the new wiki page from `Home`, `Diagnostics-and-Logging`, and
   `Testing-and-Benchmarking`.
-- [ ] Keep README concise and point deep details to the wiki.
+- [x] Keep README concise and point deep details to the wiki.
 
 Exit criteria:
 
-- [ ] Core users can discover the API and understand sparse-hole costs.
-- [ ] Unity migration has a clear adapter-oriented path without pulling
+- [x] Core users can discover the API and understand sparse-hole costs.
+- [x] Unity migration has a clear adapter-oriented path without pulling
   rendering into GridForge.
 
 ## Validation Baseline
@@ -719,11 +733,11 @@ git diff --check
 
 ## Completion Criteria
 
-- [ ] Public diagnostics are documented, tested, and benchmarked.
-- [ ] Dense and sparse rectangular grids are supported.
-- [ ] Dense and sparse hex-prism grids are supported.
-- [ ] Sparse missing address cells are available through explicit bounded modes.
-- [ ] No renderer or engine-specific types are introduced into GridForge.
-- [ ] Debug and ReleaseLean validation pass.
-- [ ] The plan is moved to `docs/feature-work/done` with `Status: Done` after
+- [x] Public diagnostics are documented, tested, and benchmarked.
+- [x] Dense and sparse rectangular grids are supported.
+- [x] Dense and sparse hex-prism grids are supported.
+- [x] Sparse missing address cells are available through explicit bounded modes.
+- [x] No renderer or engine-specific types are introduced into GridForge.
+- [x] Debug, Release, and ReleaseLean validation pass.
+- [x] The plan is moved to `docs/feature-work/done` with `Status: Done` after
   implementation, docs, benchmarks, and validation complete.

@@ -1,6 +1,5 @@
 using FixedMathSharp;
 using GridForge.Grids.Topology;
-using GridForge.Spatial;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;
