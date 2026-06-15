@@ -333,19 +333,19 @@ Files:
 
 Checklist:
 
-- [ ] Confirm public diagnostics live under `GridForge.Diagnostics`.
-- [ ] Confirm diagnostics emit descriptors and topology geometry, never draw
+- [x] Confirm public diagnostics live under `GridForge.Diagnostics`.
+- [x] Confirm diagnostics emit descriptors and topology geometry, never draw
   commands.
-- [ ] Confirm missing sparse address cells are opt-in and bounded.
-- [ ] Confirm missing sparse address cells are not `Voxel` instances.
-- [ ] Confirm physical traversal uses `VoxelGrid.EnumerateVoxels()`.
-- [ ] Confirm bounded address traversal uses `TopologyVoxelRangeUtility`.
-- [ ] Confirm dirty tracking listens to occupant events directly rather than
+- [x] Confirm missing sparse address cells are opt-in and bounded.
+- [x] Confirm missing sparse address cells are not `Voxel` instances.
+- [x] Confirm physical traversal uses `VoxelGrid.EnumerateVoxels()`.
+- [x] Confirm bounded address traversal uses `TopologyVoxelRangeUtility`.
+- [x] Confirm dirty tracking listens to occupant events directly rather than
   depending only on grid version changes.
 
 Exit criteria:
 
-- [ ] This plan contains the public API names, non-goals, and sparse-hole
+- [x] This plan contains the public API names, non-goals, and sparse-hole
   semantics needed for implementation.
 
 ## Phase 1: Public Contracts And Query Skeleton
@@ -369,29 +369,29 @@ Files:
 
 Checklist:
 
-- [ ] Add public enums with XML documentation.
-- [ ] Add readonly public data contracts with XML documentation.
-- [ ] Add `GridDiagnosticQuery.DefaultMaxCells` with value `65536`.
-- [ ] Add factory helpers for common queries:
+- [x] Add public enums with XML documentation.
+- [x] Add readonly public data contracts with XML documentation.
+- [x] Add `GridDiagnosticQuery.DefaultMaxCells` with value `65536`.
+- [x] Add factory helpers for common queries:
   `GridDiagnosticQuery.AllPhysical()`,
   `GridDiagnosticQuery.ForGrid(ushort gridIndex)`, and
   `GridDiagnosticQuery.ForBounds(Vector3d min, Vector3d max)`.
-- [ ] Add `GridDiagnostics.GetCellsInto(...)` with null checks, result clearing,
+- [x] Add `GridDiagnostics.GetCellsInto(...)` with null checks, result clearing,
   inactive-world handling, and a no-cell completed result.
-- [ ] Add `GridDiagnostics.VisitCells(...)` with inactive-world handling and
+- [x] Add `GridDiagnostics.VisitCells(...)` with inactive-world handling and
   visitor early-exit behavior.
-- [ ] Add `GridDiagnostics.TryResolvePhysicalCell(...)` and ensure it returns
+- [x] Add `GridDiagnostics.TryResolvePhysicalCell(...)` and ensure it returns
   false for missing address cells and stale world/grid tokens.
-- [ ] Test null result storage throws the same style of argument exception used
+- [x] Test null result storage throws the same style of argument exception used
   by existing caller-owned result APIs.
-- [ ] Test inactive worlds return `InactiveWorld` without writing cells.
-- [ ] Test `TryResolvePhysicalCell(...)` resolves physical descriptors and
+- [x] Test inactive worlds return `InactiveWorld` without writing cells.
+- [x] Test `TryResolvePhysicalCell(...)` resolves physical descriptors and
   rejects missing descriptors.
 
 Exit criteria:
 
-- [ ] Contracts compile on `netstandard2.1` and `net8.0`.
-- [ ] No traversal or geometry behavior is implemented beyond safe no-op
+- [x] Contracts compile on `netstandard2.1` and `net8.0`.
+- [x] No traversal or geometry behavior is implemented beyond safe no-op
   skeletons.
 
 Validation:
