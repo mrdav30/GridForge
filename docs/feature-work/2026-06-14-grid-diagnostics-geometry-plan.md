@@ -33,7 +33,8 @@ package variants.
 - Release posture: additive public API under a new diagnostics namespace.
 - Backwards compatibility: no rendering API, no Unity dependency, no behavior
   changes to existing grid queries.
-- Current state: planning complete; implementation not started.
+- Current state: Phases 0-3 implemented; sparse-hole queries, dirty sessions,
+  benchmarks, and adapter docs remain.
 - Related completed work: sparse storage, hex-prism topology, mixed-topology
   contact helpers, `TopologyVoxelAabb`, and `TopologyVoxelRangeUtility`.
 
@@ -417,24 +418,24 @@ Files:
 
 Checklist:
 
-- [ ] Add immutable edge spans for rectangular prisms and hex prisms.
-- [ ] Implement rectangular vertex writing from cell center and rectangular
+- [x] Add immutable edge spans for rectangular prisms and hex prisms.
+- [x] Implement rectangular vertex writing from cell center and rectangular
   metrics.
-- [ ] Implement pointy-top hex vertex writing from cell center, hex radius,
+- [x] Implement pointy-top hex vertex writing from cell center, hex radius,
   layer height, and the existing deterministic `Sqrt3` constant.
-- [ ] Implement flat-top hex vertex writing from cell center, hex radius,
+- [x] Implement flat-top hex vertex writing from cell center, hex radius,
   layer height, and the existing deterministic `Sqrt3` constant.
-- [ ] Return `0` when the provided vertex span is too small.
-- [ ] Return expected vertex and edge counts for each topology.
-- [ ] Test rectangular vertices for non-cubic metrics.
-- [ ] Test pointy-top and flat-top hex vertices for deterministic orientation.
-- [ ] Test edge spans are read-only and stable across calls.
-- [ ] Test missing sparse address cells use the same geometry path as physical
+- [x] Return `0` when the provided vertex span is too small.
+- [x] Return expected vertex and edge counts for each topology.
+- [x] Test rectangular vertices for non-cubic metrics.
+- [x] Test pointy-top and flat-top hex vertices for deterministic orientation.
+- [x] Test edge spans are read-only and stable across calls.
+- [x] Test missing sparse address cells use the same geometry path as physical
   cells with the same topology metrics and index.
 
 Exit criteria:
 
-- [ ] Adapters can draw wireframes or meshes for rectangular and hex-prism cells
+- [x] Adapters can draw wireframes or meshes for rectangular and hex-prism cells
   using only public diagnostic descriptors.
 
 Validation:
@@ -460,34 +461,34 @@ Files:
 
 Checklist:
 
-- [ ] Traverse active grids in deterministic `GridWorld.ActiveGrids` order.
-- [ ] Apply optional grid index, topology, storage, and bounds filters.
-- [ ] Use `VoxelGrid.EnumerateVoxels()` for physical cell traversal.
-- [ ] Build `GridDiagnosticCell` descriptors from each physical voxel without
+- [x] Traverse active grids in deterministic `GridWorld.ActiveGrids` order.
+- [x] Apply optional grid index, topology, storage, and bounds filters.
+- [x] Use `VoxelGrid.EnumerateVoxels()` for physical cell traversal.
+- [x] Build `GridDiagnosticCell` descriptors from each physical voxel without
   allocating.
-- [ ] Derive cell state from `Voxel.IsOccupied`, `Voxel.IsBlocked`,
+- [x] Derive cell state from `Voxel.IsOccupied`, `Voxel.IsBlocked`,
   `Voxel.IsBoundaryVoxel`, and `Voxel.IsPartioned`.
-- [ ] Treat unoccupied and unblocked physical cells as `Empty`.
-- [ ] Apply required-state and excluded-state filters after state derivation.
-- [ ] Stop at `MaxCells` and report `MaxCellsExceeded` when the query budget is
+- [x] Treat unoccupied and unblocked physical cells as `Empty`.
+- [x] Apply required-state and excluded-state filters after state derivation.
+- [x] Stop at `MaxCells` and report `MaxCellsExceeded` when the query budget is
   reached before traversal completes.
-- [ ] Preserve deterministic output order for dense rectangular, sparse
+- [x] Preserve deterministic output order for dense rectangular, sparse
   rectangular, dense hex, and sparse hex grids.
-- [ ] Test physical-only dense rectangular output count equals `Size`.
-- [ ] Test physical-only sparse rectangular output count equals
+- [x] Test physical-only dense rectangular output count equals `Size`.
+- [x] Test physical-only sparse rectangular output count equals
   `ConfiguredVoxelCount`.
-- [ ] Test physical-only dense and sparse hex output includes axial indices and
+- [x] Test physical-only dense and sparse hex output includes axial indices and
   hex topology metadata.
-- [ ] Test occupied, blocked, empty, boundary, topology, storage, and grid-index
+- [x] Test occupied, blocked, empty, boundary, topology, storage, and grid-index
   filters.
-- [ ] Test bounds filtering clips through topology-aware candidate ranges and
+- [x] Test bounds filtering clips through topology-aware candidate ranges and
   returns only cells whose diagnostic AABB overlaps the query bounds.
 
 Exit criteria:
 
-- [ ] Diagnostic queries replace the Unity prototype's dense nested loop for
+- [x] Diagnostic queries replace the Unity prototype's dense nested loop for
   physical cells.
-- [ ] Sparse physical traversal scales with configured voxels, not address-space
+- [x] Sparse physical traversal scales with configured voxels, not address-space
   size.
 
 Validation:
