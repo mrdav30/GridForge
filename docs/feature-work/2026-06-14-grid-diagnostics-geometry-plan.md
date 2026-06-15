@@ -33,8 +33,7 @@ package variants.
 - Release posture: additive public API under a new diagnostics namespace.
 - Backwards compatibility: no rendering API, no Unity dependency, no behavior
   changes to existing grid queries.
-- Current state: Phases 0-4 implemented; dirty sessions, benchmarks, and
-  adapter docs remain.
+- Current state: Phases 0-5 implemented; benchmarks and adapter docs remain.
 - Related completed work: sparse storage, hex-prism topology, mixed-topology
   contact helpers, `TopologyVoxelAabb`, and `TopologyVoxelRangeUtility`.
 
@@ -570,34 +569,36 @@ Files:
 
 Checklist:
 
-- [ ] Add a disposable session bound to one active `GridWorld`.
-- [ ] Subscribe to `GridWorld.OnActiveGridAdded`,
+- [x] Add a disposable session bound to one active `GridWorld`.
+- [x] Subscribe to `GridWorld.OnActiveGridAdded`,
   `GridWorld.OnActiveGridRemoved`, `GridWorld.OnActiveGridChange`, and
   `GridWorld.OnReset`.
-- [ ] Subscribe to `GridObstacleManager` static obstacle events and filter by
-  the session world's spawn token.
-- [ ] Subscribe to `GridOccupantManager` static occupant events and filter by
-  the session world's spawn token.
-- [ ] Record dirty grid ids for grid add/remove/reset and broad grid-change
+- [x] Subscribe to `GridObstacleManager` static obstacle events and filter by
+  the session world's spawn token plus resolved grid identity.
+- [x] Subscribe to `GridOccupantManager` static occupant events and filter by
+  the session world's spawn token plus resolved grid identity.
+- [x] Record dirty grid ids for grid add/remove/reset and broad grid-change
   events.
-- [ ] Record dirty physical cell identities for obstacle and occupant events.
-- [ ] Record sparse voxel add/remove changes from `GridEventKind.SparseVoxelAdded`
+- [x] Record dirty physical cell identities for obstacle and occupant events.
+- [x] Record sparse voxel add/remove changes from `GridEventKind.SparseVoxelAdded`
   and `GridEventKind.SparseVoxelRemoved`.
-- [ ] Expose caller-owned `GetDirtyChangesInto(...)` and `ClearDirtyChanges()`
+- [x] Expose caller-owned `GetDirtyChangesInto(...)` and `ClearDirtyChanges()`
   APIs.
-- [ ] Coalesce duplicate dirty cells deterministically.
-- [ ] Release event subscriptions on dispose.
-- [ ] Test obstacle changes are reported through the session.
-- [ ] Test occupant changes are reported even though grid version does not
+- [x] Coalesce duplicate dirty cells deterministically.
+- [x] Treat world reset as superseding pending grid and cell changes until
+  adapters drain or clear the reset marker.
+- [x] Release event subscriptions on dispose.
+- [x] Test obstacle changes are reported through the session.
+- [x] Test occupant changes are reported even though grid version does not
   currently change for occupancy.
-- [ ] Test sparse add/remove reports both the physical cell and surrounding
+- [x] Test sparse add/remove reports both the physical cell and surrounding
   address-space range as dirty for hole-rendering adapters.
-- [ ] Test events from other worlds are ignored.
-- [ ] Test disposing the session prevents further dirty captures.
+- [x] Test events from other worlds are ignored.
+- [x] Test disposing the session prevents further dirty captures.
 
 Exit criteria:
 
-- [ ] Unity and other adapters can avoid whole-grid rebuilds when only occupied,
+- [x] Unity and other adapters can avoid whole-grid rebuilds when only occupied,
   blocked, or sparse mutation state changes.
 
 Validation:
