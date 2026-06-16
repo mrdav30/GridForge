@@ -794,6 +794,54 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void TraceLine_ShouldContinueSegmentWhenEnteringLaterHexGrid()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration rectangularConfiguration = new(
+                new Vector3d(0, 0, -1),
+                new Vector3d(4, 0, 3));
+            GridConfiguration hexConfiguration = CreateHexConfiguration(
+                new Vector3d(8, 0, 0),
+                metrics,
+                new VoxelIndex(3, 0, 3));
+
+            Assert.True(_world.TryAddGrid(rectangularConfiguration, out _));
+            Assert.True(_world.TryAddGrid(hexConfiguration, out ushort hexGridIndex));
+
+            VoxelGrid hexGrid = _world.ActiveGrids[hexGridIndex];
+            Vector3d start = rectangularConfiguration.BoundsMin;
+            Vector3d end = hexGrid.GetWorldPosition(new VoxelIndex(3, 0, 3));
+            Fixed64 entryT = (hexGrid.BoundsMin.X - start.X) / (end.X - start.X);
+            Vector3d expectedHexEntry = new(
+                hexGrid.BoundsMin.X,
+                start.Y + (end.Y - start.Y) * entryT,
+                start.Z + (end.Z - start.Z) * entryT);
+
+            Assert.True(hexGrid.TryGetClosestVoxel(expectedHexEntry, out Voxel expectedFirstHexVoxel));
+
+            VoxelIndex[] tracedHexIndices = GridTracer.TraceLine(_world, start, end, includeEnd: true)
+                .Where(set => set.Grid.GridIndex == hexGridIndex)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.NotEmpty(tracedHexIndices);
+            Assert.Equal(expectedFirstHexVoxel.Index, tracedHexIndices[0]);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
     public void TraceLine_ShouldIncludeHexBoundaryVoxelWhenEndFallsPastGridEdge()
     {
         ResetWorld(spatialGridCellSize: 64);

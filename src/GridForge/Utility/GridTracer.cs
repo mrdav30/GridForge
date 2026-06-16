@@ -622,17 +622,26 @@ public static class GridTracer
                 continue;
 
             VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
-            if (!TraceLineSegmentIntersectsGrid(currentGrid, start, end, padding))
+            if (!TryClipTraceSegmentToGrid(
+                currentGrid,
+                start,
+                end,
+                padding,
+                out Vector3d traceStart,
+                out Vector3d traceEnd,
+                out bool segmentEndsBeforeGlobalEnd))
+            {
                 continue;
+            }
 
             SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
 
             AddTraceLineGridVoxels(
                 currentGrid,
-                start,
-                end,
+                traceStart,
+                traceEnd,
                 padding,
-                includeEnd,
+                includeEnd || segmentEndsBeforeGlobalEnd,
                 voxelList,
                 voxelRedundancyCheck);
 
@@ -680,6 +689,9 @@ public static class GridTracer
 
             voxelList.Add(voxel!);
         }
+
+        if (includeEnd)
+            AddTraceVoxelByPosition(currentGrid, end, voxelList, voxelRedundancyCheck);
     }
 
     private static void AddHexTraceLineGridVoxels(
@@ -767,12 +779,19 @@ public static class GridTracer
     private static Fixed64 Interpolate(Fixed64 start, Fixed64 end, Fixed64 t) =>
         start + (end - start) * t;
 
-    private static bool TraceLineSegmentIntersectsGrid(
+    private static bool TryClipTraceSegmentToGrid(
         VoxelGrid grid,
         Vector3d start,
         Vector3d end,
-        Fixed64? padding)
+        Fixed64? padding,
+        out Vector3d clippedStart,
+        out Vector3d clippedEnd,
+        out bool segmentEndsBeforeGlobalEnd)
     {
+        clippedStart = default;
+        clippedEnd = default;
+        segmentEndsBeforeGlobalEnd = false;
+
         Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero
             ? padding.Value
             : Fixed64.Zero;
@@ -781,9 +800,17 @@ public static class GridTracer
         Fixed64 tMin = Fixed64.Zero;
         Fixed64 tMax = Fixed64.One;
 
-        return ClipTraceSegmentAxis(start.X, end.X, boundsMin.X, boundsMax.X, ref tMin, ref tMax)
+        if (!(ClipTraceSegmentAxis(start.X, end.X, boundsMin.X, boundsMax.X, ref tMin, ref tMax)
             && ClipTraceSegmentAxis(start.Y, end.Y, boundsMin.Y, boundsMax.Y, ref tMin, ref tMax)
-            && ClipTraceSegmentAxis(start.Z, end.Z, boundsMin.Z, boundsMax.Z, ref tMin, ref tMax);
+            && ClipTraceSegmentAxis(start.Z, end.Z, boundsMin.Z, boundsMax.Z, ref tMin, ref tMax)))
+        {
+            return false;
+        }
+
+        clippedStart = InterpolateTraceSegment(start, end, boundsMin, boundsMax, tMin);
+        clippedEnd = InterpolateTraceSegment(start, end, boundsMin, boundsMax, tMax);
+        segmentEndsBeforeGlobalEnd = tMax < Fixed64.One;
+        return true;
     }
 
     private static bool ClipTraceSegmentAxis(
@@ -822,6 +849,51 @@ public static class GridTracer
 
         return !grid.TryGetVoxelIndex(end, out VoxelIndex actualEndIndex)
             || actualEndIndex != endIndex;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector3d InterpolateTraceSegment(
+        Vector3d start,
+        Vector3d end,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        Fixed64 t) =>
+        new(
+            InterpolateTraceAxis(start.X, end.X, boundsMin.X, boundsMax.X, t),
+            InterpolateTraceAxis(start.Y, end.Y, boundsMin.Y, boundsMax.Y, t),
+            InterpolateTraceAxis(start.Z, end.Z, boundsMin.Z, boundsMax.Z, t));
+
+    private static Fixed64 InterpolateTraceAxis(
+        Fixed64 start,
+        Fixed64 end,
+        Fixed64 boundsMin,
+        Fixed64 boundsMax,
+        Fixed64 t)
+    {
+        Fixed64 delta = end - start;
+        if (delta == Fixed64.Zero)
+            return start;
+
+        if ((boundsMin - start) / delta == t)
+            return boundsMin;
+        if ((boundsMax - start) / delta == t)
+            return boundsMax;
+
+        return start + delta * t;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddTraceVoxelByPosition(
+        VoxelGrid grid,
+        Vector3d position,
+        SwiftList<Voxel> voxelList,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (grid.TryGetVoxel(grid.FloorToGrid(position), out Voxel? voxel)
+            && voxelRedundancyCheck.Add(voxel!))
+        {
+            voxelList.Add(voxel!);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
