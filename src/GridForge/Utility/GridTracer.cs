@@ -425,6 +425,7 @@ public static class GridTracer
                 start,
                 end,
                 padding,
+                includeEnd,
                 gridVoxelMapping,
                 voxelRedundancyCheck,
                 processedGrids);
@@ -452,6 +453,7 @@ public static class GridTracer
         Vector3d start,
         Vector3d end,
         Fixed64? padding,
+        bool includeEnd,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
         SwiftHashSet<ushort> processedGrids)
@@ -479,6 +481,7 @@ public static class GridTracer
                         start,
                         end,
                         padding,
+                        includeEnd,
                         gridVoxelMapping,
                         voxelRedundancyCheck,
                         processedGrids);
@@ -608,6 +611,7 @@ public static class GridTracer
         Vector3d start,
         Vector3d end,
         Fixed64? padding,
+        bool includeEnd,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
         SwiftHashSet<ushort> processedGrids)
@@ -618,6 +622,9 @@ public static class GridTracer
                 continue;
 
             VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
+            if (!TraceLineSegmentIntersectsGrid(currentGrid, start, end, padding))
+                continue;
+
             SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
 
             AddTraceLineGridVoxels(
@@ -625,6 +632,7 @@ public static class GridTracer
                 start,
                 end,
                 padding,
+                includeEnd,
                 voxelList,
                 voxelRedundancyCheck);
 
@@ -640,6 +648,7 @@ public static class GridTracer
         Vector3d start,
         Vector3d end,
         Fixed64? padding,
+        bool includeEnd,
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
@@ -650,6 +659,7 @@ public static class GridTracer
                 start,
                 end,
                 padding,
+                includeEnd,
                 voxelList,
                 voxelRedundancyCheck);
             return;
@@ -677,6 +687,7 @@ public static class GridTracer
         Vector3d start,
         Vector3d end,
         Fixed64? padding,
+        bool includeEnd,
         SwiftList<Voxel> voxelList,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
@@ -695,8 +706,10 @@ public static class GridTracer
             return;
         }
 
+        bool includeEndIndex = ShouldIncludeHexTraceEndIndex(currentGrid, end, endIndex, includeEnd);
+        int finalStep = includeEndIndex ? steps : steps - 1;
         Fixed64 stepCount = new Fixed64(steps);
-        for (int i = 0; i < steps; i++)
+        for (int i = 0; i <= finalStep; i++)
         {
             Fixed64 t = new Fixed64(i) / stepCount;
             VoxelIndex traceIndex = InterpolateHexTraceIndex(startIndex, endIndex, t);
@@ -753,6 +766,63 @@ public static class GridTracer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 Interpolate(Fixed64 start, Fixed64 end, Fixed64 t) =>
         start + (end - start) * t;
+
+    private static bool TraceLineSegmentIntersectsGrid(
+        VoxelGrid grid,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding)
+    {
+        Fixed64 fixedPadding = padding.HasValue && padding.Value > Fixed64.Zero
+            ? padding.Value
+            : Fixed64.Zero;
+        Vector3d boundsMin = grid.BoundsMin - fixedPadding;
+        Vector3d boundsMax = grid.BoundsMax + fixedPadding;
+        Fixed64 tMin = Fixed64.Zero;
+        Fixed64 tMax = Fixed64.One;
+
+        return ClipTraceSegmentAxis(start.X, end.X, boundsMin.X, boundsMax.X, ref tMin, ref tMax)
+            && ClipTraceSegmentAxis(start.Y, end.Y, boundsMin.Y, boundsMax.Y, ref tMin, ref tMax)
+            && ClipTraceSegmentAxis(start.Z, end.Z, boundsMin.Z, boundsMax.Z, ref tMin, ref tMax);
+    }
+
+    private static bool ClipTraceSegmentAxis(
+        Fixed64 start,
+        Fixed64 end,
+        Fixed64 boundsMin,
+        Fixed64 boundsMax,
+        ref Fixed64 tMin,
+        ref Fixed64 tMax)
+    {
+        Fixed64 delta = end - start;
+        if (delta == Fixed64.Zero)
+            return start >= boundsMin && start <= boundsMax;
+
+        Fixed64 axisMin = (boundsMin - start) / delta;
+        Fixed64 axisMax = (boundsMax - start) / delta;
+        if (axisMin > axisMax)
+            (axisMin, axisMax) = (axisMax, axisMin);
+
+        if (axisMin > tMin)
+            tMin = axisMin;
+        if (axisMax < tMax)
+            tMax = axisMax;
+
+        return tMin <= tMax;
+    }
+
+    private static bool ShouldIncludeHexTraceEndIndex(
+        VoxelGrid grid,
+        Vector3d end,
+        VoxelIndex endIndex,
+        bool includeEnd)
+    {
+        if (includeEnd)
+            return true;
+
+        return !grid.TryGetVoxelIndex(end, out VoxelIndex actualEndIndex)
+            || actualEndIndex != endIndex;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AddTraceVoxelByIndex(

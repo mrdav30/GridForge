@@ -756,6 +756,140 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void TraceLine_ShouldSkipHexCandidateGridWhenLineSegmentDoesNotIntersectGridBounds()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                Fixed64.One,
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration intersectedConfiguration = CreateHexConfiguration(
+                new Vector3d(0, 0, 0),
+                metrics,
+                new VoxelIndex(3, 0, 3));
+            GridConfiguration falseCandidateConfiguration = CreateHexConfiguration(
+                new Vector3d(0, 0, 8),
+                metrics,
+                new VoxelIndex(3, 0, 3));
+
+            Assert.True(_world.TryAddGrid(intersectedConfiguration, out ushort intersectedGridIndex));
+            Assert.True(_world.TryAddGrid(falseCandidateConfiguration, out ushort falseCandidateGridIndex));
+
+            WorldVoxelIndex[] tracedIndices = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+                _world,
+                new Vector3d(0, 0, 0),
+                new Vector3d(8, 0, 0),
+                includeEnd: true));
+
+            Assert.Contains(tracedIndices, index => index.GridIndex == intersectedGridIndex);
+            Assert.DoesNotContain(tracedIndices, index => index.GridIndex == falseCandidateGridIndex);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldIncludeHexBoundaryVoxelWhenEndFallsPastGridEdge()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(3, 0, 0));
+
+            Assert.True(_world.TryAddGrid(configuration, out _));
+
+            Vector3d start = configuration.BoundsMin;
+            Vector3d end = configuration.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(5, 0, 0), metrics);
+
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(_world, start, end, includeEnd: false)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Contains(new VoxelIndex(3, 0, 0), tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldIncludeConfiguredSparseHexBoundaryVoxelWhenEndFallsPastGridEdge()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            VoxelIndex originIndex = new(0, 0, 0);
+            VoxelIndex boundaryIndex = new(3, 0, 0);
+            GridConfiguration configuration = CreateSparseHexConfiguration(metrics, boundaryIndex);
+
+            Assert.True(_world.TryAddGrid(configuration, new[] { originIndex, boundaryIndex }, out _));
+
+            Vector3d start = configuration.BoundsMin;
+            Vector3d end = configuration.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(5, 0, 0), metrics);
+
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(_world, start, end, includeEnd: false)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Equal(new[] { originIndex, boundaryIndex }, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_ShouldExcludeHexEndVoxelWhenIncludeEndIsFalse()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            VoxelIndex endIndex = new(3, 0, 0);
+            GridConfiguration configuration = CreateHexConfiguration(metrics, endIndex);
+
+            Assert.True(_world.TryAddGrid(configuration, out _));
+
+            Vector3d start = configuration.BoundsMin;
+            Vector3d end = configuration.BoundsMin + HexCoordinateUtility.AxialToWorldOffset(endIndex, metrics);
+
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(_world, start, end, includeEnd: false)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.DoesNotContain(endIndex, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
     public void HexCoverageQueries_ShouldSkipCandidateGridWhenBoundsDoNotOverlap()
     {
         ResetWorld(spatialGridCellSize: 1024);
