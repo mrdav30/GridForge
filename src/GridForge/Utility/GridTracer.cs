@@ -137,6 +137,101 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Clears and fills caller-owned storage with voxels covered by the supplied bounding area.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The minimum corner of the bounding area.</param>
+    /// <param name="boundsMax">The maximum corner of the bounding area.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<Voxel> results,
+        Fixed64? padding = null)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddCoveredVoxelsTo(world, boundsMin, boundsMax, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with voxels covered by the supplied XZ-plane bounding area.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        SwiftList<Voxel> results,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        GetCoveredVoxelsInto(world, min, max, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The minimum corner of the bounding area.</param>
+    /// <param name="boundsMax">The maximum corner of the bounding area.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<Voxel> results,
+        GridTraceScratch scratch,
+        Fixed64? padding = null)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        AddCoveredVoxelsTo(world, boundsMin, boundsMax, results, scratch, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane bounding area.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        Vector2d boundsMin,
+        Vector2d boundsMax,
+        SwiftList<Voxel> results,
+        GridTraceScratch scratch,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
+        GetCoveredVoxelsInto(world, min, max, results, scratch, padding);
+    }
+
+    /// <summary>
     /// Retrieves all scan cells within the given bounding area across relevant grids in the supplied world.
     /// </summary>
     /// <param name="world">The world whose grids should be queried.</param>
@@ -298,6 +393,124 @@ public static class GridTracer
             scratch.ProcessedGrids,
             scratch.ScanCellRedundancy,
             padding);
+    }
+
+    /// <summary>
+    /// Appends covered voxels without allocating an iterator for hot-path callers.
+    /// </summary>
+    internal static void AddCoveredVoxelsTo(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<Voxel> voxels,
+        Fixed64? padding = null)
+    {
+        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
+        SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
+
+        try
+        {
+            AddCoveredVoxelsCore(
+                world,
+                boundsMin,
+                boundsMax,
+                voxels,
+                processedGrids,
+                voxelRedundancyCheck,
+                padding);
+        }
+        finally
+        {
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
+            SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
+        }
+    }
+
+    /// <summary>
+    /// Appends covered voxels using caller-owned scratch state for allocation-sensitive coverage scans.
+    /// </summary>
+    internal static void AddCoveredVoxelsTo(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<Voxel> voxels,
+        GridTraceScratch scratch,
+        Fixed64? padding = null)
+    {
+        scratch.Clear();
+        AddCoveredVoxelsCore(
+            world,
+            boundsMin,
+            boundsMax,
+            voxels,
+            scratch.ProcessedGrids,
+            scratch.VoxelRedundancy,
+            padding);
+    }
+
+    private static void AddCoveredVoxelsCore(
+        GridWorld world,
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<ushort> processedGrids,
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        Fixed64? padding = null)
+    {
+        (Vector3d queryMin, Vector3d queryMax) =
+            CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
+        (Vector3d candidateMin, Vector3d candidateMax) =
+            ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
+
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
+
+        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
+        {
+            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
+            {
+                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
+                    AddCoveredVoxelsForSpatialCell(
+                        world,
+                        cellX,
+                        cellY,
+                        cellZ,
+                        queryMin,
+                        queryMax,
+                        voxels,
+                        processedGrids,
+                        voxelRedundancyCheck);
+            }
+        }
+    }
+
+    private static void AddCoveredVoxelsForSpatialCell(
+        GridWorld world,
+        int cellX,
+        int cellY,
+        int cellZ,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<ushort> processedGrids,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
+        if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+            return;
+
+        foreach (ushort gridIndex in gridList)
+        {
+            if (!world.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
+                continue;
+
+            AddCoveredGridVoxels(
+                world.ActiveGrids[gridIndex],
+                queryMin,
+                queryMax,
+                voxels,
+                voxelRedundancyCheck);
+        }
     }
 
     private static void AddCoveredScanCellsCore(

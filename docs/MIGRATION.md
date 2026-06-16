@@ -437,6 +437,21 @@ These workflows are now topology-aware and storage-neutral:
   bounds coverage
 - mixed rectangular/hex worlds can be queried through the same world APIs
 
+For downstream broad-phase code that previously called
+`SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, or
+`CeilToVoxelSize(...)`, prefer the highest-level API that fits the job:
+
+- Use `GridTracer.GetCoveredVoxels(...)` or `GetCoveredVoxelsInto(...)` when
+  you need the actual covered physical voxels across a `GridWorld`.
+- Use `VoxelGrid.NormalizeBounds(...)` when you already own a specific grid and
+  need topology-aligned bounds for cache keys, diagnostics, or custom traversal.
+- Use `VoxelGrid.FloorToGrid(...)` and `CeilToGrid(...)` for individual
+  topology-aligned positions.
+
+Hot-path callers should prefer `GetCoveredVoxelsInto(...)` with a reusable
+`SwiftList<Voxel>` and `GridTraceScratch` to avoid enumerable and pooled
+grouped-list lifetime costs.
+
 If your v6 tests asserted exact trace or blocker coverage near grid
 intersections, boundaries, or sparse-style missing regions, re-run them. v7
 includes fixes for trace-line candidate filtering, clamped boundary voxel

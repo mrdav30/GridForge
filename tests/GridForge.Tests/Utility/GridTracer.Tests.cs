@@ -485,6 +485,116 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void GetCoveredVoxelsInto_ShouldValidateClearAndFillCallerOwnedResults()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel staleVoxel));
+        SwiftList<Voxel> results = new();
+        GridTraceScratch scratch = new();
+
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredVoxelsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            (SwiftList<Voxel>)null));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredVoxelsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            (SwiftList<Voxel>)null,
+            scratch));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.GetCoveredVoxelsInto(
+            _world,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            (GridTraceScratch)null));
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            new Vector3d(2, 0, 2),
+            new Vector3d(4, 0, 4)));
+
+        results.Add(staleVoxel);
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            new Vector3d(2, 0, 2),
+            new Vector3d(4, 0, 4),
+            results);
+
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
+
+        results.Add(staleVoxel);
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            new Vector3d(2, 0, 2),
+            new Vector3d(4, 0, 4),
+            results,
+            scratch);
+
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        results.Add(staleVoxel);
+
+        GridTracer.GetCoveredVoxelsInto(
+            null,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results);
+
+        Assert.Empty(results);
+
+        results.Add(staleVoxel);
+
+        GridTracer.GetCoveredVoxelsInto(
+            inactiveWorld,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            scratch);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void GetCoveredVoxelsInto2D_ShouldMatchEnumerableAndCallerOwnedVector3dPaths()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8)),
+            out _));
+        Vector2d boundsMin = new(1, 1);
+        Vector2d boundsMax = new(5, 5);
+        Fixed64 layerY = (Fixed64)2;
+        SwiftList<Voxel> results = new();
+        GridTraceScratch scratch = new();
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            GridPlane2d.ToWorld(boundsMin, layerY),
+            GridPlane2d.ToWorld(boundsMax, layerY)));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            boundsMin,
+            boundsMax,
+            layerY));
+
+        Assert.Equal(expected, actual);
+
+        GridTracer.GetCoveredVoxelsInto(_world, boundsMin, boundsMax, results, layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+
+        GridTracer.GetCoveredVoxelsInto(_world, boundsMin, boundsMax, results, scratch, layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+    }
+
+    [Fact]
     public void GridTracerPublicEntryPoints_ShouldReturnEmptyForNullOrInactiveWorld()
     {
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
@@ -1269,6 +1379,16 @@ public class GridTracerTests : IDisposable
             foreach (Voxel voxel in coveredSet.Voxels)
                 indices.Add(voxel.WorldIndex);
         }
+
+        return indices.ToArray();
+    }
+
+    private static WorldVoxelIndex[] CopyCoveredVoxelIndices(IEnumerable<Voxel> coveredVoxels)
+    {
+        List<WorldVoxelIndex> indices = new();
+
+        foreach (Voxel voxel in coveredVoxels)
+            indices.Add(voxel.WorldIndex);
 
         return indices.ToArray();
     }

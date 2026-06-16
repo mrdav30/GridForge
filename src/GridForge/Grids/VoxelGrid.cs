@@ -991,8 +991,15 @@ public class VoxelGrid
     public (int x, int y, int z) SnapToScanCell(Vector3d position) =>
         Topology.SnapToScanCell(BoundsMin, position, ScanCellSize);
 
+    /// <summary>
+    /// Normalizes world-space bounds to this grid's topology-aligned coverage bounds.
+    /// </summary>
+    /// <param name="min">The first world-space bounds corner.</param>
+    /// <param name="max">The second world-space bounds corner.</param>
+    /// <param name="padding">Optional non-negative padding applied before normalization.</param>
+    /// <returns>Topology-aligned minimum and maximum bounds suitable for deterministic coverage scans.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null) =>
+    public (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null) =>
         Topology.NormalizeBounds(min, max, padding);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

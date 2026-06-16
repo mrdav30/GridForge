@@ -14,6 +14,7 @@ Several higher-level systems depend on the same answer:
 - `TraceLine(GridWorld world, Vector2d start, Vector2d end, ..., layerY: ...)`
 - `GetCoveredVoxels(GridWorld world, Vector3d boundsMin, Vector3d boundsMax, ...)`
 - `GetCoveredVoxels(GridWorld world, Vector2d boundsMin, Vector2d boundsMax, layerY: ...)`
+- `GetCoveredVoxelsInto(...)` for caller-owned flat voxel result storage
 - `GetCoveredScanCells(GridWorld world, Vector3d boundsMin, Vector3d boundsMax, ...)`
 - `GetCoveredScanCells(GridWorld world, Vector2d boundsMin, Vector2d boundsMax, layerY: ...)`
 - `GetCoveredScanCellsInto(...)` for caller-owned scan-cell result storage
@@ -78,6 +79,13 @@ Coverage often crosses more than one grid. Returning grouped results preserves t
 - the `VoxelGrid` that owns the covered cells
 - the list of covered voxels for that grid
 
+Allocation-sensitive callers can use `GetCoveredVoxelsInto(...)` instead. It
+clears and fills a caller-owned `SwiftList<Voxel>` with the same covered voxels
+as the grouped enumerable path. Pass a reusable `GridTraceScratch` when the
+caller also wants to own the temporary processed-grid and duplicate-voxel sets.
+The flat result lets hot paths avoid enumerable and pooled grouped-list lifetime
+costs while still resolving the owning grid from `voxel.GridIndex` when needed.
+
 ## How Blockers Use Coverage
 
 `Blocker` and `BoundsBlocker` delegate region-to-voxel logic to the tracer.
@@ -111,5 +119,7 @@ This is one of the most important practical details:
 
 - `GridVoxelSet.Voxels` is backed by pooled storage
 - the tracer releases those pooled lists when the enumeration is disposed or completes
+- `GetCoveredVoxelsInto(...)` writes directly to caller-owned storage
+- `GridTraceScratch` can be reused across calls but should not be shared between concurrent queries
 
 Callers should treat grouped voxel lists as transient and consume them immediately inside the enumeration.

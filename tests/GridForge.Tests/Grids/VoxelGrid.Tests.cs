@@ -71,6 +71,29 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void NormalizeBounds_ShouldExposeTopologyNormalizedBounds()
+    {
+        GridConfiguration config = new(
+            new Vector3d(0, 0, 0),
+            new Vector3d(8, 9, 12),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)2, (Fixed64)3, (Fixed64)4));
+
+        Assert.True(_world.TryAddGrid(config, out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        Assert.NotNull(typeof(VoxelGrid).GetMethod(
+            nameof(VoxelGrid.NormalizeBounds),
+            BindingFlags.Instance | BindingFlags.Public));
+
+        (Vector3d min, Vector3d max) = grid.NormalizeBounds(
+            Vector3d.FromDouble(1.25, 2.25, 3.25),
+            Vector3d.FromDouble(3.25, 4.25, 6.25));
+
+        Assert.Equal(new Vector3d(0, 0, 0), min);
+        Assert.Equal(new Vector3d(4, 6, 8), max);
+    }
+
+    [Fact]
     public void DenseStorageBoundary_ShouldExposeStorageNeutralPhysicalVoxelEnumeration()
     {
         Assert.True(_world.TryAddGrid(
