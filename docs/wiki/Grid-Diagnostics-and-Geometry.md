@@ -152,10 +152,8 @@ GridForge state:
 - call `TryResolvePhysicalCell(...)` only when a descriptor needs live voxel
   state and expect it to fail for missing sparse address cells or stale tokens
 - convert `Vector3d` and `Fixed64` to engine types at the adapter boundary
-
-Future v6-to-v7 `MIGRATION.MD` note: old dense debugger loops over
-`Width * Height * Length` should move to `GridDiagnostics.VisitCells(...)` so
-sparse and hex grids use the same adapter path.
+- prefer diagnostic traversal over dense-only `Width * Height * Length` adapter
+  loops so sparse and hex grids use the same rendering or inspection path
 
 ## Read This Next
 

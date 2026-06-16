@@ -178,6 +178,9 @@ GridForge tracks world-local grid slots, grid spawn tokens, and `WorldVoxelIndex
 
 ## Documentation
 
+For breaking upgrades from v6 to v7, start with the
+[Migration Guide](docs/MIGRATION.md).
+
 Start with the wiki:
 
 - [Wiki Home](https://github.com/mrdav30/GridForge/wiki/Home)
