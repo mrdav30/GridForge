@@ -33,7 +33,7 @@ public class GridWorldTests
         Assert.True(world.TryAddGrid(rawConfiguration, out ushort gridIndex));
 
         VoxelGrid grid = world.ActiveGrids[gridIndex];
-        Assert.Equal(new Vector3d(-1, 0, -1), grid.BoundsMin);
+        Assert.Equal(Vector3d.FromDouble(-1.5, 0, -1.5), grid.BoundsMin);
         Assert.Equal(Vector3d.FromDouble(1.5, 0, 1.5), grid.BoundsMax);
         Assert.Equal(rawConfiguration.ScanCellSize, grid.Configuration.ScanCellSize);
         Assert.Equal(rawConfiguration.TopologyMetrics, grid.Configuration.TopologyMetrics);

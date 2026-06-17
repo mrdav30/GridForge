@@ -281,11 +281,11 @@ internal sealed class HexPrismTopology : IGridTopology
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Fixed64 FloorToLayerOrigin(Fixed64 coordinate) =>
-        (coordinate.Abs() / Metrics.LayerHeight).FloorToInt() * Metrics.LayerHeight * coordinate.Sign();
+        (coordinate / Metrics.LayerHeight).FloorToInt() * Metrics.LayerHeight;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Fixed64 CeilToLayerOrigin(Fixed64 coordinate) =>
-        (coordinate.Abs() / Metrics.LayerHeight).CeilToInt() * Metrics.LayerHeight * coordinate.Sign();
+        (coordinate / Metrics.LayerHeight).CeilToInt() * Metrics.LayerHeight;
 
     private static bool TryGetNeighborSlot(VoxelIndex neighborOffset, out int slot)
     {

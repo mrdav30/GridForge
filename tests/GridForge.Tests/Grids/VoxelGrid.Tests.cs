@@ -94,6 +94,47 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void NormalizeBounds_ShouldSnapNegativeFractionalBoundsAwayFromZero()
+    {
+        GridConfiguration config = new(
+            new Vector3d(-8, -8, -8),
+            new Vector3d(8, 8, 8),
+            topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One));
+
+        Assert.True(_world.TryAddGrid(config, out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        (Vector3d min, Vector3d max) = grid.NormalizeBounds(
+            Vector3d.FromDouble(-1.5, -1.5, -1.5),
+            Vector3d.FromDouble(-0.5, -0.5, -0.5));
+
+        Assert.Equal(new Vector3d(-2, -2, -2), min);
+        Assert.Equal(Vector3d.Zero, max);
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void NormalizeBounds_ShouldSnapNegativeHexLayerBoundsAwayFromZero(HexOrientation orientation)
+    {
+        GridConfiguration config = new(
+            new Vector3d(-8, -8, -8),
+            new Vector3d(8, 8, 8),
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, orientation));
+
+        Assert.True(_world.TryAddGrid(config, out ushort index));
+        VoxelGrid grid = _world.ActiveGrids[index];
+
+        (Vector3d min, Vector3d max) = grid.NormalizeBounds(
+            Vector3d.FromDouble(-0.5, -1.5, -0.5),
+            Vector3d.FromDouble(0.5, -0.5, 0.5));
+
+        Assert.Equal(new Fixed64(-2), min.Y);
+        Assert.Equal(Fixed64.Zero, max.Y);
+    }
+
+    [Fact]
     public void DenseStorageBoundary_ShouldExposeStorageNeutralPhysicalVoxelEnumeration()
     {
         Assert.True(_world.TryAddGrid(

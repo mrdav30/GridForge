@@ -276,8 +276,8 @@ public class BlockerTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Voxel voxel = grid.TryGetVoxel(position, out Voxel n) ? n : null;
 
-        Assert.False(voxel.IsBlocked); // Should still be blocked because of blocker2
-        Assert.False(voxel.ObstacleCount > 0);
+        Assert.True(voxel.IsBlocked); // Should still be blocked because of blocker2
+        Assert.True(voxel.ObstacleCount > 0);
 
         Vector3d position2 = Vector3d.FromDouble(-38.4, 0, -38.4);
         Voxel voxel2 = grid.TryGetVoxel(position2, out Voxel n2) ? n2 : null;

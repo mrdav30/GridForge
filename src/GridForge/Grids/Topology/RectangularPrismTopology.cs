@@ -199,11 +199,11 @@ internal sealed class RectangularPrismTopology : IGridTopology
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 FloorToCellOrigin(Fixed64 coordinate, Fixed64 cellSize) =>
-        (coordinate.Abs() / cellSize).FloorToInt() * cellSize * coordinate.Sign();
+        (coordinate / cellSize).FloorToInt() * cellSize;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Fixed64 CeilToCellOrigin(Fixed64 coordinate, Fixed64 cellSize) =>
-        (coordinate.Abs() / cellSize).CeilToInt() * cellSize * coordinate.Sign();
+        (coordinate / cellSize).CeilToInt() * cellSize;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetClosestAxisIndex(Fixed64 offset, Fixed64 cellSize, int size) =>

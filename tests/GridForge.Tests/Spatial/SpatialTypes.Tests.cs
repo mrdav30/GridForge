@@ -257,7 +257,7 @@ public class SpatialTypesTests
 
         Assert.Equal(Vector3d.Zero, unpaddedMin);
         Assert.Equal(Vector3d.One, unpaddedMax);
-        Assert.Equal(Vector3d.Zero, paddedMin);
+        Assert.Equal(new Vector3d(-1, -1, -1), paddedMin);
         Assert.Equal(new Vector3d(2, 2, 2), paddedMax);
         Assert.Equal(3, xStart);
         Assert.Equal(3, xEnd);

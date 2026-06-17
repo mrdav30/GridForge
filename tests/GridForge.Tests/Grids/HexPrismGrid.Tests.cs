@@ -435,7 +435,7 @@ public class HexPrismGridTests
             new Vector3d(0, 0, 0),
             new Vector3d(-1, 0, -1));
 
-        Assert.Equal(Vector3d.FromDouble(-0.5, 0, -0.5), paddedMin);
+        Assert.Equal(Vector3d.FromDouble(-0.5, -1, -0.5), paddedMin);
         Assert.True(paddedMax.X > oneOneOffset.X);
         Assert.Equal(1, clampedDimensions.Width);
         Assert.Equal(1, clampedDimensions.Height);
