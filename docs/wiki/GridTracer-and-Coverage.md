@@ -86,6 +86,20 @@ caller also wants to own the temporary processed-grid and duplicate-voxel sets.
 The flat result lets hot paths avoid enumerable and pooled grouped-list lifetime
 costs while still resolving the owning grid from `voxel.GridIndex` when needed.
 
+## Traversal Padding And Duplicate Suppression
+
+Consumers that build their own GridForge-backed broad phases can use
+`GridTraversal` and `GridTraversalState` for duplicate-safe voxel traversal.
+`GridTraversal.TryGetUniquePartition(...)` suppresses repeated voxel visits by
+voxel spawn token before resolving a typed partition.
+
+`GridTraversalState` caches the selected topology edge per grid while walking
+voxels. Use `GridTraversalPaddingMode.MaxCellEdge` for full 3D padding and
+`GridTraversalPaddingMode.PlanarMaxCellEdge` for X/Z-plane systems that should
+not inherit vertical layer height. `GridTopologyMetricUtility` exposes the same
+3D, planar, and representative cell-edge measurements for callers that only
+need the metrics.
+
 ## How Blockers Use Coverage
 
 `Blocker` and `BoundsBlocker` delegate region-to-voxel logic to the tracer.
