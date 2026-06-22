@@ -172,7 +172,7 @@ internal static class VoxelNeighborResolver
     {
         CollectCandidateGridIds(world, queryBounds, candidateGridIds, processedGridIds);
         if (candidateGridIds.Count > 1)
-            candidateGridIds.Sort();
+            candidateGridIds.SortInPlace();
     }
 
     private static bool TryGetCandidateGrid(

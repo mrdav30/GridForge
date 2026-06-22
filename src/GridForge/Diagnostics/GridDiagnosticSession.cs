@@ -61,7 +61,7 @@ public sealed class GridDiagnosticSession : IDisposable
         }
 
         if (results.Count > 1)
-            results.Sort();
+            results.SortInPlace();
 
         return results.Count;
     }

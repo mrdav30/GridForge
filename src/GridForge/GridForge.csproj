@@ -94,14 +94,14 @@
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
 		<PackageReference Include="FixedMathSharp" Version="5.0.2" />
-		<PackageReference Include="SwiftCollections" Version="5.0.2" />
+		<PackageReference Include="SwiftCollections" Version="5.1.0" />
 		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="5.0.2" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<PackageReference Include="FixedMathSharp.Lean" Version="5.0.2" />
-		<PackageReference Include="SwiftCollections.Lean" Version="5.0.2" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="5.0.2" />
+		<PackageReference Include="SwiftCollections.Lean" Version="5.1.0" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="5.1.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
