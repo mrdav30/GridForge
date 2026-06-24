@@ -95,6 +95,101 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void TraceLineInto_ShouldValidateClearAndMatchEnumerablePath()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel staleVoxel));
+        Vector3d start = new(1, 0, 1);
+        Vector3d end = new(7, 2, 5);
+        SwiftList<Voxel> results = new();
+        GridTraceScratch scratch = new();
+
+        Assert.Throws<ArgumentNullException>(() => GridTracer.TraceLineInto(
+            _world,
+            start,
+            end,
+            (SwiftList<Voxel>)null));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.TraceLineInto(
+            _world,
+            start,
+            end,
+            (SwiftList<Voxel>)null,
+            scratch));
+        Assert.Throws<ArgumentNullException>(() => GridTracer.TraceLineInto(
+            _world,
+            start,
+            end,
+            results,
+            (GridTraceScratch)null));
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            start,
+            end,
+            includeEnd: true));
+
+        results.Add(staleVoxel);
+        GridTracer.TraceLineInto(_world, start, end, results, includeEnd: true);
+
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
+
+        results.Add(staleVoxel);
+        GridTracer.TraceLineInto(_world, start, end, results, scratch, includeEnd: true);
+
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
+
+        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        results.Add(staleVoxel);
+
+        GridTracer.TraceLineInto(null, start, end, results);
+
+        Assert.Empty(results);
+
+        results.Add(staleVoxel);
+
+        GridTracer.TraceLineInto(inactiveWorld, start, end, results, scratch);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void TraceLineInto2D_ShouldMatchEnumerableAndCallerOwnedVector3dPaths()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8)),
+            out _));
+        Vector2d start = new(1, 1);
+        Vector2d end = new(7, 5);
+        Fixed64 layerY = (Fixed64)2;
+        SwiftList<Voxel> results = new();
+        GridTraceScratch scratch = new();
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            GridPlane2d.ToWorld(start, layerY),
+            GridPlane2d.ToWorld(end, layerY)));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.TraceLine(
+            _world,
+            start,
+            end,
+            layerY: layerY));
+
+        Assert.Equal(expected, actual);
+
+        GridTracer.TraceLineInto(_world, start, end, results, layerY: layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+
+        GridTracer.TraceLineInto(_world, start, end, results, scratch, layerY: layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+    }
+
+    [Fact]
     public void GetCoveredVoxels_ShouldReturnConfiguredSparseVoxelsOnly()
     {
         GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(4, 0, 4));

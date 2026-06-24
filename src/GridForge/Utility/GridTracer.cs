@@ -74,6 +74,93 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Clears and fills caller-owned storage with voxels traced by a 3D line.
+    /// </summary>
+    /// <param name="world">The world whose grids should be traced.</param>
+    /// <param name="start">Starting position in world space.</param>
+    /// <param name="end">Ending position in world space.</param>
+    /// <param name="results">Caller-owned storage that receives traced voxels.</param>
+    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    public static void TraceLineInto(
+        GridWorld world,
+        Vector3d start,
+        Vector3d end,
+        SwiftList<Voxel> results,
+        Fixed64? padding = null,
+        bool includeEnd = true)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
+        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
+
+        try
+        {
+            AddTraceLineVoxelsTo(
+                world,
+                start,
+                end,
+                padding,
+                includeEnd,
+                results,
+                voxelRedundancyCheck,
+                processedGrids);
+
+            AddTraceLineEndVoxel(world, end, includeEnd, results, voxelRedundancyCheck);
+        }
+        finally
+        {
+            SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
+            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
+        }
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with voxels traced by a 3D line using caller-owned scratch collections.
+    /// </summary>
+    /// <param name="world">The world whose grids should be traced.</param>
+    /// <param name="start">Starting position in world space.</param>
+    /// <param name="end">Ending position in world space.</param>
+    /// <param name="results">Caller-owned storage that receives traced voxels.</param>
+    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    public static void TraceLineInto(
+        GridWorld world,
+        Vector3d start,
+        Vector3d end,
+        SwiftList<Voxel> results,
+        GridTraceScratch scratch,
+        Fixed64? padding = null,
+        bool includeEnd = true)
+    {
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+
+        results.Clear();
+        if (world == null || !world.IsActive)
+            return;
+
+        scratch.Clear();
+        AddTraceLineVoxelsTo(
+            world,
+            start,
+            end,
+            padding,
+            includeEnd,
+            results,
+            scratch.VoxelRedundancy,
+            scratch.ProcessedGrids);
+
+        AddTraceLineEndVoxel(world, end, includeEnd, results, scratch.VoxelRedundancy);
+    }
+
+    /// <summary>
     /// Traces a 2D XZ-plane line between two points in the supplied world, snapping them to grid coordinates.
     /// </summary>
     /// <remarks>
@@ -99,6 +186,58 @@ public static class GridTracer
         Vector3d end3D = GridPlane2d.ToWorld(end, layerY);
 
         return TraceLine(world, start3D, end3D, padding, includeEnd);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with voxels traced by a 2D XZ-plane line.
+    /// </summary>
+    /// <param name="world">The world whose grids should be traced.</param>
+    /// <param name="start">Starting XZ-plane position in world space.</param>
+    /// <param name="end">Ending XZ-plane position in world space.</param>
+    /// <param name="results">Caller-owned storage that receives traced voxels.</param>
+    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
+    public static void TraceLineInto(
+        GridWorld world,
+        Vector2d start,
+        Vector2d end,
+        SwiftList<Voxel> results,
+        Fixed64? padding = null,
+        bool includeEnd = true,
+        Fixed64 layerY = default)
+    {
+        Vector3d start3D = GridPlane2d.ToWorld(start, layerY);
+        Vector3d end3D = GridPlane2d.ToWorld(end, layerY);
+
+        TraceLineInto(world, start3D, end3D, results, padding, includeEnd);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with voxels traced by a 2D XZ-plane line using caller-owned scratch collections.
+    /// </summary>
+    /// <param name="world">The world whose grids should be traced.</param>
+    /// <param name="start">Starting XZ-plane position in world space.</param>
+    /// <param name="end">Ending XZ-plane position in world space.</param>
+    /// <param name="results">Caller-owned storage that receives traced voxels.</param>
+    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
+    public static void TraceLineInto(
+        GridWorld world,
+        Vector2d start,
+        Vector2d end,
+        SwiftList<Voxel> results,
+        GridTraceScratch scratch,
+        Fixed64? padding = null,
+        bool includeEnd = true,
+        Fixed64 layerY = default)
+    {
+        Vector3d start3D = GridPlane2d.ToWorld(start, layerY);
+        Vector3d end3D = GridPlane2d.ToWorld(end, layerY);
+
+        TraceLineInto(world, start3D, end3D, results, scratch, padding, includeEnd);
     }
 
     /// <summary>
@@ -703,6 +842,48 @@ public static class GridTracer
         }
     }
 
+    private static void AddTraceLineVoxelsTo(
+        GridWorld world,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
+        bool includeEnd,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
+    {
+        (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding);
+        (Vector3d candidateMin, Vector3d candidateMax) =
+            ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
+
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
+
+        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
+        {
+            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
+            {
+                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
+                {
+                    int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
+                    if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
+                        continue;
+
+                    AddTraceLineVoxelsForCell(
+                        world,
+                        gridList,
+                        start,
+                        end,
+                        padding,
+                        includeEnd,
+                        voxels,
+                        voxelRedundancyCheck,
+                        processedGrids);
+                }
+            }
+        }
+    }
+
     private static TraceLinePlan CreateTraceLinePlan(
         VoxelGrid grid,
         Vector3d start,
@@ -862,6 +1043,46 @@ public static class GridTracer
                 gridVoxelMapping.Add(currentGrid, voxelList);
             else
                 SwiftListPool<Voxel>.Shared.Release(voxelList);
+        }
+    }
+
+    private static void AddTraceLineVoxelsForCell(
+        GridWorld world,
+        SwiftHashSet<ushort> gridList,
+        Vector3d start,
+        Vector3d end,
+        Fixed64? padding,
+        bool includeEnd,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<Voxel> voxelRedundancyCheck,
+        SwiftHashSet<ushort> processedGrids)
+    {
+        foreach (ushort gridIndex in gridList)
+        {
+            if (!world.ActiveGrids.IsAllocated(gridIndex) || !processedGrids.Add(gridIndex))
+                continue;
+
+            VoxelGrid currentGrid = world.ActiveGrids[gridIndex];
+            if (!TryClipTraceSegmentToGrid(
+                currentGrid,
+                start,
+                end,
+                padding,
+                out Vector3d traceStart,
+                out Vector3d traceEnd,
+                out bool segmentEndsBeforeGlobalEnd))
+            {
+                continue;
+            }
+
+            AddTraceLineGridVoxels(
+                currentGrid,
+                traceStart,
+                traceEnd,
+                padding,
+                includeEnd || segmentEndsBeforeGlobalEnd,
+                voxels,
+                voxelRedundancyCheck);
         }
     }
 
@@ -1144,6 +1365,21 @@ public static class GridTracer
         }
 
         endVoxelList.Add(endVoxel!);
+    }
+
+    private static void AddTraceLineEndVoxel(
+        GridWorld world,
+        Vector3d end,
+        bool includeEnd,
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<Voxel> voxelRedundancyCheck)
+    {
+        if (includeEnd
+            && world.TryGetGridAndVoxel(end, out _, out Voxel? endVoxel)
+            && voxelRedundancyCheck.Add(endVoxel!))
+        {
+            voxels.Add(endVoxel!);
+        }
     }
 
     private static void ReleaseGridVoxelMapping(SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping)
