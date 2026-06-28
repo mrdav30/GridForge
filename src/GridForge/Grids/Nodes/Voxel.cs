@@ -231,8 +231,10 @@ public class Voxel : IEquatable<Voxel>
         {
             lock (_partitionLock)
             {
-                foreach (IVoxelPartition partition in _partitionProvider.Partitions)
+                PartitionProvider<IVoxelPartition>.Enumerator partitions = _partitionProvider.GetEnumerator();
+                while (partitions.MoveNext())
                 {
+                    IVoxelPartition partition = partitions.Current;
                     try
                     {
                         partition.OnRemoveFromVoxel(this);
@@ -395,7 +397,6 @@ public class Voxel : IEquatable<Voxel>
             return false;
 
         Type partitionType = partition.GetType();
-        string partitionName = partitionType.Name;
 
         lock (_partitionLock)
         {
@@ -414,6 +415,7 @@ public class Voxel : IEquatable<Voxel>
             lock (_partitionLock)
                 _partitionProvider.TryRemove(partitionType, out _);
 
+            string partitionName = partitionType.Name;
             GridForgeLogger.Channel.Error($"Error attempting to attach partition {partitionName}: {ex.Message}");
             return false;
         }
@@ -425,7 +427,6 @@ public class Voxel : IEquatable<Voxel>
     public bool TryRemovePartition<T>() where T : IVoxelPartition
     {
         Type partitionType = typeof(T);
-        string partitionName = partitionType.Name;
 
         IVoxelPartition? partition = null;
         lock (_partitionLock)
@@ -433,6 +434,7 @@ public class Voxel : IEquatable<Voxel>
 
         if (partition == null)
         {
+            string partitionName = partitionType.Name;
             GridForgeLogger.Channel.Warn($"Partition {partitionName} not found on this voxel.");
             return false;
         }
@@ -443,6 +445,7 @@ public class Voxel : IEquatable<Voxel>
         }
         catch (Exception ex)
         {
+            string partitionName = partitionType.Name;
             GridForgeLogger.Channel.Error($"Attempting to call {nameof(partition.OnRemoveFromVoxel)} on {partitionName}: {ex.Message}");
         }
 

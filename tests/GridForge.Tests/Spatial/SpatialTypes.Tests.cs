@@ -419,6 +419,26 @@ public class SpatialTypesTests
     }
 
     [Fact]
+    public void PartitionProvider_FirstSinglePartitionAdd_ShouldNotAllocate()
+    {
+        PartitionProvider<object> provider = new();
+        Type entryType = typeof(ProviderEntryA);
+        ProviderEntryA entry = new();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        Assert.True(provider.TryAdd(entryType, entry));
+        Assert.True(provider.TryRemove(entryType, out object removed));
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Same(entry, removed);
+        Assert.True(allocated < 64, $"Expected first single partition add/remove to avoid backing storage allocation but allocated {allocated} bytes.");
+    }
+
+    [Fact]
     public void EventInfoStructs_ShouldExposeStoredIndicesAndBounds()
     {
         GridConfiguration configuration = new(

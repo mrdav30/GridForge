@@ -160,6 +160,29 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void PartitionAddRemoveSuccessPath_ShouldNotAllocateForSinglePartition()
+    {
+        var config = new GridConfiguration(new Vector3d(-10, 0, -10), new Vector3d(10, 0, 10));
+        _world.TryAddGrid(config, out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel);
+        TestPartition partition = new();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool added = voxel.TryAddPartition(partition);
+        bool removed = voxel.TryRemovePartition<TestPartition>();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(added);
+        Assert.True(removed);
+        Assert.True(allocated < 64, $"Expected single partition add/remove success path to avoid allocation but allocated {allocated} bytes.");
+    }
+
+    [Fact]
     public void SparseGrid_ShouldAllowPartitionsOnlyOnConfiguredVoxels()
     {
         GridConfiguration config = CreateSparseConfig(new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));

@@ -8,7 +8,6 @@
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial;
@@ -19,25 +18,46 @@ namespace GridForge.Spatial;
 public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : class
 {
     /// <summary>
-    /// Backing dictionary that stores partition instances keyed by their exact concrete type.
+    /// The single inline partition used by the common one-partition-per-voxel path.
+    /// </summary>
+    private Type? _singlePartitionType;
+
+    /// <summary>
+    /// The single inline partition used by the common one-partition-per-voxel path.
+    /// </summary>
+    private TPartitionBase? _singlePartition;
+
+    /// <summary>
+    /// Backing dictionary used only when a voxel hosts multiple concrete partition types.
     /// </summary>
     private SwiftDictionary<Type, TPartitionBase>? _partitions;
 
     /// <summary>
     /// Returns an enumerable of all partitions currently stored in the provider.
     /// </summary>
-    internal IEnumerable<TPartitionBase> Partitions => _partitions?.Values ?? Enumerable.Empty<TPartitionBase>();
+    internal IEnumerable<TPartitionBase> Partitions
+    {
+        get
+        {
+            if (_singlePartition != null)
+                return new SinglePartitionEnumerable(_singlePartition);
+
+            return _partitions != null && _partitions.Count > 0
+                ? _partitions.Values
+                : Array.Empty<TPartitionBase>();
+        }
+    }
 
     /// <summary>
     /// Indicates whether the provider currently contains any partitions.
     /// Returns true if empty; otherwise, false.
     /// </summary>
-    public bool IsEmpty => _partitions == null || _partitions.Count == 0;
+    public bool IsEmpty => _singlePartition == null && (_partitions == null || _partitions.Count == 0);
 
     /// <summary>
     /// Gets the current number of partitions stored in the provider.
     /// </summary>
-    public int Count => _partitions?.Count ?? 0;
+    public int Count => _singlePartition != null ? 1 : _partitions?.Count ?? 0;
 
     /// <summary>
     /// Attempts to add a partition to the provider with the specified type key.
@@ -49,8 +69,27 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
         if (partitionType == null || partition == null)
             return false;
 
-        _partitions ??= new SwiftDictionary<Type, TPartitionBase>();
-        return _partitions.Add(partitionType, partition);
+        if (_partitions != null)
+            return _partitions.Add(partitionType, partition);
+
+        if (_singlePartition != null)
+        {
+            if (_singlePartitionType == partitionType)
+                return false;
+
+            _partitions = new SwiftDictionary<Type, TPartitionBase>(2)
+            {
+                { _singlePartitionType!, _singlePartition }
+            };
+            bool added = _partitions.Add(partitionType, partition);
+            _singlePartitionType = null;
+            _singlePartition = null;
+            return added;
+        }
+
+        _singlePartitionType = partitionType;
+        _singlePartition = partition;
+        return true;
     }
 
     /// <summary>
@@ -63,7 +102,21 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     {
         partition = null;
 
-        if (partitionType == null || _partitions == null)
+        if (partitionType == null)
+            return false;
+
+        if (_singlePartition != null)
+        {
+            if (_singlePartitionType != partitionType)
+                return false;
+
+            partition = _singlePartition;
+            _singlePartitionType = null;
+            _singlePartition = null;
+            return true;
+        }
+
+        if (_partitions == null)
             return false;
 
         if (!_partitions.TryGetValue(partitionType, out partition))
@@ -82,7 +135,19 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     {
         partition = null;
 
-        if (partitionType == null || _partitions == null)
+        if (partitionType == null)
+            return false;
+
+        if (_singlePartition != null)
+        {
+            if (_singlePartitionType != partitionType)
+                return false;
+
+            partition = _singlePartition;
+            return true;
+        }
+
+        if (_partitions == null)
             return false;
 
         return _partitions.TryGetValue(partitionType, out partition);
@@ -129,7 +194,71 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {
+        _singlePartitionType = null;
+        _singlePartition = null;
         _partitions?.Clear();
-        _partitions = null;
+    }
+
+    /// <summary>
+    /// Returns an allocation-free enumerator for the provider's current partitions.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Enumerator GetEnumerator() => new(this);
+
+    internal struct Enumerator
+    {
+        private readonly TPartitionBase? _singlePartition;
+        private readonly bool _hasDictionary;
+        private SwiftDictionary<Type, TPartitionBase>.SwiftDictionaryEnumerator _dictionaryEnumerator;
+        private int _singleState;
+
+        internal Enumerator(PartitionProvider<TPartitionBase> provider)
+        {
+            _singlePartition = provider._singlePartition;
+            _dictionaryEnumerator = provider._partitions != null
+                ? provider._partitions.GetEnumerator()
+                : default;
+            _hasDictionary = provider._partitions != null;
+            _singleState = _singlePartition != null ? 0 : 1;
+            Current = default!;
+        }
+
+        public TPartitionBase Current { get; private set; }
+
+        public bool MoveNext()
+        {
+            if (_singleState == 0)
+            {
+                Current = _singlePartition!;
+                _singleState = 1;
+                return true;
+            }
+
+            if (!_hasDictionary)
+                return false;
+
+            if (!_dictionaryEnumerator.MoveNext())
+                return false;
+
+            Current = _dictionaryEnumerator.Current.Value;
+            return true;
+        }
+    }
+
+    private sealed class SinglePartitionEnumerable : IEnumerable<TPartitionBase>
+    {
+        private readonly TPartitionBase _partition;
+
+        public SinglePartitionEnumerable(TPartitionBase partition)
+        {
+            _partition = partition;
+        }
+
+        public IEnumerator<TPartitionBase> GetEnumerator()
+        {
+            yield return _partition;
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }
