@@ -154,7 +154,8 @@ Blockers are higher-level world-space objects that apply obstacle state to many 
 Important blocker concepts:
 
 - `Blocker` is the abstract base behavior
-- `BoundsBlocker` is the concrete bounds-driven implementation in this repo
+- `BoundsBlocker` blocks world-space `FixedBoundBox` regions
+- `AreaBlocker` blocks X/Z-plane `FixedBoundArea` regions on one world Y layer
 - blockers are bound to a `GridWorld`
 - blockers use traced coverage to find the voxels they affect
 

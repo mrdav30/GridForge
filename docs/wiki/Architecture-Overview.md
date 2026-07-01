@@ -159,7 +159,7 @@ That split is one of the library's most important performance decisions.
 | --- | --- | --- |
 | Obstacles | `GridObstacleManager` | Voxel obstacle tokens/counts, grid obstacle count, grid version, events |
 | Occupants | `GridOccupantManager` | Voxel occupant counts, scan-cell buckets, active scan cells, events |
-| Region blockers | `Blocker` / `BoundsBlocker` | Traced coverage across one or more grids, obstacle application/removal |
+| Region blockers | `Blocker` / `BoundsBlocker` / `AreaBlocker` | Traced coverage across one or more grids, obstacle application/removal |
 | Partitions | `Voxel.TryAddPartition(...)` | Typed metadata or behavior attached directly to a voxel |
 
 ## Event And Version Model

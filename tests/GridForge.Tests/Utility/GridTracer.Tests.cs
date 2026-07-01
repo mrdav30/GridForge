@@ -580,6 +580,42 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
+    public void GetCoveredScanCellsArea_ShouldMatchVector2dAndCallerOwnedPaths()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8), scanCellSize: 2),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetScanCell(new Vector3d(0, 0, 0), out ScanCell staleCell));
+        FixedBoundArea area = FixedBoundArea.FromMinMax(new Vector2d(1, 1), new Vector2d(5, 5));
+        Fixed64 layerY = (Fixed64)2;
+        SwiftList<ScanCell> results = new();
+        GridScanScratch scratch = new();
+
+        (ushort GridIndex, int CellKey)[] expected = CopyCoveredScanCells(GridTracer.GetCoveredScanCells(
+            _world,
+            area.Min,
+            area.Max,
+            layerY));
+        (ushort GridIndex, int CellKey)[] actual = CopyCoveredScanCells(GridTracer.GetCoveredScanCells(
+            _world,
+            area,
+            layerY));
+
+        Assert.Equal(expected, actual);
+
+        results.Add(staleCell);
+        GridTracer.GetCoveredScanCellsInto(_world, area, results, layerY);
+        Assert.Equal(expected, CopyCoveredScanCells(results));
+        Assert.DoesNotContain(staleCell, results);
+
+        results.Add(staleCell);
+        GridTracer.GetCoveredScanCellsInto(_world, area, results, scratch, layerY);
+        Assert.Equal(expected, CopyCoveredScanCells(results));
+        Assert.DoesNotContain(staleCell, results);
+    }
+
+    [Fact]
     public void GetCoveredVoxelsInto_ShouldValidateClearAndFillCallerOwnedResults()
     {
         Assert.True(_world.TryAddGrid(
@@ -687,6 +723,42 @@ public class GridTracerTests : IDisposable
 
         GridTracer.GetCoveredVoxelsInto(_world, boundsMin, boundsMax, results, scratch, layerY);
         Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+    }
+
+    [Fact]
+    public void GetCoveredVoxelsArea_ShouldMatchVector2dAndCallerOwnedPaths()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(8, 2, 8)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel staleVoxel));
+        FixedBoundArea area = FixedBoundArea.FromMinMax(new Vector2d(1, 1), new Vector2d(5, 5));
+        Fixed64 layerY = (Fixed64)2;
+        SwiftList<Voxel> results = new();
+        GridTraceScratch scratch = new();
+
+        WorldVoxelIndex[] expected = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            area.Min,
+            area.Max,
+            layerY));
+        WorldVoxelIndex[] actual = CopyCoveredVoxelIndices(GridTracer.GetCoveredVoxels(
+            _world,
+            area,
+            layerY));
+
+        Assert.Equal(expected, actual);
+
+        results.Add(staleVoxel);
+        GridTracer.GetCoveredVoxelsInto(_world, area, results, layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
+
+        results.Add(staleVoxel);
+        GridTracer.GetCoveredVoxelsInto(_world, area, results, scratch, layerY);
+        Assert.Equal(expected, CopyCoveredVoxelIndices(results));
+        Assert.DoesNotContain(staleVoxel, results);
     }
 
     [Fact]

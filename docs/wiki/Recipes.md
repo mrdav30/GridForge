@@ -42,7 +42,7 @@ using FixedMathSharp;
 using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 
-FixedBoundArea footprint = new FixedBoundArea(
+FixedBoundBox footprint = FixedBoundBox.FromMinMax(
     new Vector3d(40, 0, 40),
     new Vector3d(48, 0, 48));
 
@@ -55,10 +55,11 @@ structureBlocker.ApplyBlockage();
 structureBlocker.RemoveBlockage();
 ```
 
-For an XZ-plane footprint, use `Vector2d` bounds and `layerY`:
+For an XZ-plane footprint, use `AreaBlocker` with `Vector2d` bounds and
+`layerY`:
 
 ```csharp
-BoundsBlocker flatStructureBlocker = new BoundsBlocker(
+AreaBlocker flatStructureBlocker = new AreaBlocker(
     world,
     new Vector2d(40, 40),
     new Vector2d(48, 48),

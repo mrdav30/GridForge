@@ -169,7 +169,7 @@ Sparse behavior is storage-neutral from the caller's point of view:
 | --- | --- |
 | `GridTracer.GetCoveredVoxels(...)` | Returns covered configured voxels only |
 | `GridTracer.GetCoveredScanCells(...)` | Returns scan cells that exist for configured sparse blocks |
-| `BoundsBlocker.ApplyBlockage()` | Applies obstacle state only to covered configured voxels |
+| `BoundsBlocker.ApplyBlockage()` / `AreaBlocker.ApplyBlockage()` | Applies obstacle state only to covered configured voxels |
 | Occupant registration | Requires the target configured voxel to exist and have vacancy |
 | Partitions | Attach to configured voxels only |
 | Neighbor lookup | Missing sparse neighbors are absent |

@@ -245,20 +245,21 @@ using FixedMathSharp;
 using FixedMathSharp.Bounds;
 using GridForge.Blockers;
 
-FixedBoundArea blockedArea = new FixedBoundArea(
+FixedBoundBox blockedBounds = FixedBoundBox.FromMinMax(
     new Vector3d(1, 0, 1),
     new Vector3d(3, 0, 3));
 
-BoundsBlocker blocker = new BoundsBlocker(world, blockedArea);
+BoundsBlocker blocker = new BoundsBlocker(world, blockedBounds);
 
 blocker.ApplyBlockage();
 blocker.RemoveBlockage();
 ```
 
-For flat XZ blockers, pass `Vector2d` bounds and optional `layerY`:
+For flat XZ blockers, use `AreaBlocker` with `Vector2d` bounds and optional
+`layerY`:
 
 ```csharp
-BoundsBlocker flatBlocker = new BoundsBlocker(
+AreaBlocker flatBlocker = new AreaBlocker(
     world,
     new Vector2d(1, 1),
     new Vector2d(3, 3),

@@ -165,8 +165,8 @@ The runtime is built around explicit world ownership:
   add/remove flows, ticket lookup, and occupant events.
 - `GridScanManager` performs radius and typed scans through the scan-cell
   overlay.
-- `Blocker` and `BoundsBlocker` translate world-space bounds into obstacle
-  application and removal.
+- `Blocker`, `BoundsBlocker`, and `AreaBlocker` translate world-space boxes or
+  layer-locked X/Z areas into obstacle application and removal.
 - `PartitionProvider`, `IVoxelPartition`, and `IVoxelOccupant` are the primary
   extension points for domain-specific behavior.
 

@@ -1,3 +1,45 @@
+# Migrating From GridForge v7 To v8
+
+This block is for projects moving from the v7 release line to the v8 release
+line after the FixedMathSharp v6 bounds and 2D geometry hardening work.
+
+The important blocker and coverage distinction is now explicit:
+
+- Use `FixedBoundBox` and `BoundsBlocker` for world-space 3D box regions.
+- Use `FixedBoundArea` and `AreaBlocker` for X/Z-plane footprints locked to a
+  single world Y layer.
+- Use the new `GridTracer` `FixedBoundArea` overloads when tracing covered
+  voxels or scan cells from a true 2D area.
+
+Example:
+
+```csharp
+using FixedMathSharp;
+using FixedMathSharp.Bounds;
+using GridForge.Blockers;
+
+Fixed64 layerY = Fixed64.Zero;
+
+BoundsBlocker volumeBlocker = new BoundsBlocker(
+    world,
+    FixedBoundBox.FromMinMax(
+        new Vector3d(0, 0, 0),
+        new Vector3d(5, 2, 5)));
+
+AreaBlocker footprintBlocker = new AreaBlocker(
+    world,
+    FixedBoundArea.FromMinMax(
+        new Vector2d(0, 0),
+        new Vector2d(5, 5)),
+    layerY: layerY);
+```
+
+`FixedBoundArea` is no longer a 3D XZ-area convenience type. It represents a
+true 2D axis-aligned area from FixedMathSharp. If you need world-space Y
+extent, use `FixedBoundBox`.
+
+---
+
 # Migrating From GridForge v6 To v7
 
 This guide is for projects moving from `v6.0.6` to the v7 release line.

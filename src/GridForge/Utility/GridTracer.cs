@@ -6,6 +6,7 @@
 //=======================================================================
 
 using FixedMathSharp;
+using FixedMathSharp.Bounds;
 using GridForge.Grids;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
@@ -276,6 +277,23 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Retrieves all grid voxels covered by the given XZ-plane area on the supplied world Y layer.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the covered voxels.</returns>
+    public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
+        GridWorld world,
+        FixedBoundArea area,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        return GetCoveredVoxels(world, area.Min, area.Max, layerY, padding);
+    }
+
+    /// <summary>
     /// Clears and fills caller-owned storage with voxels covered by the supplied bounding area.
     /// </summary>
     /// <param name="world">The world whose grids should be queried.</param>
@@ -318,6 +336,24 @@ public static class GridTracer
     {
         (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
         GetCoveredVoxelsInto(world, min, max, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with voxels covered by the supplied XZ-plane area.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        FixedBoundArea area,
+        SwiftList<Voxel> results,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        GetCoveredVoxelsInto(world, area.Min, area.Max, results, layerY, padding);
     }
 
     /// <summary>
@@ -371,6 +407,26 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane area.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="results">Caller-owned storage that receives covered voxels.</param>
+    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    public static void GetCoveredVoxelsInto(
+        GridWorld world,
+        FixedBoundArea area,
+        SwiftList<Voxel> results,
+        GridTraceScratch scratch,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        GetCoveredVoxelsInto(world, area.Min, area.Max, results, scratch, layerY, padding);
+    }
+
+    /// <summary>
     /// Retrieves all scan cells within the given bounding area across relevant grids in the supplied world.
     /// </summary>
     /// <param name="world">The world whose grids should be queried.</param>
@@ -411,6 +467,23 @@ public static class GridTracer
     }
 
     /// <summary>
+    /// Retrieves all scan cells within the given XZ-plane area on the supplied world Y layer.
+    /// </summary>
+    /// <param name="world">The world whose grids should be queried.</param>
+    /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
+    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
+    public static IEnumerable<ScanCell> GetCoveredScanCells(
+        GridWorld world,
+        FixedBoundArea area,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        return GetCoveredScanCells(world, area.Min, area.Max, layerY, padding);
+    }
+
+    /// <summary>
     /// Clears and fills caller-owned storage with scan cells covered by the supplied bounding area.
     /// </summary>
     public static void GetCoveredScanCellsInto(
@@ -442,6 +515,19 @@ public static class GridTracer
     {
         (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
         GetCoveredScanCellsInto(world, min, max, results, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with scan cells covered by the supplied XZ-plane area.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        FixedBoundArea area,
+        SwiftList<ScanCell> results,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        GetCoveredScanCellsInto(world, area.Min, area.Max, results, layerY, padding);
     }
 
     /// <summary>
@@ -479,6 +565,20 @@ public static class GridTracer
     {
         (Vector3d min, Vector3d max) = GridPlane2d.ToWorldBounds(boundsMin, boundsMax, layerY);
         GetCoveredScanCellsInto(world, min, max, results, scratch, padding);
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane area.
+    /// </summary>
+    public static void GetCoveredScanCellsInto(
+        GridWorld world,
+        FixedBoundArea area,
+        SwiftList<ScanCell> results,
+        GridScanScratch scratch,
+        Fixed64 layerY = default,
+        Fixed64? padding = null)
+    {
+        GetCoveredScanCellsInto(world, area.Min, area.Max, results, scratch, layerY, padding);
     }
 
     /// <summary>

@@ -12,11 +12,11 @@ using GridForge.Grids;
 namespace GridForge.Blockers;
 
 /// <summary>
-/// A manually placed blocker that obstructs a defined bounding area.
+/// A manually placed blocker that obstructs a defined world-space bounding box.
 /// </summary>
 public class BoundsBlocker : Blocker
 {
-    private FixedBoundBox _blockBounds;
+    private readonly FixedBoundBox _blockBounds;
 
     /// <summary>
     /// Initializes a new bounds blocker bound to the supplied world.
@@ -35,11 +35,11 @@ public class BoundsBlocker : Blocker
     }
 
     /// <summary>
-    /// Initializes a new bounds blocker from XZ-plane bounds on the supplied world Y layer.
+    /// Initializes a new bounds blocker from world-space min/max bounds.
     /// </summary>
     /// <param name="world">The world whose grids this blocker should affect.</param>
-    /// <param name="boundsMin">The 2D minimum bound whose X component maps to world X and Y component maps to world Z.</param>
-    /// <param name="boundsMax">The 2D maximum bound whose X component maps to world X and Y component maps to world Z.</param>
+    /// <param name="boundsMin">The world-space minimum bound.</param>
+    /// <param name="boundsMax">The world-space maximum bound.</param>
     /// <param name="isActive">Flag whether or not blocker is active.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
     public BoundsBlocker(

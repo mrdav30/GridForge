@@ -66,11 +66,11 @@ It owns:
 - the logic for applying, removing, and reapplying coverage
 - static blocker-level events for apply and remove notifications
 
-`BoundsBlocker` is the concrete world-space implementation currently in the
-repo. It wraps a `FixedBoundArea` and supplies the min and max bounds that the
-base class needs. For flat XZ callers, it also accepts `Vector2d` bounds plus an
-optional `layerY`; those inputs are projected to layer-locked `Vector3d` bounds
-before the existing blocker flow runs.
+`BoundsBlocker` wraps a world-space `FixedBoundBox` and supplies the min and max
+bounds that the base class needs. Use it when the blocker has real 3D extents.
+
+`AreaBlocker` wraps a `FixedBoundArea` footprint plus a world Y layer. It is the
+explicit planar blocker for X/Z simulations or flat gameplay regions.
 
 ## Apply Flow
 
@@ -178,9 +178,9 @@ active blocker, grid-change reconciliation reapplies overlapping blocker state.
 Blockers rely on `GridTracer`, so their coverage follows each grid's topology.
 Rectangular-prism grids use rectangular voxel coverage. Hex-prism grids use
 conservative hex coverage over axial `(q, layer, r)` cells. A single
-`BoundsBlocker` can cover rectangular and hex grids in the same `GridWorld`, and
-cached blocker removal still stores `WorldVoxelIndex` identities rather than
-runtime voxel references.
+`BoundsBlocker` and `AreaBlocker` can cover rectangular and hex grids in the
+same `GridWorld`, and cached blocker removal still stores `WorldVoxelIndex`
+identities rather than runtime voxel references.
 
 That means blocker callers do not need separate rectangular and hex code paths.
 The tradeoff is the same one described in the tracer docs: hex bounds coverage

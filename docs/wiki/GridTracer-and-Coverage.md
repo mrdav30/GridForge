@@ -102,10 +102,12 @@ need the metrics.
 
 ## How Blockers Use Coverage
 
-`Blocker` and `BoundsBlocker` delegate region-to-voxel logic to the tracer.
+`Blocker`, `BoundsBlocker`, and `AreaBlocker` delegate region-to-voxel logic to
+the tracer. Use `BoundsBlocker` for 3D `FixedBoundBox` regions and
+`AreaBlocker` for `FixedBoundArea` footprints locked to one world Y layer.
 
 ```text
-blocker bounds
+blocker bounds or area
   -> GridTracer.GetCoveredVoxels(world, ...)
   -> per-grid covered voxel sets
   -> obstacle mutation on each covered voxel

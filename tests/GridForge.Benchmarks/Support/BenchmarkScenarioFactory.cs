@@ -44,9 +44,9 @@ internal static class BenchmarkScenarioFactory
         int stride,
         int offset = 4)
     {
-        FixedBoundBox[] areas = new FixedBoundBox[count];
+        FixedBoundBox[] bounds = new FixedBoundBox[count];
 
-        for (int i = 0; i < areas.Length; i++)
+        for (int i = 0; i < bounds.Length; i++)
         {
             int row = i / columns;
             int column = i % columns;
@@ -56,10 +56,10 @@ internal static class BenchmarkScenarioFactory
             Vector3d min = new(x, 0, z);
             Vector3d max = new(x + span, 0, z + span);
 
-            areas[i] = FixedBoundBox.FromMinMax(min, max);
+            bounds[i] = FixedBoundBox.FromMinMax(min, max);
         }
 
-        return areas;
+        return bounds;
     }
 
     public static BenchmarkOccupant[] CreateOccupants(

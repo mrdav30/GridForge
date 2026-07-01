@@ -173,6 +173,7 @@ GridForge tracks world-local grid slots, grid spawn tokens, and `WorldVoxelIndex
 | `ScanCell` | Groups voxels into query buckets so radius scans can skip empty regions. |
 | `GridTracer` | Converts lines and bounds into covered voxels or scan cells across the active grids in a world. |
 | `BoundsBlocker` | Applies and removes obstacle state over traced world-space bounds. |
+| `AreaBlocker` | Applies and removes obstacle state over traced X/Z-plane areas on one world Y layer. |
 | `IVoxelOccupant` | Represents dynamic entities that can be registered, deregistered, and scanned. |
 | `IVoxelPartition` | Attaches typed voxel-local metadata or behavior directly to a voxel. |
 

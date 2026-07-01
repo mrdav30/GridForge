@@ -39,7 +39,7 @@ With GridForge as "a world primitive," multiple worlds can exist in the same pro
 | [Sparse Grid Storage](Sparse-Grid-Storage.md) | Dense versus sparse semantics, configured voxels, runtime mutation, and query behavior |
 | [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Scan-cell overlay structure, neighborhood lookups, and query performance |
 | [GridTracer and Coverage](GridTracer-and-Coverage.md) | Line and bounds tracing, covered voxel sets, and multi-grid implications |
-| [Blockers and Obstacles](Blockers-and-Obstacles.md) | `Blocker`, `BoundsBlocker`, obstacle propagation, stacked blockers, and removals |
+| [Blockers and Obstacles](Blockers-and-Obstacles.md) | `Blocker`, `BoundsBlocker`, `AreaBlocker`, obstacle propagation, stacked blockers, and removals |
 | [Occupants and Partitions](Occupants-and-Partitions.md) | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, and lifecycle rules |
 | [Diagnostics and Logging](Diagnostics-and-Logging.md) | `GridForgeLogger`, verbosity, tracing support, and safe debugging patterns |
 | [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) | Diagnostic cell queries, sparse-hole descriptors, topology geometry, and dirty sessions |
@@ -108,7 +108,7 @@ workflows stay world/grid/voxel based.
 | `GridObstacleManager` | Applies and clears obstacle state on voxels |
 | `GridOccupantManager` | Adds, removes, and queries occupant state |
 | `GridScanManager` | Performs scan-driven spatial queries |
-| `Blocker` / `BoundsBlocker` | Turns traced world-space regions into obstacle mutations |
+| `Blocker` / `BoundsBlocker` / `AreaBlocker` | Turns traced world-space boxes or layer-locked X/Z areas into obstacle mutations |
 | `WorldVoxelIndex` | World-scoped voxel identity with world token, grid slot, grid spawn token, and voxel coordinate |
 
 ## Repository Map
