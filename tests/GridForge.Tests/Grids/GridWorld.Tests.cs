@@ -723,7 +723,7 @@ public class GridWorldTests
     {
         using GridWorld blockerWorld = GridWorldTestFactory.CreateWorld();
         using GridWorld otherWorld = GridWorldTestFactory.CreateWorld();
-        FixedBoundArea area = new(Vector3d.FromDouble(0, 0, 0), Vector3d.FromDouble(0, 0, 0));
+        FixedBoundBox area = FixedBoundBox.FromMinMax(new(0, 0, 0), new(0, 0, 0));
         BoundsBlocker blocker = new(blockerWorld, area, cacheCoveredVoxels: true);
 
         blocker.ApplyBlockage();

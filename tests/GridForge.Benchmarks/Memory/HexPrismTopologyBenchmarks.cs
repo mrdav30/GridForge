@@ -413,7 +413,7 @@ public class HexPrismTopologyBenchmarks
     {
         Vector3d min = _pointyGrid.GetWorldPosition(new VoxelIndex(4, 0, 4));
         Vector3d max = _pointyGrid.GetWorldPosition(new VoxelIndex(14, 0, 14));
-        _hexBlocker = new BoundsBlocker(_world, new FixedBoundArea(min, max), cacheCoveredVoxels: true);
+        _hexBlocker = new BoundsBlocker(_world, FixedBoundBox.FromMinMax(min, max), cacheCoveredVoxels: true);
     }
 
     private void InitializeOccupants()

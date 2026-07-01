@@ -434,14 +434,14 @@ public class GridTracerTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(-50, 0, -50), new Vector3d(50, 0, 50)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
 
-        FixedBoundArea boundingArea = new(Vector3d.FromDouble(-5.3, 0, -5.3), Vector3d.FromDouble(5.8, 0, 5.8));
-        var blocker = new BoundsBlocker(_world, boundingArea);
+        FixedBoundBox boundingBox = FixedBoundBox.FromMinMax(Vector3d.FromDouble(-5.3, 0, -5.3), Vector3d.FromDouble(5.8, 0, 5.8));
+        var blocker = new BoundsBlocker(_world, boundingBox);
         blocker.ApplyBlockage();
 
-        Vector3d snappedMin = grid.FloorToGrid(boundingArea.Min);
-        Vector3d snappedMax = grid.CeilToGrid(boundingArea.Max);
+        Vector3d snappedMin = grid.FloorToGrid(boundingBox.Min);
+        Vector3d snappedMax = grid.CeilToGrid(boundingBox.Max);
 
-        foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(_world, boundingArea.Min, boundingArea.Max))
+        foreach (var coveredVoxels in GridTracer.GetCoveredVoxels(_world, boundingBox.Min, boundingBox.Max))
         {
             foreach (var voxel in coveredVoxels.Voxels)
             {

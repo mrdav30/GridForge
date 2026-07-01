@@ -37,14 +37,14 @@ internal static class BenchmarkScenarioFactory
         return configurations;
     }
 
-    public static FixedBoundArea[] CreateBlockerAreas(
+    public static FixedBoundBox[] CreateBlockerBounds(
         int count,
         int span,
         int columns,
         int stride,
         int offset = 4)
     {
-        FixedBoundArea[] areas = new FixedBoundArea[count];
+        FixedBoundBox[] areas = new FixedBoundBox[count];
 
         for (int i = 0; i < areas.Length; i++)
         {
@@ -56,7 +56,7 @@ internal static class BenchmarkScenarioFactory
             Vector3d min = new(x, 0, z);
             Vector3d max = new(x + span, 0, z + span);
 
-            areas[i] = new FixedBoundArea(min, max);
+            areas[i] = FixedBoundBox.FromMinMax(min, max);
         }
 
         return areas;

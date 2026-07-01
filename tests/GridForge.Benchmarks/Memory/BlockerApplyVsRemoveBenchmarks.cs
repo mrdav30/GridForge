@@ -11,7 +11,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class BlockerApplyVsRemoveBenchmarks
 {
-    private FixedBoundArea[] _areas;
+    private FixedBoundBox[] _bounds;
     private BoundsBlocker[] _blockers;
     private GridWorld _world;
 
@@ -22,7 +22,7 @@ public class BlockerApplyVsRemoveBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _areas = BenchmarkScenarioFactory.CreateBlockerAreas(
+        _bounds = BenchmarkScenarioFactory.CreateBlockerBounds(
             BlockerCount,
             BlockSpan,
             columns: 8,
@@ -109,9 +109,9 @@ public class BlockerApplyVsRemoveBenchmarks
                 throw new InvalidOperationException($"Unable to allocate blocker benchmark grid {i}.");
         }
 
-        _blockers = new BoundsBlocker[_areas.Length];
-        for (int i = 0; i < _areas.Length; i++)
-            _blockers[i] = new BoundsBlocker(_world, _areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
+        _blockers = new BoundsBlocker[_bounds.Length];
+        for (int i = 0; i < _bounds.Length; i++)
+            _blockers[i] = new BoundsBlocker(_world, _bounds[i], cacheCoveredVoxels: cacheCoveredVoxels);
 
         if (applyInSetup)
         {

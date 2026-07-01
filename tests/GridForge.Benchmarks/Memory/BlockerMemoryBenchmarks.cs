@@ -12,7 +12,7 @@ namespace GridForge.Benchmarks;
 [Config(typeof(InProcessShortRunConfig))]
 public class BlockerMemoryBenchmarks
 {
-    private FixedBoundArea[] _areas;
+    private FixedBoundBox[] _bounds;
     private BoundsBlocker[] _blockers;
     private GridWorld _world;
 
@@ -23,7 +23,7 @@ public class BlockerMemoryBenchmarks
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _areas = BuildAreas();
+        _bounds = BuildBounds();
     }
 
     [IterationSetup(Target = nameof(ApplyAndRemoveBlockers_NoCoverageCache))]
@@ -76,18 +76,18 @@ public class BlockerMemoryBenchmarks
         if (!_world.TryAddGrid(configuration, out _))
             throw new InvalidOperationException("Unable to allocate blocker benchmark grid.");
 
-        _blockers = new BoundsBlocker[_areas.Length];
-        for (int i = 0; i < _areas.Length; i++)
-            _blockers[i] = new BoundsBlocker(_world, _areas[i], cacheCoveredVoxels: cacheCoveredVoxels);
+        _blockers = new BoundsBlocker[_bounds.Length];
+        for (int i = 0; i < _bounds.Length; i++)
+            _blockers[i] = new BoundsBlocker(_world, _bounds[i], cacheCoveredVoxels: cacheCoveredVoxels);
     }
 
-    private FixedBoundArea[] BuildAreas()
+    private FixedBoundBox[] BuildBounds()
     {
-        FixedBoundArea[] areas = new FixedBoundArea[BlockerCount];
+        FixedBoundBox[] bounds = new FixedBoundBox[BlockerCount];
 
         const int columns = 8;
         const int stride = 20;
-        for (int i = 0; i < areas.Length; i++)
+        for (int i = 0; i < bounds.Length; i++)
         {
             int row = i / columns;
             int column = i % columns;
@@ -96,10 +96,10 @@ public class BlockerMemoryBenchmarks
 
             Vector3d min = new(x, 0, z);
             Vector3d max = new(x + BlockSpan, 0, z + BlockSpan);
-            areas[i] = new FixedBoundArea(min, max);
+            bounds[i] = FixedBoundBox.FromMinMax(min, max);
         }
 
-        return areas;
+        return bounds;
     }
 
     private int ExecuteBlockerWave()

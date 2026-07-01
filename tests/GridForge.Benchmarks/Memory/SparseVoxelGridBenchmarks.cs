@@ -121,7 +121,7 @@ public class SparseVoxelGridBenchmarks
     public void SetupSparseBlockerIteration()
     {
         InitializeSparseGrid(_clusteredVoxels);
-        FixedBoundArea bounds = new(new Vector3d(12, 0, 12), new Vector3d(36, 0, 36));
+        FixedBoundBox bounds = FixedBoundBox.FromMinMax(new Vector3d(12, 0, 12), new Vector3d(36, 0, 36));
         _blocker = new BoundsBlocker(_world, bounds, cacheCoveredVoxels: true);
     }
 
