@@ -27,7 +27,7 @@ public readonly struct GridDiagnosticChange :
     /// <summary>
     /// Runtime token of the world that produced the change.
     /// </summary>
-    public readonly int WorldSpawnToken;
+    public readonly long WorldSpawnToken;
 
     /// <summary>
     /// World-local grid slot affected by the change, or
@@ -38,7 +38,7 @@ public readonly struct GridDiagnosticChange :
     /// <summary>
     /// Runtime token of the grid instance affected by the change.
     /// </summary>
-    public readonly int GridSpawnToken;
+    public readonly long GridSpawnToken;
 
     /// <summary>
     /// World-scoped voxel identity for cell-scoped changes.
@@ -65,9 +65,9 @@ public readonly struct GridDiagnosticChange :
     /// </summary>
     public GridDiagnosticChange(
         GridDiagnosticChangeKind kind,
-        int worldSpawnToken,
+        long worldSpawnToken,
         ushort gridIndex,
-        int gridSpawnToken,
+        long gridSpawnToken,
         WorldVoxelIndex worldIndex,
         VoxelIndex voxelIndex,
         Vector3d boundsMin,
@@ -145,9 +145,9 @@ public readonly struct GridDiagnosticChange :
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        int hash = SwiftHashTools.CombineHashCodes((int)Kind, WorldSpawnToken);
+        int hash = SwiftHashTools.CombineHashCodes((int)Kind, WorldSpawnToken.GetHashCode());
         hash = SwiftHashTools.CombineHashCodes(hash, GridIndex);
-        hash = SwiftHashTools.CombineHashCodes(hash, GridSpawnToken);
+        hash = SwiftHashTools.CombineHashCodes(hash, GridSpawnToken.GetHashCode());
         hash = SwiftHashTools.CombineHashCodes(hash, WorldIndex.GetHashCode());
         hash = SwiftHashTools.CombineHashCodes(hash, VoxelIndex.GetHashCode());
         hash = SwiftHashTools.CombineHashCodes(hash, BoundsMin.GetHashCode());

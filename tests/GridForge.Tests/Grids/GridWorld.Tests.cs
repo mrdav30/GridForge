@@ -777,6 +777,84 @@ public class GridWorldTests
         Assert.NotEqual(staleIndex.WorldSpawnToken, replacementVoxel.WorldIndex.WorldSpawnToken);
     }
 
+    [Fact]
+    public void LiveWorlds_ShouldRejectEachOthersVoxelIndices()
+    {
+        using GridWorld firstWorld = GridWorldTestFactory.CreateWorld();
+        using GridWorld secondWorld = GridWorldTestFactory.CreateWorld();
+        VoxelGrid firstGrid = GridWorldTestFactory.AddGrid(firstWorld, Vector3d.Zero, Vector3d.Zero);
+        VoxelGrid secondGrid = GridWorldTestFactory.AddGrid(secondWorld, Vector3d.Zero, Vector3d.Zero);
+        Assert.True(firstGrid.TryGetVoxel(Vector3d.Zero, out Voxel firstVoxel));
+        Assert.True(secondGrid.TryGetVoxel(Vector3d.Zero, out Voxel secondVoxel));
+
+        Assert.NotEqual(0, firstWorld.SpawnToken);
+        Assert.NotEqual(0, secondWorld.SpawnToken);
+        Assert.NotEqual(firstWorld.SpawnToken, secondWorld.SpawnToken);
+        Assert.False(firstWorld.TryGetGridAndVoxel(secondVoxel.WorldIndex, out _, out _));
+        Assert.False(secondWorld.TryGetGridAndVoxel(firstVoxel.WorldIndex, out _, out _));
+    }
+
+    [Fact]
+    public void ReaddedIdenticalGrid_ShouldInvalidateStaleWorldVoxelIndices()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+        VoxelGrid originalGrid = GridWorldTestFactory.AddGrid(
+            world,
+            configuration.BoundsMin,
+            configuration.BoundsMax);
+        Assert.True(originalGrid.TryGetVoxel(Vector3d.Zero, out Voxel originalVoxel));
+        WorldVoxelIndex staleIndex = originalVoxel.WorldIndex;
+
+        Assert.True(world.TryRemoveGrid(originalGrid.GridIndex));
+        Assert.True(world.TryAddGrid(configuration, out ushort replacementIndex));
+        VoxelGrid replacementGrid = world.ActiveGrids[replacementIndex];
+        Assert.True(replacementGrid.TryGetVoxel(Vector3d.Zero, out Voxel replacementVoxel));
+
+        Assert.Same(originalGrid, replacementGrid);
+        Assert.NotEqual(0, replacementGrid.SpawnToken);
+        Assert.Equal(staleIndex.GridIndex, replacementIndex);
+        Assert.False(world.TryGetGrid(staleIndex, out _));
+        Assert.False(world.TryGetVoxel(staleIndex, out _));
+        Assert.False(world.TryGetGridAndVoxel(staleIndex, out _, out _));
+        Assert.NotEqual(staleIndex.GridSpawnToken, replacementVoxel.WorldIndex.GridSpawnToken);
+        Assert.True(world.TryGetGridAndVoxel(replacementVoxel.WorldIndex, out _, out _));
+    }
+
+    [Fact]
+    public void NonDeactivatingReset_ShouldAdvanceGridGenerationAndPreserveWorldIdentity()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+        VoxelGrid originalGrid = GridWorldTestFactory.AddGrid(
+            world,
+            configuration.BoundsMin,
+            configuration.BoundsMax);
+        Assert.True(originalGrid.TryGetVoxel(Vector3d.Zero, out Voxel originalVoxel));
+        WorldVoxelIndex staleIndex = originalVoxel.WorldIndex;
+
+        world.Reset(deactivate: false);
+        Assert.True(world.TryAddGrid(configuration, out ushort replacementIndex));
+        VoxelGrid replacementGrid = world.ActiveGrids[replacementIndex];
+        Assert.True(replacementGrid.TryGetVoxel(Vector3d.Zero, out Voxel replacementVoxel));
+
+        Assert.Equal(staleIndex.WorldSpawnToken, world.SpawnToken);
+        Assert.Equal(staleIndex.GridIndex, replacementIndex);
+        Assert.False(world.TryGetGridAndVoxel(staleIndex, out _, out _));
+        Assert.NotEqual(staleIndex.GridSpawnToken, replacementVoxel.WorldIndex.GridSpawnToken);
+        Assert.True(world.TryGetGridAndVoxel(replacementVoxel.WorldIndex, out _, out _));
+    }
+
+    [Fact]
+    public void RuntimeIdentityAllocator_ShouldThrowBeforeWraparound()
+    {
+        long counter = long.MaxValue - 1;
+
+        Assert.Equal(long.MaxValue, RuntimeIdentityAllocator.Allocate(ref counter));
+        Assert.Throws<InvalidOperationException>(() => RuntimeIdentityAllocator.Allocate(ref counter));
+        Assert.Equal(long.MaxValue, counter);
+    }
+
     private static bool InvokeTryValidateGridDimensions(GridDimensions dimensions)
     {
         MethodInfo method = typeof(GridWorld).GetMethod(

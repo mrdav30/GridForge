@@ -69,9 +69,10 @@ public sealed class GridWorld : IDisposable
     public SwiftDictionary<int, SwiftHashSet<ushort>> SpatialGridHash { get; }
 
     /// <summary>
-    /// Runtime token identifying this specific world instance.
+    /// Nonzero process-unique 64-bit runtime allocation token for this active world.
+    /// Zero indicates an inactive world.
     /// </summary>
-    public int SpawnToken { get; private set; }
+    public long SpawnToken { get; private set; }
 
     /// <summary>
     /// The current version of the world, incremented on major changes.
@@ -85,7 +86,10 @@ public sealed class GridWorld : IDisposable
 
     internal Fixed64 MaxTopologyCellEdge { get; private set; }
 
+    private static long s_worldAllocationCounter;
+
     private readonly ReaderWriterLockSlim _gridLock = new();
+    private long _gridGenerationCounter;
 
     #endregion
 
@@ -145,7 +149,7 @@ public sealed class GridWorld : IDisposable
         SpatialGridHash = new SwiftDictionary<int, SwiftHashSet<ushort>>();
 
         SpatialGridCellSize = ResolveSpatialGridCellSize(spatialGridCellSize);
-        SpawnToken = GetHashCode();
+        SpawnToken = RuntimeIdentityAllocator.Allocate(ref s_worldAllocationCounter);
         Version = 1;
         IsActive = true;
     }
@@ -299,6 +303,7 @@ public sealed class GridWorld : IDisposable
         if (TryFindExistingGrid(boundsKey, out allocatedIndex))
             return false;
 
+        long gridGeneration = RuntimeIdentityAllocator.Allocate(ref _gridGenerationCounter);
         VoxelGrid newGrid = Pools.GridPool.Rent();
         GridEventInfo addedGridInfo = default;
 
@@ -308,7 +313,7 @@ public sealed class GridWorld : IDisposable
             allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
             BoundsTracker.Add(boundsKey, allocatedIndex);
 
-            newGrid.Initialize(this, allocatedIndex, normalizedConfiguration, topology, preparedVoxels);
+            newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
             UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
             RegisterGridSpatialCells(newGrid, allocatedIndex);
 

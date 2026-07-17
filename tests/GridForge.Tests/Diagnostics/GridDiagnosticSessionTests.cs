@@ -35,9 +35,9 @@ public class GridDiagnosticSessionTests
         Assert.Equal(1, session.GetDirtyChangesInto(changes));
         AssertGridChange(changes[0], grid, GridDiagnosticChangeKind.GridAdded);
 
-        int removedWorldToken = world.SpawnToken;
+        long removedWorldToken = world.SpawnToken;
         ushort removedGridIndex = grid.GridIndex;
-        int removedGridSpawnToken = grid.SpawnToken;
+        long removedGridSpawnToken = grid.SpawnToken;
         Vector3d removedBoundsMin = grid.BoundsMin;
         Vector3d removedBoundsMax = grid.BoundsMax;
         session.ClearDirtyChanges();
@@ -239,9 +239,9 @@ public class GridDiagnosticSessionTests
 
     private static void AssertGridChange(
         GridDiagnosticChange change,
-        int expectedWorldSpawnToken,
+        long expectedWorldSpawnToken,
         ushort expectedGridIndex,
-        int expectedGridSpawnToken,
+        long expectedGridSpawnToken,
         Vector3d expectedBoundsMin,
         Vector3d expectedBoundsMax,
         GridDiagnosticChangeKind expectedKind)

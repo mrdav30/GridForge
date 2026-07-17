@@ -22,7 +22,7 @@ namespace GridForge.Diagnostics;
 public sealed class GridDiagnosticSession : IDisposable
 {
     private readonly GridWorld _world;
-    private readonly int _worldSpawnToken;
+    private readonly long _worldSpawnToken;
     private readonly SwiftList<GridDiagnosticChange> _changes = new();
     private readonly SwiftDictionary<GridDiagnosticChangeKey, int> _changeIndexes = new();
     private readonly object _syncRoot = new();
@@ -205,7 +205,7 @@ public sealed class GridDiagnosticSession : IDisposable
         RecordCellChange(eventInfo.VoxelIndex, GridDiagnosticChangeKind.OccupantChanged);
     }
 
-    private bool CanRecord(int worldSpawnToken) =>
+    private bool CanRecord(long worldSpawnToken) =>
         !_disposed
         && worldSpawnToken == _worldSpawnToken;
 
@@ -315,9 +315,9 @@ public sealed class GridDiagnosticSession : IDisposable
     private readonly struct GridDiagnosticChangeKey : IEquatable<GridDiagnosticChangeKey>
     {
         private readonly GridDiagnosticChangeScope _scope;
-        private readonly int _worldSpawnToken;
+        private readonly long _worldSpawnToken;
         private readonly ushort _gridIndex;
-        private readonly int _gridSpawnToken;
+        private readonly long _gridSpawnToken;
         private readonly WorldVoxelIndex _worldIndex;
         private readonly VoxelIndex _voxelIndex;
         private readonly Vector3d _boundsMin;
@@ -357,9 +357,9 @@ public sealed class GridDiagnosticSession : IDisposable
 
         public override int GetHashCode()
         {
-            int hash = SwiftHashTools.CombineHashCodes((int)_scope, _worldSpawnToken);
+            int hash = SwiftHashTools.CombineHashCodes((int)_scope, _worldSpawnToken.GetHashCode());
             hash = SwiftHashTools.CombineHashCodes(hash, _gridIndex);
-            hash = SwiftHashTools.CombineHashCodes(hash, _gridSpawnToken);
+            hash = SwiftHashTools.CombineHashCodes(hash, _gridSpawnToken.GetHashCode());
             hash = SwiftHashTools.CombineHashCodes(hash, _worldIndex.GetHashCode());
             hash = SwiftHashTools.CombineHashCodes(hash, _voxelIndex.GetHashCode());
             hash = SwiftHashTools.CombineHashCodes(hash, _boundsMin.GetHashCode());

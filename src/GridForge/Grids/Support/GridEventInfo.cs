@@ -17,9 +17,9 @@ namespace GridForge.Grids;
 public readonly struct GridEventInfo
 {
     /// <summary>
-    /// The runtime token of the owning <see cref="GridWorld"/> instance.
+    /// The process-unique 64-bit runtime allocation token of the owning <see cref="GridWorld"/> instance.
     /// </summary>
-    public readonly int WorldSpawnToken;
+    public readonly long WorldSpawnToken;
 
     /// <summary>
     /// The stable slot index assigned to the grid within <see cref="GridWorld.ActiveGrids"/>.
@@ -27,9 +27,9 @@ public readonly struct GridEventInfo
     public readonly ushort GridIndex;
 
     /// <summary>
-    /// The unique spawn token for the specific grid instance occupying <see cref="GridIndex"/>.
+    /// The 64-bit world-local allocation generation for the grid occupying <see cref="GridIndex"/>.
     /// </summary>
-    public readonly int GridSpawnToken;
+    public readonly long GridSpawnToken;
 
     /// <summary>
     /// The snapped configuration for the grid when the notification was raised.
@@ -75,9 +75,9 @@ public readonly struct GridEventInfo
     /// Initializes a new immutable grid event snapshot.
     /// </summary>
     public GridEventInfo(
-        int worldSpawnToken,
+        long worldSpawnToken,
         ushort gridIndex,
-        int gridSpawnToken,
+        long gridSpawnToken,
         GridConfiguration configuration,
         uint gridVersion,
         GridEventKind changeKind = GridEventKind.Unspecified,

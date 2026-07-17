@@ -17,7 +17,7 @@ public readonly struct BlockageEventInfo
     /// <summary>
     /// The world instance that produced this blocker event.
     /// </summary>
-    public readonly int WorldSpawnToken;
+    public readonly long WorldSpawnToken;
 
     /// <summary>
     /// The unique token representing the blocker coverage.
@@ -38,7 +38,7 @@ public readonly struct BlockageEventInfo
     /// Initializes a new immutable blockage snapshot.
     /// </summary>
     public BlockageEventInfo(
-        int worldSpawnToken,
+        long worldSpawnToken,
         BoundsKey blockageToken,
         Vector3d boundsMin,
         Vector3d boundsMax)

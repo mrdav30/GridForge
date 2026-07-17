@@ -26,7 +26,7 @@ public readonly struct GridDiagnosticCell
     /// <summary>
     /// Runtime token of the owning world when the descriptor was created.
     /// </summary>
-    public readonly int WorldSpawnToken;
+    public readonly long WorldSpawnToken;
 
     /// <summary>
     /// World-local grid slot that owns this cell.
@@ -36,7 +36,7 @@ public readonly struct GridDiagnosticCell
     /// <summary>
     /// Runtime token of the grid instance when the descriptor was created.
     /// </summary>
-    public readonly int GridSpawnToken;
+    public readonly long GridSpawnToken;
 
     /// <summary>
     /// Topology-local cell index.
@@ -79,9 +79,9 @@ public readonly struct GridDiagnosticCell
     /// </summary>
     public GridDiagnosticCell(
         GridDiagnosticCellKind kind,
-        int worldSpawnToken,
+        long worldSpawnToken,
         ushort gridIndex,
-        int gridSpawnToken,
+        long gridSpawnToken,
         VoxelIndex index,
         Vector3d worldPosition,
         GridTopologyKind topologyKind,

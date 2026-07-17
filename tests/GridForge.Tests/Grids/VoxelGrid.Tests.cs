@@ -941,7 +941,7 @@ public class VoxelGridTests : IDisposable
             "Initialize",
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
-            new[] { typeof(GridWorld), typeof(ushort), typeof(GridConfiguration), typeof(IGridTopology), typeof(VoxelIndex[]) },
+            new[] { typeof(GridWorld), typeof(ushort), typeof(long), typeof(GridConfiguration), typeof(IGridTopology), typeof(VoxelIndex[]) },
             null);
 
         Assert.NotNull(initializeMethod);
@@ -950,7 +950,7 @@ public class VoxelGridTests : IDisposable
             out GridConfiguration normalizedConfiguration,
             out IGridTopology topology,
             out _));
-        initializeMethod.Invoke(grid, new object[] { world, globalIndex, normalizedConfiguration, topology, Array.Empty<VoxelIndex>() });
+        initializeMethod.Invoke(grid, new object[] { world, globalIndex, 1L, normalizedConfiguration, topology, Array.Empty<VoxelIndex>() });
     }
 
     private static void InvokeGridReset(VoxelGrid grid)

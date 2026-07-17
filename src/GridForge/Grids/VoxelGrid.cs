@@ -29,9 +29,10 @@ public class VoxelGrid
     #region Fields & Properties
 
     /// <summary>
-    /// Unique token identifying the grid instance.
+    /// Nonzero 64-bit world-local allocation generation identifying this active grid instance.
+    /// Zero indicates an inactive or unallocated grid.
     /// </summary>
-    public int SpawnToken { get; private set; }
+    public long SpawnToken { get; private set; }
 
     /// <summary>
     /// World-local index of the grid within its owning world.
@@ -225,12 +226,14 @@ public class VoxelGrid
     /// </summary>
     /// <param name="world">The world that will own this grid.</param>
     /// <param name="gridIndex">The unique index of this grid in the world.</param>
+    /// <param name="spawnToken">The world-local allocation generation for this grid.</param>
     /// <param name="configuration">The normalized configuration settings for the grid.</param>
     /// <param name="topology">The validated topology instance for this grid.</param>
     /// <param name="configuredVoxels">The validated sparse voxel indices to materialize.</param>
     internal void Initialize(
         GridWorld world,
         ushort gridIndex,
+        long spawnToken,
         GridConfiguration configuration,
         IGridTopology topology,
         VoxelIndex[] configuredVoxels)
@@ -243,7 +246,7 @@ public class VoxelGrid
         Configuration = configuration;
         _topology = topology;
 
-        SpawnToken = GetHashCode();
+        SpawnToken = spawnToken;
 
         // +1 to account for inclusive bounds and to ensure that even the smallest grids (1x1x1) remain valid.
         GridDimensions dimensions = topology.CalculateDimensions(BoundsMin, BoundsMax);
