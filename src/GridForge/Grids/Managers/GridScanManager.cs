@@ -306,7 +306,7 @@ public static class GridScanManager
     public static bool TryGetVoxelOccupant(
         GridWorld world,
         WorldVoxelIndex index,
-        int ticket,
+        OccupantTicket ticket,
         out IVoxelOccupant? occupant)
     {
         occupant = null;
@@ -321,7 +321,7 @@ public static class GridScanManager
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Vector3d position,
-        int ticket,
+        OccupantTicket ticket,
         out IVoxelOccupant? occupant)
     {
         occupant = null;
@@ -335,7 +335,7 @@ public static class GridScanManager
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         VoxelIndex index,
-        int ticket,
+        OccupantTicket ticket,
         out IVoxelOccupant? occupant)
     {
         occupant = null;
@@ -349,7 +349,7 @@ public static class GridScanManager
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Voxel voxel,
-        int ticket,
+        OccupantTicket ticket,
         out IVoxelOccupant? occupant)
     {
         occupant = null;

@@ -16,7 +16,7 @@ GridForge is organized as a small set of cooperating layers:
 | Layer                      | Main Types                                                                                     | Primary Responsibility                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | World coordination         | `GridWorld`                                                                                    | World lifecycle, registration, spatial hashing, top-level lookup, world events              |
-| Configuration and identity | `GridConfiguration`, `BoundsKey`, `ObstacleToken`, `VoxelIndex`, `WorldVoxelIndex`             | Stable input, geometry keys, runtime registration identity, and cross-system identity       |
+| Configuration and identity | `GridConfiguration`, `BoundsKey`, `ObstacleToken`, `OccupantTicket`, `VoxelIndex`, `WorldVoxelIndex` | Stable input, geometry keys, runtime registration identity, and cross-system identity       |
 | Per-grid storage           | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies                              | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state               |
 | Mutation services          | `GridObstacleManager`, `GridOccupantManager`, `Blocker`                                        | Safe state changes, events, and higher-level world-space mutations                          |
 | Query services             | `GridScanManager`, `GridTracer`                                                                | Radius scans, filtered retrieval, line tracing, coverage enumeration                        |
@@ -87,8 +87,8 @@ world-space input
 ### `ScanCell` owns
 
 - a grid-local cell key
-- occupant buckets grouped by voxel
-- the tickets used to retrieve specific occupants
+- occupant-plus-generation buckets grouped by voxel
+- generation-aware tickets used for O(1) retrieval and stale-slot rejection
 - fast "is there anything here?" state for scan-oriented queries
 
 ## Why `GridWorld` Sits At The Top
@@ -165,7 +165,7 @@ That split is one of the library's most important performance decisions.
 | Mutation Type   | Main Entry Point                            | State Touched                                                           |
 | --------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
 | Obstacles       | `GridObstacleManager`                       | Process-unique voxel obstacle tokens/counts, grid obstacle count, grid version, events |
-| Occupants       | `GridOccupantManager`                       | Voxel occupant counts, scan-cell buckets, active scan cells, events     |
+| Occupants       | `GridOccupantManager`                       | Voxel occupant counts, generation-aware scan-cell buckets, active scan cells, events |
 | Region blockers | `Blocker` / `BoundsBlocker` / `AreaBlocker` | Traced coverage across one or more grids, obstacle application/removal  |
 | Partitions      | `Voxel.TryAddPartition(...)`                | Typed metadata or behavior attached directly to a voxel                 |
 

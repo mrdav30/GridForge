@@ -32,8 +32,7 @@ safety data, not serialized simulation state.
 - Started: 2026-07-17.
 - Planning date: 2026-07-17.
 - Release posture: intentionally breaking pre-release hardening.
-- Current state: Phases 0-3 are complete. Phase 4 generation-aware occupant
-  tickets are next.
+- Current state: Phases 0-4 are complete. Phase 5 cross-stack closure is next.
 - Working agreement: keep local project references in place and uncommitted;
   commit coherent implementation milestones directly to `develop` while
   preserving unrelated owner changes.
@@ -420,39 +419,72 @@ Phase 3 evidence:
 Intent: make an exact occupant ticket identify one registration, not whichever
 occupant later occupies the same bucket slot.
 
-- [ ] Replace the raw public integer ticket contract with a small readonly value
+- [x] Replace the raw public integer ticket contract with a small readonly value
   containing the bucket slot and a nonzero process-unique occupant generation.
-- [ ] Store the generation beside the occupant in the bucket so lookup and
+- [x] Store the generation beside the occupant in the bucket so lookup and
   removal validate both components in O(1).
-- [ ] Update tracked occupancy records, scan-cell APIs, events, and manager
+- [x] Update tracked occupancy records, scan-cell APIs, events, and manager
   overloads to use the exact ticket type.
-- [ ] Preserve the existing occupant `GlobalId` registry for occupant ownership;
+- [x] Preserve the existing occupant `GlobalId` registry for occupant ownership;
   do not duplicate it with a second global registry.
-- [ ] Preserve pooled bucket cleanup and callback-failure recovery.
-- [ ] Update XML documentation, wiki examples, and migration guidance for the
+- [x] Preserve pooled bucket cleanup and callback-failure recovery.
+- [x] Update XML documentation, wiki examples, and migration guidance for the
   breaking ticket contract.
 
 Required tests:
 
-- [ ] Remove occupant A, add occupant B into the same bucket slot, and prove A's
+- [x] Remove occupant A, add occupant B into the same bucket slot, and prove A's
   stale ticket cannot resolve or remove B.
-- [ ] Remove and re-add the same occupant and prove the earlier registration
+- [x] Remove and re-add the same occupant and prove the earlier registration
   ticket remains stale.
-- [ ] Exact current tickets still provide O(1) lookup and removal.
-- [ ] Scan-cell pooling, world reset, grid replacement, callback failure, and
+- [x] Exact current tickets still provide O(1) lookup and removal.
+- [x] Scan-cell pooling, world reset, grid replacement, callback failure, and
   tracked-occupancy cleanup do not revive stale tickets.
 
 Performance evidence:
 
-- [ ] Compare occupant add/remove and ticket lookup benchmarks.
-- [ ] Confirm the readonly ticket path adds no per-operation managed allocation.
+- [x] Compare occupant add/remove and ticket lookup benchmarks.
+- [x] Confirm the readonly current-ticket lookup adds no per-operation managed
+  allocation.
 
 Exit criteria:
 
-- [ ] Public lookup cannot resolve a replacement registration through a stale
+- [x] Public lookup cannot resolve a replacement registration through a stale
   bucket slot.
-- [ ] Occupant tracking tests and benchmarks meet the existing correctness and
-  allocation bar.
+- [x] Occupant tracking correctness passes; current-ticket lookup remains `0 B`;
+  the structural live-registration memory cost is measured and recorded.
+
+Phase 4 evidence:
+
+- RED: different-occupant and same-occupant slot-reuse regressions both failed
+  because a stale integer slot resolved the replacement registration.
+- `OccupantTicket` now carries the recyclable slot plus a process-unique 64-bit
+  generation. Scan-cell storage, tracked records, events, and lookup/removal
+  validate the exact pair in O(1).
+- Cross-world, identical-grid replacement, pooled scan-cell reuse,
+  `Reset(deactivate: false)`, callback, tracked cleanup, and exhaustion-before-
+  mutation regressions pass.
+- Independent review found that the 16-byte occupant entry could be read while
+  slot reuse wrote it. Dense and sparse scan cells now bind the owning grid's
+  existing occupant monitor; exact lookup and reset share that synchronization
+  and revalidate ownership after acquisition. The three focused lock regressions
+  failed before the fix and pass afterward.
+- Full direct GridForge tests after the concurrency correction: Debug `453/453`,
+  Release `456/456`, and ReleaseLean `456/456`.
+- Occupant benchmark evidence:
+
+  | Signal | Phase 0 Mean | Phase 4 Mean | Phase 0 Allocated | Phase 4 Allocated |
+  | --- | ---: | ---: | ---: | ---: |
+  | Add/remove, cold grids | 55.43 ms | 88.697 ms | 32.77 MB | 44.22 MB |
+  | Add/remove, warm grids | 79.85 ms | 85.313 ms | 31.95 MB | 43.22 MB |
+  | Resolve 8,192 current tickets | N/A | 2.645 ms | N/A | 0 B |
+
+  Short-run timing remains noisy. The roughly 35% wave-allocation increase is
+  structural: live bucket entries and tracked records now retain the exact
+  64-bit generation required to reject stale slots. The final exact lookup
+  adds one uncontended monitor acquisition, stays O(1), and allocates `0 B`.
+- Independent re-review reported no findings; spec compliance passed and code
+  quality was approved.
 
 ## Phase 5: Cross-Stack Closure
 
@@ -519,6 +551,7 @@ Exit criteria:
 | 2026-07-17 | Phase 1 | Added process-unique world identity and world-local grid generations, widened identity carriers, passed the focused 5-test suite and full 433-test Debug suite, and committed as `0c5420f`. |
 | 2026-07-17 | Phase 2 | Replaced hash-only voxel deduplication with exact identities, removed dead voxel/scan-cell tokens, propagated same-configuration replacement through Gravitas 2D/3D/mixed paths, and fixed a shared SwiftCollections Debug boxing defect exposed by the wider value key. |
 | 2026-07-17 | Phase 3 | Added process-unique obstacle registration tokens allocated through active worlds, preserved token lifetime across dynamic reconciliation, covered exact rollback, same-bounds stacking, and cross-world isolation, reduced blocker-wave allocation by roughly 26%, and passed independent review. |
+| 2026-07-17 | Phase 4 | Replaced recyclable integer occupant slots with process-unique generation-aware tickets, synchronized exact lookup/reset with mutation, passed Debug/Release/ReleaseLean, recorded the wider live-registration memory cost, and passed independent review. |
 
 ## Suggested Commit Sequence
 

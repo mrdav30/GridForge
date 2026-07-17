@@ -41,6 +41,28 @@ Obstacle tokens are transient process-unique runtime identities allocated
 through an active `GridWorld`; they should not be serialized as durable content
 IDs or used for authoritative ordering.
 
+Occupant lookup and event APIs now use `OccupantTicket` instead of `int` bucket
+slots. Migrate stored ticket variables and `out` arguments directly:
+
+```csharp
+if (GridOccupantManager.TryGetOccupancyTicket(
+        world,
+        occupant,
+        voxel.WorldIndex,
+        out OccupantTicket ticket))
+{
+    grid.TryGetVoxelOccupant(voxel, ticket, out IVoxelOccupant? resolved);
+}
+```
+
+`OccupantEventInfo.Ticket`, `ScanCell.TryGetOccupantAt(...)`, and all
+`GridScanManager.TryGetVoxelOccupant(...)` overloads use the same value type.
+`default(OccupantTicket)` is invalid. Construction is internal; obtain current
+tickets from GridForge rather than rebuilding them from `Slot` and `Generation`.
+Tickets are transient process runtime handles and must not be serialized or
+used for authoritative ordering. A ticket retained after removal, grid
+replacement, scan-cell pooling, or reset cannot resolve a replacement occupant.
+
 The important blocker and coverage distinction is now explicit:
 
 - Use `FixedBoundBox` and `BoundsBlocker` for world-space 3D box regions.

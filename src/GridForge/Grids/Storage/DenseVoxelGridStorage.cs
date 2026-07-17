@@ -184,7 +184,7 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                     int cellKey = grid.GetScanCellKey(x, y, z);
 
                     ScanCell scanCell = Pools.ScanCellPool.Rent();
-                    scanCell.Initialize(grid.World!, grid.GridIndex, cellKey);
+                    scanCell.Initialize(grid, cellKey);
                     ScanCells.Add(cellKey, scanCell);
                 }
             }

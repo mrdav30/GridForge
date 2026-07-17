@@ -47,7 +47,7 @@ retrieval straightforward.
 | `GridIndex`         | Which grid this scan cell belongs to              |
 | `CellKey`           | Grid-local scan-cell identity                     |
 | `CellOccupantCount` | How many occupants are currently indexed here     |
-| `_voxelOccupants`   | Buckets of occupants grouped by `WorldVoxelIndex` |
+| `_voxelOccupants`   | Buckets of occupant-plus-generation entries grouped by `WorldVoxelIndex` |
 
 That last point matters a lot: a scan cell is not just a flat bag of occupants.
 It preserves which voxel each occupant came from.
@@ -68,8 +68,10 @@ occupant position or voxel target
   -> publish occupant-added notifications
 ```
 
-The ticket returned by the scan-cell bucket is important because it enables
-targeted retrieval later without rescanning the entire bucket.
+The `OccupantTicket` returned by the scan-cell bucket combines its O(1) slot
+with a process-wide registration generation. This enables targeted retrieval
+without rescanning the bucket while preventing a removed ticket from aliasing a
+later occupant that reuses the slot.
 
 ## Active Scan Cells
 
@@ -170,6 +172,12 @@ When an occupant is stored in a scan-cell bucket, it receives a ticket. That
 ticket, combined with `WorldVoxelIndex`, can later be used to retrieve the exact
 occupant directly.
 
+Lookup and removal first perform `TryGetValue(ticket.Slot, ...)`, then require
+the stored generation to equal `ticket.Generation`. Both operations remain
+O(1), and stale or default tickets fail without indexing or mutating the live
+entry. The generation domain is process-wide, so tickets cannot alias across
+worlds and are not reset when a world is reset without deactivation.
+
 GridForge tracks that relationship internally:
 
 - it remembers the voxel identity
@@ -180,6 +188,9 @@ scan cell by value, without forcing every `IVoxelOccupant` implementation to
 carry a parallel mutable map. When you need the tracked relationship explicitly,
 use `GridOccupantManager.GetOccupiedIndices(...)` and
 `GridOccupantManager.TryGetOccupancyTicket(...)`.
+
+Tickets are transient runtime handles. Do not serialize them or treat slot or
+generation order as authoritative query order.
 
 ## Why Query APIs Still Check Distance
 

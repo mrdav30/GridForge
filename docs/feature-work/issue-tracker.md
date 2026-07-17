@@ -17,28 +17,7 @@
 
 ## Active Issues
 
-### 3. Recycled Occupant Tickets Can Resolve Replacement Occupants
-
-Status: planned on 2026-07-17.
-
-Source: runtime identity audit following the pooled-grid generation defect.
-
-Plan:
-
-- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phase 4.
-
-Concern:
-
-The public occupant ticket is currently only a `SwiftBucket` slot. Bucket slots
-are reused immediately, so a ticket retained after removal can resolve or remove
-a different occupant registration later assigned to that slot.
-
-Required outcome:
-
-- Replace the raw slot contract with a generation-aware occupant ticket.
-- Validate both slot and generation during lookup and removal.
-- Cover different-occupant replacement, same-occupant re-registration, pooling,
-  reset, and callback-failure cleanup.
+- None currently.
 
 ## Performance Investigation Queue
 
@@ -48,6 +27,33 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### 2026-07-17: Recycled Occupant Tickets Could Resolve Replacement Occupants
+
+Status: resolved on 2026-07-17.
+
+Source: runtime identity audit following the pooled-grid generation defect.
+
+Concern:
+
+The public occupant ticket was only a reused `SwiftBucket` slot, so a retained
+ticket could resolve or remove a replacement registration.
+
+Resolution:
+
+- Replaced raw integer slots with `OccupantTicket`, which carries the O(1) slot
+  plus a process-wide nonzero registration generation.
+- Stored generation-bearing scan-cell entries and validate exact generation
+  before lookup or removal.
+- Preserved tracked cleanup, pooling, callback recovery, deterministic query
+  ordering, and allocation-free current-ticket lookup.
+
+Verification:
+
+- Different-occupant and same-occupant stale-slot regressions pass.
+- Cross-world, identical-grid replacement, pooled scan-cell reuse,
+  non-deactivating reset, tracked cleanup, throwing callback, and allocator
+  exhaustion coverage pass.
 
 ### 2026-07-17: GridForge Reused Grid Spawn Tokens Across Pooled Generations
 

@@ -61,10 +61,10 @@ internal static class Pools
 
     #region Node Pooling
 
-    public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftBucket<IVoxelOccupant>> VoxelOccupantDictionaryPool = new();
+    public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftBucket<OccupantEntry>> VoxelOccupantDictionaryPool = new();
 
-    public static readonly SwiftObjectPool<SwiftBucket<IVoxelOccupant>> VoxelOccupantBucketPool = new(
-        createFunc: () => new SwiftBucket<IVoxelOccupant>(),
+    public static readonly SwiftObjectPool<SwiftBucket<OccupantEntry>> VoxelOccupantBucketPool = new(
+        createFunc: () => new SwiftBucket<OccupantEntry>(),
         actionOnRelease: bucket => bucket.Clear()
     );
 

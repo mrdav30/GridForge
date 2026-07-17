@@ -705,14 +705,17 @@ public class GridWorldTests
         Assert.True(firstGrid.TryGetVoxel(firstOccupant.Position, out Voxel firstVoxel));
         Assert.True(secondGrid.TryGetVoxel(secondOccupant.Position, out Voxel secondVoxel));
 
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(firstWorld, firstOccupant, firstVoxel.WorldIndex, out int firstTicket));
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(secondWorld, secondOccupant, secondVoxel.WorldIndex, out int secondTicket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(firstWorld, firstOccupant, firstVoxel.WorldIndex, out OccupantTicket firstTicket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(secondWorld, secondOccupant, secondVoxel.WorldIndex, out OccupantTicket secondTicket));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(firstWorld, secondOccupant, secondVoxel.WorldIndex, out _));
+        Assert.Equal(firstTicket.Slot, secondTicket.Slot);
+        Assert.NotEqual(firstTicket, secondTicket);
 
         Assert.Same(firstOccupant, GridScanManager.ScanRadius(firstWorld, new Vector3d(1, 0, 1), Fixed64.One).Single());
         Assert.Same(secondOccupant, GridScanManager.ScanRadius(secondWorld, new Vector3d(1, 0, 1), Fixed64.One).Single());
         Assert.True(GridScanManager.TryGetVoxelOccupant(firstWorld, firstVoxel.WorldIndex, firstTicket, out IVoxelOccupant resolvedFirst));
         Assert.True(GridScanManager.TryGetVoxelOccupant(secondWorld, secondVoxel.WorldIndex, secondTicket, out IVoxelOccupant resolvedSecond));
+        Assert.False(GridScanManager.TryGetVoxelOccupant(secondWorld, secondVoxel.WorldIndex, firstTicket, out _));
         Assert.Same(firstOccupant, resolvedFirst);
         Assert.Same(secondOccupant, resolvedSecond);
         Assert.Empty(GridOccupantManager.GetOccupiedIndices(firstWorld, secondOccupant));
@@ -822,6 +825,59 @@ public class GridWorldTests
     }
 
     [Fact]
+    public void ReaddedIdenticalGrid_ShouldInvalidatePooledScanCellTicketAndTrackedOccupancy()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+        Guid sharedId = Guid.NewGuid();
+        SharedIdOccupant originalOccupant = new(sharedId, Vector3d.Zero, 1);
+        SharedIdOccupant replacementOccupant = new(sharedId, Vector3d.Zero, 2);
+        VoxelGrid originalGrid = GridWorldTestFactory.AddGrid(
+            world,
+            configuration.BoundsMin,
+            configuration.BoundsMax);
+
+        Assert.True(originalGrid.TryAddVoxelOccupant(originalOccupant));
+        Assert.True(originalGrid.TryGetVoxel(Vector3d.Zero, out Voxel originalVoxel));
+        Assert.True(originalGrid.TryGetScanCell(Vector3d.Zero, out ScanCell originalScanCell));
+        WorldVoxelIndex staleIndex = originalVoxel.WorldIndex;
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            originalOccupant,
+            staleIndex,
+            out OccupantTicket staleTicket));
+
+        Assert.True(world.TryRemoveGrid(originalGrid.GridIndex));
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            originalOccupant,
+            staleIndex,
+            out _));
+        Assert.True(world.TryAddGrid(configuration, out ushort replacementIndex));
+        VoxelGrid replacementGrid = world.ActiveGrids[replacementIndex];
+        Assert.True(replacementGrid.TryAddVoxelOccupant(replacementOccupant));
+        Assert.True(replacementGrid.TryGetVoxel(Vector3d.Zero, out Voxel replacementVoxel));
+        Assert.True(replacementGrid.TryGetScanCell(Vector3d.Zero, out ScanCell replacementScanCell));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            replacementOccupant,
+            replacementVoxel.WorldIndex,
+            out OccupantTicket currentTicket));
+
+        Assert.Same(originalGrid, replacementGrid);
+        Assert.Same(originalScanCell, replacementScanCell);
+        Assert.Equal(staleTicket.Slot, currentTicket.Slot);
+        Assert.NotEqual(staleTicket, currentTicket);
+        Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleTicket, out _));
+        Assert.True(replacementGrid.TryGetVoxelOccupant(
+            replacementVoxel,
+            currentTicket,
+            out IVoxelOccupant resolvedOccupant));
+        Assert.Same(replacementOccupant, resolvedOccupant);
+        Assert.Single(GridOccupantManager.GetOccupiedIndices(world, replacementOccupant));
+    }
+
+    [Fact]
     public void NonDeactivatingReset_ShouldAdvanceGridGenerationAndPreserveWorldIdentity()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
@@ -843,6 +899,51 @@ public class GridWorldTests
         Assert.False(world.TryGetGridAndVoxel(staleIndex, out _, out _));
         Assert.NotEqual(staleIndex.GridSpawnToken, replacementVoxel.WorldIndex.GridSpawnToken);
         Assert.True(world.TryGetGridAndVoxel(replacementVoxel.WorldIndex, out _, out _));
+    }
+
+    [Fact]
+    public void NonDeactivatingReset_ShouldPreserveOccupantTicketGeneration()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+        Guid sharedId = Guid.NewGuid();
+        SharedIdOccupant originalOccupant = new(sharedId, Vector3d.Zero, 1);
+        SharedIdOccupant replacementOccupant = new(sharedId, Vector3d.Zero, 2);
+        VoxelGrid originalGrid = GridWorldTestFactory.AddGrid(
+            world,
+            configuration.BoundsMin,
+            configuration.BoundsMax);
+
+        Assert.True(originalGrid.TryAddVoxelOccupant(originalOccupant));
+        Assert.True(originalGrid.TryGetVoxel(Vector3d.Zero, out Voxel originalVoxel));
+        WorldVoxelIndex staleIndex = originalVoxel.WorldIndex;
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            originalOccupant,
+            staleIndex,
+            out OccupantTicket staleTicket));
+
+        world.Reset(deactivate: false);
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            originalOccupant,
+            staleIndex,
+            out _));
+        Assert.True(world.TryAddGrid(configuration, out ushort replacementIndex));
+        VoxelGrid replacementGrid = world.ActiveGrids[replacementIndex];
+        Assert.True(replacementGrid.TryAddVoxelOccupant(replacementOccupant));
+        Assert.True(replacementGrid.TryGetVoxel(Vector3d.Zero, out Voxel replacementVoxel));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            world,
+            replacementOccupant,
+            replacementVoxel.WorldIndex,
+            out OccupantTicket currentTicket));
+
+        Assert.Equal(staleTicket.Slot, currentTicket.Slot);
+        Assert.NotEqual(staleTicket, currentTicket);
+        Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleTicket, out _));
+        Assert.True(replacementGrid.TryGetVoxelOccupant(replacementVoxel, currentTicket, out _));
+        Assert.Single(GridOccupantManager.GetOccupiedIndices(world, replacementOccupant));
     }
 
     [Fact]

@@ -104,10 +104,10 @@ public class VoxelTests : IDisposable
         TestOccupant occupant = new(position);
         grid.TryAddVoxelOccupant(occupant);
 
-        int previousTicket = -1;
+        OccupantTicket previousTicket = default;
         foreach (WorldVoxelIndex occupiedIndex in GridOccupantManager.GetOccupiedIndices(_world, occupant))
         {
-            Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant, occupiedIndex, out int ticket));
+            Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant, occupiedIndex, out OccupantTicket ticket));
             grid.TryGetVoxel(occupiedIndex.VoxelIndex, out Voxel occupantVoxel);
 
             Assert.True(occupantVoxel.IsOccupied);
@@ -410,8 +410,8 @@ public class VoxelTests : IDisposable
         Assert.True(targetVoxel.IsOccupied);
         Assert.True(targetVoxel.OccupantCount > 0);
 
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant1, targetVoxel.WorldIndex, out int ticket1));
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant2, targetVoxel.WorldIndex, out int ticket2));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant1, targetVoxel.WorldIndex, out OccupantTicket ticket1));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant2, targetVoxel.WorldIndex, out OccupantTicket ticket2));
 
         grid.TryRemoveVoxelOccupant(targetVoxel, occupant1);
         Assert.False(grid.TryGetVoxelOccupant(targetVoxel, ticket1, out _));

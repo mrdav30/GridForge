@@ -28,7 +28,7 @@ internal sealed class SparseVoxelBlock
     {
         CellKey = cellKey;
         ScanCell = Pools.ScanCellPool.Rent();
-        ScanCell.Initialize(grid.World!, grid.GridIndex, cellKey);
+        ScanCell.Initialize(grid, cellKey);
         _voxels = capacity > 0
             ? ArrayPool<Voxel>.Shared.Rent(capacity)
             : null;

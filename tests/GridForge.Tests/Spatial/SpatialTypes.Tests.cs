@@ -453,7 +453,8 @@ public class SpatialTypesTests
         GridEventInfo gridEventInfo = new(13, 7, 99, configuration, 3);
         ObstacleEventInfo obstacleEventInfo = new(voxelIndex, obstacleToken, 2, 4);
         ObstacleClearEventInfo obstacleClearEventInfo = new(voxelIndex, 2, 5);
-        OccupantEventInfo occupantEventInfo = new(voxelIndex, occupant, 12, 1);
+        OccupantTicket occupantTicket = new(12, 34);
+        OccupantEventInfo occupantEventInfo = new(voxelIndex, occupant, occupantTicket, 1);
 
         Assert.Equal(13, gridEventInfo.WorldSpawnToken);
         Assert.Equal((ushort)7, gridEventInfo.GridIndex);
@@ -477,8 +478,29 @@ public class SpatialTypesTests
         Assert.Equal((ushort)7, occupantEventInfo.GridIndex);
         Assert.Equal(voxelIndex, occupantEventInfo.VoxelIndex);
         Assert.Same(occupant, occupantEventInfo.Occupant);
-        Assert.Equal(12, occupantEventInfo.Ticket);
+        Assert.Equal(occupantTicket, occupantEventInfo.Ticket);
         Assert.Equal((byte)1, occupantEventInfo.OccupantCount);
+    }
+
+    [Fact]
+    public void OccupantTicket_ShouldUseExactSlotAndGenerationValueSemantics()
+    {
+        OccupantTicket ticket = new(12, 34);
+        OccupantTicket same = new(12, 34);
+        OccupantTicket differentSlot = new(13, 34);
+        OccupantTicket differentGeneration = new(12, 35);
+
+        Assert.False(default(OccupantTicket).IsValid);
+        Assert.True(ticket.IsValid);
+        Assert.Equal(12, ticket.Slot);
+        Assert.Equal(34, ticket.Generation);
+        Assert.True(ticket == same);
+        Assert.False(ticket != same);
+        Assert.True(ticket.Equals((object)same));
+        Assert.Equal(ticket.GetHashCode(), same.GetHashCode());
+        Assert.NotEqual(ticket, differentSlot);
+        Assert.NotEqual(ticket, differentGeneration);
+        Assert.False(ticket.Equals("not a ticket"));
     }
 
     private sealed class ProviderEntryA { }

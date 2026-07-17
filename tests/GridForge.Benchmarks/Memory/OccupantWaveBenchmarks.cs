@@ -2,6 +2,7 @@
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
+using GridForge.Spatial;
 using System;
 
 namespace GridForge.Benchmarks;
@@ -12,6 +13,9 @@ public class OccupantWaveBenchmarks
 {
     private BenchmarkOccupant[] _occupants;
     private VoxelGrid _grid;
+    private WorldVoxelIndex[] _indices;
+    private IVoxelOccupant _resolvedOccupant;
+    private OccupantTicket[] _tickets;
     private GridWorld _world;
 
     public int OccupantCount { get; set; } = 8192;
@@ -28,6 +32,31 @@ public class OccupantWaveBenchmarks
     public void SetupWarmIteration()
     {
         InitializeScenario(clearAllPools: false);
+    }
+
+    [IterationSetup(Target = nameof(LookupCurrentOccupantTickets))]
+    public void SetupLookupIteration()
+    {
+        InitializeScenario(clearAllPools: false);
+        _indices = new WorldVoxelIndex[_occupants.Length];
+        _tickets = new OccupantTicket[_occupants.Length];
+
+        for (int i = 0; i < _occupants.Length; i++)
+        {
+            BenchmarkOccupant occupant = _occupants[i];
+            if (!_grid.TryAddVoxelOccupant(occupant)
+                || !_grid.TryGetVoxel(occupant.Position, out Voxel voxel)
+                || !GridOccupantManager.TryGetOccupancyTicket(
+                    _world,
+                    occupant,
+                    voxel.WorldIndex,
+                    out _tickets[i]))
+            {
+                throw new InvalidOperationException($"Unable to prepare benchmark occupant {i}.");
+            }
+
+            _indices[i] = voxel.WorldIndex;
+        }
     }
 
     [IterationCleanup]
@@ -48,6 +77,29 @@ public class OccupantWaveBenchmarks
     public int AddAndRemoveOccupantWave_WarmPools()
     {
         return ExecuteWaves();
+    }
+
+    [Benchmark(Description = "Current occupant ticket lookup")]
+    [BenchmarkCategory("Memory", "Occupants", "Lookup")]
+    public int LookupCurrentOccupantTickets()
+    {
+        int resolved = 0;
+        for (int i = 0; i < _occupants.Length; i++)
+        {
+            if (!GridScanManager.TryGetVoxelOccupant(
+                    _world,
+                    _indices[i],
+                    _tickets[i],
+                    out _resolvedOccupant)
+                || !ReferenceEquals(_occupants[i], _resolvedOccupant))
+            {
+                throw new InvalidOperationException($"Unable to resolve benchmark occupant {i}.");
+            }
+
+            resolved++;
+        }
+
+        return resolved;
     }
 
     private void InitializeScenario(bool clearAllPools)

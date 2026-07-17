@@ -11,8 +11,24 @@ using SwiftCollections;
 using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace GridForge.Grids;
+
+/// <summary>
+/// Stores one occupant registration and the generation that owns its bucket slot.
+/// </summary>
+internal readonly struct OccupantEntry
+{
+    public readonly IVoxelOccupant Occupant;
+    public readonly long Generation;
+
+    public OccupantEntry(IVoxelOccupant occupant, long generation)
+    {
+        Occupant = occupant;
+        Generation = generation;
+    }
+}
 
 /// <summary>
 /// Represents a spatial partition within a grid, managing occupants at a finer granularity than grid voxels.
@@ -40,7 +56,11 @@ public class ScanCell
     /// <summary>
     /// Maps a <see cref="Voxel.WorldIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
     /// </summary>
-    private SwiftDictionary<WorldVoxelIndex, SwiftBucket<IVoxelOccupant>>? _voxelOccupants;
+    private SwiftDictionary<WorldVoxelIndex, SwiftBucket<OccupantEntry>>? _voxelOccupants;
+
+    private object? _occupantSyncRoot;
+
+    private static long s_occupantGenerationCounter;
 
     /// <summary>
     /// The total number of occupants in this scan cell.
@@ -63,14 +83,15 @@ public class ScanCell
     #region Initialization & Reset
 
     /// <summary>
-    /// Initializes the scan cell with the specified grid index and unique cell key.
+    /// Initializes the scan cell with its owning grid and unique cell key.
     /// </summary>
-    internal void Initialize(GridWorld world, ushort gridIndex, int cellKey)
+    internal void Initialize(VoxelGrid grid, int cellKey)
     {
-        World = world;
-        GridIndex = gridIndex;
+        World = grid.World;
+        GridIndex = grid.GridIndex;
         CellKey = cellKey;
         IsAllocated = true;
+        Volatile.Write(ref _occupantSyncRoot, grid.OccupantSyncRoot);
     }
 
     /// <summary>
@@ -79,29 +100,39 @@ public class ScanCell
     /// </summary>
     internal void Reset()
     {
-        if (!IsAllocated)
+        object? syncRoot = Volatile.Read(ref _occupantSyncRoot);
+        if (syncRoot == null)
             return;
 
-        if (_voxelOccupants != null)
+        lock (syncRoot)
         {
-            foreach (var kvp in _voxelOccupants)
+            if (!ReferenceEquals(syncRoot, Volatile.Read(ref _occupantSyncRoot)) || !IsAllocated)
+                return;
+
+            if (_voxelOccupants != null)
             {
-                SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-                GridOccupantManager.ForgetTrackedOccupancies(World, bucket, kvp.Key);
-                Pools.VoxelOccupantBucketPool.Release(bucket);
+                foreach (var kvp in _voxelOccupants)
+                {
+                    SwiftBucket<OccupantEntry> bucket = kvp.Value;
+                    foreach (OccupantEntry entry in bucket)
+                        GridOccupantManager.ForgetTrackedOccupancy(World, entry.Occupant, kvp.Key);
+
+                    Pools.VoxelOccupantBucketPool.Release(bucket);
+                }
+
+                Pools.VoxelOccupantDictionaryPool.Release(_voxelOccupants);
+                _voxelOccupants = null;
             }
 
-            Pools.VoxelOccupantDictionaryPool.Release(_voxelOccupants);
-            _voxelOccupants = null;
+            CellOccupantCount = 0;
+
+            World = null;
+            GridIndex = ushort.MaxValue;
+            CellKey = byte.MaxValue;
+
+            IsAllocated = false;
+            Volatile.Write(ref _occupantSyncRoot, null);
         }
-
-        CellOccupantCount = 0;
-
-        World = null;
-        GridIndex = ushort.MaxValue;
-        CellKey = byte.MaxValue;
-
-        IsAllocated = false;
     }
 
     #endregion
@@ -113,19 +144,20 @@ public class ScanCell
     /// </summary>
     /// <param name="index">The global index of the voxel where the occupant resides.</param>
     /// <param name="occupant">The occupant instance to add.</param>
-    /// <returns>An integer ticket representing the occupant's position in the data structure.</returns>
-    internal int AddOccupant(WorldVoxelIndex index, IVoxelOccupant occupant)
+    /// <returns>A generation-aware ticket for the occupant's bucket slot.</returns>
+    internal OccupantTicket AddOccupant(WorldVoxelIndex index, IVoxelOccupant occupant)
     {
+        long generation = RuntimeIdentityAllocator.Allocate(ref s_occupantGenerationCounter);
         _voxelOccupants ??= Pools.VoxelOccupantDictionaryPool.Rent();
-        if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> bucket))
+        if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> bucket))
         {
             bucket = Pools.VoxelOccupantBucketPool.Rent();
             _voxelOccupants[index] = bucket;
         }
 
-        int ticket = bucket.Add(occupant);
+        int slot = bucket.Add(new OccupantEntry(occupant, generation));
         CellOccupantCount++;
-        return ticket;
+        return new OccupantTicket(slot, generation);
     }
 
     /// <summary>
@@ -136,7 +168,7 @@ public class ScanCell
     /// <returns>True if the occupant was successfully removed; otherwise, false.</returns>
     internal bool TryRemoveOccupant(
         WorldVoxelIndex index,
-        int ticket)
+        OccupantTicket ticket)
     {
         if (!IsOccupied)
             return false;
@@ -144,8 +176,13 @@ public class ScanCell
         if (!_voxelOccupants!.TryGetValue(index, out var bucket))
             return false;
 
-        if (!bucket.TryRemoveAt(ticket))
+        if (!ticket.IsValid
+            || !bucket.TryGetValue(ticket.Slot, out OccupantEntry entry)
+            || entry.Generation != ticket.Generation
+            || !bucket.TryRemoveAt(ticket.Slot))
+        {
             return false;
+        }
 
         // If the occupant was the last in its bucket, remove the entire bucket
         if (bucket.Count == 0)
@@ -172,10 +209,10 @@ public class ScanCell
         if (_voxelOccupants == null)
             yield break;
 
-        foreach (SwiftBucket<IVoxelOccupant> bucket in _voxelOccupants.Values)
+        foreach (SwiftBucket<OccupantEntry> bucket in _voxelOccupants.Values)
         {
-            foreach (IVoxelOccupant voxelOccupant in bucket)
-                yield return voxelOccupant;
+            foreach (OccupantEntry entry in bucket)
+                yield return entry.Occupant;
         }
     }
 
@@ -192,8 +229,9 @@ public class ScanCell
         // Loop through each voxel's bucket and filter by the cluster condition
         foreach (var bucket in _voxelOccupants.Values)
         {
-            foreach (var occupant in bucket)
+            foreach (OccupantEntry entry in bucket)
             {
+                IVoxelOccupant occupant = entry.Occupant;
                 if (occupantCondition != null && !occupantCondition(occupant))
                     continue;
 
@@ -220,9 +258,10 @@ public class ScanCell
 
         foreach (var kvp in _voxelOccupants)
         {
-            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-            foreach (IVoxelOccupant occupant in bucket)
+            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            foreach (OccupantEntry entry in bucket)
             {
+                IVoxelOccupant occupant = entry.Occupant;
                 if (OccupantPassesFilters(occupant, occupantCondition, groupCondition)
                     && IsWithinSquaredRadius(occupant, position, squaredRadius))
                 {
@@ -251,9 +290,10 @@ public class ScanCell
             if (kvp.Key.VoxelIndex.y != localLayerY)
                 continue;
 
-            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-            foreach (IVoxelOccupant occupant in bucket)
+            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            foreach (OccupantEntry entry in bucket)
             {
+                IVoxelOccupant occupant = entry.Occupant;
                 if (OccupantPassesFilters(occupant, occupantCondition, groupCondition)
                     && GridPlane2d.DistanceSquaredXZ(occupant.Position, position) <= squaredRadius)
                 {
@@ -278,9 +318,10 @@ public class ScanCell
 
         foreach (var kvp in _voxelOccupants)
         {
-            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-            foreach (IVoxelOccupant occupant in bucket)
+            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            foreach (OccupantEntry entry in bucket)
             {
+                IVoxelOccupant occupant = entry.Occupant;
                 if (!OccupantPassesFilters(occupant, occupantCondition, groupCondition))
                     continue;
 
@@ -309,9 +350,10 @@ public class ScanCell
             if (kvp.Key.VoxelIndex.y != localLayerY)
                 continue;
 
-            SwiftBucket<IVoxelOccupant> bucket = kvp.Value;
-            foreach (IVoxelOccupant occupant in bucket)
+            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            foreach (OccupantEntry entry in bucket)
             {
+                IVoxelOccupant occupant = entry.Occupant;
                 if (!OccupantPassesFilters(occupant, occupantCondition, groupCondition))
                     continue;
 
@@ -362,11 +404,11 @@ public class ScanCell
     /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
     public IEnumerable<IVoxelOccupant> GetOccupantsFor(WorldVoxelIndex index)
     {
-        if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants))
+        if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> voxelOccupants))
             yield break;
 
-        foreach (IVoxelOccupant voxelOccupant in voxelOccupants)
-            yield return voxelOccupant;
+        foreach (OccupantEntry entry in voxelOccupants)
+            yield return entry.Occupant;
     }
 
     /// <summary>
@@ -378,19 +420,29 @@ public class ScanCell
     /// <returns>True if the occupant was found, otherwise false.</returns>
     public bool TryGetOccupantAt(
         WorldVoxelIndex index,
-        int occupantTicket,
+        OccupantTicket occupantTicket,
         out IVoxelOccupant? voxelOccupant)
     {
         voxelOccupant = null;
-        if (_voxelOccupants == null
-            || !_voxelOccupants.TryGetValue(index, out SwiftBucket<IVoxelOccupant> voxelOccupants)
-            || !voxelOccupants.IsAllocated(occupantTicket))
-        {
+        object? syncRoot = Volatile.Read(ref _occupantSyncRoot);
+        if (syncRoot == null)
             return false;
-        }
 
-        voxelOccupant = voxelOccupants[occupantTicket];
-        return true;
+        lock (syncRoot)
+        {
+            if (!ReferenceEquals(syncRoot, Volatile.Read(ref _occupantSyncRoot))
+                || _voxelOccupants == null
+                || !_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> voxelOccupants)
+                || !occupantTicket.IsValid
+                || !voxelOccupants.TryGetValue(occupantTicket.Slot, out OccupantEntry entry)
+                || entry.Generation != occupantTicket.Generation)
+            {
+                return false;
+            }
+
+            voxelOccupant = entry.Occupant;
+            return true;
+        }
     }
 
     #endregion

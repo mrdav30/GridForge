@@ -1,11 +1,13 @@
 ﻿using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -324,6 +326,45 @@ public class ScanCellTests : IDisposable
 
 #if !DEBUG
     [Fact]
+    public void TryGetOccupantAt_ShouldAvoidSteadyStateAllocation()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero, 1);
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            occupant,
+            voxel.WorldIndex,
+            out OccupantTicket ticket));
+        Assert.True(scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out _));
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        bool resolved = true;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 8192; i++)
+        {
+            resolved &= scanCell.TryGetOccupantAt(
+                voxel.WorldIndex,
+                ticket,
+                out IVoxelOccupant currentOccupant)
+                && ReferenceEquals(occupant, currentOccupant);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(resolved);
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
     public void ScanRadiusInto_ShouldAvoidSteadyStateAllocation()
     {
         _world.TryAddGrid(
@@ -498,8 +539,8 @@ public class ScanCellTests : IDisposable
         Assert.True(grid.TryGetVoxel(secondPosition, out Voxel secondVoxel));
         Assert.True(grid.TryGetScanCell(firstPosition, out ScanCell scanCell));
 
-        List<IVoxelOccupant> firstBucket = InvokeGetOccupantsFor(scanCell, firstVoxel.WorldIndex).ToList();
-        List<IVoxelOccupant> secondBucket = InvokeGetOccupantsFor(scanCell, secondVoxel.WorldIndex).ToList();
+        List<IVoxelOccupant> firstBucket = scanCell.GetOccupantsFor(firstVoxel.WorldIndex).ToList();
+        List<IVoxelOccupant> secondBucket = scanCell.GetOccupantsFor(secondVoxel.WorldIndex).ToList();
 
         Assert.Equal(2, firstBucket.Count);
         Assert.Contains(firstBucketOccupant, firstBucket);
@@ -514,17 +555,13 @@ public class ScanCellTests : IDisposable
     public void ScanCell_InternalOperations_ShouldHandleInactiveAndMissingStateGracefully()
     {
         ScanCell inactiveCell = new();
-        TestOccupant occupant = new(Vector3d.Zero);
 
-        InvokeReset(inactiveCell);
+        inactiveCell.Reset();
 
         Assert.False(inactiveCell.IsAllocated);
         Assert.False(inactiveCell.IsOccupied);
         Assert.Equal(0, inactiveCell.CellOccupantCount);
-        Assert.False(InvokeTryRemoveOccupant(
-            inactiveCell,
-            new WorldVoxelIndex(0, 0, 0, new VoxelIndex(0, 0, 0)),
-            0));
+        Assert.False(inactiveCell.TryRemoveOccupant(default, default));
     }
 
     [Fact]
@@ -541,7 +578,7 @@ public class ScanCellTests : IDisposable
         Assert.Empty(scanCell.GetOccupants());
         Assert.Empty(scanCell.GetConditionalOccupants());
         Assert.Empty(scanCell.GetOccupantsFor(voxel.WorldIndex));
-        Assert.False(scanCell.TryGetOccupantAt(voxel.WorldIndex, 0, out IVoxelOccupant missingOccupant));
+        Assert.False(scanCell.TryGetOccupantAt(voxel.WorldIndex, default, out IVoxelOccupant missingOccupant));
         Assert.Null(missingOccupant);
     }
 
@@ -559,12 +596,12 @@ public class ScanCellTests : IDisposable
         Assert.True(grid.TryGetVoxel(new Vector3d(2, 0, 2), out Voxel emptyVoxel));
         Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
 
-        List<IVoxelOccupant> missingBucket = InvokeGetOccupantsFor(scanCell, emptyVoxel.WorldIndex).ToList();
+        List<IVoxelOccupant> missingBucket = scanCell.GetOccupantsFor(emptyVoxel.WorldIndex).ToList();
 
         Assert.Empty(missingBucket);
-        Assert.False(InvokeTryRemoveOccupant(scanCell, emptyVoxel.WorldIndex, 0));
-        Assert.False(InvokeTryRemoveOccupant(scanCell, occupiedVoxel.WorldIndex, 99));
-        Assert.Single(InvokeGetOccupantsFor(scanCell, occupiedVoxel.WorldIndex));
+        Assert.False(scanCell.TryRemoveOccupant(emptyVoxel.WorldIndex, default));
+        Assert.False(scanCell.TryRemoveOccupant(occupiedVoxel.WorldIndex, default));
+        Assert.Single(scanCell.GetOccupantsFor(occupiedVoxel.WorldIndex));
     }
 
     [Fact]
@@ -579,17 +616,219 @@ public class ScanCellTests : IDisposable
         Assert.True(grid.TryAddVoxelOccupant(occupant));
         Assert.True(grid.TryGetVoxel(occupant.Position, out Voxel voxel));
         Assert.True(grid.TryGetScanCell(occupant.Position, out ScanCell scanCell));
-        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant, voxel.WorldIndex, out int ticket));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, occupant, voxel.WorldIndex, out OccupantTicket ticket));
 
-        Assert.True(InvokeTryGetOccupantAt(scanCell, voxel.WorldIndex, ticket, out IVoxelOccupant resolvedOccupant));
+        Assert.True(scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out IVoxelOccupant resolvedOccupant));
         Assert.Same(occupant, resolvedOccupant);
 
         Assert.True(grid.TryRemoveVoxelOccupant(occupant));
 
-        Assert.False(InvokeTryGetOccupantAt(scanCell, voxel.WorldIndex, ticket, out IVoxelOccupant removedOccupant));
+        Assert.False(scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out IVoxelOccupant removedOccupant));
         Assert.Null(removedOccupant);
-        Assert.False(InvokeTryGetOccupantAt(scanCell, voxel.WorldIndex, ticket + 1, out IVoxelOccupant invalidTicketOccupant));
+        Assert.False(scanCell.TryGetOccupantAt(
+            voxel.WorldIndex,
+            new OccupantTicket(ticket.Slot, ticket.Generation + 1),
+            out IVoxelOccupant invalidTicketOccupant));
         Assert.Null(invalidTicketOccupant);
+    }
+
+    [Fact]
+    public void StaleTicket_ShouldNotResolveOrRemoveReplacementOccupantInReusedSlot()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant firstOccupant = new(Vector3d.Zero, 1);
+        TestOccupant replacementOccupant = new(Vector3d.Zero, 2);
+
+        Assert.True(grid.TryAddVoxelOccupant(firstOccupant));
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            firstOccupant,
+            voxel.WorldIndex,
+            out OccupantTicket staleTicket));
+        Assert.True(grid.TryRemoveVoxelOccupant(firstOccupant));
+
+        Assert.True(grid.TryAddVoxelOccupant(replacementOccupant));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            replacementOccupant,
+            voxel.WorldIndex,
+            out OccupantTicket currentTicket));
+        Assert.Equal(staleTicket.Slot, currentTicket.Slot);
+        Assert.NotEqual(staleTicket, currentTicket);
+
+        Assert.False(scanCell.TryGetOccupantAt(voxel.WorldIndex, staleTicket, out _));
+        Assert.True(scanCell.TryGetOccupantAt(voxel.WorldIndex, currentTicket, out IVoxelOccupant currentOccupant));
+        Assert.Same(replacementOccupant, currentOccupant);
+        Assert.False(scanCell.TryRemoveOccupant(voxel.WorldIndex, staleTicket));
+        Assert.True(scanCell.TryRemoveOccupant(voxel.WorldIndex, currentTicket));
+    }
+
+    [Fact]
+    public void FirstTicket_ShouldStayStaleAfterSameOccupantIsRemovedAndReadded()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero, 1);
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            occupant,
+            voxel.WorldIndex,
+            out OccupantTicket firstTicket));
+        Assert.True(grid.TryRemoveVoxelOccupant(occupant));
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            occupant,
+            voxel.WorldIndex,
+            out OccupantTicket secondTicket));
+        Assert.Equal(firstTicket.Slot, secondTicket.Slot);
+        Assert.NotEqual(firstTicket, secondTicket);
+
+        Assert.False(scanCell.TryGetOccupantAt(voxel.WorldIndex, firstTicket, out _));
+        Assert.True(scanCell.TryGetOccupantAt(voxel.WorldIndex, secondTicket, out IVoxelOccupant currentOccupant));
+        Assert.Same(occupant, currentOccupant);
+    }
+
+    [Theory]
+    [InlineData(GridStorageKind.Dense)]
+    [InlineData(GridStorageKind.Sparse)]
+    public async Task TryGetOccupantAt_ShouldSynchronizeWithGridOccupantMutations(GridStorageKind storageKind)
+    {
+        GridConfiguration configuration = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            storageKind: storageKind);
+        Assert.True(_world.TryAddGrid(configuration, new[] { new VoxelIndex(0, 0, 0) }, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero, 1);
+
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+        Assert.True(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            occupant,
+            voxel.WorldIndex,
+            out OccupantTicket ticket));
+
+        using ManualResetEventSlim lookupStarted = new();
+        using ManualResetEventSlim lookupFinished = new();
+        Task<(bool Success, IVoxelOccupant Occupant)> lookupTask;
+        lock (grid.OccupantSyncRoot)
+        {
+            lookupTask = Task.Run(() =>
+            {
+                lookupStarted.Set();
+                try
+                {
+                    bool success = scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out IVoxelOccupant resolved);
+                    return (success, resolved);
+                }
+                finally
+                {
+                    lookupFinished.Set();
+                }
+            });
+
+            Assert.True(lookupStarted.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Assert.False(
+                lookupFinished.Wait(TimeSpan.FromMilliseconds(250), TestContext.Current.CancellationToken),
+                "Exact lookup completed while the grid occupant mutation lock was held.");
+        }
+
+        (bool success, IVoxelOccupant resolvedOccupant) = await lookupTask;
+        Assert.True(success);
+        Assert.Same(occupant, resolvedOccupant);
+    }
+
+    [Fact]
+    public async Task ScanCellReset_ShouldSynchronizeWithGridOccupantLookups()
+    {
+        GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero, 1);
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+
+        using ManualResetEventSlim resetStarted = new();
+        using ManualResetEventSlim resetFinished = new();
+        Task<bool> resetTask;
+        lock (grid.OccupantSyncRoot)
+        {
+            resetTask = Task.Run(() =>
+            {
+                resetStarted.Set();
+                try
+                {
+                    return _world.TryRemoveGrid(gridIndex);
+                }
+                finally
+                {
+                    resetFinished.Set();
+                }
+            });
+
+            Assert.True(resetStarted.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Assert.False(
+                resetFinished.Wait(TimeSpan.FromMilliseconds(250), TestContext.Current.CancellationToken),
+                "Scan-cell reset completed while the grid occupant lookup lock was held.");
+        }
+
+        Assert.True(await resetTask);
+    }
+
+    [Fact]
+    public void AddOccupant_ShouldFailBeforeStorageMutationWhenGenerationIsExhausted()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero, 1);
+
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+
+        FieldInfo counterField = typeof(ScanCell).GetField(
+            "s_occupantGenerationCounter",
+            BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find the occupant generation counter.");
+        long previousCounter = (long)counterField.GetValue(null);
+
+        try
+        {
+            counterField.SetValue(null, long.MaxValue);
+            Assert.Throws<InvalidOperationException>(() => grid.TryAddVoxelOccupant(occupant));
+        }
+        finally
+        {
+            counterField.SetValue(null, previousCounter);
+        }
+
+        Assert.False(voxel.IsOccupied);
+        Assert.Equal(0, voxel.OccupantCount);
+        Assert.False(scanCell.IsOccupied);
+        Assert.Equal(0, scanCell.CellOccupantCount);
+        Assert.Empty(scanCell.GetOccupants());
+        Assert.Null(grid.ActiveScanCells);
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            _world,
+            occupant,
+            voxel.WorldIndex,
+            out OccupantTicket ticket));
+        Assert.False(ticket.IsValid);
     }
 
     [Fact]
@@ -671,40 +910,6 @@ public class ScanCellTests : IDisposable
 
         Assert.Empty(untypedResults);
         Assert.Empty(typedResults);
-    }
-
-    private static void InvokeReset(ScanCell scanCell)
-    {
-        MethodInfo method = typeof(ScanCell).GetMethod("Reset", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find ScanCell.Reset.");
-
-        method.Invoke(scanCell, Array.Empty<object>());
-    }
-
-    private static IEnumerable<IVoxelOccupant> InvokeGetOccupantsFor(ScanCell scanCell, WorldVoxelIndex index)
-    {
-        MethodInfo method = typeof(ScanCell).GetMethod("GetOccupantsFor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find ScanCell.GetOccupantsFor.");
-
-        return (IEnumerable<IVoxelOccupant>)method.Invoke(scanCell, new object[] { index });
-    }
-
-    private static bool InvokeTryGetOccupantAt(ScanCell scanCell, WorldVoxelIndex index, int ticket, out IVoxelOccupant occupant)
-    {
-        MethodInfo method = typeof(ScanCell).GetMethod("TryGetOccupantAt", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find ScanCell.TryGetOccupantAt.");
-        object[] args = new object[] { index, ticket, null };
-        bool result = (bool)method.Invoke(scanCell, args);
-        occupant = (IVoxelOccupant)args[2];
-        return result;
-    }
-
-    private static bool InvokeTryRemoveOccupant(ScanCell scanCell, WorldVoxelIndex index, int ticket)
-    {
-        MethodInfo method = typeof(ScanCell).GetMethod("TryRemoveOccupant", BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find ScanCell.TryRemoveOccupant.");
-        object[] args = new object[] { index, ticket };
-        return (bool)method.Invoke(scanCell, args);
     }
 
 }

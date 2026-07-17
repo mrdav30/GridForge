@@ -27,7 +27,7 @@ public readonly struct OccupantEventInfo
     /// <summary>
     /// The scan-cell ticket assigned to the occupant for this voxel.
     /// </summary>
-    public readonly int Ticket;
+    public readonly OccupantTicket Ticket;
 
     /// <summary>
     /// The number of occupants on the voxel after the mutation completes.
@@ -45,7 +45,7 @@ public readonly struct OccupantEventInfo
     public OccupantEventInfo(
         WorldVoxelIndex voxelIndex,
         IVoxelOccupant occupant,
-        int ticket,
+        OccupantTicket ticket,
         byte occupantCount)
     {
         VoxelIndex = voxelIndex;

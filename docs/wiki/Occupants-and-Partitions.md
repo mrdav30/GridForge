@@ -51,6 +51,12 @@ That keeps the tracked `WorldVoxelIndex` plus scan-cell ticket relationship
 inside GridForge instead of forcing every consumer implementation to mirror it
 manually.
 
+Occupant tickets are `OccupantTicket` values, not raw bucket indices. Each
+ticket combines an O(1) `Slot` with a nonzero process-wide `Generation`.
+`default(OccupantTicket)` is invalid, and a ticket from a removed registration,
+another world, a pooled scan cell, or a pre-reset grid cannot resolve a later
+occupant that reuses the same slot.
+
 ## How Occupants Are Stored
 
 Occupants are managed through `GridOccupantManager` and stored indirectly
@@ -104,6 +110,10 @@ If removal succeeds:
 That last point is worth calling out because it is easy to forget: active
 scan-cell tracking is intentionally allocation-conscious and can disappear
 entirely when no occupants remain.
+
+Tickets identify one runtime registration lifetime only. Obtain the current
+value from `TryGetOccupancyTicket(...)` or an occupant event, and do not persist
+it as a content identifier or use it for authoritative simulation ordering.
 
 ## Sparse Grid Behavior
 
