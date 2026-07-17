@@ -208,6 +208,9 @@ public static class GridOccupantManager
 
         lock (grid.OccupantSyncRoot)
         {
+            if (!targetVoxel.HasVacancy)
+                return false;
+
             ticket = scanCell!.AddOccupant(targetVoxel.WorldIndex, occupant);
             if (!TryTrackOccupancy(world!, occupant, targetVoxel.WorldIndex, ticket))
             {

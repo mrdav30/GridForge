@@ -10,6 +10,7 @@ using GridForge.Grids;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Utility;
@@ -38,6 +39,8 @@ public struct GridTraversalState
     private readonly GridWorld _world;
     private readonly GridTraversalPaddingMode _paddingMode;
     private ushort _currentGridIndex;
+    private long _currentGridSpawnToken;
+    private VoxelGrid? _currentGrid;
     private Fixed64 _cellEdge;
     private bool _hasCachedGrid;
 
@@ -49,6 +52,8 @@ public struct GridTraversalState
         _world = world;
         _paddingMode = paddingMode;
         _currentGridIndex = 0;
+        _currentGridSpawnToken = 0;
+        _currentGrid = null;
         _cellEdge = Fixed64.Zero;
         _hasCachedGrid = false;
     }
@@ -56,33 +61,79 @@ public struct GridTraversalState
     /// <summary>
     /// Visits a voxel only once and returns the selected cell-edge measurement for its grid.
     /// </summary>
+    /// <returns>True when the voxel belongs to an active grid generation and was not already visited; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryVisitUnique(Voxel voxel, SwiftHashSet<WorldVoxelIndex> visited, out Fixed64 cellEdge)
     {
         cellEdge = Fixed64.Zero;
-        if (!visited.Add(voxel.WorldIndex))
+        WorldVoxelIndex voxelIndex = voxel.WorldIndex;
+        if (!visited.Add(voxelIndex))
             return false;
 
-        cellEdge = GetCellEdge(voxel);
+        if (!TryResolveGrid(voxelIndex, out VoxelGrid? grid))
+        {
+            visited.Remove(voxelIndex);
+            return false;
+        }
+
+        cellEdge = GetCellEdge(grid!);
         return true;
     }
 
     /// <summary>
     /// Gets the selected cell-edge measurement for a voxel's grid, caching repeated grid lookups.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The voxel does not belong to an active grid generation in this traversal's world.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Fixed64 GetCellEdge(Voxel voxel)
     {
-        if (_hasCachedGrid && voxel.GridIndex == _currentGridIndex)
-            return _cellEdge;
+        bool isCurrent = TryResolveGrid(voxel.WorldIndex, out VoxelGrid? grid);
+        SwiftThrowHelper.ThrowIfTrue(
+            !isCurrent,
+            nameof(voxel),
+            "The voxel does not belong to an active grid generation in this traversal's world.");
 
-        _currentGridIndex = voxel.GridIndex;
+        return GetCellEdge(grid!);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Fixed64 GetCellEdge(VoxelGrid grid)
+    {
+        if (_hasCachedGrid
+            && grid.GridIndex == _currentGridIndex
+            && grid.SpawnToken == _currentGridSpawnToken)
+        {
+            return _cellEdge;
+        }
+
+        _currentGridIndex = grid.GridIndex;
+        _currentGridSpawnToken = grid.SpawnToken;
+        _currentGrid = grid;
         _hasCachedGrid = true;
-        VoxelGrid grid = _world.ActiveGrids[_currentGridIndex];
         _cellEdge = _paddingMode == GridTraversalPaddingMode.PlanarMaxCellEdge
             ? GridTopologyMetricUtility.GetPlanarMaxCellEdge(grid)
             : GridTopologyMetricUtility.GetMaxCellEdge(grid);
         return _cellEdge;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryResolveGrid(WorldVoxelIndex voxelIndex, out VoxelGrid? grid)
+    {
+        grid = _currentGrid;
+        if (_hasCachedGrid
+            && voxelIndex.WorldSpawnToken == _world.SpawnToken
+            && voxelIndex.GridIndex == _currentGridIndex
+            && voxelIndex.GridSpawnToken == _currentGridSpawnToken
+            && grid != null
+            && grid.IsActive
+            && ReferenceEquals(grid.World, _world)
+            && grid.GridIndex == _currentGridIndex
+            && grid.SpawnToken == _currentGridSpawnToken)
+        {
+            return true;
+        }
+
+        return _world.TryGetGrid(voxelIndex, out grid);
     }
 }
 

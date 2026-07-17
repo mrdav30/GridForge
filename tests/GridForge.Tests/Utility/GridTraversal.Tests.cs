@@ -38,6 +38,53 @@ public sealed class GridTraversalTests
     }
 
     [Fact]
+    public void TryVisitUnique_ReusedGridSlotUsesReplacementGenerationMetrics()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(
+            GridTopologyMetrics.Rectangular((Fixed64)2, (Fixed64)9, (Fixed64)4));
+        VoxelGrid originalGrid = world.ActiveGrids[0];
+        Voxel originalVoxel = GetVoxel(world, Vector3d.Zero);
+        WorldVoxelIndex originalIndex = originalVoxel.WorldIndex;
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
+        GridTraversalState traversal = new GridTraversalState(world, GridTraversalPaddingMode.MaxCellEdge);
+
+        Assert.True(traversal.TryVisitUnique(originalVoxel, visited, out Fixed64 originalEdge));
+        Assert.Equal((Fixed64)9, originalEdge);
+        Assert.True(world.TryRemoveGrid(originalGrid.GridIndex));
+
+        GridConfiguration replacementConfiguration = new GridConfiguration(
+            new Vector3d(-8, -8, -8),
+            new Vector3d(8, 8, 8),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)3, (Fixed64)11, (Fixed64)5));
+
+        Assert.True(world.TryAddGrid(replacementConfiguration, out ushort replacementGridIndex));
+        VoxelGrid replacementGrid = world.ActiveGrids[replacementGridIndex];
+        Assert.Equal(originalIndex.GridIndex, replacementGrid.GridIndex);
+        Assert.NotEqual(originalIndex.GridSpawnToken, replacementGrid.SpawnToken);
+
+        Voxel replacementVoxel = GetVoxel(world, Vector3d.Zero);
+        Assert.True(traversal.TryVisitUnique(replacementVoxel, visited, out Fixed64 replacementEdge));
+        Assert.Equal((Fixed64)11, replacementEdge);
+    }
+
+    [Fact]
+    public void GridTraversalState_RejectsRemovedGridGenerationVoxels()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
+        VoxelGrid grid = world.ActiveGrids[0];
+        HashCollidingVoxel staleVoxel = CreateHashCollidingVoxel(grid, new VoxelIndex(0, 0, 0));
+        GridTraversalState traversal = new GridTraversalState(world, GridTraversalPaddingMode.MaxCellEdge);
+
+        Assert.Equal(Fixed64.One, traversal.GetCellEdge(staleVoxel));
+        Assert.True(world.TryRemoveGrid(grid.GridIndex));
+
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
+        Assert.False(traversal.TryVisitUnique(staleVoxel, visited, out _));
+        Assert.Empty(visited);
+        Assert.Throws<InvalidOperationException>(() => traversal.GetCellEdge(staleVoxel));
+    }
+
+    [Fact]
     public void TryVisitUnique_VisitsDistinctWorldIndicesWhenVoxelHashesCollide()
     {
         using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));

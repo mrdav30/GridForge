@@ -891,6 +891,29 @@ public class ScanCellTests : IDisposable
     }
 
     [Fact]
+    public void ConcurrentOccupantAdds_ShouldStopAtVoxelCapacityWithoutCountOverflow()
+    {
+        _world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex);
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+
+        TestOccupant[] occupants = Enumerable.Range(0, GridOccupantManager.MaxOccupantCount + 64)
+            .Select(_ => new TestOccupant(Vector3d.Zero))
+            .ToArray();
+        bool[] addResults = new bool[occupants.Length];
+
+        Parallel.For(0, occupants.Length, i => addResults[i] = grid.TryAddVoxelOccupant(voxel, occupants[i]));
+
+        Assert.Equal(GridOccupantManager.MaxOccupantCount, addResults.Count(result => result));
+        Assert.Equal(GridOccupantManager.MaxOccupantCount, voxel.OccupantCount);
+        Assert.Equal(GridOccupantManager.MaxOccupantCount, scanCell.CellOccupantCount);
+        Assert.Equal(GridOccupantManager.MaxOccupantCount, scanCell.GetOccupantsFor(voxel.WorldIndex).Count());
+    }
+
+    [Fact]
     public void Radius2dQueries_ShouldNoOpWhenScanCellIsUninitialized()
     {
         ScanCell scanCell = new ScanCell();
