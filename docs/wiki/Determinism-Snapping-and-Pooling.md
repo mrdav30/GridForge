@@ -50,6 +50,21 @@ That means:
 When tests or tools need different cell geometry, create the grid with explicit
 topology metrics and keep expectations local to that grid.
 
+## Runtime Generations Validate Reuse
+
+Pooling makes storage slots reusable, so `GridIndex` and
+`OccupantTicket.Slot` are never sufficient identities by themselves. An active
+world receives a process-unique token, each grid registration receives a
+nonrepeating generation local to that world, and each occupant registration
+receives a process-unique generation. `WorldVoxelIndex` and `OccupantTicket`
+carry those values so stale references fail instead of aliasing replacement
+state.
+
+These generations are transient validation metadata. They are not serialized,
+durable across processes, or authoritative ordering inputs. Persist host-owned
+content identity such as `IVoxelOccupant.GlobalId`, then resolve fresh runtime
+handles when rebuilding a world.
+
 ## Pooling Is A First-Class Constraint
 
 Pooling in GridForge is not an optimization sprinkled on top. It shapes the

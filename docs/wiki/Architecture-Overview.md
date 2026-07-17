@@ -16,7 +16,7 @@ GridForge is organized as a small set of cooperating layers:
 | Layer                      | Main Types                                                                                     | Primary Responsibility                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | World coordination         | `GridWorld`                                                                                    | World lifecycle, registration, spatial hashing, top-level lookup, world events              |
-| Configuration and identity | `GridConfiguration`, `BoundsKey`, `ObstacleToken`, `OccupantTicket`, `VoxelIndex`, `WorldVoxelIndex` | Stable input, geometry keys, runtime registration identity, and cross-system identity       |
+| Configuration and identity | `GridConfiguration`, `GridConfigurationKey`, `BoundsKey`, `ObstacleToken`, `OccupantTicket`, `VoxelIndex`, `WorldVoxelIndex` | Configuration and geometry values plus exact transient runtime identity                     |
 | Per-grid storage           | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies                              | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state               |
 | Mutation services          | `GridObstacleManager`, `GridOccupantManager`, `Blocker`                                        | Safe state changes, events, and higher-level world-space mutations                          |
 | Query services             | `GridScanManager`, `GridTracer`                                                                | Radius scans, filtered retrieval, line tracing, coverage enumeration                        |
@@ -61,6 +61,7 @@ world-space input
 - exact-bounds duplicate tracking
 - the spatial hash used for coarse grid lookup
 - world versioning and grid-level events
+- a process-unique runtime world token
 - world-local grid generations
 - active-gated allocation of process-unique obstacle registrations
 

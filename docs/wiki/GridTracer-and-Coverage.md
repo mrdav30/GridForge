@@ -86,7 +86,10 @@ clears and fills a caller-owned `SwiftList<Voxel>` with the same covered voxels
 as the grouped enumerable path. Pass a reusable `GridTraceScratch` when the
 caller also wants to own the temporary processed-grid and duplicate-voxel sets.
 The flat result lets hot paths avoid enumerable and pooled grouped-list lifetime
-costs while still resolving the owning grid from `voxel.GridIndex` when needed.
+costs while still resolving the owning grid from `voxel.GridIndex` while that
+returned voxel is current. `GridIndex` is a recyclable slot; longer-lived
+runtime references should copy `voxel.WorldIndex` and revalidate it through the
+owning world.
 
 ## Traversal Padding And Duplicate Suppression
 
@@ -96,6 +99,8 @@ Consumers that build their own GridForge-backed broad phases can use
 exact `WorldVoxelIndex` before resolving a typed partition. Callers provide a
 reusable `SwiftHashSet<WorldVoxelIndex>`; clear it between independent
 traversals. Object hash codes are never treated as unique voxel identities.
+The world token and grid generation inside `WorldVoxelIndex` make it exact for
+the current runtime, but the value is not a serialized or durable content ID.
 
 `GridTraversalState` caches the selected topology edge per grid while walking
 voxels. Use `GridTraversalPaddingMode.MaxCellEdge` for full 3D padding and

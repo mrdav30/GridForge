@@ -9,7 +9,7 @@
 > before claiming a phase is complete. Steps use checkbox (`- [ ]`) syntax for
 > tracking.
 
-**Status:** In Progress
+**Status:** In Progress - final independent review pending
 
 **Goal:** Make every runtime identity used for stale-reference rejection,
 deduplication, blocker ownership, or occupant lookup exact across pooled reuse,
@@ -32,7 +32,9 @@ safety data, not serialized simulation state.
 - Started: 2026-07-17.
 - Planning date: 2026-07-17.
 - Release posture: intentionally breaking pre-release hardening.
-- Current state: Phases 0-4 are complete. Phase 5 cross-stack closure is next.
+- Current state: Phases 0-4 are complete. Phase 5 implementation,
+  documentation, benchmarks, package validation, and cross-stack validation
+  are complete; only the final independent review remains.
 - Working agreement: keep local project references in place and uncommitted;
   commit coherent implementation milestones directly to `develop` while
   preserving unrelated owner changes.
@@ -491,32 +493,69 @@ Phase 4 evidence:
 Intent: finish release-ready validation and documentation without removing the
 local links needed for the remaining lower-stack hardening work.
 
-- [ ] Update `README.md`, `docs/MIGRATION.md`, and the relevant wiki pages:
+- [x] Update `README.md`, `docs/MIGRATION.md`, and the relevant wiki pages:
   `Core-Concepts.md`, `Determinism-Snapping-and-Pooling.md`,
   `GridTracer-and-Coverage.md`, `Blockers-and-Obstacles.md`,
   `Scan-Cells-and-Query-Flow.md`, and `Occupants-and-Partitions.md`.
-- [ ] Update GridForge and Gravitas issue trackers as each defect moves from
+- [x] Update GridForge and Gravitas issue trackers as each defect moves from
   active to resolved.
-- [ ] Run GridForge Debug, Release, and ReleaseLean build/test validation.
-- [ ] Run the affected GridForge benchmarks and record before/after medians.
-- [ ] Run Gravitas Debug, Release, and ReleaseLean validation through the local
+- [x] Run GridForge Debug, Release, and ReleaseLean build/test validation.
+- [x] Run the affected GridForge benchmarks and record before/after medians.
+- [x] Run Gravitas Debug, Release, and ReleaseLean validation through the local
   GridForge reference.
-- [ ] Run focused Gravitas 2D, 3D, mixed, partition, and query regressions.
+- [x] Run focused Gravitas 2D, 3D, mixed, partition, and query regressions.
 - [ ] Run an independent final code review covering correctness, determinism,
   pooling, public API quality, test value, and documentation accuracy.
 - [ ] Address review findings and repeat affected verification.
-- [ ] Commit coherent implementation and documentation milestones directly to
+- [x] Commit coherent implementation and documentation milestones directly to
   `develop`. Keep local project-reference changes uncommitted.
 
 Exit criteria:
 
-- [ ] All four identity defects are resolved with focused regressions.
-- [ ] Standard and lean package variants pass.
-- [ ] Local-linked Gravitas passes without downstream band-aids.
-- [ ] Documentation clearly distinguishes value keys, slots, runtime identities,
+- [x] All four identity defects are resolved with focused regressions.
+- [x] Standard and lean package variants pass.
+- [x] Local-linked Gravitas passes without downstream band-aids.
+- [x] Documentation clearly distinguishes value keys, slots, runtime identities,
   and durable host-owned IDs.
 - [ ] The independent reviewer reports no unresolved correctness or release
   blockers.
+
+Phase 5 evidence before final review:
+
+- GridForge direct test project: Debug `453/453`, Release `456/456`, and
+  ReleaseLean `456/456` passed.
+- GridForge standard and lean `dotnet pack` validation produced
+  `GridForge.0.0.0.nupkg` and `GridForge.Lean.0.0.0.nupkg` successfully. The
+  placeholder version comes from the local checkout's release-validation
+  build, not a published package version.
+- Gravitas through the local GridForge reference: Release `2662/2662` and
+  ReleaseLean `2623/2623` passed. The focused Debug 2D/3D/mixed replacement,
+  exact partition ordering, and query ordering suite passed `9/9`.
+- The full Gravitas Debug diagnostic run remained exactly `2627/2662`: all 35
+  failures are the same pre-existing strict allocation assertions on
+  Debug-instrumented trace, query, constraint, CCD, partition, and replay paths
+  documented during Phase 2. There were no functional failures or new
+  identity failures; Release is the valid allocation boundary.
+- Default-toolchain short-run benchmark medians and managed allocations:
+
+  | Signal | Phase 0 median | Final median | Phase 0 allocated | Final allocated |
+  | --- | ---: | ---: | ---: | ---: |
+  | Register many adjacent grids | 2.366 ms | 2.212 ms | 1,004.58 KB | 1,037.02 KB |
+  | Remove many adjacent grids | 1.782 ms | 1.848 ms | 24.11 KB | 24.11 KB |
+  | Covered voxels, warm pools | 643.0 us | 718.0 us | 760 B | 760 B |
+  | Trace line, warm pools | 192.2 us | 198.9 us | 704 B | 704 B |
+  | Blocker apply/remove, uncached | 61.681 ms | 42.049 ms | 28.11 MB | 20.69 MB |
+  | Blocker apply/remove, cached | 46.942 ms | 42.826 ms | 27.98 MB | 20.65 MB |
+  | Occupant wave, cold pools | 52.932 ms | 82.173 ms | 32.77 MB | 44.22 MB |
+  | Occupant wave, warm pools | 84.718 ms | 85.498 ms | 31.95 MB | 43.22 MB |
+  | Resolve 8,192 current tickets | N/A | 2.583 ms | N/A | 0 B |
+
+  The three-iteration timing samples are directional, not precise regression
+  estimates. The stronger allocation signals match the design: traversal
+  stayed flat, blocker storage became smaller, and occupant waves retain the
+  wider generation required for exact stale-ticket rejection while current
+  lookup remains O(1) and `0 B`.
+- Documentation commits: GridForge `cb10ea4` and Gravitas `3fc012c`.
 
 ## Verification Matrix
 
@@ -552,6 +591,7 @@ Exit criteria:
 | 2026-07-17 | Phase 2 | Replaced hash-only voxel deduplication with exact identities, removed dead voxel/scan-cell tokens, propagated same-configuration replacement through Gravitas 2D/3D/mixed paths, and fixed a shared SwiftCollections Debug boxing defect exposed by the wider value key. |
 | 2026-07-17 | Phase 3 | Added process-unique obstacle registration tokens allocated through active worlds, preserved token lifetime across dynamic reconciliation, covered exact rollback, same-bounds stacking, and cross-world isolation, reduced blocker-wave allocation by roughly 26%, and passed independent review. |
 | 2026-07-17 | Phase 4 | Replaced recyclable integer occupant slots with process-unique generation-aware tickets, synchronized exact lookup/reset with mutation, passed Debug/Release/ReleaseLean, recorded the wider live-registration memory cost, and passed independent review. |
+| 2026-07-17 | Phase 5 | Closed current GridForge and Gravitas documentation, passed GridForge standard/lean tests and packages, passed local-linked Gravitas Release/ReleaseLean plus focused Debug identity regressions, and captured final benchmark medians. Final independent review remains. |
 
 ## Suggested Commit Sequence
 

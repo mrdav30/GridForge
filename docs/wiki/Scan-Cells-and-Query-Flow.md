@@ -44,8 +44,8 @@ retrieval straightforward.
 
 | Member              | Purpose                                           |
 | ------------------- | ------------------------------------------------- |
-| `GridIndex`         | Which grid this scan cell belongs to              |
-| `CellKey`           | Grid-local scan-cell identity                     |
+| `GridIndex`         | Recyclable world-local slot of the owning grid    |
+| `CellKey`           | Grid-local scan-cell value                         |
 | `CellOccupantCount` | How many occupants are currently indexed here     |
 | `_voxelOccupants`   | Buckets of occupant-plus-generation entries grouped by `WorldVoxelIndex` |
 
@@ -72,6 +72,10 @@ The `OccupantTicket` returned by the scan-cell bucket combines its O(1) slot
 with a process-wide registration generation. This enables targeted retrieval
 without rescanning the bucket while preventing a removed ticket from aliasing a
 later occupant that reuses the slot.
+
+Both components are runtime handles: `Slot` is recyclable, and `Generation` is
+transient process safety data rather than serialized identity or an
+authoritative ordering input.
 
 ## Active Scan Cells
 
@@ -223,6 +227,13 @@ Tradeoffs to remember:
 
 This is why scan-cell size belongs in `GridConfiguration` instead of being
 hardcoded globally.
+
+Exact ticket-based occupant lookup validates `Slot` plus `Generation` in O(1)
+and uses the owning grid's existing occupant monitor, shared with mutation and
+scan-cell reset. The synchronized benchmark resolved 8,192 current tickets with
+`0 B` allocated. Live registration storage is wider, however: bucket entries
+and tracked records retain the generation needed to reject stale slots, so the
+allocation-free lookup result does not imply zero-cost registration storage.
 
 ## Where Scan State Lives
 

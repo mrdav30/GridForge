@@ -178,9 +178,19 @@ cleanly:
 - A larger architecture can put sectors, planets, regions, or hierarchy above
   GridForge without reworking the voxel layer.
 
-GridForge tracks world-local grid slots, grid spawn tokens, and
-`WorldVoxelIndex` values so systems can reason about identity even as grids are
-removed, reused, or replaced.
+Each active `GridWorld` has a process-unique runtime token. Every accepted grid
+registration also receives a nonrepeating generation local to that world, while
+`GridIndex` remains only a recyclable active-grid slot. `WorldVoxelIndex`
+combines the world token, grid slot, grid generation, and local `VoxelIndex` so
+stale or foreign runtime references cannot resolve replacement voxels.
+
+`GridConfigurationKey` and `BoundsKey` are value keys, not allocation
+identities. `ObstacleToken` identifies one obstacle registration, while
+`OccupantTicket` combines a recyclable bucket `Slot` with a process-unique
+registration generation. These runtime tokens and generations are transient,
+nonserialized safety data: process-unique does not mean durable across saves or
+processes, and they are not authoritative ordering inputs. Durable occupant
+identity remains host-owned through `IVoxelOccupant.GlobalId`.
 
 ## Core Concepts
 
@@ -198,8 +208,8 @@ removed, reused, or replaced.
 
 ## Documentation
 
-For breaking upgrades from v6 to v7, start with the
-[Migration Guide](docs/MIGRATION.md).
+For breaking upgrades from v7 to v8, start with the
+[v7-to-v8 Migration Guide](docs/MIGRATION.md).
 
 Start with the wiki:
 

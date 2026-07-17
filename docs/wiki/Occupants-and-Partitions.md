@@ -32,7 +32,7 @@ itself instead of inside the scan system.
 
 It requires:
 
-- `GlobalId` for stable identity
+- `GlobalId` for durable host-owned occupant identity
 - `Position` as the world-space projection GridForge uses for resolution
 - `OccupantGroupId` for grouped query filtering
 
@@ -52,10 +52,15 @@ inside GridForge instead of forcing every consumer implementation to mirror it
 manually.
 
 Occupant tickets are `OccupantTicket` values, not raw bucket indices. Each
-ticket combines an O(1) `Slot` with a nonzero process-wide `Generation`.
+ticket combines a recyclable O(1) `Slot` with a nonzero process-wide
+`Generation`.
 `default(OccupantTicket)` is invalid, and a ticket from a removed registration,
 another world, a pooled scan cell, or a pre-reset grid cannot resolve a later
 occupant that reuses the same slot.
+
+The host supplies and owns `GlobalId`; GridForge uses it to enforce occupant
+ownership in each world's registry. A ticket is only the transient handle for
+one scan-cell registration and is never a replacement for that durable ID.
 
 ## How Occupants Are Stored
 

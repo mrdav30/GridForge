@@ -30,6 +30,7 @@ coordinated through an explicit `GridWorld`.
 - spatial hashing for fast grid lookup
 - resolving world positions or `WorldVoxelIndex` values back to active grids and
   voxels
+- issuing a process-unique world token and world-local grid generations
 - publishing world-scoped grid lifecycle events
 
 ## World Space, Grid Space, And Snapping
@@ -93,6 +94,7 @@ Important details:
 - `StorageKind.Sparse` allocates only explicitly configured topology-local
   voxels
 - `ToBoundsKey()` creates an exact bounds geometry key
+- `ToGridKey()` creates an exact snapped-bounds-and-topology configuration key
 
 ## `VoxelGrid`
 
@@ -178,7 +180,7 @@ cells.
 
 `IVoxelOccupant` requires:
 
-- a stable `GlobalId`
+- a durable host-owned `GlobalId`
 - a world-space `Position`
 - an `OccupantGroupId`
 
@@ -189,6 +191,20 @@ voxel.
 
 ## Identity Types
 
+GridForge uses several deliberately different identity categories:
+
+| Category | Types | Contract |
+| --- | --- | --- |
+| Value keys | `GridConfigurationKey`, `BoundsKey` | Describe configuration or geometry by value; they do not identify one allocation lifetime. |
+| Recyclable slots | `GridIndex`, `OccupantTicket.Slot` | Locate current storage efficiently, but can be reused after removal. |
+| Exact runtime identities | `WorldVoxelIndex`, `ObstacleToken`, `OccupantTicket` | Include the generation or token needed to reject stale and foreign runtime state. |
+| Durable host identity | `IVoxelOccupant.GlobalId` | Supplied and owned by the host for occupant ownership across runtime registrations. |
+
+World, grid, obstacle, and occupant generations are transient safety metadata.
+They are not serialized state, durable save IDs, or authoritative ordering
+inputs. Process-unique means unique for allocations in the current process, not
+stable across later processes.
+
 ### `ObstacleToken`
 
 `ObstacleToken` is an opaque transient identity for one obstacle registration
@@ -196,6 +212,19 @@ lifetime. Direct callers obtain tokens from `GridWorld.AllocateObstacleToken()`;
 blockers allocate them internally. Tokens are process-unique, but their
 allocation remains gated by an active owning world. They are not bounds, save
 IDs, or authoritative ordering values.
+
+### `OccupantTicket`
+
+`OccupantTicket` combines a recyclable O(1) bucket `Slot` with a nonzero
+process-unique registration `Generation`. GridForge issues the value when an
+occupant is registered; stale, default, cross-world, pooled-cell, and pre-reset
+tickets cannot resolve a later registration that reuses the slot.
+
+### `IVoxelOccupant.GlobalId`
+
+`GlobalId` is the host-owned durable occupant identifier used by GridForge's
+world-local occupancy registry. It identifies the occupant, while
+`OccupantTicket` identifies one transient scan-cell registration lifetime.
 
 ### `VoxelIndex`
 
@@ -212,6 +241,10 @@ types stay compact and deterministic.
 - the world-local grid slot (`GridIndex`)
 - the concrete runtime grid allocation (`GridSpawnToken`)
 - the voxel's local coordinate (`VoxelIndex`)
+
+The world token is process-unique and the grid generation is world-local. The
+combined value is an exact current-runtime identity, but it must be revalidated
+after removal or reset and should not be persisted as content identity.
 
 As a rule:
 

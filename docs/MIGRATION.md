@@ -10,6 +10,24 @@ Update code that stores `GridWorld.SpawnToken`, `VoxelGrid.SpawnToken`,
 `WorldVoxelIndex.WorldSpawnToken`, or `WorldVoxelIndex.GridSpawnToken` from
 `int` to `long`.
 
+The identity categories are intentionally different:
+
+- `GridConfigurationKey` and `BoundsKey` are exact value keys for configuration
+  and geometry.
+- `GridIndex` and `OccupantTicket.Slot` are recyclable storage slots, not
+  identities by themselves.
+- A world token is process-unique, a grid generation is unique within its
+  world, and `WorldVoxelIndex` combines both with the slot and voxel coordinate
+  for exact current-runtime resolution.
+- `ObstacleToken` and the complete generation-aware `OccupantTicket` identify
+  one transient registration lifetime.
+- `IVoxelOccupant.GlobalId` remains the durable identifier supplied and owned by
+  the host.
+
+Runtime tokens and generations are not serialized state or authoritative
+ordering inputs. Process-unique means unique among allocations in the current
+process, not durable across a save, reload, or later process.
+
 `GridTraversalState.TryVisitUnique(...)` and
 `GridTraversal.TryGetUniquePartition(...)` now accept
 `SwiftHashSet<WorldVoxelIndex>` instead of `SwiftHashSet<int>`. The exact world,
@@ -193,12 +211,12 @@ Replace these v6 world-level APIs:
 | `world.FloorToVoxelSize(...)` / `CeilToVoxelSize(...)` | `grid.FloorToGrid(...)` / `grid.CeilToGrid(...)` after resolving a grid        |
 | `world.SnapBoundsToVoxelSize(...)`                     | let `GridWorld.TryAddGrid(...)` normalize bounds through the selected topology |
 
-`GridConfiguration.ToBoundsKey()` still exists, but v7 duplicate-grid identity
-uses topology-aware `GridConfigurationKey` internally. Two grids with matching
-bounds but different topology or metrics are not the same grid configuration. If
-you accessed `world.BoundsTracker` directly, its key type is now
-`GridConfigurationKey`; use `configuration.ToGridKey()` for matching
-topology-aware identity.
+`GridConfiguration.ToBoundsKey()` still exists, but v7 duplicate-grid detection
+uses the topology-aware `GridConfigurationKey` value internally. Two grids with
+matching bounds but different topology or metrics are not the same grid
+configuration. If you accessed `world.BoundsTracker` directly, its key type is
+now `GridConfigurationKey`; use `configuration.ToGridKey()` for matching
+topology-aware configuration values.
 
 ## Dense Storage Is No Longer The Public Model
 

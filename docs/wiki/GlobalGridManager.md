@@ -19,7 +19,7 @@ That means:
 - construct and own a `GridWorld`
 - register grids with explicit `GridConfiguration.TopologyMetrics`
 - route tracing, blockers, occupants, and queries through that world
-- treat `WorldVoxelIndex` as the stable cross-system identity
+- treat `WorldVoxelIndex` as the exact transient cross-system runtime identity
 
 ## Read This Next
 
