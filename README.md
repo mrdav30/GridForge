@@ -208,8 +208,7 @@ identity remains host-owned through `IVoxelOccupant.GlobalId`.
 
 ## Documentation
 
-For breaking upgrades from v7 to v8, start with the
-[v7-to-v8 Migration Guide](docs/MIGRATION.md).
+For breaking upgrades, start with the [Migration Guide](docs/MIGRATION.md).
 
 Start with the wiki:
 

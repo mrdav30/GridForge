@@ -1,7 +1,9 @@
-# Migrating From GridForge v7 To v8
+# Migrating From GridForge v8 To v9
 
-This block is for projects moving from the v7 release line to the v8 release
-line after the FixedMathSharp v6 bounds and 2D geometry hardening work.
+This block is for projects moving from the v8 release line to the v9 release
+line. The v9 release is intentionally breaking because runtime identity,
+traversal, obstacle registration, and occupant lookup contracts are now exact
+across pooled reuse.
 
 ## Runtime Identity And Traversal
 
@@ -80,6 +82,13 @@ tickets from GridForge rather than rebuilding them from `Slot` and `Generation`.
 Tickets are transient process runtime handles and must not be serialized or
 used for authoritative ordering. A ticket retained after removal, grid
 replacement, scan-cell pooling, or reset cannot resolve a replacement occupant.
+
+---
+
+# Migrating From GridForge v7 To v8
+
+This block is for projects moving from the v7 release line to the v8 release
+line after the FixedMathSharp v6 bounds and 2D geometry hardening work.
 
 The important blocker and coverage distinction is now explicit:
 
