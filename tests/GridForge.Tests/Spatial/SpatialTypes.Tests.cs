@@ -446,7 +446,8 @@ public class SpatialTypesTests
             new Vector3d(2, 0, 1),
             scanCellSize: 4);
         WorldVoxelIndex voxelIndex = new(13, 7, 42, new VoxelIndex(1, 2, 3));
-        BoundsKey obstacleToken = new(new Vector3d(-1, 0, -1), new Vector3d(1, 0, 1));
+        using GridWorld world = new();
+        ObstacleToken obstacleToken = world.AllocateObstacleToken();
         TestOccupant occupant = new(new Vector3d(0, 0, 0), 5);
 
         GridEventInfo gridEventInfo = new(13, 7, 99, configuration, 3);

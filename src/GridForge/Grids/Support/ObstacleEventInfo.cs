@@ -22,7 +22,7 @@ public readonly struct ObstacleEventInfo
     /// <summary>
     /// The token identifying the obstacle that was added or removed.
     /// </summary>
-    public readonly BoundsKey ObstacleToken;
+    public readonly ObstacleToken ObstacleToken;
 
     /// <summary>
     /// The number of active obstacles on the voxel after the mutation completes.
@@ -44,7 +44,7 @@ public readonly struct ObstacleEventInfo
     /// </summary>
     public ObstacleEventInfo(
         WorldVoxelIndex voxelIndex,
-        BoundsKey obstacleToken,
+        ObstacleToken obstacleToken,
         byte obstacleCount,
         uint gridVersion)
     {

@@ -746,7 +746,7 @@ public class VoxelGridTests : IDisposable
             new Vector3d(2, 0, 1),
             scanCellSize: 8);
         TestOccupant occupant = new(new Vector3d(0, 0, 0), 4);
-        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(_world.TryAddGrid(centerConfig, out ushort centerIndex));
         Assert.True(_world.TryAddGrid(eastConfig, out ushort eastIndex));

@@ -92,7 +92,7 @@ Important details:
 - `StorageKind.Dense` allocates every in-bounds topology-local voxel
 - `StorageKind.Sparse` allocates only explicitly configured topology-local
   voxels
-- `ToBoundsKey()` creates the exact identity key used after normalization
+- `ToBoundsKey()` creates an exact bounds geometry key
 
 ## `VoxelGrid`
 
@@ -169,6 +169,7 @@ Important blocker concepts:
 - `AreaBlocker` blocks X/Z-plane `FixedBoundArea` regions on one world Y layer
 - blockers are bound to a `GridWorld`
 - blockers use traced coverage to find the voxels they affect
+- each active blocker registration owns a distinct process-unique `ObstacleToken`
 
 ### Occupants
 
@@ -187,6 +188,14 @@ Partitions are attachable pieces of typed metadata or behavior that live on a
 voxel.
 
 ## Identity Types
+
+### `ObstacleToken`
+
+`ObstacleToken` is an opaque transient identity for one obstacle registration
+lifetime. Direct callers obtain tokens from `GridWorld.AllocateObstacleToken()`;
+blockers allocate them internally. Tokens are process-unique, but their
+allocation remains gated by an active owning world. They are not bounds, save
+IDs, or authoritative ordering values.
 
 ### `VoxelIndex`
 

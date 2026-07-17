@@ -352,7 +352,7 @@ public class SparseVoxelGridTests : IDisposable
         Assert.False(grid.TryRemoveVoxel(index));
         Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
 
-        BoundsKey obstacleToken = new(voxel.WorldPosition, voxel.WorldPosition);
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
         Assert.False(grid.TryRemoveVoxel(index));
         Assert.True(grid.TryRemoveObstacle(voxel, obstacleToken));

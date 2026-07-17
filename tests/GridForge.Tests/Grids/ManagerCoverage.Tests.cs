@@ -7,6 +7,8 @@ using SwiftCollections;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -33,8 +35,8 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey firstToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondToken = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        ObstacleToken firstToken = _world.AllocateObstacleToken();
+        ObstacleToken secondToken = _world.AllocateObstacleToken();
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
         Assert.True(grid.TryAddObstacle(position, firstToken));
@@ -53,8 +55,8 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 2, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector2d position = new(1, 1);
-        BoundsKey defaultLayerToken = new(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1));
-        BoundsKey explicitLayerToken = new(new Vector3d(1, 2, 1), new Vector3d(1, 2, 1));
+        ObstacleToken defaultLayerToken = _world.AllocateObstacleToken();
+        ObstacleToken explicitLayerToken = _world.AllocateObstacleToken();
 
         Assert.True(grid.TryGetVoxel(position, out Voxel defaultLayerVoxel));
         Assert.True(grid.TryGetVoxel(position, (Fixed64)2, out Voxel explicitLayerVoxel));
@@ -321,8 +323,8 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondObstacleToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
+        ObstacleToken secondObstacleToken = _world.AllocateObstacleToken();
         TestOccupant occupant = new(position);
         int obstacleManagerAddedNotifications = 0;
         int obstacleManagerRemovedNotifications = 0;
@@ -431,8 +433,8 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey firstToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey secondToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        ObstacleToken firstToken = _world.AllocateObstacleToken();
+        ObstacleToken secondToken = _world.AllocateObstacleToken();
         TestOccupant occupant = new(position, 9);
 
         Assert.True(grid.TryGetVoxel(position, out Voxel voxel));
@@ -530,8 +532,8 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey validToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
-        BoundsKey missingToken = new(new Vector3d(2, 0, 2), new Vector3d(3, 0, 3));
+        ObstacleToken validToken = _world.AllocateObstacleToken();
+        ObstacleToken missingToken = _world.AllocateObstacleToken();
         WorldVoxelIndex missingIndex = new(int.MaxValue, ushort.MaxValue, 0, new VoxelIndex(0, 0, 0));
         TestOccupant occupant = new(position);
 
@@ -539,6 +541,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel emptyVoxel));
 
         Assert.False(GridObstacleManager.TryAddObstacle(_world, missingIndex, validToken));
+        Assert.False(grid.TryAddObstacle(emptyVoxel, default));
         Assert.False(grid.TryAddObstacle(new Vector3d(99, 0, 99), validToken));
         Assert.False(grid.TryRemoveObstacle(new Vector3d(99, 0, 99), validToken));
         Assert.False(grid.TryRemoveObstacle(emptyVoxel, validToken));
@@ -548,6 +551,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(grid.TryRemoveVoxelOccupant(occupiedVoxel, occupant));
 
         Assert.True(grid.TryAddObstacle(occupiedVoxel, validToken));
+        Assert.False(grid.TryRemoveObstacle(occupiedVoxel, default));
         Assert.False(grid.TryRemoveObstacle(occupiedVoxel, missingToken));
 
         int obstacleCountBeforeNoOpClear = grid.ObstacleCount;
@@ -558,6 +562,30 @@ public class ManagerCoverageTests : IDisposable
     }
 
     [Fact]
+    public void GridObstacleManager_ShouldNotOverflowObstacleCountDuringConcurrentAdds()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        ObstacleToken[] tokens = new ObstacleToken[GridObstacleManager.MaxObstacleCount + 64];
+        for (int i = 0; i < tokens.Length; i++)
+            tokens[i] = _world.AllocateObstacleToken();
+
+        int addedCount = 0;
+        Parallel.For(0, tokens.Length, i =>
+        {
+            if (grid.TryAddObstacle(voxel, tokens[i]))
+                Interlocked.Increment(ref addedCount);
+        });
+
+        Assert.Equal(GridObstacleManager.MaxObstacleCount, addedCount);
+        Assert.Equal(GridObstacleManager.MaxObstacleCount, voxel.ObstacleCount);
+        Assert.Equal(GridObstacleManager.MaxObstacleCount, grid.ObstacleCount);
+    }
+
+    [Fact]
     public void DiagnosticsEnabled_ShouldLogObstacleAndOccupantGuardPaths()
     {
         using DiagnosticCaptureScope diagnostics = new();
@@ -565,7 +593,7 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey token = new(position, position);
+        ObstacleToken token = _world.AllocateObstacleToken();
         TestOccupant occupant = new(position, 1);
         TestOccupant staleOccupant = new(position, 2);
         Guid sharedId = Guid.NewGuid();
@@ -924,7 +952,7 @@ public class ManagerCoverageTests : IDisposable
         _world.TryAddGrid(new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(3, 0, 3)), out ushort gridIndex);
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Vector3d position = new(1, 0, 1);
-        BoundsKey obstacleToken = new(new Vector3d(1, 0, 1), new Vector3d(2, 0, 2));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
         TestOccupant blockedOccupant = new(position, 4);
         TestOccupant staleOccupant = new(position, 5);
 

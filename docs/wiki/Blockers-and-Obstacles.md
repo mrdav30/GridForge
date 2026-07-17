@@ -48,8 +48,10 @@ boolean. It is coordinated state that affects:
 
 ## Why Obstacles Use Tokens Instead Of A Simple Bool
 
-Obstacle state is keyed by a `BoundsKey` token rather than stored as a single
-"blocked/unblocked" flag.
+Obstacle state is keyed by an opaque `ObstacleToken` rather than stored as a
+single "blocked/unblocked" flag. `GridWorld.AllocateObstacleToken()` issues one
+nonzero token for each logical direct registration; `Blocker` manages this
+lifecycle automatically.
 
 That gives the system the behavior it needs for stacked coverage:
 
@@ -70,7 +72,7 @@ It owns:
 
 - active vs inactive status
 - the cached bounds used for the current blockage
-- the derived `BlockageToken`
+- the process-unique `BlockageToken` allocated through the owning world
 - optional caching of covered voxel identities
 - the logic for applying, removing, and reapplying coverage
 - static blocker-level events for apply and remove notifications
@@ -87,7 +89,7 @@ When `ApplyBlockage()` succeeds, the flow is roughly:
 
 1. reject the call if the blocker is inactive or already blocking
 2. cache the current min and max bounds
-3. derive a `BoundsKey` token from those bounds
+3. allocate a fresh obstacle registration token from the owning world
 4. optionally initialize covered-voxel caching
 5. register this blocker as a watcher for later grid add or remove events
 6. enumerate `GridTracer.GetCoveredVoxels(...)`
@@ -151,7 +153,9 @@ drift out of sync as grids change.
 ### What happens on grid add
 
 If a newly added grid overlaps the blocker's cached bounds, the blocker
-reapplies itself so the new grid receives the correct obstacle state.
+reapplies itself so the new grid receives the correct obstacle state. Dynamic
+reconciliation preserves the blocker's token; explicit removal ends that
+registration lifetime, and a later explicit apply receives a fresh token.
 
 ### What happens on grid removal
 
@@ -254,6 +258,10 @@ Use direct obstacle APIs when:
 - you already know the exact target voxel
 - the mutation is truly voxel-local
 - you do not need blocker lifecycle behavior or bounds tracing
+
+Direct callers allocate one `ObstacleToken` and use that same value for every
+add and remove belonging to the registration. Default tokens are rejected.
+`BoundsKey` describes geometry only and must not be used as obstacle identity.
 
 The direct obstacle APIs also accept `Vector2d` positions. `Vector2d.X` maps to
 world X, `Vector2d.Y` maps to world Z, and `layerY` selects the world Y layer to

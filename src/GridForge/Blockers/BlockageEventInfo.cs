@@ -22,7 +22,7 @@ public readonly struct BlockageEventInfo
     /// <summary>
     /// The unique token representing the blocker coverage.
     /// </summary>
-    public readonly BoundsKey BlockageToken;
+    public readonly ObstacleToken BlockageToken;
 
     /// <summary>
     /// The minimum bounds of the blocker coverage.
@@ -39,7 +39,7 @@ public readonly struct BlockageEventInfo
     /// </summary>
     public BlockageEventInfo(
         long worldSpawnToken,
-        BoundsKey blockageToken,
+        ObstacleToken blockageToken,
         Vector3d boundsMin,
         Vector3d boundsMax)
     {

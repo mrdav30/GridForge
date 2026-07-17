@@ -87,6 +87,7 @@ public sealed class GridWorld : IDisposable
     internal Fixed64 MaxTopologyCellEdge { get; private set; }
 
     private static long s_worldAllocationCounter;
+    private static long s_obstacleRegistrationCounter;
 
     private readonly ReaderWriterLockSlim _gridLock = new();
     private long _gridGenerationCounter;
@@ -226,6 +227,19 @@ public sealed class GridWorld : IDisposable
     #endregion
 
     #region Grid Management
+
+    /// <summary>
+    /// Allocates a nonzero process-unique identity for one obstacle registration lifetime.
+    /// </summary>
+    /// <returns>A fresh opaque obstacle token.</returns>
+    /// <exception cref="InvalidOperationException">The world is inactive or its token space is exhausted.</exception>
+    public ObstacleToken AllocateObstacleToken()
+    {
+        if (!IsActive)
+            throw new InvalidOperationException("Cannot allocate an obstacle token from an inactive world.");
+
+        return new ObstacleToken(RuntimeIdentityAllocator.Allocate(ref s_obstacleRegistrationCounter));
+    }
 
     /// <summary>
     /// Adds a new grid to this world and registers it in the spatial hash.

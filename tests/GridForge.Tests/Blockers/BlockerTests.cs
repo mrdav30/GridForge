@@ -225,11 +225,13 @@ public class BlockerTests : IDisposable
         Assert.True(blocker.IsBlocking);
         Assert.True(origin.IsBlocked);
         Assert.Equal(1, grid.ObstacleCount);
+        ObstacleToken blockageToken = blocker.BlockageToken;
 
         Assert.True(grid.TryAddVoxel(eastIndex, out Voxel east));
 
         Assert.True(east.IsBlocked);
         Assert.Equal(2, grid.ObstacleCount);
+        Assert.Equal(blockageToken, blocker.BlockageToken);
         Assert.False(grid.TryRemoveVoxel(eastIndex));
 
         blocker.RemoveBlockage();
@@ -301,6 +303,46 @@ public class BlockerTests : IDisposable
 
         Assert.True(voxel.IsBlocked); // Ensure voxel is blocked
         Assert.True(voxel.ObstacleCount >= 2);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void SameBoundsBlockers_ShouldStackAndRemoveIndependently(bool sparse, bool cacheCoveredVoxels)
+    {
+        GridConfiguration configuration = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            storageKind: sparse ? GridStorageKind.Sparse : GridStorageKind.Dense);
+
+        Assert.True(sparse
+            ? _world.TryAddGrid(configuration, new[] { new VoxelIndex(0, 0, 0) }, out _)
+            : _world.TryAddGrid(configuration, out _));
+        Assert.True(_world.TryGetGrid(Vector3d.Zero, out VoxelGrid grid));
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+
+        FixedBoundBox bounds = FixedBoundBox.FromMinMax(Vector3d.Zero, Vector3d.Zero);
+        BoundsBlocker first = new(_world, bounds, cacheCoveredVoxels: cacheCoveredVoxels);
+        BoundsBlocker second = new(_world, bounds, cacheCoveredVoxels: cacheCoveredVoxels);
+
+        first.ApplyBlockage();
+        second.ApplyBlockage();
+
+        Assert.True(first.IsBlocking);
+        Assert.True(second.IsBlocking);
+        Assert.Equal(2, voxel.ObstacleCount);
+
+        first.RemoveBlockage();
+
+        Assert.True(voxel.IsBlocked);
+        Assert.Equal(1, voxel.ObstacleCount);
+
+        second.RemoveBlockage();
+
+        Assert.False(voxel.IsBlocked);
+        Assert.Equal(0, voxel.ObstacleCount);
     }
 
     [Fact]
@@ -595,7 +637,7 @@ public class BlockerTests : IDisposable
         BoundsBlocker blocker = new(
             _world,
             FixedBoundBox.FromMinMax(new Vector3d(1, 0, 1), new Vector3d(1, 0, 1)));
-        List<BoundsKey> notifications = new();
+        List<ObstacleToken> notifications = new();
 
         void ThrowingApplyHandler(BlockageEventInfo eventInfo)
         {
@@ -636,6 +678,7 @@ public class BlockerTests : IDisposable
         }
 
         Assert.Equal(2, notifications.Count);
+        Assert.True(notifications[0].IsValid);
         Assert.Equal(notifications[0], notifications[1]);
     }
 
@@ -654,10 +697,13 @@ public class BlockerTests : IDisposable
 
         Assert.True(blocker.IsBlocking);
         Assert.True(voxel.IsBlocked);
+        ObstacleToken initialToken = blocker.BlockageToken;
+        Assert.True(initialToken.IsValid);
 
         Assert.True(_world.TryRemoveGrid(gridIndex));
 
         Assert.False(blocker.IsBlocking);
+        Assert.Equal(initialToken, blocker.BlockageToken);
 
         Assert.True(_world.TryAddGrid(config, out ushort readdedIndex));
         VoxelGrid readdedGrid = _world.ActiveGrids[readdedIndex];
@@ -665,6 +711,16 @@ public class BlockerTests : IDisposable
 
         Assert.True(blocker.IsBlocking);
         Assert.True(readdedVoxel.IsBlocked);
+        Assert.Equal(initialToken, blocker.BlockageToken);
+
+        blocker.RemoveBlockage();
+
+        Assert.False(blocker.BlockageToken.IsValid);
+
+        blocker.ApplyBlockage();
+
+        Assert.True(blocker.IsBlocking);
+        Assert.NotEqual(initialToken, blocker.BlockageToken);
     }
 
     [Fact]
@@ -752,6 +808,8 @@ public class BlockerTests : IDisposable
         Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel freeVoxel));
         Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel occupiedVoxel));
         Assert.True(grid.TryAddVoxelOccupant(occupiedVoxel, new TestOccupant(occupiedVoxel.WorldPosition)));
+        ObstacleToken existingToken = _world.AllocateObstacleToken();
+        Assert.True(grid.TryAddObstacle(freeVoxel, existingToken));
 
         BoundsBlocker blocker = new(
             _world,
@@ -761,9 +819,11 @@ public class BlockerTests : IDisposable
         blocker.ApplyBlockage();
 
         Assert.False(blocker.IsBlocking);
-        Assert.False(freeVoxel.IsBlocked);
+        Assert.True(freeVoxel.IsBlocked);
+        Assert.Equal(1, freeVoxel.ObstacleCount);
         Assert.False(occupiedVoxel.IsBlocked);
-        Assert.Equal(0, grid.ObstacleCount);
+        Assert.Equal(1, grid.ObstacleCount);
+        Assert.True(grid.TryRemoveObstacle(freeVoxel, existingToken));
     }
 
     [Fact]

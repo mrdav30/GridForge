@@ -21,6 +21,26 @@ removed. Use `Voxel.WorldIndex` for exact cross-system voxel identity. Scan
 cells have no separate public allocation identity; use their owning world,
 grid, and `CellKey` when addressing current runtime state.
 
+Obstacle mutation no longer accepts `BoundsKey` as registration identity.
+`BoundsKey` remains a geometry value; direct obstacle callers must allocate one
+opaque `ObstacleToken` per logical registration and reuse it for every voxel
+owned by that registration:
+
+```csharp
+ObstacleToken obstacleToken = world.AllocateObstacleToken();
+
+grid.TryAddObstacle(voxel, obstacleToken);
+grid.TryRemoveObstacle(voxel, obstacleToken);
+```
+
+`Blocker` allocates and manages its own token. Two blockers with identical
+bounds now stack independently. `Blocker.BlockageToken` and
+`ObstacleEventInfo.ObstacleToken` changed from `BoundsKey` to `ObstacleToken`;
+use the bounds fields on `BlockageEventInfo` when event consumers need geometry.
+Obstacle tokens are transient process-unique runtime identities allocated
+through an active `GridWorld`; they should not be serialized as durable content
+IDs or used for authoritative ordering.
+
 The important blocker and coverage distinction is now explicit:
 
 - Use `FixedBoundBox` and `BoundsBlocker` for world-space 3D box regions.

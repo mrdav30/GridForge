@@ -48,9 +48,9 @@ public class Voxel : IEquatable<Voxel>
     public Vector3d WorldPosition { get; private set; }
 
     /// <summary>
-    /// Stores a unique <see cref="BoundsKey" /> for each obstacle added to this voxel to prevent adding duplicates
+    /// Stores the process-unique identity of each obstacle registration added to this voxel.
     /// </summary>
-    public SwiftHashSet<BoundsKey>? ObstacleTracker { get; internal set; }
+    public SwiftHashSet<ObstacleToken>? ObstacleTracker { get; internal set; }
 
     /// <summary>
     /// The current number of obstacles on this voxel.
@@ -250,7 +250,7 @@ public class Voxel : IEquatable<Voxel>
         if (ownerGrid != null && ObstacleCount > 0)
             ownerGrid.ClearObstacles(this);
         else if (ObstacleTracker != null)
-            SwiftHashSetPool<BoundsKey>.Shared.Release(ObstacleTracker);
+            SwiftHashSetPool<ObstacleToken>.Shared.Release(ObstacleTracker);
 
         ObstacleTracker = null;
         ObstacleCount = 0;

@@ -100,6 +100,11 @@ A voxel carries:
 - boundary awareness
 - `CachedGridVersion`
 
+`ObstacleTracker` stores opaque `ObstacleToken` values, one per logical active
+registration. Geometry is deliberately separate: equal bounds do not make two
+blockers the same registration. The tracker is returned to its pool when the
+last token is removed or the voxel is reset.
+
 ## Neighbor Model
 
 Neighbor handling spans both `VoxelGrid` and `Voxel`.

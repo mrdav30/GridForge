@@ -81,7 +81,7 @@ public class VoxelTests : IDisposable
         Assert.False(voxel.IsOccupied);
 
         TestOccupant occupant = new(voxel.WorldPosition);
-        BoundsKey obstacleToken = new(voxel.WorldPosition, voxel.WorldPosition);
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
         Assert.True(voxel.IsOccupied);
@@ -127,7 +127,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(36, 1, 36), out Voxel voxel);
 
-        BoundsKey spawnKey = new(new(36, 1, 36), new(37, 1, 37));
+        ObstacleToken spawnKey = _world.AllocateObstacleToken();
 
         grid.TryAddObstacle(voxel, spawnKey);
         Assert.True(voxel.IsBlocked);
@@ -280,7 +280,7 @@ public class VoxelTests : IDisposable
     public void Reset_ShouldUseProvidedOwnerGridWhenClearingTrackedObstacles()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
@@ -303,7 +303,7 @@ public class VoxelTests : IDisposable
     public void Reset_ShouldNotResolveOwnerGridWhenNotProvided()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
-        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
@@ -379,7 +379,7 @@ public class VoxelTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         grid.TryGetVoxel(new Vector3d(37, 1, 37), out Voxel voxel);
 
-        BoundsKey spawnKey = new(new(37, 1, 37), new(38, 1, 38));
+        ObstacleToken spawnKey = _world.AllocateObstacleToken();
 
         grid.TryAddObstacle(voxel, spawnKey);
         grid.TryAddObstacle(voxel, spawnKey); // Attempt to add twice
@@ -724,7 +724,7 @@ public class VoxelTests : IDisposable
     {
         GridConfiguration centerConfig = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
         GridConfiguration eastConfig = new(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0));
-        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(_world.TryAddGrid(centerConfig, out ushort centerIndex));
         Assert.True(_world.TryAddGrid(eastConfig, out ushort eastIndex));
@@ -756,7 +756,7 @@ public class VoxelTests : IDisposable
     public void Reset_ShouldReleaseObstaclesWithoutOwnerGridLookupAndSwallowPartitionRemoveFailures()
     {
         GridConfiguration config = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
-        BoundsKey obstacleToken = new(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        ObstacleToken obstacleToken = _world.AllocateObstacleToken();
 
         Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];

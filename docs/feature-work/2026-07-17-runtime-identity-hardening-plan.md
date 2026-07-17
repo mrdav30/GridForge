@@ -17,9 +17,9 @@ slot reuse, identical geometry, and multiple live worlds.
 
 **Architecture:** Keep geometry and configuration keys as value keys. Replace
 hash-code-derived identities with allocation identities owned by the narrowest
-correct lifetime: process-unique world identity, world-local grid generations,
-blocker registration identity, and generation-aware occupant tickets. Runtime
-identities are transient safety data, not serialized simulation state.
+correct lifetime: process-unique world, blocker, and occupant-registration
+identities plus world-local grid generations. Runtime identities are transient
+safety data, not serialized simulation state.
 
 **Tech Stack:** C# 11, `netstandard2.1`, `net8.0`, `FixedMathSharp`,
 `SwiftCollections`, xUnit v3, BenchmarkDotNet, GridForge standard and
@@ -32,9 +32,8 @@ identities are transient safety data, not serialized simulation state.
 - Started: 2026-07-17.
 - Planning date: 2026-07-17.
 - Release posture: intentionally breaking pre-release hardening.
-- Current state: Phases 0-2 are complete. Exact voxel identity and local-linked
-  Gravitas propagation are verified and independently reviewed. Phase 3 is
-  next.
+- Current state: Phases 0-3 are complete. Phase 4 generation-aware occupant
+  tickets are next.
 - Working agreement: keep local project references in place and uncommitted;
   commit coherent implementation milestones directly to `develop` while
   preserving unrelated owner changes.
@@ -103,8 +102,9 @@ reclamation registry whose complexity would exceed its value.
   grids, coordinates, simulation state, or world registry.
 - Keep grid-generation allocation world-owned and preserve its counter across
   `Reset(deactivate: false)`.
-- Keep blocker and occupant registration counters in separate identity domains
-  so unrelated operations do not perturb grid-generation values.
+- Keep blocker and occupant registration counters process-wide and in separate
+  identity domains. Cross-world public tokens must not alias, and unrelated
+  operations must not perturb grid-generation values.
 - Runtime identities are not save-game IDs, network entity IDs, or durable
   content IDs. Do not serialize them as authoritative state.
 - Runtime identities must not become the source of authoritative spatial or
@@ -145,11 +145,11 @@ reclamation registry whose complexity would exceed its value.
 ```text
 process
   -> GridWorld.SpawnToken: unique runtime world instance
+  -> blocker token: unique obstacle registration lifetime
+  -> occupant generation: unique occupant registration lifetime
 
 GridWorld
   -> VoxelGrid.SpawnToken: unique allocation generation within that world
-  -> blocker token: unique active blocker registration within that world
-  -> occupant generation: unique occupant registration within that world
 
 WorldVoxelIndex
   = world token + recyclable grid slot + grid generation + voxel coordinate
@@ -353,38 +353,67 @@ Phase 2 evidence:
 Intent: let distinct blocker registrations stack even when their geometry is
 identical.
 
-- [ ] Replace bounds-derived blocker identity with a world-owned nonzero 64-bit
-  registration token.
-- [ ] Keep `BoundsKey` solely for geometry equality, bounds lookup, and event
+- [x] Replace bounds-derived blocker identity with a process-unique nonzero
+  64-bit registration token allocated through the active owning world.
+- [x] Keep `BoundsKey` solely for geometry equality, bounds lookup, and event
   geometry where appropriate.
-- [ ] Update voxel obstacle tracking and obstacle events to carry true obstacle
+- [x] Update voxel obstacle tracking and obstacle events to carry true obstacle
   registration identity.
-- [ ] Preserve direct obstacle APIs with one explicit token contract; do not
+- [x] Preserve direct obstacle APIs with one explicit token contract; do not
   keep a second bounds-as-identity overload.
-- [ ] Issue a fresh blocker registration token for each new apply lifetime.
-- [ ] Preserve a token while one blocker remains applied across dynamic grid
+- [x] Issue a fresh blocker registration token for each new apply lifetime.
+- [x] Preserve a token while one blocker remains applied across dynamic grid
   add/remove notifications.
-- [ ] Keep rollback and partial-coverage cleanup exact for the registration that
+- [x] Keep rollback and partial-coverage cleanup exact for the registration that
   performed the mutation.
 
 Required tests:
 
-- [ ] Two distinct blockers with identical bounds increment obstacle counts
+- [x] Two distinct blockers with identical bounds increment obstacle counts
   independently.
-- [ ] Removing one identical blocker leaves the other blocker active.
-- [ ] Removing the final blocker clears the obstacle.
-- [ ] Reapply, rollback, cached coverage, uncached coverage, sparse voxel add,
+- [x] Removing one identical blocker leaves the other blocker active.
+- [x] Removing the final blocker clears the obstacle.
+- [x] Reapply, rollback, cached coverage, uncached coverage, sparse voxel add,
   and dynamic grid replacement retain correct ownership.
 
 Performance evidence:
 
-- [ ] Compare blocker apply/remove benchmarks and allocations.
+- [x] Compare blocker apply/remove benchmarks and allocations.
 
 Exit criteria:
 
-- [ ] No blocker instance identity is derived from `BoundsKey`.
-- [ ] Same-bounds stacking and independent removal pass in dense and sparse
+- [x] No blocker instance identity is derived from `BoundsKey`.
+- [x] Same-bounds stacking and independent removal pass in dense and sparse
   coverage where applicable.
+
+Phase 3 evidence:
+
+- RED: all four dense/sparse and cached/uncached same-bounds cases failed when
+  the second blocker collapsed onto the shared `BoundsKey`.
+- Focused blocker/manager identity suite: `40/40` passed.
+- Full GridForge Debug suite: `444/444` passed.
+- Dynamic grid replacement and sparse reconciliation preserve one active token;
+  explicit removal/reapply gets a fresh token; partial rollback leaves an
+  unrelated direct obstacle registration intact.
+- Default tokens are rejected and the per-voxel 255-obstacle cap is rechecked
+  inside the existing lock.
+- Independent review found that per-world counters let a direct token from one
+  world alias an unrelated obstacle in another. Obstacle registration issuance
+  is therefore process-unique while the public allocation entry point remains
+  active-world scoped; the cross-world removal regression failed against the
+  local-counter design and passes with the corrected domain.
+- Independent re-review reported no findings; spec compliance passed and code
+  quality was approved.
+- Default-toolchain blocker benchmark after the change:
+
+  | Signal | Phase 0 Mean | Phase 3 Mean | Phase 0 Allocated | Phase 3 Allocated |
+  | --- | ---: | ---: | ---: | ---: |
+  | Apply/remove, uncached | 64.40 ms | 74.01 ms | 28.11 MB | 20.69 MB |
+  | Apply/remove, cached | 46.78 ms | 41.46 ms | 27.98 MB | 20.65 MB |
+
+  Short-run uncached timing is noisy (`40.74 ms` median); allocation improved
+  by roughly 26% in both modes because the pooled tracker now stores one 8-byte
+  token instead of a full bounds key.
 
 ## Phase 4: Generation-Aware Occupant Tickets
 
@@ -392,7 +421,7 @@ Intent: make an exact occupant ticket identify one registration, not whichever
 occupant later occupies the same bucket slot.
 
 - [ ] Replace the raw public integer ticket contract with a small readonly value
-  containing the bucket slot and a nonzero world-owned occupant generation.
+  containing the bucket slot and a nonzero process-unique occupant generation.
 - [ ] Store the generation beside the occupant in the bucket so lookup and
   removal validate both components in O(1).
 - [ ] Update tracked occupancy records, scan-cell APIs, events, and manager
@@ -489,6 +518,7 @@ Exit criteria:
 | 2026-07-17 | Phase 0 | Confirmed local links and owner changes, passed the 429-test Debug baseline, captured lifecycle/traversal/blocker/occupant benchmark baselines, and added two RED stale-grid regressions. |
 | 2026-07-17 | Phase 1 | Added process-unique world identity and world-local grid generations, widened identity carriers, passed the focused 5-test suite and full 433-test Debug suite, and committed as `0c5420f`. |
 | 2026-07-17 | Phase 2 | Replaced hash-only voxel deduplication with exact identities, removed dead voxel/scan-cell tokens, propagated same-configuration replacement through Gravitas 2D/3D/mixed paths, and fixed a shared SwiftCollections Debug boxing defect exposed by the wider value key. |
+| 2026-07-17 | Phase 3 | Added process-unique obstacle registration tokens allocated through active worlds, preserved token lifetime across dynamic reconciliation, covered exact rollback, same-bounds stacking, and cross-world isolation, reduced blocker-wave allocation by roughly 26%, and passed independent review. |
 
 ## Suggested Commit Sequence
 

@@ -71,20 +71,20 @@ public static class GridObstacleManager
     public static bool TryAddObstacle(
         GridWorld world,
         WorldVoxelIndex index,
-        BoundsKey obstacleSpawnToken)
+        ObstacleToken obstacleToken)
     {
         return world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            && grid!.TryAddObstacle(voxel!, obstacleSpawnToken) == true;
+            && grid!.TryAddObstacle(voxel!, obstacleToken) == true;
     }
 
     /// <summary>
     /// Attempts to add an obstacle at the given world position.
     /// </summary>
-    public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
+    public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, ObstacleToken obstacleToken)
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
-            && grid.TryAddObstacle(voxel!, obstacleSpawnToken);
+            && grid.TryAddObstacle(voxel!, obstacleToken);
     }
 
     /// <summary>
@@ -92,11 +92,11 @@ public static class GridObstacleManager
     /// </summary>
     /// <param name="grid">The grid to mutate.</param>
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
-    /// <param name="obstacleSpawnToken">The obstacle token to attach to the resolved voxel.</param>
+    /// <param name="obstacleToken">The obstacle token to attach to the resolved voxel.</param>
     /// <returns>True if an obstacle was added to the resolved voxel; otherwise false.</returns>
-    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, BoundsKey obstacleSpawnToken)
+    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, ObstacleToken obstacleToken)
     {
-        return grid.TryAddObstacle(position, default, obstacleSpawnToken);
+        return grid.TryAddObstacle(position, default, obstacleToken);
     }
 
     /// <summary>
@@ -105,11 +105,11 @@ public static class GridObstacleManager
     /// <param name="grid">The grid to mutate.</param>
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to resolve.</param>
-    /// <param name="obstacleSpawnToken">The obstacle token to attach to the resolved voxel.</param>
+    /// <param name="obstacleToken">The obstacle token to attach to the resolved voxel.</param>
     /// <returns>True if an obstacle was added to the resolved voxel; otherwise false.</returns>
-    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, BoundsKey obstacleSpawnToken)
+    public static bool TryAddObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, ObstacleToken obstacleToken)
     {
-        return grid.TryAddObstacle(GridPlane2d.ToWorld(position, layerY), obstacleSpawnToken);
+        return grid.TryAddObstacle(GridPlane2d.ToWorld(position, layerY), obstacleToken);
     }
 
     /// <summary>
@@ -117,11 +117,11 @@ public static class GridObstacleManager
     /// </summary>
     /// <param name="grid"></param>
     /// <param name="targetVoxel"></param>
-    /// <param name="obstacleSpawnToken"></param>
+    /// <param name="obstacleToken">The process-unique obstacle registration token.</param>
     /// <exception cref="Exception"></exception>
-    public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, BoundsKey obstacleSpawnToken)
+    public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
-        if (!targetVoxel.IsBlockable)
+        if (!obstacleToken.IsValid || !targetVoxel.IsBlockable)
             return false;
 
         byte obstacleCount;
@@ -129,8 +129,11 @@ public static class GridObstacleManager
 
         lock (grid.ObstacleSyncRoot)
         {
-            targetVoxel.ObstacleTracker ??= SwiftHashSetPool<BoundsKey>.Shared.Rent();
-            if (!targetVoxel.ObstacleTracker.Add(obstacleSpawnToken))
+            if (targetVoxel.ObstacleCount >= MaxObstacleCount)
+                return false;
+
+            targetVoxel.ObstacleTracker ??= SwiftHashSetPool<ObstacleToken>.Shared.Rent();
+            if (!targetVoxel.ObstacleTracker.Add(obstacleToken))
                 return false;
             targetVoxel.ObstacleCount++;
 
@@ -139,7 +142,7 @@ public static class GridObstacleManager
             obstacleCount = targetVoxel.ObstacleCount;
         }
 
-        NotifyObstacleAdded(grid, targetVoxel, obstacleSpawnToken, obstacleCount, gridVersion);
+        NotifyObstacleAdded(grid, targetVoxel, obstacleToken, obstacleCount, gridVersion);
 
         return true;
     }
@@ -150,20 +153,20 @@ public static class GridObstacleManager
     public static bool TryRemoveObstacle(
         GridWorld world,
         WorldVoxelIndex index,
-        BoundsKey obstacleSpawnToken)
+        ObstacleToken obstacleToken)
     {
         return world != null
             && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
-            && grid!.TryRemoveObstacle(voxel!, obstacleSpawnToken);
+            && grid!.TryRemoveObstacle(voxel!, obstacleToken);
     }
 
     /// <summary>
     /// Attempts to remove an obstacle from the specified world position.
     /// </summary>
-    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, BoundsKey obstacleSpawnToken)
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, ObstacleToken obstacleToken)
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
-            && grid.TryRemoveObstacle(voxel!, obstacleSpawnToken);
+            && grid.TryRemoveObstacle(voxel!, obstacleToken);
     }
 
     /// <summary>
@@ -171,11 +174,11 @@ public static class GridObstacleManager
     /// </summary>
     /// <param name="grid">The grid to mutate.</param>
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
-    /// <param name="obstacleSpawnToken">The obstacle token to remove from the resolved voxel.</param>
+    /// <param name="obstacleToken">The obstacle token to remove from the resolved voxel.</param>
     /// <returns>True if the obstacle was removed from the resolved voxel; otherwise false.</returns>
-    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, BoundsKey obstacleSpawnToken)
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, ObstacleToken obstacleToken)
     {
-        return grid.TryRemoveObstacle(position, default, obstacleSpawnToken);
+        return grid.TryRemoveObstacle(position, default, obstacleToken);
     }
 
     /// <summary>
@@ -184,18 +187,21 @@ public static class GridObstacleManager
     /// <param name="grid">The grid to mutate.</param>
     /// <param name="position">The 2D position whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to resolve.</param>
-    /// <param name="obstacleSpawnToken">The obstacle token to remove from the resolved voxel.</param>
+    /// <param name="obstacleToken">The obstacle token to remove from the resolved voxel.</param>
     /// <returns>True if the obstacle was removed from the resolved voxel; otherwise false.</returns>
-    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, BoundsKey obstacleSpawnToken)
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Vector2d position, Fixed64 layerY, ObstacleToken obstacleToken)
     {
-        return grid.TryRemoveObstacle(GridPlane2d.ToWorld(position, layerY), obstacleSpawnToken);
+        return grid.TryRemoveObstacle(GridPlane2d.ToWorld(position, layerY), obstacleToken);
     }
 
     /// <summary>
     /// Removes an obstacle from a given voxel.
     /// </summary>
-    public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, BoundsKey obstacleSpawnToken)
+    public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
+        if (!obstacleToken.IsValid)
+            return false;
+
         if (targetVoxel.ObstacleCount == 0)
         {
             GridForgeLogger.Channel.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
@@ -207,12 +213,12 @@ public static class GridObstacleManager
 
         lock (grid.ObstacleSyncRoot)
         {
-            if (!targetVoxel.ObstacleTracker!.Remove(obstacleSpawnToken))
+            if (!targetVoxel.ObstacleTracker!.Remove(obstacleToken))
                 return false;
 
             if (--targetVoxel.ObstacleCount <= 0)
             {
-                SwiftHashSetPool<BoundsKey>.Shared.Release(targetVoxel.ObstacleTracker);
+                SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
                 targetVoxel.ObstacleTracker = null;
                 targetVoxel.ObstacleCount = 0;
             }
@@ -222,7 +228,7 @@ public static class GridObstacleManager
             obstacleCount = targetVoxel.ObstacleCount;
         }
 
-        NotifyObstacleRemoved(grid, targetVoxel, obstacleSpawnToken, obstacleCount, gridVersion);
+        NotifyObstacleRemoved(grid, targetVoxel, obstacleToken, obstacleCount, gridVersion);
 
         return true;
     }
@@ -245,7 +251,7 @@ public static class GridObstacleManager
             clearedObstacleCount = targetVoxel.ObstacleCount;
             if (targetVoxel.ObstacleTracker != null)
             {
-                SwiftHashSetPool<BoundsKey>.Shared.Release(targetVoxel.ObstacleTracker);
+                SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
                 targetVoxel.ObstacleTracker = null;
             }
 
@@ -267,11 +273,11 @@ public static class GridObstacleManager
     private static void NotifyObstacleAdded(
         VoxelGrid grid,
         Voxel targetVoxel,
-        BoundsKey obstacleSpawnToken,
+        ObstacleToken obstacleToken,
         byte obstacleCount,
         uint gridVersion)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
         if (handlers != null)
         {
@@ -301,11 +307,11 @@ public static class GridObstacleManager
     private static void NotifyObstacleRemoved(
         VoxelGrid grid,
         Voxel targetVoxel,
-        BoundsKey obstacleSpawnToken,
+        ObstacleToken obstacleToken,
         byte obstacleCount,
         uint gridVersion)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleSpawnToken, obstacleCount, gridVersion);
+        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
         if (handlers != null)
         {

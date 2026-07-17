@@ -194,7 +194,7 @@ public class GridDiagnosticsPhysicalQueryTests
         Assert.True(grid.TryAddVoxelOccupant(occupiedVoxel, new TestOccupant(occupiedVoxel.WorldPosition)));
         Assert.True(grid.TryAddObstacle(
             blockedVoxel,
-            new BoundsKey(blockedVoxel.WorldPosition, blockedVoxel.WorldPosition)));
+            world.AllocateObstacleToken()));
         Assert.True(partitionedVoxel.TryAddPartition(new TestPartition()));
         SwiftList<GridDiagnosticCell> results = new();
 

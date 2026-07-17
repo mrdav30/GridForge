@@ -17,56 +17,6 @@
 
 ## Active Issues
 
-### 1. GridForge Reuses Grid Spawn Tokens Across Pooled Generations
-
-Status: planned on 2026-07-17.
-
-Source: Gravitas release-hardening investigation.
-
-Plan:
-
-- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phases 1-2.
-
-Concern:
-
-`VoxelGrid.SpawnToken` is derived from a structural hash of its recyclable grid
-slot and bounds. Removing and re-adding the same configuration can therefore
-recreate the same token at the same slot, allowing a stale `WorldVoxelIndex` to
-resolve the replacement grid and voxel. `GridWorld.SpawnToken` and voxel
-traversal deduplication have the same underlying hash-as-identity weakness.
-
-Required outcome:
-
-- Allocate nonzero 64-bit world identities and world-local grid generations.
-- Never reuse an issued generation within its owning lifetime.
-- Deduplicate voxels with exact `WorldVoxelIndex` values.
-- Prove same-configuration replacement rejection in GridForge and Gravitas 2D,
-  3D, and mixed paths.
-
-### 2. Identical-Bounds Blockers Share One Registration Identity
-
-Status: planned on 2026-07-17.
-
-Source: runtime identity audit following the pooled-grid generation defect.
-
-Plan:
-
-- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phase 3.
-
-Concern:
-
-`BoundsKey` is a correct exact geometry key, but `Blocker` also uses it as a
-supposedly unique blockage token. Two distinct blockers with identical bounds
-therefore collapse into one voxel obstacle entry and cannot stack or be removed
-independently.
-
-Required outcome:
-
-- Keep `BoundsKey` as geometry only.
-- Give each active blocker registration a distinct world-owned identity.
-- Cover same-bounds stacking, independent removal, rollback, and dynamic-grid
-  behavior.
-
 ### 3. Recycled Occupant Tickets Can Resolve Replacement Occupants
 
 Status: planned on 2026-07-17.
@@ -98,6 +48,72 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### 2026-07-17: GridForge Reused Grid Spawn Tokens Across Pooled Generations
+
+Status: resolved on 2026-07-17.
+
+Source: Gravitas release-hardening investigation.
+
+Concern:
+
+World and grid allocation identity was derived from structural hashes. An
+identical grid remove/re-add could reuse the slot and token, allowing a stale
+`WorldVoxelIndex` to resolve replacement state; object hashes were also used as
+unique traversal identity.
+
+Resolution:
+
+- Added process-unique 64-bit world identity and world-local nonrepeating grid
+  generations, preserved across non-deactivating reset.
+- Widened identity carriers and kept lookup O(1) by slot plus exact generation.
+- Changed traversal and Gravitas query deduplication to exact
+  `WorldVoxelIndex`, and removed hash-derived voxel/scan-cell token APIs.
+- Fixed the shared SwiftCollections Debug value-key boxing exposed by the wider
+  exact key without adding a GridForge or Gravitas workaround.
+
+Verification:
+
+- GridForge identical configuration, pooled reuse, cross-world, reset, hash
+  collision, duplicate, and allocation regressions pass.
+- Gravitas same-configuration replacement passes in 2D, 3D, and mixed modes;
+  its focused identity/query/order suite passed `159/159`.
+- Independent review found no unresolved code, determinism, performance,
+  benchmark, or test-quality blockers.
+
+### 2026-07-17: Identical-Bounds Blockers Shared One Registration Identity
+
+Status: resolved on 2026-07-17.
+
+Source: runtime identity audit following the pooled-grid generation defect.
+
+Concern:
+
+`BoundsKey` correctly described exact geometry, but `Blocker` also used it as a
+supposedly unique blockage token. Two distinct blockers with identical bounds
+therefore collapsed into one voxel obstacle entry and could not stack or be
+removed independently.
+
+Resolution:
+
+- Added opaque process-unique `ObstacleToken` registration identities,
+  allocated through active worlds, and kept `BoundsKey` as geometry only.
+- Migrated blocker, direct obstacle, voxel tracker, and event paths to the exact
+  token contract.
+- Preserved one token across dynamic grid and sparse-voxel reconciliation while
+  issuing a fresh token for each later explicit apply lifetime.
+- Kept rollback exact to the registration that performed the mutation and
+  moved the per-voxel maximum-count recheck inside the existing obstacle lock.
+
+Verification:
+
+- Dense and sparse same-bounds blockers stack and remove independently with
+  both cached and retraced coverage.
+- Dynamic replacement, sparse reconciliation, explicit reapply, rollback,
+  default-token, reset, event, concurrent capacity, and cross-world isolation
+  regressions pass.
+- Full Debug suite: `444/444` passed.
+- Independent re-review reported no findings.
 
 ### 2026-06-14: Coverlet Branch Instrumentation Guard-Target Misses
 

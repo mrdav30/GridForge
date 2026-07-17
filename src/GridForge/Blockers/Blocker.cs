@@ -31,7 +31,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Unique token representing this blockage instance.
     /// </summary>
-    public BoundsKey BlockageToken { get; protected set; } = default;
+    public ObstacleToken BlockageToken { get; private set; }
 
     /// <summary>
     /// Indicates whether the blocker is currently active.
@@ -115,7 +115,7 @@ public abstract class Blocker : IBlocker
     {
         if (!status)
         {
-            RemoveBlockageCore(keepWatching: false);
+            RemoveBlockageCore(keepWatching: false, preserveToken: false);
             IsActive = false;
             return;
         }
@@ -132,11 +132,17 @@ public abstract class Blocker : IBlocker
     /// </summary>
     public virtual void ApplyBlockage()
     {
+        ApplyBlockageCore(preserveTokenWhenEmpty: false);
+    }
+
+    private void ApplyBlockageCore(bool preserveTokenWhenEmpty)
+    {
         if (!IsActive || IsBlocking || !World.IsActive)
             return;
 
         PrepareBlockageApplication();
-        bool foundCoverage = ApplyBlockageToCoveredVoxels(out bool hasCoverage);
+        ObstacleToken blockageToken = BlockageToken;
+        bool foundCoverage = ApplyBlockageToCoveredVoxels(blockageToken, out bool hasCoverage);
 
         IsBlocking = foundCoverage && hasCoverage;
 
@@ -146,7 +152,8 @@ public abstract class Blocker : IBlocker
             return;
         }
 
-        BlockageToken = default;
+        if (!preserveTokenWhenEmpty || !hasCoverage)
+            BlockageToken = default;
     }
 
     /// <summary>
@@ -154,23 +161,28 @@ public abstract class Blocker : IBlocker
     /// </summary>
     public virtual void RemoveBlockage()
     {
-        RemoveBlockageCore(keepWatching: false);
+        RemoveBlockageCore(keepWatching: false, preserveToken: false);
     }
 
-    private void RemoveBlockageCore(bool keepWatching)
+    private void RemoveBlockageCore(bool keepWatching, bool preserveToken)
     {
         if (!IsBlocking)
         {
+            if (!preserveToken)
+                BlockageToken = default;
+
             ClearCoverageTracking();
             UnregisterGridWatcherIfNeeded(keepWatching);
             return;
         }
 
-        BlockageEventInfo removalEventInfo = CreateBlockageEventInfo();
+        ObstacleToken blockageToken = BlockageToken;
+        BlockageEventInfo removalEventInfo = CreateBlockageEventInfo(blockageToken);
 
-        RemoveAppliedBlockage();
+        RemoveAppliedBlockage(blockageToken);
 
-        BlockageToken = default;
+        if (!preserveToken)
+            BlockageToken = default;
         IsBlocking = false;
         ClearCoverageTracking();
         UnregisterGridWatcherIfNeeded(keepWatching);
@@ -182,7 +194,8 @@ public abstract class Blocker : IBlocker
     {
         CacheMin = GetBoundsMin();
         CacheMax = GetBoundsMax();
-        BlockageToken = new BoundsKey(CacheMin, CacheMax);
+        if (!BlockageToken.IsValid)
+            BlockageToken = World.AllocateObstacleToken();
 
         if (CacheCoveredVoxels)
             _cachedCoveredVoxels ??= new SwiftList<WorldVoxelIndex>();
@@ -191,7 +204,7 @@ public abstract class Blocker : IBlocker
         ClearCoverageTracking();
     }
 
-    private bool ApplyBlockageToCoveredVoxels(out bool hasCoverage)
+    private bool ApplyBlockageToCoveredVoxels(ObstacleToken blockageToken, out bool hasCoverage)
     {
         hasCoverage = true;
         bool foundCoverage = false;
@@ -205,11 +218,11 @@ public abstract class Blocker : IBlocker
             {
                 foundCoverage = true;
                 _watchedGridIndices.Add(covered.Grid.GridIndex);
-                ApplyBlockageToVoxels(covered, appliedVoxels!, ref hasCoverage);
+                ApplyBlockageToVoxels(covered, appliedVoxels!, blockageToken, ref hasCoverage);
             }
 
             if (!hasCoverage)
-                RollbackAppliedBlockage(appliedVoxels!);
+                RollbackAppliedBlockage(appliedVoxels!, blockageToken);
 
             return foundCoverage;
         }
@@ -223,11 +236,12 @@ public abstract class Blocker : IBlocker
     private void ApplyBlockageToVoxels(
         GridVoxelSet covered,
         SwiftList<WorldVoxelIndex> appliedVoxels,
+        ObstacleToken blockageToken,
         ref bool hasCoverage)
     {
         foreach (Voxel voxel in covered.Voxels)
         {
-            if (!covered.Grid.TryAddObstacle(voxel, BlockageToken))
+            if (!covered.Grid.TryAddObstacle(voxel, blockageToken))
             {
                 hasCoverage = false;
                 continue;
@@ -237,37 +251,39 @@ public abstract class Blocker : IBlocker
         }
     }
 
-    private void RollbackAppliedBlockage(SwiftList<WorldVoxelIndex> appliedVoxels)
+    private void RollbackAppliedBlockage(
+        SwiftList<WorldVoxelIndex> appliedVoxels,
+        ObstacleToken blockageToken)
     {
         foreach (WorldVoxelIndex voxelIndex in appliedVoxels)
-            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, BlockageToken);
+            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, blockageToken);
 
         appliedVoxels.Clear();
     }
 
-    private void RemoveAppliedBlockage()
+    private void RemoveAppliedBlockage(ObstacleToken blockageToken)
     {
         if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
-            RemoveCachedBlockage();
+            RemoveCachedBlockage(blockageToken);
             return;
         }
 
-        RemoveTracedBlockage();
+        RemoveTracedBlockage(blockageToken);
     }
 
-    private void RemoveCachedBlockage()
+    private void RemoveCachedBlockage(ObstacleToken blockageToken)
     {
         foreach (WorldVoxelIndex voxelIndex in _cachedCoveredVoxels!)
-            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, BlockageToken);
+            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, blockageToken);
     }
 
-    private void RemoveTracedBlockage()
+    private void RemoveTracedBlockage(ObstacleToken blockageToken)
     {
         foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
         {
             foreach (Voxel voxel in covered.Voxels)
-                covered.Grid.TryRemoveObstacle(voxel, BlockageToken);
+                covered.Grid.TryRemoveObstacle(voxel, blockageToken);
         }
     }
 
@@ -288,7 +304,12 @@ public abstract class Blocker : IBlocker
     /// </summary>
     protected BlockageEventInfo CreateBlockageEventInfo()
     {
-        return new BlockageEventInfo(World.SpawnToken, BlockageToken, CacheMin, CacheMax);
+        return CreateBlockageEventInfo(BlockageToken);
+    }
+
+    private BlockageEventInfo CreateBlockageEventInfo(ObstacleToken blockageToken)
+    {
+        return new BlockageEventInfo(World.SpawnToken, blockageToken, CacheMin, CacheMax);
     }
 
     /// <summary>
@@ -376,7 +397,7 @@ public abstract class Blocker : IBlocker
     /// </summary>
     public virtual void Reset()
     {
-        RemoveBlockageCore(keepWatching: false);
+        RemoveBlockageCore(keepWatching: false, preserveToken: false);
 
         CacheCoveredVoxels = false;
         _cachedCoveredVoxels = null;
@@ -393,8 +414,8 @@ public abstract class Blocker : IBlocker
         if (!IsActive)
             return;
 
-        RemoveBlockageCore(keepWatching: true);
-        ApplyBlockage();
+        RemoveBlockageCore(keepWatching: true, preserveToken: true);
+        ApplyBlockageCore(preserveTokenWhenEmpty: true);
     }
 
     private void RegisterGridWatcher()

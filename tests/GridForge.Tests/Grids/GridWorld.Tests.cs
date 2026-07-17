@@ -646,7 +646,7 @@ public class GridWorldTests
             out ushort gridIndex));
         VoxelGrid grid = world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new Vector3d(0, 0, 0), out Voxel voxel));
-        Assert.True(grid.TryAddObstacle(voxel, new BoundsKey(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1))));
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
         Assert.True(world.TryRemoveGrid(gridIndex));
         world.Reset();
 
@@ -843,6 +843,45 @@ public class GridWorldTests
         Assert.False(world.TryGetGridAndVoxel(staleIndex, out _, out _));
         Assert.NotEqual(staleIndex.GridSpawnToken, replacementVoxel.WorldIndex.GridSpawnToken);
         Assert.True(world.TryGetGridAndVoxel(replacementVoxel.WorldIndex, out _, out _));
+    }
+
+    [Fact]
+    public void NonDeactivatingReset_ShouldPreserveObstacleTokenGeneration()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        ObstacleToken firstToken = world.AllocateObstacleToken();
+
+        world.Reset(deactivate: false);
+
+        ObstacleToken secondToken = world.AllocateObstacleToken();
+        Assert.True(firstToken.IsValid);
+        Assert.True(secondToken.IsValid);
+        Assert.NotEqual(firstToken, secondToken);
+
+        world.Reset(deactivate: true);
+        Assert.Throws<InvalidOperationException>(() => world.AllocateObstacleToken());
+    }
+
+    [Fact]
+    public void ObstacleTokens_ShouldNotAliasAcrossWorlds()
+    {
+        using GridWorld firstWorld = GridWorldTestFactory.CreateWorld();
+        using GridWorld secondWorld = GridWorldTestFactory.CreateWorld();
+
+        Assert.True(secondWorld.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort secondGridIndex));
+
+        ObstacleToken firstToken = firstWorld.AllocateObstacleToken();
+        ObstacleToken secondToken = secondWorld.AllocateObstacleToken();
+        VoxelGrid secondGrid = secondWorld.ActiveGrids[secondGridIndex];
+
+        Assert.True(secondGrid.TryGetVoxel(Vector3d.Zero, out Voxel secondVoxel));
+        Assert.NotEqual(firstToken, secondToken);
+        Assert.True(secondGrid.TryAddObstacle(secondVoxel, secondToken));
+        Assert.False(secondGrid.TryRemoveObstacle(secondVoxel, firstToken));
+        Assert.Equal(1, secondVoxel.ObstacleCount);
+        Assert.True(secondGrid.TryRemoveObstacle(secondVoxel, secondToken));
     }
 
     [Fact]

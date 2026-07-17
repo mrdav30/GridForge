@@ -80,7 +80,7 @@ public class GridDiagnosticSessionTests
             new Vector3d(0, 0, 0),
             new Vector3d(0, 0, 0));
         Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
-        Assert.True(grid.TryAddObstacle(voxel, new BoundsKey(voxel.WorldPosition, voxel.WorldPosition)));
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
         SwiftList<GridDiagnosticChange> changes = new();
 
         world.Reset();
@@ -99,7 +99,7 @@ public class GridDiagnosticSessionTests
             new Vector3d(1, 0, 1));
         Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
         using GridDiagnosticSession session = new(world);
-        BoundsKey obstacleToken = new(voxel.WorldPosition, voxel.WorldPosition);
+        ObstacleToken obstacleToken = world.AllocateObstacleToken();
         SwiftList<GridDiagnosticChange> changes = new();
 
         Assert.True(grid.TryAddObstacle(voxel, obstacleToken));
@@ -186,7 +186,7 @@ public class GridDiagnosticSessionTests
         Assert.True(otherGrid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel otherVoxel));
         SwiftList<GridDiagnosticChange> changes = new();
 
-        BoundsKey otherObstacle = new(otherVoxel.WorldPosition, otherVoxel.WorldPosition);
+        ObstacleToken otherObstacle = otherWorld.AllocateObstacleToken();
         Assert.True(otherGrid.TryAddObstacle(otherVoxel, otherObstacle));
         Assert.True(otherGrid.TryRemoveObstacle(otherVoxel, otherObstacle));
         Assert.True(otherGrid.TryAddVoxelOccupant(otherVoxel, new TestOccupant(otherVoxel.WorldPosition)));
@@ -206,7 +206,7 @@ public class GridDiagnosticSessionTests
         SwiftList<GridDiagnosticChange> changes = new();
 
         session.Dispose();
-        Assert.True(grid.TryAddObstacle(voxel, new BoundsKey(voxel.WorldPosition, voxel.WorldPosition)));
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
 
         Assert.Equal(0, session.GetDirtyChangesInto(changes));
         Assert.Empty(changes);
