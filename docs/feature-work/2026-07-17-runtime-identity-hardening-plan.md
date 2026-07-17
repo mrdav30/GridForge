@@ -9,7 +9,7 @@
 > before claiming a phase is complete. Steps use checkbox (`- [ ]`) syntax for
 > tracking.
 
-**Status:** In Progress - final independent review pending
+**Status:** Complete
 
 **Goal:** Make every runtime identity used for stale-reference rejection,
 deduplication, blocker ownership, or occupant lookup exact across pooled reuse,
@@ -32,9 +32,9 @@ safety data, not serialized simulation state.
 - Started: 2026-07-17.
 - Planning date: 2026-07-17.
 - Release posture: intentionally breaking pre-release hardening.
-- Current state: Phases 0-4 are complete. Phase 5 implementation,
-  documentation, benchmarks, package validation, and cross-stack validation
-  are complete; only the final independent review remains.
+- Current state: Phases 0-5 are complete. Implementation, documentation,
+  benchmarks, package validation, cross-stack validation, and independent
+  review are closed.
 - Working agreement: keep local project references in place and uncommitted;
   commit coherent implementation milestones directly to `develop` while
   preserving unrelated owner changes.
@@ -504,9 +504,9 @@ local links needed for the remaining lower-stack hardening work.
 - [x] Run Gravitas Debug, Release, and ReleaseLean validation through the local
   GridForge reference.
 - [x] Run focused Gravitas 2D, 3D, mixed, partition, and query regressions.
-- [ ] Run an independent final code review covering correctness, determinism,
+- [x] Run an independent final code review covering correctness, determinism,
   pooling, public API quality, test value, and documentation accuracy.
-- [ ] Address review findings and repeat affected verification.
+- [x] Address review findings and repeat affected verification.
 - [x] Commit coherent implementation and documentation milestones directly to
   `develop`. Keep local project-reference changes uncommitted.
 
@@ -517,13 +517,13 @@ Exit criteria:
 - [x] Local-linked Gravitas passes without downstream band-aids.
 - [x] Documentation clearly distinguishes value keys, slots, runtime identities,
   and durable host-owned IDs.
-- [ ] The independent reviewer reports no unresolved correctness or release
+- [x] The independent reviewer reports no unresolved correctness or release
   blockers.
 
-Phase 5 evidence before final review:
+Phase 5 evidence:
 
-- GridForge direct test project: Debug `453/453`, Release `456/456`, and
-  ReleaseLean `456/456` passed.
+- GridForge direct test project after review corrections: Debug `456/456`,
+  Release `459/459`, and ReleaseLean `459/459` passed.
 - GridForge standard and lean `dotnet pack` validation produced
   `GridForge.0.0.0.nupkg` and `GridForge.Lean.0.0.0.nupkg` successfully. The
   placeholder version comes from the local checkout's release-validation
@@ -542,8 +542,8 @@ Phase 5 evidence before final review:
   | --- | ---: | ---: | ---: | ---: |
   | Register many adjacent grids | 2.366 ms | 2.212 ms | 1,004.58 KB | 1,037.02 KB |
   | Remove many adjacent grids | 1.782 ms | 1.848 ms | 24.11 KB | 24.11 KB |
-  | Covered voxels, warm pools | 643.0 us | 718.0 us | 760 B | 760 B |
-  | Trace line, warm pools | 192.2 us | 198.9 us | 704 B | 704 B |
+  | Covered voxels, warm pools | 643.0 us | 661.4 us | 760 B | 760 B |
+  | Trace line, warm pools | 192.2 us | 198.8 us | 704 B | 704 B |
   | Blocker apply/remove, uncached | 61.681 ms | 42.049 ms | 28.11 MB | 20.69 MB |
   | Blocker apply/remove, cached | 46.942 ms | 42.826 ms | 27.98 MB | 20.65 MB |
   | Occupant wave, cold pools | 52.932 ms | 82.173 ms | 32.77 MB | 44.22 MB |
@@ -555,7 +555,19 @@ Phase 5 evidence before final review:
   stayed flat, blocker storage became smaller, and occupant waves retain the
   wider generation required for exact stale-ticket rejection while current
   lookup remains O(1) and `0 B`.
-- Documentation commits: GridForge `cb10ea4` and Gravitas `3fc012c`.
+- Final review found two adjacent defects before release: traversal padding
+  cached only the recyclable grid slot, and concurrent occupant admission
+  checked byte capacity only before acquiring the owning lock. Focused RED
+  regressions reproduced stale topology (`expected 11`, `actual 9`) and count
+  overflow (`expected 255`, `actual 314`). Commit `647fff7` made the traversal
+  cache exact across world, slot, generation, pooled owner, and active binding,
+  and linearized occupant capacity admission before mutation.
+- The corrected traversal retains its same-generation fast path. The focused
+  default-toolchain benchmark completed in `140.6 us` with `0 B` allocated;
+  warm covered-voxel and line-trace allocation remained `760 B` and `704 B`.
+- Independent re-review of `647fff7` approved code quality with no unresolved
+  correctness, determinism, pooling, API, test-value, or performance finding.
+- Documentation commits: GridForge `d1f1b88` and Gravitas `3fc012c`.
 
 ## Verification Matrix
 
@@ -591,15 +603,16 @@ Phase 5 evidence before final review:
 | 2026-07-17 | Phase 2 | Replaced hash-only voxel deduplication with exact identities, removed dead voxel/scan-cell tokens, propagated same-configuration replacement through Gravitas 2D/3D/mixed paths, and fixed a shared SwiftCollections Debug boxing defect exposed by the wider value key. |
 | 2026-07-17 | Phase 3 | Added process-unique obstacle registration tokens allocated through active worlds, preserved token lifetime across dynamic reconciliation, covered exact rollback, same-bounds stacking, and cross-world isolation, reduced blocker-wave allocation by roughly 26%, and passed independent review. |
 | 2026-07-17 | Phase 4 | Replaced recyclable integer occupant slots with process-unique generation-aware tickets, synchronized exact lookup/reset with mutation, passed Debug/Release/ReleaseLean, recorded the wider live-registration memory cost, and passed independent review. |
-| 2026-07-17 | Phase 5 | Closed current GridForge and Gravitas documentation, passed GridForge standard/lean tests and packages, passed local-linked Gravitas Release/ReleaseLean plus focused Debug identity regressions, and captured final benchmark medians. Final independent review remains. |
+| 2026-07-17 | Phase 5 | Closed current GridForge and Gravitas documentation; passed GridForge Debug/Release/ReleaseLean, standard/lean packages, local-linked Gravitas Release/ReleaseLean, and focused Debug identity regressions; corrected traversal-cache and occupant-capacity races found by final review; repeated affected benchmarks and cross-stack validation; and passed independent re-review. |
 
-## Suggested Commit Sequence
+## Committed Milestones
 
-Commit each coherent phase directly to `develop` so release notes and
-regressions remain easy to audit:
-
-1. `fix(identity): make world and grid generations allocation-safe`
-2. `fix(traversal): deduplicate voxels by exact world identity`
-3. `fix(blockers): separate registration identity from bounds`
-4. `fix(occupants): make scan-cell tickets generation-aware`
-5. `docs(identity): document GridForge runtime identity contracts`
+- GridForge `0c5420f`: `fix(identity): make world and grid generations allocation-safe`
+- GridForge `cc2c451`: `fix(traversal): deduplicate voxels by exact world identity`
+- GridForge `596157c`: `fix(blockers): separate registration identity from bounds`
+- GridForge `c34a2e3`: `fix(occupants): make scan-cell tickets generation-aware`
+- GridForge `d1f1b88`: `docs(identity): close runtime identity hardening`
+- GridForge `647fff7`: `fix(identity): close traversal and occupant races`
+- SwiftCollections `0baa703`: `fix: avoid boxing generic value-type null guards`
+- Gravitas `598c2de`: `fix(identity): consume exact regenerated grid identities`
+- Gravitas `3fc012c`: `docs: resolve GridForge runtime identity issue`
