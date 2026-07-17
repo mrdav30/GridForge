@@ -1,11 +1,11 @@
 # Grid Diagnostics Geometry Battle Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` or
-> `superpowers:executing-plans` to implement this plan task-by-task. Use
-> `superpowers:test-driven-development` for runtime behavior changes and
-> `superpowers:verification-before-completion` before claiming a phase is
-> complete. Steps use checkbox (`- [ ]`) syntax for tracking.
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans` to
+> implement this plan task-by-task. Use `superpowers:test-driven-development`
+> for runtime behavior changes and `superpowers:verification-before-completion`
+> before claiming a phase is complete. Steps use checkbox (`- [ ]`) syntax for
+> tracking.
 
 **Status:** Done
 
@@ -33,8 +33,7 @@ package variants.
 - Release posture: additive public API under a new diagnostics namespace.
 - Backwards compatibility: no rendering API, no Unity dependency, no behavior
   changes to existing grid queries.
-- Current state: Phases 0-7 implemented, documented, benchmarked, and
-  validated.
+- Current state: Phases 0-7 implemented, documented, benchmarked, and validated.
 - Related completed work: sparse storage, hex-prism topology, mixed-topology
   contact helpers, `TopologyVoxelAabb`, and `TopologyVoxelRangeUtility`.
 
@@ -74,13 +73,12 @@ an adapter consume without knowing GridForge's storage or topology internals?
   arrays.
 - Geometry is topology-aware. Rectangular-prism and hex-prism cells share the
   same public diagnostic flow but emit different prism vertices and edge sets.
-- Diagnostic output uses `Fixed64`, `Vector3d`, `VoxelIndex`,
-  `WorldVoxelIndex`, `GridTopologyKind`, `GridTopologyMetrics`, and
-  `GridStorageKind`; no `float`, `double`, `System.Numerics`, Unity, or engine
-  types enter the core API.
+- Diagnostic output uses `Fixed64`, `Vector3d`, `VoxelIndex`, `WorldVoxelIndex`,
+  `GridTopologyKind`, `GridTopologyMetrics`, and `GridStorageKind`; no `float`,
+  `double`, `System.Numerics`, Unity, or engine types enter the core API.
 - Incremental renderer support should observe existing grid, obstacle, and
-  occupant events. Do not rely only on `VoxelGrid.Version` for occupancy
-  changes because occupant add/remove does not currently raise
+  occupant events. Do not rely only on `VoxelGrid.Version` for occupancy changes
+  because occupant add/remove does not currently raise
   `GridWorld.OnActiveGridChange`.
 - Query and geometry APIs must be allocation-conscious, caller-owned-buffer
   friendly, and deterministic in output order.
@@ -221,11 +219,11 @@ public readonly struct GridDiagnosticEdge
 
 Rules:
 
-- `GridDiagnosticCell.WorldIndex` is always composed from the active world,
-  grid slot, grid spawn token, and local index. For `Physical` cells it resolves
-  to a real voxel while the grid remains active. For `MissingSparseAddress`
-  cells it is a potential identity only and `GridWorld.TryGetVoxel(...)` should
-  return false.
+- `GridDiagnosticCell.WorldIndex` is always composed from the active world, grid
+  slot, grid spawn token, and local index. For `Physical` cells it resolves to a
+  real voxel while the grid remains active. For `MissingSparseAddress` cells it
+  is a potential identity only and `GridWorld.TryGetVoxel(...)` should return
+  false.
 - `GridDiagnosticCell.State` for missing address cells includes
   `MissingSparseAddress` and no occupied, blocked, or partitioned flags.
 - `GridDiagnosticQuery.MaxCells` defaults to
@@ -275,8 +273,8 @@ public sealed class GridDiagnosticScratch
 Rules:
 
 - `GetCellsInto` clears and fills caller-owned storage.
-- `VisitCells` is the preferred hot path for render adapters that write
-  directly into their own buffers.
+- `VisitCells` is the preferred hot path for render adapters that write directly
+  into their own buffers.
 - Returning `false` from `Visit(...)` stops traversal and returns
   `GridDiagnosticQueryStatus.Truncated`.
 - `GridDiagnosticScratch` owns reusable temporary collections needed for sorted
@@ -312,8 +310,8 @@ Rules:
 
 - Rectangular vertices describe the cell prism corners using rectangular
   metrics.
-- Hex vertices describe bottom and top hex-ring corners using hex radius,
-  layer height, and orientation.
+- Hex vertices describe bottom and top hex-ring corners using hex radius, layer
+  height, and orientation.
 - Edge spans are static, immutable, and allocation-free.
 - Geometry is expressed in world coordinates and fixed-point `Vector3d`.
 - Rendering adapters own conversion to engine coordinates, floats, colors,
@@ -338,20 +336,20 @@ Checklist:
 
 - [x] Confirm public diagnostics live under `GridForge.Diagnostics`.
 - [x] Confirm diagnostics emit descriptors and topology geometry, never draw
-  commands.
+      commands.
 - [x] Confirm missing sparse address cells are opt-in and bounded.
 - [x] Confirm missing sparse address cells are not `Voxel` instances.
 - [x] Confirm physical traversal stays storage-neutral through
-  `VoxelGrid.EnumerateVoxels()` publicly and the internal visitor path for hot
-  diagnostics.
+      `VoxelGrid.EnumerateVoxels()` publicly and the internal visitor path for
+      hot diagnostics.
 - [x] Confirm bounded address traversal uses `TopologyVoxelRangeUtility`.
 - [x] Confirm dirty tracking listens to occupant events directly rather than
-  depending only on grid version changes.
+      depending only on grid version changes.
 
 Exit criteria:
 
 - [x] This plan contains the public API names, non-goals, and sparse-hole
-  semantics needed for implementation.
+      semantics needed for implementation.
 
 ## Phase 1: Public Contracts And Query Skeleton
 
@@ -378,26 +376,26 @@ Checklist:
 - [x] Add readonly public data contracts with XML documentation.
 - [x] Add `GridDiagnosticQuery.DefaultMaxCells` with value `65536`.
 - [x] Add factory helpers for common queries:
-  `GridDiagnosticQuery.AllPhysical()`,
-  `GridDiagnosticQuery.ForGrid(ushort gridIndex)`, and
-  `GridDiagnosticQuery.ForBounds(Vector3d min, Vector3d max)`.
+      `GridDiagnosticQuery.AllPhysical()`,
+      `GridDiagnosticQuery.ForGrid(ushort gridIndex)`, and
+      `GridDiagnosticQuery.ForBounds(Vector3d min, Vector3d max)`.
 - [x] Add `GridDiagnostics.GetCellsInto(...)` with null checks, result clearing,
-  inactive-world handling, and a no-cell completed result.
+      inactive-world handling, and a no-cell completed result.
 - [x] Add `GridDiagnostics.VisitCells(...)` with inactive-world handling and
-  visitor early-exit behavior.
+      visitor early-exit behavior.
 - [x] Add `GridDiagnostics.TryResolvePhysicalCell(...)` and ensure it returns
-  false for missing address cells and stale world/grid tokens.
+      false for missing address cells and stale world/grid tokens.
 - [x] Test null result storage throws the same style of argument exception used
-  by existing caller-owned result APIs.
+      by existing caller-owned result APIs.
 - [x] Test inactive worlds return `InactiveWorld` without writing cells.
 - [x] Test `TryResolvePhysicalCell(...)` resolves physical descriptors and
-  rejects missing descriptors.
+      rejects missing descriptors.
 
 Exit criteria:
 
 - [x] Contracts compile on `netstandard2.1` and `net8.0`.
 - [x] No traversal or geometry behavior is implemented beyond safe no-op
-  skeletons.
+      skeletons.
 
 Validation:
 
@@ -424,23 +422,23 @@ Checklist:
 
 - [x] Add immutable edge spans for rectangular prisms and hex prisms.
 - [x] Implement rectangular vertex writing from cell center and rectangular
-  metrics.
+      metrics.
 - [x] Implement pointy-top hex vertex writing from cell center, hex radius,
-  layer height, and the existing deterministic `Sqrt3` constant.
-- [x] Implement flat-top hex vertex writing from cell center, hex radius,
-  layer height, and the existing deterministic `Sqrt3` constant.
+      layer height, and the existing deterministic `Sqrt3` constant.
+- [x] Implement flat-top hex vertex writing from cell center, hex radius, layer
+      height, and the existing deterministic `Sqrt3` constant.
 - [x] Return `0` when the provided vertex span is too small.
 - [x] Return expected vertex and edge counts for each topology.
 - [x] Test rectangular vertices for non-cubic metrics.
 - [x] Test pointy-top and flat-top hex vertices for deterministic orientation.
 - [x] Test edge spans are read-only and stable across calls.
 - [x] Test missing sparse address cells use the same geometry path as physical
-  cells with the same topology metrics and index.
+      cells with the same topology metrics and index.
 
 Exit criteria:
 
 - [x] Adapters can draw wireframes or meshes for rectangular and hex-prism cells
-  using only public diagnostic descriptors.
+      using only public diagnostic descriptors.
 
 Validation:
 
@@ -457,7 +455,8 @@ Files:
 
 - Modify: `src/GridForge/Diagnostics/GridDiagnostics.cs`
 - Modify: `src/GridForge/Diagnostics/GridDiagnosticScratch.cs`
-- Create: `tests/GridForge.Tests/Diagnostics/GridDiagnosticsPhysicalQueryTests.cs`
+- Create:
+  `tests/GridForge.Tests/Diagnostics/GridDiagnosticsPhysicalQueryTests.cs`
 - Read: `src/GridForge/Grids/VoxelGrid.cs`
 - Read: `src/GridForge/Grids/Managers/GridWorld.cs`
 - Read: `src/GridForge/Grids/Storage/DenseVoxelGridStorage.cs`
@@ -468,34 +467,34 @@ Checklist:
 - [x] Traverse active grids in deterministic `GridWorld.ActiveGrids` order.
 - [x] Apply optional grid index, topology, storage, and bounds filters.
 - [x] Keep `VoxelGrid.EnumerateVoxels()` as the public storage-neutral physical
-  traversal surface and use the internal storage visitor for allocation-sensitive
-  diagnostic traversal.
+      traversal surface and use the internal storage visitor for
+      allocation-sensitive diagnostic traversal.
 - [x] Build `GridDiagnosticCell` descriptors from each physical voxel without
-  allocating.
+      allocating.
 - [x] Derive cell state from `Voxel.IsOccupied`, `Voxel.IsBlocked`,
-  `Voxel.IsBoundaryVoxel`, and `Voxel.IsPartioned`.
+      `Voxel.IsBoundaryVoxel`, and `Voxel.IsPartioned`.
 - [x] Treat unoccupied and unblocked physical cells as `Empty`.
 - [x] Apply required-state and excluded-state filters after state derivation.
 - [x] Stop at `MaxCells` and report `MaxCellsExceeded` when the query budget is
-  reached before traversal completes.
+      reached before traversal completes.
 - [x] Preserve deterministic output order for dense rectangular, sparse
-  rectangular, dense hex, and sparse hex grids.
+      rectangular, dense hex, and sparse hex grids.
 - [x] Test physical-only dense rectangular output count equals `Size`.
 - [x] Test physical-only sparse rectangular output count equals
-  `ConfiguredVoxelCount`.
+      `ConfiguredVoxelCount`.
 - [x] Test physical-only dense and sparse hex output includes axial indices and
-  hex topology metadata.
+      hex topology metadata.
 - [x] Test occupied, blocked, empty, boundary, topology, storage, and grid-index
-  filters.
+      filters.
 - [x] Test bounds filtering clips through topology-aware candidate ranges and
-  returns only cells whose diagnostic AABB overlaps the query bounds.
+      returns only cells whose diagnostic AABB overlaps the query bounds.
 
 Exit criteria:
 
 - [x] Diagnostic queries replace the Unity prototype's dense nested loop for
-  physical cells.
+      physical cells.
 - [x] Sparse physical traversal scales with configured voxels, not address-space
-  size.
+      size.
 
 Validation:
 
@@ -513,7 +512,8 @@ Files:
 - Modify: `src/GridForge/Diagnostics/GridDiagnostics.cs`
 - Modify: `src/GridForge/Diagnostics/GridDiagnosticQuery.cs`
 - Modify: `src/GridForge/Diagnostics/GridDiagnosticQueryResult.cs`
-- Create: `tests/GridForge.Tests/Diagnostics/GridDiagnosticsSparseAddressTests.cs`
+- Create:
+  `tests/GridForge.Tests/Diagnostics/GridDiagnosticsSparseAddressTests.cs`
 - Read: `src/GridForge/Grids/Topology/TopologyVoxelRangeUtility.cs`
 - Read: `src/GridForge/Grids/VoxelGrid.cs`
 - Read: `docs/wiki/Sparse-Grid-Storage.md`
@@ -522,25 +522,25 @@ Checklist:
 
 - [x] Keep `PhysicalOnly` as the default address mode.
 - [x] Implement `PhysicalAndMissing` for sparse grids by emitting configured
-  physical cells and missing address cells inside the bounded query range.
+      physical cells and missing address cells inside the bounded query range.
 - [x] Implement `MissingOnly` for sparse grids by emitting only unconfigured
-  address cells inside the bounded query range.
+      address cells inside the bounded query range.
 - [x] Emit no missing cells for dense grids.
 - [x] Require bounds or `AllowFullAddressSpaceScan` before scanning a sparse
-  grid's full address space for holes.
+      grid's full address space for holes.
 - [x] Return `MissingAddressSpaceRequiresBounds` when a missing-cell query would
-  otherwise scan a full sparse address space without opt-in.
+      otherwise scan a full sparse address space without opt-in.
 - [x] Use `TopologyVoxelRangeUtility.TryGetCandidateRange(...)` to get
-  rectangular and hex candidate ranges.
+      rectangular and hex candidate ranges.
 - [x] Use `VoxelGrid.ContainsVoxel(...)` to distinguish configured physical
-  cells from missing sparse address cells.
+      cells from missing sparse address cells.
 - [x] Apply `MaxCells` to the combined physical plus missing output.
 - [x] Report skipped cells when traversal stops at the max-cell budget.
 - [x] Test `PhysicalAndMissing` includes configured and missing rectangular
-  cells within bounds.
+      cells within bounds.
 - [x] Test `MissingOnly` excludes configured rectangular cells.
 - [x] Test sparse hex missing address cells use axial `VoxelIndex(q, y, r)`
-  coordinates.
+      coordinates.
 - [x] Test unbounded missing-cell queries require explicit opt-in.
 - [x] Test full address-space opt-in respects `MaxCells`.
 - [x] Test missing address descriptors do not resolve to physical voxels.
@@ -548,7 +548,7 @@ Checklist:
 Exit criteria:
 
 - [x] Tools can render "where voxels could be" for sparse rectangular and hex
-  grids without changing runtime sparse semantics.
+      grids without changing runtime sparse semantics.
 
 Validation:
 
@@ -578,35 +578,35 @@ Checklist:
 
 - [x] Add a disposable session bound to one active `GridWorld`.
 - [x] Subscribe to `GridWorld.OnActiveGridAdded`,
-  `GridWorld.OnActiveGridRemoved`, `GridWorld.OnActiveGridChange`, and
-  `GridWorld.OnReset`.
+      `GridWorld.OnActiveGridRemoved`, `GridWorld.OnActiveGridChange`, and
+      `GridWorld.OnReset`.
 - [x] Subscribe to `GridObstacleManager` static obstacle events and filter by
-  the session world's spawn token plus resolved grid identity.
+      the session world's spawn token plus resolved grid identity.
 - [x] Subscribe to `GridOccupantManager` static occupant events and filter by
-  the session world's spawn token plus resolved grid identity.
+      the session world's spawn token plus resolved grid identity.
 - [x] Record dirty grid ids for grid add/remove/reset and broad grid-change
-  events.
+      events.
 - [x] Record dirty physical cell identities for obstacle and occupant events.
-- [x] Record sparse voxel add/remove changes from `GridEventKind.SparseVoxelAdded`
-  and `GridEventKind.SparseVoxelRemoved`.
+- [x] Record sparse voxel add/remove changes from
+      `GridEventKind.SparseVoxelAdded` and `GridEventKind.SparseVoxelRemoved`.
 - [x] Expose caller-owned `GetDirtyChangesInto(...)` and `ClearDirtyChanges()`
-  APIs.
+      APIs.
 - [x] Coalesce duplicate dirty cells deterministically.
 - [x] Treat world reset as superseding pending grid and cell changes until
-  adapters drain or clear the reset marker.
+      adapters drain or clear the reset marker.
 - [x] Release event subscriptions on dispose.
 - [x] Test obstacle changes are reported through the session.
 - [x] Test occupant changes are reported even though grid version does not
-  currently change for occupancy.
+      currently change for occupancy.
 - [x] Test sparse add/remove reports both the physical cell and surrounding
-  address-space range as dirty for hole-rendering adapters.
+      address-space range as dirty for hole-rendering adapters.
 - [x] Test events from other worlds are ignored.
 - [x] Test disposing the session prevents further dirty captures.
 
 Exit criteria:
 
 - [x] Unity and other adapters can avoid whole-grid rebuilds when only occupied,
-  blocked, or sparse mutation state changes.
+      blocked, or sparse mutation state changes.
 
 Validation:
 
@@ -629,7 +629,8 @@ Files:
 - Modify: `src/GridForge/Grids/Storage/DenseVoxelGridStorage.cs`
 - Modify: `src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs`
 - Modify: `src/GridForge/Grids/VoxelGrid.cs`
-- Modify: `tests/GridForge.Tests/Diagnostics/GridDiagnosticsPhysicalQueryTests.cs`
+- Modify:
+  `tests/GridForge.Tests/Diagnostics/GridDiagnosticsPhysicalQueryTests.cs`
 - Read: `tests/GridForge.Benchmarks/Memory/SparseVoxelGridBenchmarks.cs`
 - Read: `tests/GridForge.Benchmarks/Memory/HexPrismTopologyBenchmarks.cs`
 
@@ -644,11 +645,11 @@ Checklist:
 - [x] Add a benchmark alias named `grid-diagnostics`.
 - [x] Confirm physical sparse query cost follows configured voxel count.
 - [x] Confirm missing-cell query cost follows bounded candidate range and
-  `MaxCells`.
+      `MaxCells`.
 - [x] Confirm warm-path query allocation is zero or limited to caller-owned
-  buffer growth outside the measured core operation.
+      buffer growth outside the measured core operation.
 - [x] If a benchmark exposes a real hotspot, fix the query structure before
-  adding cache complexity.
+      adding cache complexity.
 
 Exit criteria:
 
@@ -682,27 +683,28 @@ Files:
 Checklist:
 
 - [x] Document the difference between logging diagnostics and geometry
-  diagnostics.
+      diagnostics.
 - [x] Document `PhysicalOnly`, `PhysicalAndMissing`, and `MissingOnly`.
 - [x] Document that missing sparse address cells are not runtime voxels.
 - [x] Document bounds and max-cell budget requirements for sparse-hole views.
 - [x] Document rectangular and hex geometry output shape.
-- [x] Document how adapters should convert `Vector3d`/`Fixed64` to engine
-  floats at the adapter boundary.
-- [x] Add a small example that fills a caller-owned `SwiftList<GridDiagnosticCell>`.
+- [x] Document how adapters should convert `Vector3d`/`Fixed64` to engine floats
+      at the adapter boundary.
+- [x] Add a small example that fills a caller-owned
+      `SwiftList<GridDiagnosticCell>`.
 - [x] Add a small example that writes diagnostic vertices for one cell.
 - [x] Leave a future v6-to-v7 `MIGRATION.MD` note that the old dense
-  `Width * Height * Length` loop should move to
-  `GridDiagnostics.VisitCells(...)`.
+      `Width * Height * Length` loop should move to
+      `GridDiagnostics.VisitCells(...)`.
 - [x] Link the new wiki page from `Home`, `Diagnostics-and-Logging`, and
-  `Testing-and-Benchmarking`.
+      `Testing-and-Benchmarking`.
 - [x] Keep README concise and point deep details to the wiki.
 
 Exit criteria:
 
 - [x] Core users can discover the API and understand sparse-hole costs.
 - [x] Unity migration has a clear adapter-oriented path without pulling
-  rendering into GridForge.
+      rendering into GridForge.
 
 ## Validation Baseline
 
@@ -721,15 +723,15 @@ git diff --check
 
 ## Risk Register
 
-| Risk | Why It Matters | Mitigation |
-| --- | --- | --- |
-| Sparse-hole mode accidentally scans huge address spaces | Sparse grids exist to avoid dense costs | Require bounds, max-cell budgets, or explicit full-scan opt-in. |
-| Diagnostics become renderer-shaped | Core must stay engine-agnostic | Emit descriptors, vertices, and edge topology only. |
-| Missing cells look like real voxels | Sparse absence is intentional runtime behavior | Use `GridDiagnosticCellKind.MissingSparseAddress` and make physical resolution fail. |
-| Occupant state does not dirty renderer caches | Occupant changes do not currently raise world grid-change events | Diagnostic sessions subscribe to occupant events directly. |
-| Hex geometry drifts from topology projection | Incorrect adapter rendering undermines debugging | Reuse topology metrics and existing deterministic hex math; test both orientations. |
-| Query APIs allocate per cell | Diagnostics can run in editor or runtime loops | Provide visitor and caller-owned list APIs plus reusable scratch. |
-| Public API grows too broad | Debug tooling can become a second query framework | Keep the surface to cell descriptors, geometry, query filters, and dirty changes. |
+| Risk                                                    | Why It Matters                                                   | Mitigation                                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Sparse-hole mode accidentally scans huge address spaces | Sparse grids exist to avoid dense costs                          | Require bounds, max-cell budgets, or explicit full-scan opt-in.                      |
+| Diagnostics become renderer-shaped                      | Core must stay engine-agnostic                                   | Emit descriptors, vertices, and edge topology only.                                  |
+| Missing cells look like real voxels                     | Sparse absence is intentional runtime behavior                   | Use `GridDiagnosticCellKind.MissingSparseAddress` and make physical resolution fail. |
+| Occupant state does not dirty renderer caches           | Occupant changes do not currently raise world grid-change events | Diagnostic sessions subscribe to occupant events directly.                           |
+| Hex geometry drifts from topology projection            | Incorrect adapter rendering undermines debugging                 | Reuse topology metrics and existing deterministic hex math; test both orientations.  |
+| Query APIs allocate per cell                            | Diagnostics can run in editor or runtime loops                   | Provide visitor and caller-owned list APIs plus reusable scratch.                    |
+| Public API grows too broad                              | Debug tooling can become a second query framework                | Keep the surface to cell descriptors, geometry, query filters, and dirty changes.    |
 
 ## Completion Criteria
 
@@ -740,4 +742,4 @@ git diff --check
 - [x] No renderer or engine-specific types are introduced into GridForge.
 - [x] Debug, Release, and ReleaseLean validation pass.
 - [x] The plan is moved to `docs/feature-work/done` with `Status: Done` after
-  implementation, docs, benchmarks, and validation complete.
+      implementation, docs, benchmarks, and validation complete.

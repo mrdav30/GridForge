@@ -1,6 +1,7 @@
 # Determinism, Snapping, and Pooling
 
-This page covers the three invariants that shape most of GridForge's implementation choices:
+This page covers the three invariants that shape most of GridForge's
+implementation choices:
 
 - deterministic math and ordering
 - snapped spatial boundaries
@@ -22,7 +23,8 @@ voxel, tracer, scan, obstacle, and blocker systems.
 
 ## Snapping Starts At Registration Time
 
-`GridConfiguration` orders incoming bounds on construction, and `GridWorld` snaps them during registration.
+`GridConfiguration` orders incoming bounds on construction, and `GridWorld`
+snaps them during registration.
 
 That snapped result affects:
 
@@ -50,7 +52,8 @@ topology metrics and keep expectations local to that grid.
 
 ## Pooling Is A First-Class Constraint
 
-Pooling in GridForge is not an optimization sprinkled on top. It shapes the object lifecycle.
+Pooling in GridForge is not an optimization sprinkled on top. It shapes the
+object lifecycle.
 
 The internal pools cover types such as:
 
@@ -61,12 +64,15 @@ The internal pools cover types such as:
 - neighbor arrays
 - temporary query lists and hash sets
 
-Every new mutable field introduced into a pooled type needs a matching reset story.
+Every new mutable field introduced into a pooled type needs a matching reset
+story.
 
 ## Practical Debugging Checklist
 
 1. Was the grid created with the topology metrics you think it was?
 2. What are the snapped bounds after normalization?
 3. Is the queried world-space position exactly on a boundary?
-4. Are you looking at a pooled object or temporary collection after its intended lifetime?
-5. Did a previous test, tool run, or benchmark leave world state active longer than intended?
+4. Are you looking at a pooled object or temporary collection after its intended
+   lifetime?
+5. Did a previous test, tool run, or benchmark leave world state active longer
+   than intended?

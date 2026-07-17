@@ -5,14 +5,15 @@ This page explains how GridForge validates behavior and performance today.
 The short version is:
 
 - use the xUnit suite to protect correctness
-- use the benchmark project when changing performance-sensitive or allocation-sensitive code
+- use the benchmark project when changing performance-sensitive or
+  allocation-sensitive code
 - treat `GridWorld` boundaries as part of the validation story
 
 ## The Two Validation Tracks
 
-| Track | Project | Best for |
-| --- | --- | --- |
-| Tests | `tests/GridForge.Tests` | Behavioral correctness, regressions, edge cases, and event semantics |
+| Track      | Project                      | Best for                                                                       |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| Tests      | `tests/GridForge.Tests`      | Behavioral correctness, regressions, edge cases, and event semantics           |
 | Benchmarks | `tests/GridForge.Benchmarks` | Allocation trends, warm-vs-cold pool effects, and throughput-sensitive changes |
 
 ## Test Harness Shape
@@ -21,16 +22,20 @@ The test suite uses xUnit v3 and a shared collection fixture:
 
 - `GridForgeFixture` sets `GridForgeLogger.MinimumLevel` to `Error`
 - `GridForgeFixture` no longer creates the active runtime world by default
-- `[Collection("GridForgeCollection")]` is still used where tests intentionally interact with shared compatibility state
+- `[Collection("GridForgeCollection")]` is still used where tests intentionally
+  interact with shared compatibility state
 
-New tests should prefer explicit `GridWorld` creation. The test project includes helpers such as `GridWorldTestFactory` to keep that setup small and consistent.
+New tests should prefer explicit `GridWorld` creation. The test project includes
+helpers such as `GridWorldTestFactory` to keep that setup small and consistent.
 
 ## What The Tests Cover
 
 The test folders mirror the main subsystem boundaries:
 
-- `tests/GridForge.Tests/Grids` covers world behavior, manager behavior, voxel/grid state, scan cells, and neighbor logic
-- `tests/GridForge.Tests/Blockers` covers blocker application, stacking, removal, and reapply behavior
+- `tests/GridForge.Tests/Grids` covers world behavior, manager behavior,
+  voxel/grid state, scan cells, and neighbor logic
+- `tests/GridForge.Tests/Blockers` covers blocker application, stacking,
+  removal, and reapply behavior
 - `tests/GridForge.Tests/Utility` covers tracing and logging
 - `tests/GridForge.Tests/Spatial` covers index and provider semantics
 
@@ -46,7 +51,8 @@ Sparse storage coverage includes:
 - sparse construction from configured indices and masks
 - sparse hex construction from topology-local axial `(q, layer, r)` indices
 - missing in-bounds sparse voxel lookup
-- storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor lookup
+- storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor
+  lookup
 - explicit runtime sparse voxel add/remove safety rules
 
 Hex-prism topology coverage includes:
@@ -62,7 +68,8 @@ Hex-prism topology coverage includes:
 - hex line tracing and conservative bounds coverage
 - hex blocker apply/remove behavior
 - hex occupant registration and radius scans
-- sparse hex tracing, scan-cell coverage, blockers, occupants, scans, and runtime mutation
+- sparse hex tracing, scan-cell coverage, blockers, occupants, scans, and
+  runtime mutation
 
 ## Standard Test Commands
 
@@ -126,4 +133,5 @@ paths.
 - suppresses logging by setting `GridForgeLogger.MinimumLevel` to `None`
 - creates or resets an explicit `GridWorld` between iterations
 - optionally clears GridForge and shared SwiftCollections pools
-- configures the world with the benchmark's requested voxel and spatial-hash settings
+- configures the world with the benchmark's requested voxel and spatial-hash
+  settings

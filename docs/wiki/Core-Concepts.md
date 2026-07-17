@@ -6,35 +6,42 @@ This page defines the vocabulary of GridForge.
 
 GridForge is easiest to reason about as a stack of layers:
 
-1. `GridWorld` owns world lifecycle, registration, lookup, and world-scoped identity.
-2. `GridConfiguration` defines input bounds, topology metrics, storage kind, and scan-cell size for a grid.
-3. `VoxelGrid` owns one grid's physical voxels, scan cells, neighbors, and versioned state.
-4. `Voxel` is the per-cell unit of occupancy, obstacles, partitions, and adjacency.
+1. `GridWorld` owns world lifecycle, registration, lookup, and world-scoped
+   identity.
+2. `GridConfiguration` defines input bounds, topology metrics, storage kind, and
+   scan-cell size for a grid.
+3. `VoxelGrid` owns one grid's physical voxels, scan cells, neighbors, and
+   versioned state.
+4. `Voxel` is the per-cell unit of occupancy, obstacles, partitions, and
+   adjacency.
 5. `ScanCell` is the query-oriented overlay used to accelerate occupant scans.
-6. Managers and utilities such as `GridScanManager`, `GridObstacleManager`, `GridOccupantManager`, and `GridTracer` mutate or query those structures.
+6. Managers and utilities such as `GridScanManager`, `GridObstacleManager`,
+   `GridOccupantManager`, and `GridTracer` mutate or query those structures.
 
 ## World Scope Is The Architectural Boundary
 
-One of the most important concepts in GridForge is that runtime state is coordinated through an explicit `GridWorld`.
+One of the most important concepts in GridForge is that runtime state is
+coordinated through an explicit `GridWorld`.
 
 `GridWorld` is responsible for:
 
 - owning spatial hash settings for one world instance
 - registering and removing grids
 - spatial hashing for fast grid lookup
-- resolving world positions or `WorldVoxelIndex` values back to active grids and voxels
+- resolving world positions or `WorldVoxelIndex` values back to active grids and
+  voxels
 - publishing world-scoped grid lifecycle events
 
 ## World Space, Grid Space, And Snapping
 
 GridForge constantly moves between three different coordinate views:
 
-| Coordinate View | What It Represents | Common Type |
-| --- | --- | --- |
-| World space | Absolute positions in your simulation or game world | `Vector3d` |
-| 2D XZ-plane query input | Flat query coordinates projected to world X/Z with an explicit world Y layer | `Vector2d` + `layerY` |
-| Grid-local space | Integer voxel coordinates inside one grid, interpreted by that grid's topology | `VoxelIndex` |
-| World-scoped voxel identity | A voxel coordinate plus its owning world and grid instance | `WorldVoxelIndex` |
+| Coordinate View             | What It Represents                                                             | Common Type           |
+| --------------------------- | ------------------------------------------------------------------------------ | --------------------- |
+| World space                 | Absolute positions in your simulation or game world                            | `Vector3d`            |
+| 2D XZ-plane query input     | Flat query coordinates projected to world X/Z with an explicit world Y layer   | `Vector2d` + `layerY` |
+| Grid-local space            | Integer voxel coordinates inside one grid, interpreted by that grid's topology | `VoxelIndex`          |
+| World-scoped voxel identity | A voxel coordinate plus its owning world and grid instance                     | `WorldVoxelIndex`     |
 
 For 2D-friendly lookup APIs, GridForge treats `Vector2d(x, z)` as a convenience
 projection over the same 3D runtime model: `Vector2d.X` maps to world X,
@@ -52,10 +59,10 @@ Snapping is a core behavior:
 
 Topology determines how that `VoxelIndex` should be read:
 
-| Topology | `VoxelIndex` Meaning |
-| --- | --- |
-| `GridTopologyKind.RectangularPrism` | local rectangular `(x, y, z)` coordinates |
-| `GridTopologyKind.HexPrism` | axial `q` in `x`, vertical layer in `y`, axial `r` in `z` |
+| Topology                            | `VoxelIndex` Meaning                                      |
+| ----------------------------------- | --------------------------------------------------------- |
+| `GridTopologyKind.RectangularPrism` | local rectangular `(x, y, z)` coordinates                 |
+| `GridTopologyKind.HexPrism`         | axial `q` in `x`, vertical layer in `y`, axial `r` in `z` |
 
 `HexOrientation.PointyTop` and `HexOrientation.FlatTop` change the fixed-point
 projection between axial coordinates and world XZ. They do not imply a renderer
@@ -76,13 +83,15 @@ It defines:
 
 Important details:
 
-- bounds are ordered during construction, but not snapped until a world registers the grid
+- bounds are ordered during construction, but not snapped until a world
+  registers the grid
 - `ScanCellSize` is expressed in voxels, not world units
 - `TopologyKind` chooses rectangular-prism or hex-prism cells for this grid
 - `TopologyMetrics` owns rectangular cell width/layer height/length or hex
   radius/layer height/orientation
 - `StorageKind.Dense` allocates every in-bounds topology-local voxel
-- `StorageKind.Sparse` allocates only explicitly configured topology-local voxels
+- `StorageKind.Sparse` allocates only explicitly configured topology-local
+  voxels
 - `ToBoundsKey()` creates the exact identity key used after normalization
 
 ## `VoxelGrid`
@@ -93,7 +102,8 @@ Useful mental model:
 
 - `GridWorld` answers "which grid?"
 - `VoxelGrid` answers "which cell inside that grid?"
-- `VoxelGrid.EnumerateVoxels()` iterates the physical voxels configured in the grid without exposing storage layout.
+- `VoxelGrid.EnumerateVoxels()` iterates the physical voxels configured in the
+  grid without exposing storage layout.
 
 Dense grids configure every voxel in the normalized address space. Sparse grids
 use the same bounds as an address space but only configured voxels physically
@@ -110,10 +120,10 @@ Voxel contact queries use one primary `GetNeighborsInto(...)` API with
 `VoxelNeighborScope` flags for source-grid, same-topology grid, mixed-topology
 grid, or all contact neighbors. Directed lookup stays topology-specific through
 `TryGetNeighbor(...)` overloads that accept `RectangularDirection` or
-`HexDirection`, so rectangular and hex direction slots stay unambiguous.
-Hex directions use axial labels such as `QPositive`, `QPositiveRNegative`,
-and `RNegative` so the same directed API reads correctly for both `PointyTop`
-and `FlatTop` grids.
+`HexDirection`, so rectangular and hex direction slots stay unambiguous. Hex
+directions use axial labels such as `QPositive`, `QPositiveRNegative`, and
+`RNegative` so the same directed API reads correctly for both `PointyTop` and
+`FlatTop` grids.
 
 ## `Voxel`
 
@@ -149,7 +159,8 @@ Obstacle state lives on voxels and is managed through `GridObstacleManager`.
 
 ### Blockers
 
-Blockers are higher-level world-space objects that apply obstacle state to many voxels at once.
+Blockers are higher-level world-space objects that apply obstacle state to many
+voxels at once.
 
 Important blocker concepts:
 
@@ -161,7 +172,8 @@ Important blocker concepts:
 
 ### Occupants
 
-Occupants are dynamic entities that live in voxels and are indexed through scan cells.
+Occupants are dynamic entities that live in voxels and are indexed through scan
+cells.
 
 `IVoxelOccupant` requires:
 
@@ -171,7 +183,8 @@ Occupants are dynamic entities that live in voxels and are indexed through scan 
 
 ## Partitions
 
-Partitions are attachable pieces of typed metadata or behavior that live on a voxel.
+Partitions are attachable pieces of typed metadata or behavior that live on a
+voxel.
 
 ## Identity Types
 

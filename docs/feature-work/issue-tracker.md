@@ -18,8 +18,8 @@ verification. Feature plans may reference this tracker instead of carrying bug
 fixes inside API or design phases.
 
 **Tech Stack:** `netstandard2.1` and `net8.0` runtime targets, xUnit,
-BenchmarkDotNet when performance evidence is needed, FixedMathSharp core
-runtime and tests.
+BenchmarkDotNet when performance evidence is needed, FixedMathSharp core runtime
+and tests.
 
 ---
 
@@ -96,8 +96,8 @@ Evidence:
 
 - Coverage report:
   `TestResults/coverage-analysis/current/raw/84fddac1-5b69-47d9-b472-420ea8940f5b/coverage.cobertura.xml`
-- Result: `line-rate 1`, `branch-rate 1`, `5269/5269` lines,
-  `1943/1943` branches.
+- Result: `line-rate 1`, `branch-rate 1`, `5269/5269` lines, `1943/1943`
+  branches.
 - CRAP result: `TOTAL_METHODS:695`, `FLAGGED_METHODS:0`.
 
 ### 2026-06-14: Direction Utility Arrays Are Public And Mutable
@@ -116,11 +116,12 @@ Affected files:
 
 Concern:
 
-`RectangularDirectionUtility` and `HexDirectionUtility` exposed direction sets as
-public `static readonly` arrays. The field references were readonly, but array
-contents remained mutable. Because topology code reads those direction sets for
-neighbor slot counts, offsets, boundary ranges, and hex slot resolution,
-consumer code could accidentally corrupt core neighbor behavior process-wide.
+`RectangularDirectionUtility` and `HexDirectionUtility` exposed direction sets
+as public `static readonly` arrays. The field references were readonly, but
+array contents remained mutable. Because topology code reads those direction
+sets for neighbor slot counts, offsets, boundary ranges, and hex slot
+resolution, consumer code could accidentally corrupt core neighbor behavior
+process-wide.
 
 Resolution:
 

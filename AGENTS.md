@@ -42,9 +42,11 @@ Read these in order before making non-trivial changes:
 4. [`src/GridForge/Grids/Managers/GridWorld.cs`](src/GridForge/Grids/Managers/GridWorld.cs),
    [`src/GridForge/Grids/VoxelGrid.cs`](src/GridForge/Grids/VoxelGrid.cs),
    [`src/GridForge/Grids/Nodes/Voxel.cs`](src/GridForge/Grids/Nodes/Voxel.cs),
-   and [`src/GridForge/Utility/GridTracer.cs`](src/GridForge/Utility/GridTracer.cs).
+   and
+   [`src/GridForge/Utility/GridTracer.cs`](src/GridForge/Utility/GridTracer.cs).
 5. The relevant source folder under [`src/GridForge`](src/GridForge).
-6. The matching test folder under [`tests/GridForge.Tests`](tests/GridForge.Tests).
+6. The matching test folder under
+   [`tests/GridForge.Tests`](tests/GridForge.Tests).
 7. [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) when changing
    pooling, tracing, scanning, registration, or other performance-sensitive
    behavior.
@@ -83,22 +85,22 @@ rewrite.
 
 ## Repository Map
 
-| Path | Purpose | Notes |
-| --- | --- | --- |
-| [`src/GridForge`](src/GridForge) | Main library project | Multi-targets `netstandard2.1` and `net8.0`. |
-| [`src/GridForge/Configuration`](src/GridForge/Configuration) | Grid creation input and bounds identity | `GridConfiguration` is normalized by the owning world. |
-| [`src/GridForge/Grids`](src/GridForge/Grids) | Core world, grid, voxel, scan-cell, manager, storage, topology, and pool logic | Highest-risk runtime area. |
-| [`src/GridForge/Grids/Storage`](src/GridForge/Grids/Storage) | Dense and sparse physical voxel storage | Keep storage-specific layout behind `VoxelGrid`. |
-| [`src/GridForge/Grids/Topology`](src/GridForge/Grids/Topology) | Topology metrics, snapping, dimensions, and world/index projection | Keep coordinate math deterministic and storage-neutral. |
-| [`src/GridForge/Spatial`](src/GridForge/Spatial) | Shared coordinates, directions, occupants, partitions, and awareness abstractions | Keep engine-neutral and deterministic. |
-| [`src/GridForge/Blockers`](src/GridForge/Blockers) | Bounds-based obstacle application over tracer coverage | Test stacked, edge, removal, and multi-grid cases. |
-| [`src/GridForge/Support`](src/GridForge/Support) | Shared support types such as `BoundsKey` and `GridVoxelSet` | Watch pooled result lifetimes. |
-| [`src/GridForge/Utility`](src/GridForge/Utility) | `GridTracer` and `GridForgeLogger` | Tracing changes can affect many systems. |
-| [`tests/GridForge.Tests`](tests/GridForge.Tests) | xUnit v3 test project | Mirrors subsystem boundaries. |
-| [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) | BenchmarkDotNet project | Covers allocation and throughput-sensitive scenarios. |
-| [`docs/wiki`](docs/wiki) | Developer-facing usage and architecture documentation | Keep current with public API and workflow changes. |
-| [`.assets/scripts`](.assets/scripts) | Versioned build and release packaging helpers | Used for release archive generation. |
-| [`.github/workflows`](.github/workflows) | CI, coverage, wiki sync, release, and publish automation | Keep workflow names in sync across triggers. |
+| Path                                                           | Purpose                                                                           | Notes                                                   |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`src/GridForge`](src/GridForge)                               | Main library project                                                              | Multi-targets `netstandard2.1` and `net8.0`.            |
+| [`src/GridForge/Configuration`](src/GridForge/Configuration)   | Grid creation input and bounds identity                                           | `GridConfiguration` is normalized by the owning world.  |
+| [`src/GridForge/Grids`](src/GridForge/Grids)                   | Core world, grid, voxel, scan-cell, manager, storage, topology, and pool logic    | Highest-risk runtime area.                              |
+| [`src/GridForge/Grids/Storage`](src/GridForge/Grids/Storage)   | Dense and sparse physical voxel storage                                           | Keep storage-specific layout behind `VoxelGrid`.        |
+| [`src/GridForge/Grids/Topology`](src/GridForge/Grids/Topology) | Topology metrics, snapping, dimensions, and world/index projection                | Keep coordinate math deterministic and storage-neutral. |
+| [`src/GridForge/Spatial`](src/GridForge/Spatial)               | Shared coordinates, directions, occupants, partitions, and awareness abstractions | Keep engine-neutral and deterministic.                  |
+| [`src/GridForge/Blockers`](src/GridForge/Blockers)             | Bounds-based obstacle application over tracer coverage                            | Test stacked, edge, removal, and multi-grid cases.      |
+| [`src/GridForge/Support`](src/GridForge/Support)               | Shared support types such as `BoundsKey` and `GridVoxelSet`                       | Watch pooled result lifetimes.                          |
+| [`src/GridForge/Utility`](src/GridForge/Utility)               | `GridTracer` and `GridForgeLogger`                                                | Tracing changes can affect many systems.                |
+| [`tests/GridForge.Tests`](tests/GridForge.Tests)               | xUnit v3 test project                                                             | Mirrors subsystem boundaries.                           |
+| [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks)     | BenchmarkDotNet project                                                           | Covers allocation and throughput-sensitive scenarios.   |
+| [`docs/wiki`](docs/wiki)                                       | Developer-facing usage and architecture documentation                             | Keep current with public API and workflow changes.      |
+| [`.assets/scripts`](.assets/scripts)                           | Versioned build and release packaging helpers                                     | Used for release archive generation.                    |
+| [`.github/workflows`](.github/workflows)                       | CI, coverage, wiki sync, release, and publish automation                          | Keep workflow names in sync across triggers.            |
 
 Ignore generated output when reviewing or editing unless the task is explicitly
 about build artifacts:
@@ -142,9 +144,9 @@ Versioning:
 
 The runtime is built around explicit world ownership:
 
-- `GridWorld` owns one world's spatial hash settings, active grid bucket,
-  bounds tracker, spatial hash, maximum topology cell edge, versioning,
-  lifecycle, and world-level events.
+- `GridWorld` owns one world's spatial hash settings, active grid bucket, bounds
+  tracker, spatial hash, maximum topology cell edge, versioning, lifecycle, and
+  world-level events.
 - `GridConfiguration` carries per-grid storage and topology intent through
   `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics`.
 - `VoxelGrid` owns one grid's snapped bounds, dimensions, topology instance,
@@ -155,7 +157,8 @@ The runtime is built around explicit world ownership:
   storage uses bounds as an address space and materializes only configured
   voxels; missing sparse voxels are intentional absence.
 - `Voxel` owns local and world-scoped identity, obstacle state, occupant count,
-  partitions, boundary awareness, world position, and neighbor query entrypoints.
+  partitions, boundary awareness, world position, and neighbor query
+  entrypoints.
 - `ScanCell` stores occupant buckets grouped by `WorldVoxelIndex` and ticketed
   occupant entries for efficient removal and exact lookup.
 - `GridTracer` converts lines and bounds into covered voxels or scan cells
@@ -217,8 +220,8 @@ Likely hotspots include:
 - Topology normalization, world/index conversion, and coverage math.
 - `GridTracer` line, bounds, and scan-cell coverage.
 - `GridScanManager` radius scans and caller-owned result paths.
-- `GridOccupantManager` registration tracking, active scan-cell bookkeeping,
-  and remove flows.
+- `GridOccupantManager` registration tracking, active scan-cell bookkeeping, and
+  remove flows.
 - `Blocker` apply/remove paths and covered voxel caching.
 
 Rules:
@@ -237,8 +240,8 @@ Rules:
   helpers, properties, and forwarding methods when it matches surrounding code.
 - Release rented collections in `finally` blocks when enumeration or user code
   can exit early.
-- Do not retain pooled arrays, lists, sets, scan cells, voxels, or `GridVoxelSet`
-  results beyond their documented lifetime.
+- Do not retain pooled arrays, lists, sets, scan cells, voxels, or
+  `GridVoxelSet` results beyond their documented lifetime.
 - Benchmark changes that touch pooling, tracing, scan flow, registration, or
   other allocation-sensitive paths.
 - Avoid LINQ in hot paths unless the surrounding code already accepts the cost
@@ -277,8 +280,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean --no-build
 ```
 
 Run benchmarks when changing pooling, tracing, scan cells, occupant
-registration, blocker application, grid registration, neighbor caching, or
-other performance-sensitive paths:
+registration, blocker application, grid registration, neighbor caching, or other
+performance-sensitive paths:
 
 ```bash
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
@@ -316,9 +319,9 @@ High-value pages:
 - [`docs/wiki/Repository-Layout-and-Build.md`](docs/wiki/Repository-Layout-and-Build.md)
 - [`docs/wiki/Testing-and-Benchmarking.md`](docs/wiki/Testing-and-Benchmarking.md)
 
-Keep README engaging and concise; push deep subsystem detail into the wiki.
-Keep wiki source links repo-relative and let the sync helper adapt copied pages
-for GitHub wiki publishing.
+Keep README engaging and concise; push deep subsystem detail into the wiki. Keep
+wiki source links repo-relative and let the sync helper adapt copied pages for
+GitHub wiki publishing.
 
 ## Common Change Patterns
 
@@ -328,7 +331,8 @@ for GitHub wiki publishing.
 - Decide whether the behavior belongs at world, grid, voxel, scan-cell, query,
   storage, topology, or manager level.
 - Check interactions with snapping, spatial hashing, pooling, versioning,
-  events, neighbor resolution, storage kind, topology metrics, and identity tokens.
+  events, neighbor resolution, storage kind, topology metrics, and identity
+  tokens.
 - Add or update tests under `tests/GridForge.Tests/Grids` or
   `tests/GridForge.Tests/Utility`.
 

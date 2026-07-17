@@ -5,11 +5,13 @@ This page explains the two core storage types at the center of GridForge:
 - `VoxelGrid`, which owns one grid's runtime state
 - `Voxel`, which represents one mutable cell inside that grid
 
-If `GridWorld` is the world coordinator, these are the types that actually hold the world data.
+If `GridWorld` is the world coordinator, these are the types that actually hold
+the world data.
 
 ## `VoxelGrid` In One Sentence
 
-`VoxelGrid` is the runtime container for one snapped, registered region of world space.
+`VoxelGrid` is the runtime container for one snapped, registered region of world
+space.
 
 It owns:
 
@@ -48,19 +50,19 @@ address descriptors when a tool needs to show address-space holes.
 
 `VoxelGrid` keeps topology and storage as separate responsibilities.
 
-| Topology | Local Index Meaning | Metrics |
-| --- | --- | --- |
-| Rectangular-prism | `VoxelIndex(x, y, z)` | cell width, layer height, and cell length |
-| Hex-prism | `VoxelIndex(q, layer, r)` stored as `x`, `y`, `z` | horizontal radius, layer height, and `FlatTop` or `PointyTop` orientation |
+| Topology          | Local Index Meaning                               | Metrics                                                                   |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Rectangular-prism | `VoxelIndex(x, y, z)`                             | cell width, layer height, and cell length                                 |
+| Hex-prism         | `VoxelIndex(q, layer, r)` stored as `x`, `y`, `z` | horizontal radius, layer height, and `FlatTop` or `PointyTop` orientation |
 
 Topology controls snapped bounds, dimensions, world-to-index lookup,
 index-to-world projection, scan-cell keys, and boundary ranges. Storage controls
 whether a physical voxel exists at a valid topology-local index.
 
 One `GridWorld` can own rectangular and hex grids together. Ordinary lookup,
-coverage, blocker, occupant, scan, and trace workflows still use
-`GridWorld`, `VoxelGrid`, and `Voxel`; callers only need topology-specific
-direction APIs when asking for voxel neighbors.
+coverage, blocker, occupant, scan, and trace workflows still use `GridWorld`,
+`VoxelGrid`, and `Voxel`; callers only need topology-specific direction APIs
+when asking for voxel neighbors.
 
 ## Dense And Sparse Storage
 
@@ -70,8 +72,8 @@ Sparse grids preserve the same public grid model as dense grids:
 
 - `TryGetGrid(...)` can resolve the grid bounds even when the addressed sparse
   voxel is missing.
-- `TryGetVoxel(...)` and `TryGetGridAndVoxel(...)` require a configured
-  physical voxel.
+- `TryGetVoxel(...)` and `TryGetGridAndVoxel(...)` require a configured physical
+  voxel.
 - `ContainsVoxel(...)` checks whether a physical voxel exists at a local index.
 - `TryAddVoxel(...)` and `TryRemoveVoxel(...)` are explicit sparse-only runtime
   mutation APIs.
@@ -102,10 +104,11 @@ A voxel carries:
 
 Neighbor handling spans both `VoxelGrid` and `Voxel`.
 
-- `VoxelGrid.Neighbors` stores same-topology neighboring grid ids by topology-local neighbor slot.
-- `Voxel.GetNeighborsInto(...)` fills caller-owned storage with physical
-  contact neighbors from the source grid, same-topology grids, mixed-topology
-  grids, or all of them through `VoxelNeighborScope`.
+- `VoxelGrid.Neighbors` stores same-topology neighboring grid ids by
+  topology-local neighbor slot.
+- `Voxel.GetNeighborsInto(...)` fills caller-owned storage with physical contact
+  neighbors from the source grid, same-topology grids, mixed-topology grids, or
+  all of them through `VoxelNeighborScope`.
 - `Voxel.HasNeighbor(...)` performs the same contact query as a fast boolean
   check.
 - `Voxel.TryGetNeighbor(...)` has rectangular and hex overloads for exact
@@ -113,22 +116,22 @@ Neighbor handling spans both `VoxelGrid` and `Voxel`.
 - `Voxel.GetRectangularNeighborsInto(...)` and `Voxel.GetHexNeighborsInto(...)`
   fill caller-owned storage with direction-labeled same-topology neighbors.
 
-If a local voxel lookup fails at the edge of a grid, the voxel resolves the matching world-space neighbor through its owning world.
+If a local voxel lookup fails at the edge of a grid, the voxel resolves the
+matching world-space neighbor through its owning world.
 
 Rectangular full-neighbor lookup uses the 26-cell rectangular-prism
 neighborhood. Hex full-neighbor lookup uses the 20-cell hex-prism neighborhood:
 6 same-layer planar neighbors, 7 neighbors on the layer below, and 7 neighbors
-on the layer above. `RectangularDirectionUtility` and `HexDirectionUtility`
-also expose deterministic subsets such as `Primary`, `Planar`, `Vertical`,
-layer groups, and vertical diagonals.
-Hex direction names are axial rather than compass-based: for example,
-`QPositive`, `QPositiveRNegative`, `RNegative`, and their `Below...` /
-`Above...` variants describe topology-local offsets consistently for both
-pointy-top and flat-top hex grids.
+on the layer above. `RectangularDirectionUtility` and `HexDirectionUtility` also
+expose deterministic subsets such as `Primary`, `Planar`, `Vertical`, layer
+groups, and vertical diagonals. Hex direction names are axial rather than
+compass-based: for example, `QPositive`, `QPositiveRNegative`, `RNegative`, and
+their `Below...` / `Above...` variants describe topology-local offsets
+consistently for both pointy-top and flat-top hex grids.
 
 For sparse grids, missing local neighbors are absent even when their indices are
-inside the grid bounds. Boundary neighbor lookup can still cross into
-configured voxels on neighboring grids.
+inside the grid bounds. Boundary neighbor lookup can still cross into configured
+voxels on neighboring grids.
 
 Mixed rectangular/hex grids can coexist in one `GridWorld`. Direction-based
 neighbor APIs remain same-topology only because rectangular and hex direction
@@ -151,4 +154,5 @@ against current world and grid state.
 
 Both grids and voxels are pooled, so reset behavior is part of the architecture.
 
-The architecture depends on reset being thorough because reused pooled objects come back through the same types later.
+The architecture depends on reset being thorough because reused pooled objects
+come back through the same types later.

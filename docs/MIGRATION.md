@@ -35,18 +35,18 @@ AreaBlocker footprintBlocker = new AreaBlocker(
 ```
 
 `FixedBoundArea` is no longer a 3D XZ-area convenience type. It represents a
-true 2D axis-aligned area from FixedMathSharp. If you need world-space Y
-extent, use `FixedBoundBox`.
+true 2D axis-aligned area from FixedMathSharp. If you need world-space Y extent,
+use `FixedBoundBox`.
 
 ---
 
 # Migrating From GridForge v6 To v7
 
-This guide is for projects moving from `v6.0.6` to the v7 release line.
-The v7 release is intentionally breaking because GridForge now supports
-per-grid topology, sparse storage, hex-prism grids, 2D-friendly projection
-helpers, topology-aware neighbor queries, closest-voxel helpers, and
-engine-agnostic diagnostics.
+This guide is for projects moving from `v6.0.6` to the v7 release line. The v7
+release is intentionally breaking because GridForge now supports per-grid
+topology, sparse storage, hex-prism grids, 2D-friendly projection helpers,
+topology-aware neighbor queries, closest-voxel helpers, and engine-agnostic
+diagnostics.
 
 The short version:
 
@@ -88,9 +88,9 @@ using GridWorld world = new GridWorld(voxelSize: new Fixed64(2));
 GridConfiguration config = new GridConfiguration(boundsMin, boundsMax);
 ```
 
-In v7, each grid owns its topology metrics through `GridConfiguration`.
-Default dense rectangular grids still use 1x1x1 cells, so many simple
-configurations continue to work unchanged.
+In v7, each grid owns its topology metrics through `GridConfiguration`. Default
+dense rectangular grids still use 1x1x1 cells, so many simple configurations
+continue to work unchanged.
 
 For a rectangular grid with a custom cubic cell size:
 
@@ -124,19 +124,19 @@ GridConfiguration config = new GridConfiguration(
 
 Replace these v6 world-level APIs:
 
-| v6 | v7 |
-| --- | --- |
-| `new GridWorld(voxelSize: ...)` | `new GridWorld(spatialGridCellSize: ...)` plus per-grid `GridTopologyMetrics` |
-| `GridWorld.DefaultVoxelSize` | `GridWorld.DefaultRectangularCellSize` |
-| `world.VoxelSize` | `grid.Configuration.TopologyMetrics` |
-| `world.VoxelResolution` | derive from the relevant grid topology metrics only if your app still needs it |
-| `world.FloorToVoxelSize(...)` / `CeilToVoxelSize(...)` | `grid.FloorToGrid(...)` / `grid.CeilToGrid(...)` after resolving a grid |
-| `world.SnapBoundsToVoxelSize(...)` | let `GridWorld.TryAddGrid(...)` normalize bounds through the selected topology |
+| v6                                                     | v7                                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `new GridWorld(voxelSize: ...)`                        | `new GridWorld(spatialGridCellSize: ...)` plus per-grid `GridTopologyMetrics`  |
+| `GridWorld.DefaultVoxelSize`                           | `GridWorld.DefaultRectangularCellSize`                                         |
+| `world.VoxelSize`                                      | `grid.Configuration.TopologyMetrics`                                           |
+| `world.VoxelResolution`                                | derive from the relevant grid topology metrics only if your app still needs it |
+| `world.FloorToVoxelSize(...)` / `CeilToVoxelSize(...)` | `grid.FloorToGrid(...)` / `grid.CeilToGrid(...)` after resolving a grid        |
+| `world.SnapBoundsToVoxelSize(...)`                     | let `GridWorld.TryAddGrid(...)` normalize bounds through the selected topology |
 
 `GridConfiguration.ToBoundsKey()` still exists, but v7 duplicate-grid identity
 uses topology-aware `GridConfigurationKey` internally. Two grids with matching
-bounds but different topology or metrics are not the same grid configuration.
-If you accessed `world.BoundsTracker` directly, its key type is now
+bounds but different topology or metrics are not the same grid configuration. If
+you accessed `world.BoundsTracker` directly, its key type is now
 `GridConfigurationKey`; use `configuration.ToGridKey()` for matching
 topology-aware identity.
 
@@ -174,18 +174,18 @@ foreach (Voxel voxel in grid.EnumerateVoxels())
 
 Use these properties and methods instead of assuming dense storage:
 
-| Need | v7 API |
-| --- | --- |
-| physical voxel count | `grid.ConfiguredVoxelCount` |
+| Need                     | v7 API                                                  |
+| ------------------------ | ------------------------------------------------------- |
+| physical voxel count     | `grid.ConfiguredVoxelCount`                             |
 | address-space dimensions | `grid.Width`, `grid.Height`, `grid.Length`, `grid.Size` |
-| storage kind | `grid.StorageKind` |
-| physical voxel check | `grid.ContainsVoxel(index)` |
-| physical voxel lookup | `grid.TryGetVoxel(index, out Voxel? voxel)` |
-| physical voxel traversal | `grid.EnumerateVoxels()` |
+| storage kind             | `grid.StorageKind`                                      |
+| physical voxel check     | `grid.ContainsVoxel(index)`                             |
+| physical voxel lookup    | `grid.TryGetVoxel(index, out Voxel? voxel)`             |
+| physical voxel traversal | `grid.EnumerateVoxels()`                                |
 
-For dense grids, `ConfiguredVoxelCount == Size`. For sparse grids,
-`Size` is the address-space size and `ConfiguredVoxelCount` is the number of
-physical voxels that exist.
+For dense grids, `ConfiguredVoxelCount == Size`. For sparse grids, `Size` is the
+address-space size and `ConfiguredVoxelCount` is the number of physical voxels
+that exist.
 
 ## Sparse Grid Storage
 
@@ -220,8 +220,8 @@ Important behavior changes when you choose sparse storage:
 
 - `world.TryGetGrid(position, out grid)` may succeed for an in-bounds sparse
   address.
-- `world.TryGetGridAndVoxel(position, out grid, out voxel)` returns `false`
-  when that sparse address is not configured.
+- `world.TryGetGridAndVoxel(position, out grid, out voxel)` returns `false` when
+  that sparse address is not configured.
 - `GridTracer.GetCoveredVoxels(...)` returns configured sparse voxels only.
 - blockers affect covered configured voxels only.
 - occupants and partitions require a configured physical voxel.
@@ -278,11 +278,11 @@ GridConfiguration hexConfig = new GridConfiguration(
 
 Hex-prism `VoxelIndex` values use axial coordinates in the XZ plane:
 
-| Field | Meaning |
-| --- | --- |
-| `VoxelIndex.x` | axial `q` |
+| Field          | Meaning        |
+| -------------- | -------------- |
+| `VoxelIndex.x` | axial `q`      |
 | `VoxelIndex.y` | vertical layer |
-| `VoxelIndex.z` | axial `r` |
+| `VoxelIndex.z` | axial `r`      |
 
 Both `HexOrientation.PointyTop` and `HexOrientation.FlatTop` are supported.
 Orientation affects fixed-point world projection only. It is not a renderer or
@@ -363,19 +363,19 @@ voxel.GetHexNeighborsInto(ownerGrid, hex);
 
 ### Direction Type Replacements
 
-| v6 | v7 |
-| --- | --- |
-| `SpatialDirection` | `RectangularDirection` for rectangular grids |
-| `SpatialAwareness` | `RectangularDirectionUtility` |
-| mutable direction arrays | `ReadOnlySpan` utility properties |
-| `GridDirectionUtility` | `VoxelGrid.GetRectangularNeighborDirection(...)` or `VoxelGrid.GetHexNeighborDirection(...)` |
-| `voxel.GetNeighbors(ownerGrid, useCache)` | `voxel.GetNeighborsInto(ownerGrid, results, scope)` |
-| `voxel.TryGetNeighborFromDirection(...)` | `voxel.TryGetNeighbor(ownerGrid, RectangularDirection/HexDirection, out voxel)` |
-| public neighbor cache controls | removed; caching is internal implementation detail only when justified |
+| v6                                        | v7                                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `SpatialDirection`                        | `RectangularDirection` for rectangular grids                                                 |
+| `SpatialAwareness`                        | `RectangularDirectionUtility`                                                                |
+| mutable direction arrays                  | `ReadOnlySpan` utility properties                                                            |
+| `GridDirectionUtility`                    | `VoxelGrid.GetRectangularNeighborDirection(...)` or `VoxelGrid.GetHexNeighborDirection(...)` |
+| `voxel.GetNeighbors(ownerGrid, useCache)` | `voxel.GetNeighborsInto(ownerGrid, results, scope)`                                          |
+| `voxel.TryGetNeighborFromDirection(...)`  | `voxel.TryGetNeighbor(ownerGrid, RectangularDirection/HexDirection, out voxel)`              |
+| public neighbor cache controls            | removed; caching is internal implementation detail only when justified                       |
 
 Hex direction names are axial and orientation-neutral. For example,
-`HexDirection.QPositive` and `HexDirection.RNegative` describe axial offsets
-for both pointy-top and flat-top grids.
+`HexDirection.QPositive` and `HexDirection.RNegative` describe axial offsets for
+both pointy-top and flat-top grids.
 
 ## 2D-Friendly Query APIs
 
@@ -441,11 +441,11 @@ Vector2d flatPosition = GridPlane2d.FromWorld(worldPosition);
 ```
 
 `GridTracer.TraceLine(Vector2d, Vector2d, ...)` preserved the old `padding` and
-`includeEnd` positional argument order. The new `layerY` argument is appended
-at the end, so prefer named `layerY:` calls when you use it.
+`includeEnd` positional argument order. The new `layerY` argument is appended at
+the end, so prefer named `layerY:` calls when you use it.
 
-2D radius scans are layer-locked XZ circle scans. They reject occupants on
-other world-Y layers before applying the XZ distance check.
+2D radius scans are layer-locked XZ circle scans. They reject occupants on other
+world-Y layers before applying the XZ distance check.
 
 ## Closest Grid And Voxel Queries
 
@@ -475,16 +475,16 @@ These workflows are now topology-aware and storage-neutral:
 
 - rectangular dense grids preserve the old behavior
 - sparse grids return configured voxels only
-- hex grids use topology-aware projection, line tracing, and conservative
-  bounds coverage
+- hex grids use topology-aware projection, line tracing, and conservative bounds
+  coverage
 - mixed rectangular/hex worlds can be queried through the same world APIs
 
 For downstream broad-phase code that previously called
 `SnapBoundsToVoxelSize(...)`, `FloorToVoxelSize(...)`, or
 `CeilToVoxelSize(...)`, prefer the highest-level API that fits the job:
 
-- Use `GridTracer.GetCoveredVoxels(...)` or `GetCoveredVoxelsInto(...)` when
-  you need the actual covered physical voxels across a `GridWorld`.
+- Use `GridTracer.GetCoveredVoxels(...)` or `GetCoveredVoxelsInto(...)` when you
+  need the actual covered physical voxels across a `GridWorld`.
 - Use `VoxelGrid.NormalizeBounds(...)` when you already own a specific grid and
   need topology-aligned bounds for cache keys, diagnostics, or custom traversal.
 - Use `VoxelGrid.FloorToGrid(...)` and `CeilToGrid(...)` for individual
@@ -505,8 +505,8 @@ enumeration that produced it.
 ## Diagnostics And Adapter Migration
 
 v7 adds `GridForge.Diagnostics` for tools, tests, editor overlays, and renderer
-adapters. Diagnostics are descriptors and geometry helpers only. Rendering
-stays outside GridForge core.
+adapters. Diagnostics are descriptors and geometry helpers only. Rendering stays
+outside GridForge core.
 
 Replace dense debug loops like this:
 
@@ -597,8 +597,8 @@ GridDiagnosticQuery query = new GridDiagnosticQuery(
     maxCells: 4096);
 ```
 
-Missing sparse address cells are descriptors only. They are not runtime
-`Voxel` instances and do not resolve through `TryResolvePhysicalCell(...)`.
+Missing sparse address cells are descriptors only. They are not runtime `Voxel`
+instances and do not resolve through `TryResolvePhysicalCell(...)`.
 
 For incremental adapters, use `GridDiagnosticSession` to capture grid, sparse,
 obstacle, and occupant changes:
@@ -627,8 +627,8 @@ dirty regions can use the new fields.
 - `TopologyMetrics`
 - `StorageKind`
 
-If you persist `GridConfiguration` values from v6, add defaults during your
-own save migration:
+If you persist `GridConfiguration` values from v6, add defaults during your own
+save migration:
 
 ```csharp
 GridTopologyKind topologyKind = GridTopologyKind.RectangularPrism;
@@ -645,8 +645,8 @@ reconstructing the world.
 
 1. Update package references and restore.
 2. Replace `GridWorld` voxel-size construction with per-grid topology metrics.
-3. Replace `VoxelGrid.Voxels` access with `EnumerateVoxels()`, `TryGetVoxel(...)`,
-   `ContainsVoxel(...)`, or diagnostics.
+3. Replace `VoxelGrid.Voxels` access with `EnumerateVoxels()`,
+   `TryGetVoxel(...)`, `ContainsVoxel(...)`, or diagnostics.
 4. Replace `SpatialDirection` and cached neighbor APIs with contact queries and
    topology-specific directed lookup.
 5. Keep existing grids dense rectangular unless you intentionally opt into

@@ -1,6 +1,8 @@
 # Recipes
 
-This page collects end-to-end patterns built from the rest of the wiki. The goal is not to show every API, but to show how the pieces fit together in realistic workflows.
+This page collects end-to-end patterns built from the rest of the wiki. The goal
+is not to show every API, but to show how the pieces fit together in realistic
+workflows.
 
 ## Recipe 1: Team-Aware Proximity Queries
 

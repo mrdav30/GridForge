@@ -1,6 +1,7 @@
 # GridTracer and Coverage
 
-`GridTracer` is the utility layer that translates world-space shapes into grid-space coverage.
+`GridTracer` is the utility layer that translates world-space shapes into
+grid-space coverage.
 
 Several higher-level systems depend on the same answer:
 
@@ -55,8 +56,8 @@ The `Vector2d` overloads are convenience APIs over the same 3D world model:
 - `Vector2d.Y` maps to world Z
 - `layerY` maps to world Y and defaults to `0`
 
-`TraceLine(Vector2d, Vector2d, ...)` keeps the existing positional `padding`
-and `includeEnd` argument order. Supply `layerY` by name when using the 2D trace
+`TraceLine(Vector2d, Vector2d, ...)` keeps the existing positional `padding` and
+`includeEnd` argument order. Supply `layerY` by name when using the 2D trace
 overload with nonzero layers.
 
 ```csharp
@@ -72,7 +73,8 @@ foreach (GridVoxelSet covered in GridTracer.TraceLine(world, start, end, layerY:
 
 ## Why Coverage Is Grouped By Grid
 
-Coverage often crosses more than one grid. Returning grouped results preserves that reality.
+Coverage often crosses more than one grid. Returning grouped results preserves
+that reality.
 
 `GridVoxelSet` keeps:
 
@@ -97,14 +99,14 @@ voxel spawn token before resolving a typed partition.
 voxels. Use `GridTraversalPaddingMode.MaxCellEdge` for full 3D padding and
 `GridTraversalPaddingMode.PlanarMaxCellEdge` for X/Z-plane systems that should
 not inherit vertical layer height. `GridTopologyMetricUtility` exposes the same
-3D, planar, and representative cell-edge measurements for callers that only
-need the metrics.
+3D, planar, and representative cell-edge measurements for callers that only need
+the metrics.
 
 ## How Blockers Use Coverage
 
 `Blocker`, `BoundsBlocker`, and `AreaBlocker` delegate region-to-voxel logic to
-the tracer. Use `BoundsBlocker` for 3D `FixedBoundBox` regions and
-`AreaBlocker` for `FixedBoundArea` footprints locked to one world Y layer.
+the tracer. Use `BoundsBlocker` for 3D `FixedBoundBox` regions and `AreaBlocker`
+for `FixedBoundArea` footprints locked to one world Y layer.
 
 ```text
 blocker bounds or area
@@ -134,8 +136,11 @@ This behavior is the same for 3D coverage and layer-locked `Vector2d` coverage.
 This is one of the most important practical details:
 
 - `GridVoxelSet.Voxels` is backed by pooled storage
-- the tracer releases those pooled lists when the enumeration is disposed or completes
+- the tracer releases those pooled lists when the enumeration is disposed or
+  completes
 - `GetCoveredVoxelsInto(...)` writes directly to caller-owned storage
-- `GridTraceScratch` can be reused across calls but should not be shared between concurrent queries
+- `GridTraceScratch` can be reused across calls but should not be shared between
+  concurrent queries
 
-Callers should treat grouped voxel lists as transient and consume them immediately inside the enumeration.
+Callers should treat grouped voxel lists as transient and consume them
+immediately inside the enumeration.

@@ -1,8 +1,11 @@
 # Common Workflows
 
-This page is a task-oriented companion to [Getting Started](Getting-Started.md) and [Core Concepts](Core-Concepts.md). The examples here are intentionally small and practical.
+This page is a task-oriented companion to [Getting Started](Getting-Started.md)
+and [Core Concepts](Core-Concepts.md). The examples here are intentionally small
+and practical.
 
-Unless a snippet shows setup explicitly, assume you already have a valid `GridWorld world` and, where relevant, a `VoxelGrid grid` from that world.
+Unless a snippet shows setup explicitly, assume you already have a valid
+`GridWorld world` and, where relevant, a `VoxelGrid grid` from that world.
 
 ## Workflow 1: Create A Grid And Keep A Handle To It
 
@@ -54,8 +57,8 @@ VoxelGrid sparseGrid = world.ActiveGrids[sparseGridIndex];
 
 Sparse grid bounds still participate in world-level grid lookup, but only
 configured voxels exist. `world.TryGetGrid(...)` can resolve an in-bounds sparse
-position while `world.TryGetGridAndVoxel(...)` fails when the local sparse
-voxel is missing.
+position while `world.TryGetGridAndVoxel(...)` fails when the local sparse voxel
+is missing.
 
 ## Workflow 3: Create A Hex-Prism Grid
 
@@ -105,14 +108,17 @@ Choose the lookup based on what you need:
 - `world.TryGetGrid(...)`
 - `world.TryGetVoxel(...)`
 - `world.TryGetGridAndVoxel(...)`
-- `world.TryGetClosestGrid(...)` when you need the nearest registered grid bounds
-- `world.TryGetClosestVoxel(...)` when you need the nearest physical voxel center
-- `world.TryGetClosestGridAndVoxel(...)` when you need both the nearest physical voxel and its owner
+- `world.TryGetClosestGrid(...)` when you need the nearest registered grid
+  bounds
+- `world.TryGetClosestVoxel(...)` when you need the nearest physical voxel
+  center
+- `world.TryGetClosestGridAndVoxel(...)` when you need both the nearest physical
+  voxel and its owner
 
 For flat XZ simulations, these lookup helpers also accept `Vector2d` positions.
-`Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and `layerY`
-selects the world Y layer. Omitting `layerY` resolves on world Y `0`. The
-`GridWorld` closest-grid and closest-voxel overloads also accept an optional
+`Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and `layerY` selects
+the world Y layer. Omitting `layerY` resolves on world Y `0`. The `GridWorld`
+closest-grid and closest-voxel overloads also accept an optional
 `GridTopologyKind` filter when a mixed-topology world should only consider
 rectangular-prism or hex-prism grids.
 
@@ -224,8 +230,8 @@ foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector
 }
 ```
 
-For flat XZ scans, pass a `Vector2d` center and optional `layerY`. The scan
-uses XZ distance and rejects occupants on other Y layers.
+For flat XZ scans, pass a `Vector2d` center and optional `layerY`. The scan uses
+XZ distance and rejects occupants on other Y layers.
 
 ```csharp
 foreach (IVoxelOccupant occupant in GridScanManager.ScanRadius(world, new Vector2d(0, 0), (Fixed64)5, layerY: Fixed64.Zero))
@@ -300,7 +306,8 @@ foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(world, flatMin, fla
 }
 ```
 
-Consume each `GridVoxelSet` immediately inside the enumeration. The `Voxels` list is backed by pooled storage and should be treated as transient query data.
+Consume each `GridVoxelSet` immediately inside the enumeration. The `Voxels`
+list is backed by pooled storage and should be treated as transient query data.
 
 ## Workflow 9: Reset Or Tear Down A World Between Scenarios
 

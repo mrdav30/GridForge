@@ -1,14 +1,25 @@
 # Sparse Voxel Grid Battle Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> `superpowers:subagent-driven-development` or `superpowers:executing-plans` to
+> implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for
+> tracking.
 
 **Status:** Done
 
-**Goal:** Add sparse voxel-grid support while keeping GridForge query workflows anchored to `GridWorld`, `VoxelGrid`, `Voxel`, `ScanCell`, `GridTracer`, blockers, occupants, and partitions.
+**Goal:** Add sparse voxel-grid support while keeping GridForge query workflows
+anchored to `GridWorld`, `VoxelGrid`, `Voxel`, `ScanCell`, `GridTracer`,
+blockers, occupants, and partitions.
 
-**Architecture:** Keep `VoxelGrid` as the public grid type and move physical voxel storage behind an internal storage strategy. Dense grids keep the current "bounds define every voxel" behavior. Sparse grids use bounds as an address space and only configured voxels exist; reads and queries must not materialize missing voxels.
+**Architecture:** Keep `VoxelGrid` as the public grid type and move physical
+voxel storage behind an internal storage strategy. Dense grids keep the current
+"bounds define every voxel" behavior. Sparse grids use bounds as an address
+space and only configured voxels exist; reads and queries must not materialize
+missing voxels.
 
-**Tech Stack:** C# 11, `netstandard2.1`, `net8.0`, `FixedMathSharp`, `SwiftCollections`, xUnit v3, BenchmarkDotNet, optional MemoryPack package variant guards.
+**Tech Stack:** C# 11, `netstandard2.1`, `net8.0`, `FixedMathSharp`,
+`SwiftCollections`, xUnit v3, BenchmarkDotNet, optional MemoryPack package
+variant guards.
 
 ---
 
@@ -16,33 +27,54 @@
 
 - Started: 2026-06-11
 - Completed: 2026-06-12
-- Release posture: Additive within the current `int` dimension limits. Large sparse address spaces remain outside this release.
+- Release posture: Additive within the current `int` dimension limits. Large
+  sparse address spaces remain outside this release.
 - Backwards compatibility: Dense-grid behavior must remain equivalent.
-- Current state: Complete. Sparse construction, lookup, storage-neutral query flows, runtime sparse mutation, performance hardening, documentation, XML docs, and release metadata alignment are finished.
-- Shared foundation decisions: Completed 2026-06-11 in coordination with the hex-prism topology plan.
+- Current state: Complete. Sparse construction, lookup, storage-neutral query
+  flows, runtime sparse mutation, performance hardening, documentation, XML
+  docs, and release metadata alignment are finished.
+- Shared foundation decisions: Completed 2026-06-11 in coordination with the
+  hex-prism topology plan.
 
 ## Locked Decisions
 
-- Sparse means configured voxels only. A missing in-bounds voxel is intentionally absent.
-- Query APIs should not care whether a grid is dense or sparse, but sparse queries only return configured voxels.
-- `TryGetGrid(...)` may resolve a sparse grid by bounds, while `TryGetGridAndVoxel(...)` fails when the addressed sparse voxel is not configured.
-- `GridTracer.GetCoveredVoxels(...)` returns only configured voxels for sparse grids.
-- `BoundsBlocker` and other blocker workflows apply obstacle state only to configured sparse voxels covered by the blocker bounds.
-- Reads must not allocate or configure sparse voxels. Configuration happens through explicit construction or explicit mutation APIs.
-- Sparse voxels can be configured at grid creation time and through explicit runtime sparse mutation APIs. Runtime removal rejects unsafe voxel state, and runtime add reconciles active blocker coverage.
-- `GridConfiguration` directly carries storage intent through `GridStorageKind`; do not introduce a separate sparse configuration wrapper in the first release.
-- Initial sparse support stays within the current `int` dimension envelope. Construction must validate `Width`, `Height`, `Length`, and `Size` overflow before storage initialization.
-- `ConfiguredVoxelCount` is the public physical-cell count. Dense grids report `Size`; sparse grids report the de-duplicated configured voxel count.
-- Replace public dense-array assumptions with storage-neutral deterministic enumeration APIs. Dense array access can remain internal to dense storage.
-- Keep the core library engine-agnostic. Unity integration belongs outside this repository.
+- Sparse means configured voxels only. A missing in-bounds voxel is
+  intentionally absent.
+- Query APIs should not care whether a grid is dense or sparse, but sparse
+  queries only return configured voxels.
+- `TryGetGrid(...)` may resolve a sparse grid by bounds, while
+  `TryGetGridAndVoxel(...)` fails when the addressed sparse voxel is not
+  configured.
+- `GridTracer.GetCoveredVoxels(...)` returns only configured voxels for sparse
+  grids.
+- `BoundsBlocker` and other blocker workflows apply obstacle state only to
+  configured sparse voxels covered by the blocker bounds.
+- Reads must not allocate or configure sparse voxels. Configuration happens
+  through explicit construction or explicit mutation APIs.
+- Sparse voxels can be configured at grid creation time and through explicit
+  runtime sparse mutation APIs. Runtime removal rejects unsafe voxel state, and
+  runtime add reconciles active blocker coverage.
+- `GridConfiguration` directly carries storage intent through `GridStorageKind`;
+  do not introduce a separate sparse configuration wrapper in the first release.
+- Initial sparse support stays within the current `int` dimension envelope.
+  Construction must validate `Width`, `Height`, `Length`, and `Size` overflow
+  before storage initialization.
+- `ConfiguredVoxelCount` is the public physical-cell count. Dense grids report
+  `Size`; sparse grids report the de-duplicated configured voxel count.
+- Replace public dense-array assumptions with storage-neutral deterministic
+  enumeration APIs. Dense array access can remain internal to dense storage.
+- Keep the core library engine-agnostic. Unity integration belongs outside this
+  repository.
 
 ## Non-Goals
 
 - Do not replace dense grids.
-- Do not add octrees, hierarchy, sectors, save-game registries, or streaming orchestration to the core API.
+- Do not add octrees, hierarchy, sectors, save-game registries, or streaming
+  orchestration to the core API.
 - Do not add compatibility wrappers that preserve weak storage assumptions.
 - Do not make missing sparse voxels behave like default dense voxels.
-- Do not introduce wall-clock scheduling, background loading, nondeterministic iteration, or engine-specific hooks.
+- Do not introduce wall-clock scheduling, background loading, nondeterministic
+  iteration, or engine-specific hooks.
 
 ## Target Mental Model
 
@@ -96,7 +128,9 @@ Responsibilities:
 - invalidate boundary voxel neighbor caches
 - expose physical voxel count separately from logical address-space dimensions
 
-`VoxelGrid` remains the public owner of identity, dimensions, neighbors, obstacle summary state, active scan cells, versioning, and world ownership. The storage object owns the physical layout.
+`VoxelGrid` remains the public owner of identity, dimensions, neighbors,
+obstacle summary state, active scan cells, versioning, and world ownership. The
+storage object owns the physical layout.
 
 ### Sparse Physical Layout
 
@@ -118,44 +152,59 @@ Why this beats a flat dictionary:
 - storage locality follows existing query locality
 - missing blocks make absence cheap
 
-If benchmarks show that many sparse blocks are nearly full, add an adaptive block representation later. Do not start with adaptive complexity before proving it is needed.
+If benchmarks show that many sparse blocks are nearly full, add an adaptive
+block representation later. Do not start with adaptive complexity before proving
+it is needed.
 
 ### Public Configuration Shape
 
-Keep `GridConfiguration` focused on bounds and scan-cell sizing, then add sparse intent deliberately.
+Keep `GridConfiguration` focused on bounds and scan-cell sizing, then add sparse
+intent deliberately.
 
 Candidate public additions:
 
 - `GridStorageKind` enum with `Dense` and `Sparse`
 - `GridConfiguration.StorageKind`, defaulting to `Dense`
-- `GridWorld.TryAddGrid(GridConfiguration configuration, IEnumerable<VoxelIndex> configuredVoxels, out ushort allocatedIndex)` for sparse setup
-- `GridWorld.TryAddGrid(GridConfiguration configuration, bool[,,] configuredVoxels, out ushort allocatedIndex)` as a mask convenience for rectangular local dimensions
+- `GridWorld.TryAddGrid(GridConfiguration configuration, IEnumerable<VoxelIndex> configuredVoxels, out ushort allocatedIndex)`
+  for sparse setup
+- `GridWorld.TryAddGrid(GridConfiguration configuration, bool[,,] configuredVoxels, out ushort allocatedIndex)`
+  as a mask convenience for rectangular local dimensions
 - `VoxelGrid.ConfiguredVoxelCount`
 - `VoxelGrid.StorageKind`
-- `VoxelGrid.EnumerateVoxels()` or equivalent storage-neutral deterministic physical-voxel enumeration
+- `VoxelGrid.EnumerateVoxels()` or equivalent storage-neutral deterministic
+  physical-voxel enumeration
 
 Design rule:
 
 - dense construction may ignore configured voxel input and generate all voxels
-- sparse construction must validate, de-duplicate, and sort configured indices before storage initialization
-- sparse mask construction must validate exact `[x, y, z]` dimensions against the normalized grid dimensions, then flow through the same configured-voxel initialization path
-- configured indices outside the normalized grid bounds must fail the grid add operation, not be silently ignored
+- sparse construction must validate, de-duplicate, and sort configured indices
+  before storage initialization
+- sparse mask construction must validate exact `[x, y, z]` dimensions against
+  the normalized grid dimensions, then flow through the same configured-voxel
+  initialization path
+- configured indices outside the normalized grid bounds must fail the grid add
+  operation, not be silently ignored
 
-Large address-space support is deferred. The current grid exposes `Width`, `Height`, `Length`, and `Size` as `int`, and the initial sparse phase stays within that dimension envelope. Construction must validate overflow before storage initialization. A later phase can introduce `long AddressableVoxelCount` or a breaking replacement for `Size` if sparse grids need address spaces larger than `int.MaxValue` cells.
+Large address-space support is deferred. The current grid exposes `Width`,
+`Height`, `Length`, and `Size` as `int`, and the initial sparse phase stays
+within that dimension envelope. Construction must validate overflow before
+storage initialization. A later phase can introduce `long AddressableVoxelCount`
+or a breaking replacement for `Size` if sparse grids need address spaces larger
+than `int.MaxValue` cells.
 
 ## Behavior Matrix
 
-| Operation | Dense Grid | Sparse Grid |
-| --- | --- | --- |
-| `TryGetGrid(position)` | true when position is inside grid bounds | true when position is inside grid bounds |
-| `TryGetVoxel(position)` | true for every in-bounds snapped coordinate | true only for configured voxels |
-| `TryGetGridAndVoxel(position)` | true for every in-bounds snapped coordinate | false for in-bounds missing voxels |
-| `GridTracer.GetCoveredVoxels(...)` | returns every covered in-bounds voxel | returns covered configured voxels only |
+| Operation                             | Dense Grid                                  | Sparse Grid                                                        |
+| ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| `TryGetGrid(position)`                | true when position is inside grid bounds    | true when position is inside grid bounds                           |
+| `TryGetVoxel(position)`               | true for every in-bounds snapped coordinate | true only for configured voxels                                    |
+| `TryGetGridAndVoxel(position)`        | true for every in-bounds snapped coordinate | false for in-bounds missing voxels                                 |
+| `GridTracer.GetCoveredVoxels(...)`    | returns every covered in-bounds voxel       | returns covered configured voxels only                             |
 | `GridTracer.GetCoveredScanCells(...)` | returns covered scan cells from the overlay | returns covered scan cells that exist for configured sparse blocks |
-| `BoundsBlocker.ApplyBlockage()` | applies to all covered voxels | applies to covered configured voxels only |
-| occupant registration | target voxel must exist and have vacancy | target configured voxel must exist and have vacancy |
-| neighbor lookup | adjacent in-bounds voxels always exist | missing sparse neighbors are absent |
-| partition attach | target voxel must exist | target configured voxel must exist |
+| `BoundsBlocker.ApplyBlockage()`       | applies to all covered voxels               | applies to covered configured voxels only                          |
+| occupant registration                 | target voxel must exist and have vacancy    | target configured voxel must exist and have vacancy                |
+| neighbor lookup                       | adjacent in-bounds voxels always exist      | missing sparse neighbors are absent                                |
+| partition attach                      | target voxel must exist                     | target configured voxel must exist                                 |
 
 ## Phase 0: Lock Semantics And API Surface
 
@@ -172,32 +221,51 @@ Likely files:
 
 Checklist:
 
-- [x] Lock first-release sparse grids as configured voxels only; runtime `TryAddVoxel` and `TryRemoveVoxel` are explicit sparse-only APIs.
-- [x] Use `GridConfiguration.StorageKind`; do not add a separate `SparseGridConfiguration` wrapper.
+- [x] Lock first-release sparse grids as configured voxels only; runtime
+      `TryAddVoxel` and `TryRemoveVoxel` are explicit sparse-only APIs.
+- [x] Use `GridConfiguration.StorageKind`; do not add a separate
+      `SparseGridConfiguration` wrapper.
 - [x] Keep initial sparse support within current `int` dimension limits.
 - [x] Use `ConfiguredVoxelCount` as the public physical voxel count.
-- [x] Replace public dense-array assumptions with storage-neutral enumeration APIs.
+- [x] Replace public dense-array assumptions with storage-neutral enumeration
+      APIs.
 - [x] Record the decisions in this plan before implementation starts.
 
 Decision record:
 
-- Sparse grids are configured-voxel only. They support creation-time configured indices or masks plus explicit runtime `TryAddVoxel` and `TryRemoveVoxel` APIs.
-- `GridConfiguration` directly carries `GridStorageKind StorageKind`, defaulting to `Dense`; sparse setup supplies configured indices through an explicit `GridWorld.TryAddGrid(...)` overload.
-- Sparse grids stay within current `int` dimensions and `Size` semantics initially. Overflow or invalid address-space dimensions must fail construction.
-- `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it equals `Size`; for sparse grids it equals the sorted, de-duplicated configured voxel count.
-- `VoxelGrid.Voxels` should not remain the storage-neutral public surface. Add a deterministic physical-voxel enumeration API and keep dense-array access internal to dense storage.
-- Missing sparse voxels are intentional absence for lookup, tracing, blockers, occupants, partitions, and neighbors. Reads must not materialize them.
-- Runtime sparse removal is conservative: voxels with occupants, obstacle tokens, partitions, or active event subscribers are not removed. Runtime sparse add publishes grid-change notifications so active blocker coverage can be reconciled.
+- Sparse grids are configured-voxel only. They support creation-time configured
+  indices or masks plus explicit runtime `TryAddVoxel` and `TryRemoveVoxel`
+  APIs.
+- `GridConfiguration` directly carries `GridStorageKind StorageKind`, defaulting
+  to `Dense`; sparse setup supplies configured indices through an explicit
+  `GridWorld.TryAddGrid(...)` overload.
+- Sparse grids stay within current `int` dimensions and `Size` semantics
+  initially. Overflow or invalid address-space dimensions must fail
+  construction.
+- `ConfiguredVoxelCount` is the public physical-cell count. For dense grids it
+  equals `Size`; for sparse grids it equals the sorted, de-duplicated configured
+  voxel count.
+- `VoxelGrid.Voxels` should not remain the storage-neutral public surface. Add a
+  deterministic physical-voxel enumeration API and keep dense-array access
+  internal to dense storage.
+- Missing sparse voxels are intentional absence for lookup, tracing, blockers,
+  occupants, partitions, and neighbors. Reads must not materialize them.
+- Runtime sparse removal is conservative: voxels with occupants, obstacle
+  tokens, partitions, or active event subscribers are not removed. Runtime
+  sparse add publishes grid-change notifications so active blocker coverage can
+  be reconciled.
 
 Exit criteria:
 
 - [x] There is one agreed meaning for absent sparse voxels.
 - [x] There is one agreed construction path for sparse grids.
-- [x] There is no unresolved ambiguity around blockers, occupants, partitions, tracing, or missing neighbors.
+- [x] There is no unresolved ambiguity around blockers, occupants, partitions,
+      tracing, or missing neighbors.
 
 ## Phase 1: Extract Dense Storage Without Behavior Changes
 
-Intent: create the storage boundary while proving dense behavior remains unchanged.
+Intent: create the storage boundary while proving dense behavior remains
+unchanged.
 
 Likely files:
 
@@ -211,13 +279,19 @@ Likely files:
 
 Checklist:
 
-- [x] Add an internal storage interface that covers dense grid responsibilities currently embedded in `VoxelGrid`.
+- [x] Add an internal storage interface that covers dense grid responsibilities
+      currently embedded in `VoxelGrid`.
 - [x] Move dense voxel generation into `DenseVoxelGridStorage`.
 - [x] Move dense scan-cell generation into `DenseVoxelGridStorage`.
-- [x] Route `VoxelGrid.TryGetVoxel(...)`, `TryGetScanCell(...)`, `GetActiveScanCells()`, and boundary invalidation through storage.
-- [x] Add storage-neutral deterministic voxel enumeration and keep dense array access internal to dense storage.
-- [x] Preserve exact dense neighbor behavior, scan-cell keys, voxel world positions, obstacle behavior, occupant behavior, and pooling cleanup.
-- [x] Add focused regression tests around dense construction, reset, reuse, boundary invalidation, tracing, blocker apply/remove, and occupant registration.
+- [x] Route `VoxelGrid.TryGetVoxel(...)`, `TryGetScanCell(...)`,
+      `GetActiveScanCells()`, and boundary invalidation through storage.
+- [x] Add storage-neutral deterministic voxel enumeration and keep dense array
+      access internal to dense storage.
+- [x] Preserve exact dense neighbor behavior, scan-cell keys, voxel world
+      positions, obstacle behavior, occupant behavior, and pooling cleanup.
+- [x] Add focused regression tests around dense construction, reset, reuse,
+      boundary invalidation, tracing, blocker apply/remove, and occupant
+      registration.
 
 Exit criteria:
 
@@ -235,7 +309,8 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 
 ## Phase 2: Add Sparse Construction And Lookup
 
-Intent: support sparse grids with explicit configured voxels and no read-time materialization.
+Intent: support sparse grids with explicit configured voxels and no read-time
+materialization.
 
 Likely files:
 
@@ -251,14 +326,22 @@ Likely files:
 Checklist:
 
 - [x] Add sparse grid configuration or sparse `TryAddGrid` overloads.
-- [x] Validate sparse configured indices against normalized bounds and dimensions.
+- [x] Validate sparse configured indices against normalized bounds and
+      dimensions.
 - [x] De-duplicate sparse configured indices deterministically.
-- [x] Initialize configured sparse voxels with correct `WorldVoxelIndex`, world position, scan-cell key, boundary state, and grid version.
-- [x] Allocate sparse scan-cell blocks only for scan cells that contain configured voxels.
-- [x] Make `TryGetVoxel(...)` return `false` for missing in-bounds sparse coordinates.
-- [x] Make `TryGetGridAndVoxel(...)` return `false` for missing in-bounds sparse coordinates while `TryGetGrid(...)` still resolves the grid.
-- [x] Ensure reset releases every configured voxel, sparse block, scan cell, neighbor cache, obstacle tracker, and pooled collection.
-- [x] Add tests for empty sparse grids, invalid configured indices, duplicate configured indices, exact-bound configured voxels, missing in-bounds voxels, and pooled grid reuse.
+- [x] Initialize configured sparse voxels with correct `WorldVoxelIndex`, world
+      position, scan-cell key, boundary state, and grid version.
+- [x] Allocate sparse scan-cell blocks only for scan cells that contain
+      configured voxels.
+- [x] Make `TryGetVoxel(...)` return `false` for missing in-bounds sparse
+      coordinates.
+- [x] Make `TryGetGridAndVoxel(...)` return `false` for missing in-bounds sparse
+      coordinates while `TryGetGrid(...)` still resolves the grid.
+- [x] Ensure reset releases every configured voxel, sparse block, scan cell,
+      neighbor cache, obstacle tracker, and pooled collection.
+- [x] Add tests for empty sparse grids, invalid configured indices, duplicate
+      configured indices, exact-bound configured voxels, missing in-bounds
+      voxels, and pooled grid reuse.
 
 Exit criteria:
 
@@ -289,8 +372,11 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 Fast follow-up completed on 2026-06-12:
 
 - Removed the unused internal dense initializer overload from `VoxelGrid`.
-- Removed storage construction from `IVoxelGridStorage`; dense and sparse now initialize through concrete storage paths before assigning the active storage reference.
-- Replaced the sparse block-capacity `System.Collections.Generic.Dictionary` with a pooled `SwiftDictionary<int, int>`.
+- Removed storage construction from `IVoxelGridStorage`; dense and sparse now
+  initialize through concrete storage paths before assigning the active storage
+  reference.
+- Replaced the sparse block-capacity `System.Collections.Generic.Dictionary`
+  with a pooled `SwiftDictionary<int, int>`.
 
 Fast follow-up validation:
 
@@ -304,7 +390,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean --no-build --filter "Spar
 
 ## Phase 3: Make Coverage, Blockers, Occupants, And Partitions Storage-Neutral
 
-Intent: ensure every user-facing query and mutation workflow treats dense and sparse grids through one public model.
+Intent: ensure every user-facing query and mutation workflow treats dense and
+sparse grids through one public model.
 
 Likely files:
 
@@ -322,20 +409,28 @@ Likely files:
 
 Checklist:
 
-- [x] Route `GridTracer` covered-voxel enumeration through storage-aware append methods instead of assuming dense coordinate coverage.
+- [x] Route `GridTracer` covered-voxel enumeration through storage-aware append
+      methods instead of assuming dense coordinate coverage.
 - [x] Route covered scan-cell enumeration through storage-aware append methods.
-- [x] Confirm blocker apply/remove affects only covered configured sparse voxels.
-- [x] Confirm cached blocker removal using `WorldVoxelIndex` works after sparse grid removal and re-add.
+- [x] Confirm blocker apply/remove affects only covered configured sparse
+      voxels.
+- [x] Confirm cached blocker removal using `WorldVoxelIndex` works after sparse
+      grid removal and re-add.
 - [x] Confirm occupant registration fails cleanly for missing sparse voxels.
-- [x] Confirm occupant scans only inspect sparse scan cells that exist and are covered.
-- [x] Confirm partition APIs work on configured sparse voxels and fail naturally when lookup fails for missing sparse coordinates.
-- [x] Confirm sparse neighbor lookup treats missing local or cross-grid voxels as absent.
+- [x] Confirm occupant scans only inspect sparse scan cells that exist and are
+      covered.
+- [x] Confirm partition APIs work on configured sparse voxels and fail naturally
+      when lookup fails for missing sparse coordinates.
+- [x] Confirm sparse neighbor lookup treats missing local or cross-grid voxels
+      as absent.
 - [x] Add conjoined dense-to-sparse and sparse-to-sparse neighbor tests.
 
 Exit criteria:
 
-- [x] Public query and mutation workflows do not branch in user code based on grid storage kind.
-- [x] Blockers, occupants, partitions, tracing, and neighbor traversal have explicit sparse regression coverage.
+- [x] Public query and mutation workflows do not branch in user code based on
+      grid storage kind.
+- [x] Blockers, occupants, partitions, tracing, and neighbor traversal have
+      explicit sparse regression coverage.
 - [x] Sparse blocker behavior is documented in tests and comments where needed.
 
 Validation:
@@ -362,7 +457,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean --no-build
 
 ## Phase 4: Runtime Sparse Voxel Mutation
 
-Intent: add explicit runtime configuration APIs only after static sparse grids are stable.
+Intent: add explicit runtime configuration APIs only after static sparse grids
+are stable.
 
 Likely files:
 
@@ -382,12 +478,20 @@ Candidate APIs:
 
 Checklist:
 
-- [x] Add explicit sparse-only voxel configuration APIs, or decide they are out of scope for the first sparse release.
-- [x] Reject `TryRemoveVoxel` when the voxel has occupants, obstacles, partitions, or active event handlers that would make removal unsafe.
-- [x] Define whether adding a sparse voxel under an active blocker should immediately apply blocker state. Recommended behavior: yes, by having sparse voxel add trigger grid-change reconciliation for overlapping active blockers.
-- [x] Add deterministic events or version increments for sparse voxel add/remove.
-- [x] Invalidate affected local and neighboring boundary caches when a sparse voxel is added or removed.
-- [x] Release empty sparse blocks and scan cells when the last configured voxel is removed.
+- [x] Add explicit sparse-only voxel configuration APIs, or decide they are out
+      of scope for the first sparse release.
+- [x] Reject `TryRemoveVoxel` when the voxel has occupants, obstacles,
+      partitions, or active event handlers that would make removal unsafe.
+- [x] Define whether adding a sparse voxel under an active blocker should
+      immediately apply blocker state. Recommended behavior: yes, by having
+      sparse voxel add trigger grid-change reconciliation for overlapping active
+      blockers.
+- [x] Add deterministic events or version increments for sparse voxel
+      add/remove.
+- [x] Invalidate affected local and neighboring boundary caches when a sparse
+      voxel is added or removed.
+- [x] Release empty sparse blocks and scan cells when the last configured voxel
+      is removed.
 
 Exit criteria:
 
@@ -440,26 +544,45 @@ Benchmark scenarios:
 
 Checklist:
 
-- [x] Add BenchmarkDotNet coverage for sparse construction, lookup, coverage, blocker, and scan flows.
+- [x] Add BenchmarkDotNet coverage for sparse construction, lookup, coverage,
+      blocker, and scan flows.
 - [x] Compare dense baseline before and after storage extraction.
-- [x] Validate sparse missing-region coverage skips absent blocks without per-voxel allocation.
+- [x] Validate sparse missing-region coverage skips absent blocks without
+      per-voxel allocation.
 - [x] Validate sparse scan paths remain deterministic and allocation-conscious.
 - [x] Decide whether adaptive sparse blocks are justified by benchmark data.
 
 Exit criteria:
 
 - [x] Dense hot paths are not materially regressed.
-- [x] Sparse grids show clear memory or construction-time wins for low-density workloads.
+- [x] Sparse grids show clear memory or construction-time wins for low-density
+      workloads.
 - [x] Sparse query performance is explained in docs with realistic tradeoffs.
 
 Progress notes:
 
-- Added `SparseVoxelGridBenchmarks` with dense baselines and sparse scenarios for construction density, configured/missing lookup, empty/clustered coverage, blocker apply/remove, occupant registration, scratch-backed radius scans, and dense-to-sparse neighbor lookup.
-- Hardened sparse hot paths by appending prepared construction voxels directly, avoiding duplicate runtime-add lookups, keeping valid sparse misses quiet, and removing iterator allocation from tracer spatial-cell loops.
-- Benchmark smoke on 2026-06-12 showed low-density sparse construction at about `6.2 ms / 724 KB` versus dense at about `55.7 ms / 54 MB` for the repeated 64x64 flat-grid lifecycle workload. Medium-density sparse stayed well below dense construction cost; high-density sparse approached dense time while still allocating less.
-- Empty sparse coverage over an unconfigured region remained cheap because storage walks touched sparse blocks by scan-cell key and skips absent blocks instead of materializing per-voxel misses.
-- Adaptive sparse blocks are not justified yet. Sorted per-scan-cell block arrays keep the low/medium density cases simple and allocation-light, while the high-density case is already close enough to dense that a more complex adaptive structure needs stronger evidence.
-- BenchmarkDotNet `ShortRun` still reports `MinIterationTime` warnings for some fast scenarios. Treat the suite as a quick regression guardrail; use a longer job/config before publishing absolute numbers.
+- Added `SparseVoxelGridBenchmarks` with dense baselines and sparse scenarios
+  for construction density, configured/missing lookup, empty/clustered coverage,
+  blocker apply/remove, occupant registration, scratch-backed radius scans, and
+  dense-to-sparse neighbor lookup.
+- Hardened sparse hot paths by appending prepared construction voxels directly,
+  avoiding duplicate runtime-add lookups, keeping valid sparse misses quiet, and
+  removing iterator allocation from tracer spatial-cell loops.
+- Benchmark smoke on 2026-06-12 showed low-density sparse construction at about
+  `6.2 ms / 724 KB` versus dense at about `55.7 ms / 54 MB` for the repeated
+  64x64 flat-grid lifecycle workload. Medium-density sparse stayed well below
+  dense construction cost; high-density sparse approached dense time while still
+  allocating less.
+- Empty sparse coverage over an unconfigured region remained cheap because
+  storage walks touched sparse blocks by scan-cell key and skips absent blocks
+  instead of materializing per-voxel misses.
+- Adaptive sparse blocks are not justified yet. Sorted per-scan-cell block
+  arrays keep the low/medium density cases simple and allocation-light, while
+  the high-density case is already close enough to dense that a more complex
+  adaptive structure needs stronger evidence.
+- BenchmarkDotNet `ShortRun` still reports `MinIterationTime` warnings for some
+  fast scenarios. Treat the suite as a quick regression guardrail; use a longer
+  job/config before publishing absolute numbers.
 
 Validation:
 
@@ -484,30 +607,43 @@ Likely files:
 - Modify: `docs/wiki/Scan-Cells-and-Query-Flow.md`
 - Modify: `docs/wiki/Occupants-and-Partitions.md`
 - Modify: `docs/wiki/Testing-and-Benchmarking.md`
-- Modify: `src/GridForge/GridForge.csproj` if package metadata or XML docs need new wording
+- Modify: `src/GridForge/GridForge.csproj` if package metadata or XML docs need
+  new wording
 
 Checklist:
 
-- [x] Explain dense versus sparse grid semantics in the README without crowding the front door.
-- [x] Add a sparse grid wiki section or page that states: missing sparse voxels are intentional absence, not default voxels.
-- [x] Document blocker behavior over sparse grids: blockers apply to covered configured voxels only.
-- [x] Document occupant behavior over sparse grids: occupants can register only into configured voxels.
-- [x] Document neighbor behavior over sparse grids: missing neighbors are absent.
-- [x] Document result-lifetime and pooling expectations for sparse coverage results.
+- [x] Explain dense versus sparse grid semantics in the README without crowding
+      the front door.
+- [x] Add a sparse grid wiki section or page that states: missing sparse voxels
+      are intentional absence, not default voxels.
+- [x] Document blocker behavior over sparse grids: blockers apply to covered
+      configured voxels only.
+- [x] Document occupant behavior over sparse grids: occupants can register only
+      into configured voxels.
+- [x] Document neighbor behavior over sparse grids: missing neighbors are
+      absent.
+- [x] Document result-lifetime and pooling expectations for sparse coverage
+      results.
 - [x] Update XML docs for new public APIs.
 - [x] Run wiki link rewrite tests if links change.
 
 Exit criteria:
 
-- [x] README, wiki, XML docs, tests, and package metadata tell the same sparse-grid story.
-- [x] Users can understand when to choose dense versus sparse without reading implementation code.
+- [x] README, wiki, XML docs, tests, and package metadata tell the same
+      sparse-grid story.
+- [x] Users can understand when to choose dense versus sparse without reading
+      implementation code.
 
 Completed notes:
 
 - Added `docs/wiki/Sparse-Grid-Storage.md` as the detailed sparse storage page.
-- Updated README, wiki pages, XML docs, benchmark docs, and package tags to align on dense versus sparse semantics.
-- Removed stale world-voxel-size wording from current docs touched by sparse release alignment.
-- No fast-follow plan is needed from this phase. Large address-space support and adaptive sparse block layouts remain intentional future work, not unfinished sparse release requirements.
+- Updated README, wiki pages, XML docs, benchmark docs, and package tags to
+  align on dense versus sparse semantics.
+- Removed stale world-voxel-size wording from current docs touched by sparse
+  release alignment.
+- No fast-follow plan is needed from this phase. Large address-space support and
+  adaptive sparse block layouts remain intentional future work, not unfinished
+  sparse release requirements.
 
 Validation:
 
@@ -564,16 +700,16 @@ Minimum sparse coverage before release:
 
 ## Risk Register
 
-| Risk | Mitigation |
-| --- | --- |
-| `VoxelGrid` becomes an abstraction dumping ground | Keep storage-specific responsibilities in focused storage files and keep world/grid ownership in `VoxelGrid`. |
-| Dense hot paths regress | Extract dense storage first and benchmark before adding sparse behavior. |
-| Sparse iteration becomes nondeterministic | Use coordinate-ordered traversal for query results and sorted sparse setup inputs. |
-| `Size` semantics become misleading | Decide and document addressable versus configured voxel counts before code changes. |
-| Blockers miss newly configured runtime sparse voxels | Implement active-grid change reconciliation for sparse voxel add/remove and document blocker behavior. |
-| Sparse scan cells drift from configured voxel storage | Align sparse blocks to scan-cell keys and test coverage/scan behavior together. |
-| Public docs imply missing sparse voxels behave like empty dense voxels | Use explicit wording in README/wiki examples and sparse tests. |
-| ReleaseLean breaks through MemoryPack references | Keep new serialization attributes guarded consistently with existing package-variant patterns. |
+| Risk                                                                   | Mitigation                                                                                                    |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `VoxelGrid` becomes an abstraction dumping ground                      | Keep storage-specific responsibilities in focused storage files and keep world/grid ownership in `VoxelGrid`. |
+| Dense hot paths regress                                                | Extract dense storage first and benchmark before adding sparse behavior.                                      |
+| Sparse iteration becomes nondeterministic                              | Use coordinate-ordered traversal for query results and sorted sparse setup inputs.                            |
+| `Size` semantics become misleading                                     | Decide and document addressable versus configured voxel counts before code changes.                           |
+| Blockers miss newly configured runtime sparse voxels                   | Implement active-grid change reconciliation for sparse voxel add/remove and document blocker behavior.        |
+| Sparse scan cells drift from configured voxel storage                  | Align sparse blocks to scan-cell keys and test coverage/scan behavior together.                               |
+| Public docs imply missing sparse voxels behave like empty dense voxels | Use explicit wording in README/wiki examples and sparse tests.                                                |
+| ReleaseLean breaks through MemoryPack references                       | Keep new serialization attributes guarded consistently with existing package-variant patterns.                |
 
 ## Recommended Implementation Order
 
@@ -585,4 +721,5 @@ Minimum sparse coverage before release:
 6. Run Phase 5 benchmarks before polishing docs.
 7. Complete Phase 6 docs and release alignment.
 
-Final outcome: complete on 2026-06-12 and archived under `docs/feature-work/done`.
+Final outcome: complete on 2026-06-12 and archived under
+`docs/feature-work/done`.

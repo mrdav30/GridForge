@@ -1,6 +1,7 @@
 # FAQ and Troubleshooting
 
-This page is the fast answer sheet for the most common GridForge questions and failure modes.
+This page is the fast answer sheet for the most common GridForge questions and
+failure modes.
 
 When behavior looks surprising, the answer is usually one of these:
 
@@ -25,7 +26,8 @@ Usually one of these is happening:
 - the position is outside the snapped bounds, not the original unsnapped bounds
 - the grid was never registered in this world
 - the grid's topology metrics are not the cell dimensions you think they are
-- the position is just outside an inclusive max boundary due to your own conversion logic
+- the position is just outside an inclusive max boundary due to your own
+  conversion logic
 - the grid is sparse and the addressed in-bounds voxel was never configured
 
 ## Why Does `TryGetGrid(...)` Succeed But `TryGetGridAndVoxel(...)` Fail?
@@ -67,19 +69,23 @@ Safe pattern:
 
 ## Why Did A Stored `WorldVoxelIndex` Stop Resolving Later?
 
-Treat `WorldVoxelIndex` as a runtime identity that should be revalidated, especially after:
+Treat `WorldVoxelIndex` as a runtime identity that should be revalidated,
+especially after:
 
 - grid removal
 - world reset or disposal
 - streamed unload and reload cycles
 
-If the referenced world or grid instance is gone or has been replaced by a different runtime allocation, resolution can legitimately fail later.
+If the referenced world or grid instance is gone or has been replaced by a
+different runtime allocation, resolution can legitimately fail later.
 
 ## Can I Hold Onto Tracer Or Query Results?
 
 Usually, no.
 
-Many query paths use pooled collections internally. Consume results immediately and copy what you need into your own owned data structure if it must survive past the immediate operation.
+Many query paths use pooled collections internally. Consume results immediately
+and copy what you need into your own owned data structure if it must survive
+past the immediate operation.
 
 ## When Should I Use `Reset()` Vs `Reset(deactivate: true)`?
 
@@ -97,7 +103,8 @@ Use `Reset(deactivate: true)` when:
 
 1. Are you querying the world instance you think you are?
 2. What are the snapped bounds after topology normalization?
-3. Does the grid's `GridConfiguration.TopologyMetrics` match the cell size the scenario was designed for?
+3. Does the grid's `GridConfiguration.TopologyMetrics` match the cell size the
+   scenario was designed for?
 4. If the grid is sparse, was the voxel configured?
 5. Is the voxel blocked, occupied, or both?
 6. Are you holding pooled data past the immediate operation?

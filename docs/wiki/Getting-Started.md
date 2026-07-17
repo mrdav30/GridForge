@@ -1,6 +1,7 @@
 # Getting Started
 
-This page is the shortest reliable path from package install to your first successful grid lookup.
+This page is the shortest reliable path from package install to your first
+successful grid lookup.
 
 The default and recommended model is:
 
@@ -13,7 +14,8 @@ The default and recommended model is:
 Keep these rules in mind before writing any code:
 
 - `GridWorld` is the runtime owner of grid state.
-- `GridConfiguration` is input data. Bounds are snapped when a world normalizes and registers the grid.
+- `GridConfiguration` is input data. Bounds are snapped when a world normalizes
+  and registers the grid.
 - Core grid math uses `FixedMathSharp` types such as `Fixed64` and `Vector3d`.
 - Flat XZ convenience APIs use `Vector2d` plus an optional `layerY`, but the
   runtime model remains the same 3D voxel world.
@@ -25,7 +27,8 @@ Keep these rules in mind before writing any code:
 dotnet add package GridForge
 ```
 
-GridForge brings in its core math and collection dependencies through NuGet, so you do not need to wire those up manually in a normal .NET project.
+GridForge brings in its core math and collection dependencies through NuGet, so
+you do not need to wire those up manually in a normal .NET project.
 
 ## Minimal Namespaces
 
@@ -42,7 +45,8 @@ using SwiftCollections.Diagnostics;
 
 ## 1. Create A World
 
-`GridWorld` owns spatial hashing, active grids, and top-level world-space lookup for one isolated world.
+`GridWorld` owns spatial hashing, active grids, and top-level world-space lookup
+for one isolated world.
 
 ```csharp
 using GridWorld world = new GridWorld();
@@ -55,7 +59,8 @@ This uses the library defaults:
 
 ## 2. Create Your First Grid
 
-`GridConfiguration` defines the world-space bounds of the grid plus the scan-cell size used for scan overlays.
+`GridConfiguration` defines the world-space bounds of the grid plus the
+scan-cell size used for scan overlays.
 
 ```csharp
 GridConfiguration config = new GridConfiguration(
@@ -74,13 +79,17 @@ Console.WriteLine($"Dimensions: {grid.Width} x {grid.Height} x {grid.Length}");
 
 Notes:
 
-- Bounds are inclusive. With default `1 x 1 x 1` rectangular metrics, a grid from `-10` to `10` spans `21` voxels on that axis.
-- The default `scanCellSize` is `8`, and it is measured in voxels, not world units.
-- The world normalizes and snaps bounds during registration using the grid's topology metrics.
+- Bounds are inclusive. With default `1 x 1 x 1` rectangular metrics, a grid
+  from `-10` to `10` spans `21` voxels on that axis.
+- The default `scanCellSize` is `8`, and it is measured in voxels, not world
+  units.
+- The world normalizes and snaps bounds during registration using the grid's
+  topology metrics.
 
 ## 3. Resolve A Grid And Voxel From World Space
 
-Once a grid is registered, the most common runtime lookup is resolving a world position into both the containing grid and the voxel at that position.
+Once a grid is registered, the most common runtime lookup is resolving a world
+position into both the containing grid and the voxel at that position.
 
 ```csharp
 Vector3d queryPosition = new Vector3d(2, 0, -3);
@@ -116,7 +125,8 @@ if (world.TryGetVoxel(flatPosition, out Voxel flatVoxel))
 
 ## 4. Customize Cell And Scan Granularity
 
-When you need finer spatial resolution, configure rectangular cell metrics on the grid configuration. The world still owns spatial-hash granularity.
+When you need finer spatial resolution, configure rectangular cell metrics on
+the grid configuration. The world still owns spatial-hash granularity.
 
 ```csharp
 using GridForge.Grids.Topology;
@@ -190,7 +200,8 @@ sparse voxels are intentional absence, not default empty cells.
 
 ## 7. Configure Logging When You Need Visibility
 
-GridForge logging is routed through `GridForgeLogger`. By default, the library emits `Warning` and `Error` level messages.
+GridForge logging is routed through `GridForgeLogger`. By default, the library
+emits `Warning` and `Error` level messages.
 
 ```csharp
 GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
@@ -201,7 +212,9 @@ GridForgeLogger.LogHandler = (level, message, source) =>
 };
 ```
 
-For diagnostics in library or tool code, use interpolated helper calls such as `GridForgeLogger.Channel.Warn($"...")`; disabled diagnostic levels skip formatted expression evaluation.
+For diagnostics in library or tool code, use interpolated helper calls such as
+`GridForgeLogger.Channel.Warn($"...")`; disabled diagnostic levels skip
+formatted expression evaluation.
 
 ## 8. Reset Or Dispose Explicitly
 
@@ -212,11 +225,13 @@ world.Reset(); // Clears registered grids but keeps the world active
 world.Reset(deactivate: true); // Clears state and marks the world inactive
 ```
 
-In most application code and tests, `using GridWorld world = new GridWorld();` is simpler and safer.
+In most application code and tests, `using GridWorld world = new GridWorld();`
+is simpler and safer.
 
 ## Common Early Mistakes
 
-- Reusing one world across unrelated scenarios without a matching reset or disposal
+- Reusing one world across unrelated scenarios without a matching reset or
+  disposal
 - Forgetting that bounds are snapped through the grid's topology metrics
 - Treating `scanCellSize` as a world-unit measurement instead of a voxel count
 - Using `TryGetGrid(...)` when you actually need `TryGetGridAndVoxel(...)`
@@ -225,6 +240,9 @@ In most application code and tests, `using GridWorld world = new GridWorld();` i
 ## Where To Go Next
 
 - [Home](Home.md) for the project-wide mental model
-- [Core Concepts](Core-Concepts.md) for the vocabulary of worlds, grids, voxels, scan cells, blockers, occupants, and partitions
-- [Common Workflows](Common-Workflows.md) for task-oriented examples beyond the first grid
-- [Architecture Overview](Architecture-Overview.md) when you want to understand where behavior lives in the codebase
+- [Core Concepts](Core-Concepts.md) for the vocabulary of worlds, grids, voxels,
+  scan cells, blockers, occupants, and partitions
+- [Common Workflows](Common-Workflows.md) for task-oriented examples beyond the
+  first grid
+- [Architecture Overview](Architecture-Overview.md) when you want to understand
+  where behavior lives in the codebase

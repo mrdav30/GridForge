@@ -14,10 +14,10 @@ emit messages through `GridForgeLogger`.
 `GridDiagnostics` reads one active `GridWorld` and exposes cells through two
 caller-owned paths:
 
-| API | Use When |
-| --- | --- |
-| `GetCellsInto(...)` | You want a `SwiftList<GridDiagnosticCell>` filled for inspection or test assertions. The list is cleared before each query. |
-| `VisitCells(...)` | You want the hot path for adapters that write directly into their own buffers. Returning `false` from the visitor stops traversal. |
+| API                 | Use When                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GetCellsInto(...)` | You want a `SwiftList<GridDiagnosticCell>` filled for inspection or test assertions. The list is cleared before each query.        |
+| `VisitCells(...)`   | You want the hot path for adapters that write directly into their own buffers. Returning `false` from the visitor stops traversal. |
 
 `GridDiagnosticScratch` owns reusable temporary state for queries. Keep one
 scratch object with the adapter or tool loop when running repeated queries.
@@ -31,11 +31,11 @@ grid tokens and always returns `false` for missing sparse address descriptors.
 Physical cells are the default output. Missing sparse address cells are opt-in
 so sparse grids keep their configured-only runtime behavior.
 
-| Address Mode | Output |
-| --- | --- |
-| `PhysicalOnly` | Dense cells or configured sparse cells only. |
+| Address Mode         | Output                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `PhysicalOnly`       | Dense cells or configured sparse cells only.                                            |
 | `PhysicalAndMissing` | Configured sparse cells plus missing sparse address descriptors inside the query range. |
-| `MissingOnly` | Missing sparse address descriptors only. Dense grids emit no missing cells. |
+| `MissingOnly`        | Missing sparse address descriptors only. Dense grids emit no missing cells.             |
 
 Missing sparse address cells use `GridDiagnosticCellKind.MissingSparseAddress`
 and the `MissingSparseAddress` state flag. They are not `Voxel` instances, do
@@ -65,14 +65,14 @@ applied after the cell state is derived.
 `GridDiagnosticGeometry` writes fixed-point world-space geometry from a
 `GridDiagnosticCell`.
 
-| Topology | Vertices | Edges |
-| --- | --- | --- |
-| Rectangular-prism | 8 prism corners | 12 wireframe edges |
-| Hex-prism | 12 prism corners | 18 wireframe edges |
+| Topology          | Vertices         | Edges              |
+| ----------------- | ---------------- | ------------------ |
+| Rectangular-prism | 8 prism corners  | 12 wireframe edges |
+| Hex-prism         | 12 prism corners | 18 wireframe edges |
 
-Rectangular geometry uses the cell width, layer height, and cell length from
-the descriptor's `GridTopologyMetrics`. Hex geometry uses radius, layer height,
-and the grid's `FlatTop` or `PointyTop` orientation.
+Rectangular geometry uses the cell width, layer height, and cell length from the
+descriptor's `GridTopologyMetrics`. Hex geometry uses radius, layer height, and
+the grid's `FlatTop` or `PointyTop` orientation.
 
 The core API uses `Fixed64` and `Vector3d`. Adapters should convert to engine
 numeric types only at the adapter boundary, then keep those converted values out
@@ -158,6 +158,8 @@ GridForge state:
 ## Read This Next
 
 - [Sparse Grid Storage](Sparse-Grid-Storage.md) for sparse runtime semantics
-- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for physical cell ownership
-- [Testing and Benchmarking](Testing-and-Benchmarking.md) for the `grid-diagnostics` benchmark alias
+- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for physical cell
+  ownership
+- [Testing and Benchmarking](Testing-and-Benchmarking.md) for the
+  `grid-diagnostics` benchmark alias
 - [Diagnostics and Logging](Diagnostics-and-Logging.md) for `GridForgeLogger`

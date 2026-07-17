@@ -5,7 +5,8 @@ This page covers two related but different ideas in GridForge:
 - obstacle state on a voxel
 - blocker workflows that apply or remove that state from world-space bounds
 
-If you keep that distinction clear, the rest of the subsystem makes much more sense.
+If you keep that distinction clear, the rest of the subsystem makes much more
+sense.
 
 ## The Core Difference
 
@@ -13,17 +14,21 @@ If you keep that distinction clear, the rest of the subsystem makes much more se
 
 An obstacle is voxel-level state.
 
-At runtime, a `Voxel` is considered blocked when its `ObstacleCount` is greater than zero. That is the low-level fact other systems react to.
+At runtime, a `Voxel` is considered blocked when its `ObstacleCount` is greater
+than zero. That is the low-level fact other systems react to.
 
 ### Blockers
 
 A blocker is a higher-level helper.
 
-It starts with world-space bounds, traces the covered voxels, and then applies or removes obstacle state across all touched grids. In other words, blockers are built on top of obstacle mutation, not the other way around.
+It starts with world-space bounds, traces the covered voxels, and then applies
+or removes obstacle state across all touched grids. In other words, blockers are
+built on top of obstacle mutation, not the other way around.
 
 ## The Obstacle Layer
 
-`GridObstacleManager` is the main mutation service for obstacle state. Its job is to centralize:
+`GridObstacleManager` is the main mutation service for obstacle state. Its job
+is to centralize:
 
 - per-grid locking
 - obstacle token tracking
@@ -32,7 +37,8 @@ It starts with world-space bounds, traces the covered voxels, and then applies o
 - event publication
 - grid version and active-grid change notifications
 
-Architecturally, this matters because obstacle mutation is not just flipping a boolean. It is coordinated state that affects:
+Architecturally, this matters because obstacle mutation is not just flipping a
+boolean. It is coordinated state that affects:
 
 - `Voxel.IsBlocked`
 - `Voxel.HasVacancy`
@@ -42,7 +48,8 @@ Architecturally, this matters because obstacle mutation is not just flipping a b
 
 ## Why Obstacles Use Tokens Instead Of A Simple Bool
 
-Obstacle state is keyed by a `BoundsKey` token rather than stored as a single "blocked/unblocked" flag.
+Obstacle state is keyed by a `BoundsKey` token rather than stored as a single
+"blocked/unblocked" flag.
 
 That gives the system the behavior it needs for stacked coverage:
 
@@ -51,11 +58,13 @@ That gives the system the behavior it needs for stacked coverage:
 - removing one token does not automatically clear the others
 - duplicate application of the same token should not keep increasing the count
 
-This is why a voxel can be blocked even after one blocker is removed: some other obstacle token may still be present.
+This is why a voxel can be blocked even after one blocker is removed: some other
+obstacle token may still be present.
 
 ## The Blocker Abstraction
 
-`Blocker` is the reusable base class for "apply obstacle coverage to a region" behavior.
+`Blocker` is the reusable base class for "apply obstacle coverage to a region"
+behavior.
 
 It owns:
 
@@ -86,21 +95,28 @@ When `ApplyBlockage()` succeeds, the flow is roughly:
 8. record which grids were covered so reapply logic knows what to watch
 9. publish the blocker-level apply event if coverage was found and applied
 
-The important architectural detail is that blocker coverage is resolved at apply time. The blocker does not store direct voxel references unless you explicitly opt into caching.
+The important architectural detail is that blocker coverage is resolved at apply
+time. The blocker does not store direct voxel references unless you explicitly
+opt into caching.
 
 ## Remove Flow
 
-`RemoveBlockage()` clears only the obstacle state introduced by that blocker token.
+`RemoveBlockage()` clears only the obstacle state introduced by that blocker
+token.
 
 There are two removal strategies:
 
 ### Retrace removal
 
-If covered-voxel caching is disabled, the blocker re-runs `GridTracer.GetCoveredVoxels(...)` over the cached bounds and removes its token from the currently covered voxels.
+If covered-voxel caching is disabled, the blocker re-runs
+`GridTracer.GetCoveredVoxels(...)` over the cached bounds and removes its token
+from the currently covered voxels.
 
 ### Cached-index removal
 
-If `CacheCoveredVoxels` is enabled, the blocker stores stable `WorldVoxelIndex` values when it applies. Removal then uses those identities directly instead of retracing.
+If `CacheCoveredVoxels` is enabled, the blocker stores stable `WorldVoxelIndex`
+values when it applies. Removal then uses those identities directly instead of
+retracing.
 
 That is a good trade when:
 
@@ -108,11 +124,13 @@ That is a good trade when:
 - the covered region is large
 - you want removal to stay stable even if pooled runtime objects are reused
 
-The tradeoff is memory: you are keeping an extra list of covered voxel identities alive for the blocker.
+The tradeoff is memory: you are keeping an extra list of covered voxel
+identities alive for the blocker.
 
 ## Grid Watcher Behavior
 
-One of the more important design details lives in the world binding for `Blocker`.
+One of the more important design details lives in the world binding for
+`Blocker`.
 
 The blocker base subscribes to:
 
@@ -126,25 +144,30 @@ contents change inside their owning world.
 
 ### Why this exists
 
-A bounds-based blocker may span multiple grids, and those grids are allowed to load or unload over time. If blocker coverage only ran once, the world could drift out of sync as grids change.
+A bounds-based blocker may span multiple grids, and those grids are allowed to
+load or unload over time. If blocker coverage only ran once, the world could
+drift out of sync as grids change.
 
 ### What happens on grid add
 
-If a newly added grid overlaps the blocker's cached bounds, the blocker reapplies itself so the new grid receives the correct obstacle state.
+If a newly added grid overlaps the blocker's cached bounds, the blocker
+reapplies itself so the new grid receives the correct obstacle state.
 
 ### What happens on grid removal
 
-If a removed grid was one the blocker had previously covered, the blocker reapplies itself across the remaining world state.
+If a removed grid was one the blocker had previously covered, the blocker
+reapplies itself across the remaining world state.
 
 ### What happens on grid change
 
-Sparse runtime voxel add/remove operations publish active-grid change events.
-If a new configured sparse voxel overlaps an active blocker, the blocker
-reapplies coverage so the new voxel receives the correct obstacle token.
+Sparse runtime voxel add/remove operations publish active-grid change events. If
+a new configured sparse voxel overlaps an active blocker, the blocker reapplies
+coverage so the new voxel receives the correct obstacle token.
 
 ### What happens on reset
 
-World reset clears blocker watcher registration and clears active blocking state. Treat reset as the hard boundary for blocker lifetime.
+World reset clears blocker watcher registration and clears active blocking
+state. Treat reset as the hard boundary for blocker lifetime.
 
 ## Stacking Behavior
 
@@ -191,9 +214,12 @@ touch hex cell footprints.
 
 Obstacle state affects vacancy checks.
 
-`Voxel.HasVacancy` requires the voxel to be unblocked and below the occupant count limit. In practice that means a blocked voxel is not considered available for occupant placement through the normal occupant manager flow.
+`Voxel.HasVacancy` requires the voxel to be unblocked and below the occupant
+count limit. In practice that means a blocked voxel is not considered available
+for occupant placement through the normal occupant manager flow.
 
-That interaction is worth remembering whenever occupancy registration "mysteriously" starts failing after blocker work.
+That interaction is worth remembering whenever occupancy registration
+"mysteriously" starts failing after blocker work.
 
 ## Events
 
@@ -201,11 +227,13 @@ There are two event layers in this subsystem.
 
 ### Blocker-level events
 
-`Blocker.OnBlockageApplied` and `Blocker.OnBlockageRemoved` describe the lifecycle of a specific blocker coverage operation.
+`Blocker.OnBlockageApplied` and `Blocker.OnBlockageRemoved` describe the
+lifecycle of a specific blocker coverage operation.
 
 ### Obstacle-level events
 
-Obstacle mutation also produces lower-level notifications through the obstacle APIs and the affected `Voxel` instances.
+Obstacle mutation also produces lower-level notifications through the obstacle
+APIs and the affected `Voxel` instances.
 
 The architecture uses both layers for different purposes:
 
@@ -233,14 +261,20 @@ mutate.
 
 ## Common Pitfalls
 
-- Treating blockers as if they were the stored obstacle state instead of a producer of that state
-- Forgetting that stacked tokens can keep a voxel blocked after one blocker is removed
+- Treating blockers as if they were the stored obstacle state instead of a
+  producer of that state
+- Forgetting that stacked tokens can keep a voxel blocked after one blocker is
+  removed
 - Using cached covered voxels everywhere without considering memory cost
 - Assuming blocker coverage is limited to a single grid
-- Forgetting that world reset or disposal is the authoritative cleanup boundary for active blockers
+- Forgetting that world reset or disposal is the authoritative cleanup boundary
+  for active blockers
 
 ## Read This Next
 
-- [GridTracer and Coverage](GridTracer-and-Coverage.md) for how covered voxels are resolved
-- [Occupants and Partitions](Occupants-and-Partitions.md) for the other major mutation layer that sits on top of voxel state
-- [Diagnostics and Logging](Diagnostics-and-Logging.md) for how blocker and obstacle failures are surfaced safely
+- [GridTracer and Coverage](GridTracer-and-Coverage.md) for how covered voxels
+  are resolved
+- [Occupants and Partitions](Occupants-and-Partitions.md) for the other major
+  mutation layer that sits on top of voxel state
+- [Diagnostics and Logging](Diagnostics-and-Logging.md) for how blocker and
+  obstacle failures are surfaced safely

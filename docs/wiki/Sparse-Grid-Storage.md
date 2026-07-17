@@ -56,8 +56,8 @@ VoxelGrid grid = world.ActiveGrids[gridIndex];
 ```
 
 For rectangular authoring data, you can also pass a `bool[,,]` mask. The mask
-uses `[x, y, z]` indexing and must match the grid's normalized
-`Width`, `Height`, and `Length`.
+uses `[x, y, z]` indexing and must match the grid's normalized `Width`,
+`Height`, and `Length`.
 
 ```csharp
 bool[,,] mask = new bool[8, 1, 8];
@@ -113,8 +113,8 @@ return `false` when the addressed sparse voxel was not configured.
 nearest physical voxel center. For sparse grids, missing address-space cells are
 ignored and only configured voxels participate. `TryGetClosestGrid(...)` is
 separate: it resolves the nearest registered grid bounds, even when that grid is
-sparse and the nearest physical voxel belongs to another grid. In
-mixed-topology worlds, `GridWorld` closest query methods can take an optional
+sparse and the nearest physical voxel belongs to another grid. In mixed-topology
+worlds, `GridWorld` closest query methods can take an optional
 `GridTopologyKind` filter so only rectangular-prism or hex-prism grids
 participate.
 
@@ -158,22 +158,22 @@ operations update grid versioning, keep stateless neighbor lookup current, and
 notify active world-grid watchers.
 
 When a sparse voxel is added under an active blocker, blocker reconciliation
-reapplies the overlapping blocker state so the new voxel is not left
-incorrectly unblocked.
+reapplies the overlapping blocker state so the new voxel is not left incorrectly
+unblocked.
 
 ## Query Behavior
 
 Sparse behavior is storage-neutral from the caller's point of view:
 
-| Workflow | Sparse behavior |
-| --- | --- |
-| `GridTracer.GetCoveredVoxels(...)` | Returns covered configured voxels only |
-| `GridTracer.GetCoveredScanCells(...)` | Returns scan cells that exist for configured sparse blocks |
-| `BoundsBlocker.ApplyBlockage()` / `AreaBlocker.ApplyBlockage()` | Applies obstacle state only to covered configured voxels |
-| Occupant registration | Requires the target configured voxel to exist and have vacancy |
-| Partitions | Attach to configured voxels only |
-| Neighbor lookup | Missing sparse neighbors are absent |
-| Radius scans | Inspect covered configured scan cells, then active occupant buckets |
+| Workflow                                                        | Sparse behavior                                                     |
+| --------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `GridTracer.GetCoveredVoxels(...)`                              | Returns covered configured voxels only                              |
+| `GridTracer.GetCoveredScanCells(...)`                           | Returns scan cells that exist for configured sparse blocks          |
+| `BoundsBlocker.ApplyBlockage()` / `AreaBlocker.ApplyBlockage()` | Applies obstacle state only to covered configured voxels            |
+| Occupant registration                                           | Requires the target configured voxel to exist and have vacancy      |
+| Partitions                                                      | Attach to configured voxels only                                    |
+| Neighbor lookup                                                 | Missing sparse neighbors are absent                                 |
+| Radius scans                                                    | Inspect covered configured scan cells, then active occupant buckets |
 
 Sparse scan cells are block buckets for configured voxels, not proof that every
 local coordinate inside the block is configured. Use `grid.ContainsVoxel(...)`
@@ -191,11 +191,11 @@ opt into missing address-space descriptors through `GridDiagnostics` when it
 needs to draw or inspect "where a sparse voxel could be" without materializing
 one.
 
-| Address Mode | Sparse Diagnostic Behavior |
-| --- | --- |
-| `PhysicalOnly` | Returns configured physical voxels only. This is the default. |
+| Address Mode         | Sparse Diagnostic Behavior                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `PhysicalOnly`       | Returns configured physical voxels only. This is the default.                                 |
 | `PhysicalAndMissing` | Returns configured physical voxels plus missing address cells inside the bounded query range. |
-| `MissingOnly` | Returns only missing sparse address cells inside the bounded query range. |
+| `MissingOnly`        | Returns only missing sparse address cells inside the bounded query range.                     |
 
 Missing sparse address cells use `GridDiagnosticCellKind.MissingSparseAddress`
 and include the `MissingSparseAddress` state flag. They are descriptors only:
@@ -233,8 +233,12 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 
 ## Read This Next
 
-- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for physical voxel ownership
-- [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for sparse-hole diagnostic descriptors
-- [GridTracer and Coverage](GridTracer-and-Coverage.md) for coverage result behavior
+- [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) for physical voxel
+  ownership
+- [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for
+  sparse-hole diagnostic descriptors
+- [GridTracer and Coverage](GridTracer-and-Coverage.md) for coverage result
+  behavior
 - [Blockers and Obstacles](Blockers-and-Obstacles.md) for blocker reconciliation
-- [Occupants and Partitions](Occupants-and-Partitions.md) for runtime state rules
+- [Occupants and Partitions](Occupants-and-Partitions.md) for runtime state
+  rules

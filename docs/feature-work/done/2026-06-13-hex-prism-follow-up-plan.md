@@ -2,14 +2,14 @@
 
 **Status:** Done
 
-**Goal:** Tracked topology work intentionally deferred from the first
-hex-prism release so the completed implementation plan could stay closed
-without losing design context.
+**Goal:** Tracked topology work intentionally deferred from the first hex-prism
+release so the completed implementation plan could stay closed without losing
+design context.
 
 **Scope:** This plan is for follow-up validation and design work only. The first
-hex-prism release already supports rectangular and hex grids in one
-`GridWorld`, topology-aware lookup, tracing, blockers, occupants, scans,
-benchmarks, and documentation.
+hex-prism release already supports rectangular and hex grids in one `GridWorld`,
+topology-aware lookup, tracing, blockers, occupants, scans, benchmarks, and
+documentation.
 
 ## Completed Work
 
@@ -30,8 +30,8 @@ Current state:
 - Mixed rectangular/hex lookup, tracing, blockers, occupants, and scans already
   work at the `GridWorld` level.
 - Direct mixed voxel-neighbor bridging is now exposed through
-  `GetNeighborsInto(...)` / `HasNeighbor(...)` with `VoxelNeighborScope`
-  instead of mixed-only public method names.
+  `GetNeighborsInto(...)` / `HasNeighbor(...)` with `VoxelNeighborScope` instead
+  of mixed-only public method names.
 - Hex directed lookup now uses orientation-neutral axial `HexDirection` names
   such as `QPositive`, `QPositiveRNegative`, and `RNegative` rather than
   compass-style names.
@@ -53,8 +53,8 @@ Preferred design:
   `TryGetNeighbor(ownerGrid, HexDirection direction, out Voxel?)`.
 - Keep no-allocation direction-aware result paths:
   `GetRectangularNeighborsInto(...)` and `GetHexNeighborsInto(...)`.
-- Remove public `useCache` parameters. Cache policy is an implementation
-  detail, not something callers should need to choose for correctness.
+- Remove public `useCache` parameters. Cache policy is an implementation detail,
+  not something callers should need to choose for correctness.
 - Remove the current per-voxel neighbor result cache unless benchmarks later
   prove a new cache is worth the invalidation complexity.
 - Treat contact lookup as one-to-many: a source voxel can touch zero, one, or
@@ -80,15 +80,15 @@ Preferred design:
 
 Approaches considered:
 
-- Direction-slot mapping: rejected because rectangular and hex directions do
-  not have a stable one-to-one mapping and this would make the public API
-  ambiguous again.
+- Direction-slot mapping: rejected because rectangular and hex directions do not
+  have a stable one-to-one mapping and this would make the public API ambiguous
+  again.
 - Direct `GridTracer.GetCoveredVoxels(...)` wrapper: useful as a reference, but
   too broad as the core hot-path implementation.
 - AABB contact query: selected because it is deterministic, fast to broad-phase
-  through the spatial hash, works for rectangular and both hex orientations,
-  and makes one-to-many mixed contacts explicit. This is an AABB contact model,
-  not exact hex polygon intersection.
+  through the spatial hash, works for rectangular and both hex orientations, and
+  makes one-to-many mixed contacts explicit. This is an AABB contact model, not
+  exact hex polygon intersection.
 - AABB-only directed lookup: rejected because directed APIs promise an exact
   topology-local offset, while contact APIs promise physical footprint overlap.
 - Preserve the current per-voxel neighbor cache: rejected unless future
@@ -180,8 +180,8 @@ changing public behavior.
 
 Tasks:
 
-- Add an internal lightweight footprint type, likely
-  `TopologyVoxelAabb`, storing `Vector3d Min` and `Vector3d Max`.
+- Add an internal lightweight footprint type, likely `TopologyVoxelAabb`,
+  storing `Vector3d Min` and `Vector3d Max`.
 - Add an internal topology method or helper that derives a voxel footprint AABB
   from `(VoxelGrid grid, VoxelIndex index)`.
 - Implement rectangular footprint bounds from `CellWidth`, `LayerHeight`, and
@@ -211,12 +211,11 @@ Tasks:
   `src/GridForge/Grids/Topology`, that accepts a source `Voxel`, its owner
   `VoxelGrid`, a caller-owned `SwiftList<Voxel>` result buffer, and optional
   tolerance.
-- Validate source ownership using the same world/grid/spawn-token checks used
-  by existing voxel neighbor methods.
+- Validate source ownership using the same world/grid/spawn-token checks used by
+  existing voxel neighbor methods.
 - Collect candidate grid ids through the world's spatial hash using the source
   footprint AABB expanded by `world.MaxTopologyCellEdge`.
-- Deduplicate candidate grid ids and process them in ascending grid index
-  order.
+- Deduplicate candidate grid ids and process them in ascending grid index order.
 - Skip inactive grids, the source grid, and same-topology grids.
 - For each mixed candidate grid, derive a topology-specific candidate index
   range from the source AABB, using the existing `GridTracer` hex coverage
@@ -244,8 +243,8 @@ Tasks:
 - Add `Voxel.GetMixedTopologyNeighborsInto(...)` as the primary public API.
 - Add `Voxel.HasMixedTopologyNeighbor(...)` for fast boolean checks that can
   early-exit without filling a result list.
-- Decide whether an enumerable `GetMixedTopologyNeighbors(...)` wrapper is
-  worth adding after the caller-owned path is in place.
+- Decide whether an enumerable `GetMixedTopologyNeighbors(...)` wrapper is worth
+  adding after the caller-owned path is in place.
 - Keep `TryGetRectangularNeighbor(...)`, `GetRectangularNeighbors(...)`,
   `TryGetHexNeighbor(...)`, and `GetHexNeighbors(...)` same-topology only.
 - Keep `VoxelGrid.GetRectangularNeighborDirection(...)` and
@@ -307,11 +306,9 @@ Tasks:
 - Add `VoxelNeighborScope` as a `[Flags]` enum with `SourceGrid`,
   `SameTopologyGrids`, `MixedTopologyGrids`, and `All`.
 - Replace `GetMixedTopologyNeighborsInto(...)` with
-  `GetNeighborsInto(..., VoxelNeighborScope scope = VoxelNeighborScope.All,
-  Fixed64? tolerance = null)`.
+  `GetNeighborsInto(..., VoxelNeighborScope scope = VoxelNeighborScope.All, Fixed64? tolerance = null)`.
 - Replace `HasMixedTopologyNeighbor(...)` with
-  `HasNeighbor(..., VoxelNeighborScope scope = VoxelNeighborScope.All,
-  Fixed64? tolerance = null)`.
+  `HasNeighbor(..., VoxelNeighborScope scope = VoxelNeighborScope.All, Fixed64? tolerance = null)`.
 - Replace `TryGetRectangularNeighbor(...)` and `TryGetHexNeighbor(...)` with
   `TryGetNeighbor(...)` overloads that accept `RectangularDirection` or
   `HexDirection`.
@@ -359,16 +356,16 @@ Tasks:
   mixed contact path.
 - Remove `Voxel._cachedNeighbors`, `_isNeighborCacheValid`,
   `InvalidateNeighborCache()`, `EnsureNeighborCache(...)`,
-  `RefreshNeighborCache(...)`, and related cache invalidation paths if no
-  other behavior still requires them.
+  `RefreshNeighborCache(...)`, and related cache invalidation paths if no other
+  behavior still requires them.
 - Keep `VoxelGrid.Neighbors` only as an internal same-topology grid adjacency
   accelerator if it still improves grid load/unload behavior; do not let it
   define public neighbor semantics.
 - Extract shared candidate-grid and candidate-voxel range helpers used by both
   neighbor contact and `GridTracer` where doing so removes duplicate broad-phase
   logic without weakening either system's final filter.
-- Ensure all pooled collections are released in `finally` blocks and that
-  result ordering remains deterministic.
+- Ensure all pooled collections are released in `finally` blocks and that result
+  ordering remains deterministic.
 
 Exit criteria:
 
@@ -398,21 +395,21 @@ does not regress rectangular, hex, sparse, or mixed neighbor behavior.
 Tasks:
 
 - [x] Rename `HexDirection` values from compass-style names to axial-offset
-  names such as `QPositive`, `QPositiveRNegative`, `RNegative`, `QNegative`,
-  `QNegativeRPositive`, and `RPositive`, plus matching above/below variants.
+      names such as `QPositive`, `QPositiveRNegative`, `RNegative`, `QNegative`,
+      `QNegativeRPositive`, and `RPositive`, plus matching above/below variants.
 - [x] Update `HexDirectionUtility` arrays, subsets, XML docs, tests, and
-  examples to use the new axial names.
+      examples to use the new axial names.
 - [x] Add tests for `VoxelNeighborScope.SourceGrid`,
-  `VoxelNeighborScope.SameTopologyGrids`, `VoxelNeighborScope.MixedTopologyGrids`,
-  and `VoxelNeighborScope.All`.
+      `VoxelNeighborScope.SameTopologyGrids`,
+      `VoxelNeighborScope.MixedTopologyGrids`, and `VoxelNeighborScope.All`.
 - [x] Add tests proving `GetNeighborsInto(...)` returns deterministic contact
-  results across local, conjoined same-topology, and mixed-topology grids.
+      results across local, conjoined same-topology, and mixed-topology grids.
 - [x] Add tests proving directed `TryGetNeighbor(...)` overloads remain exact,
-  same-topology, and do not return mixed contact results.
-- [x] Update existing rectangular and hex neighbor tests to use the new public API
-  names and no-cache signatures.
-- [x] Keep sparse runtime mutation, grid unload, and vertical-separation tests in
-  the validation matrix.
+      same-topology, and do not return mixed contact results.
+- [x] Update existing rectangular and hex neighbor tests to use the new public
+      API names and no-cache signatures.
+- [x] Keep sparse runtime mutation, grid unload, and vertical-separation tests
+      in the validation matrix.
 
 Validation commands:
 
@@ -462,17 +459,17 @@ Tasks:
   - one flat-top hex mixed candidate
   - many candidate grids in nearby spatial hash cells
   - sparse target with mostly missing candidate cells
-- [x] Verify candidate grid collection stays bounded by spatial hash coverage, not
-  total active grid count.
+- [x] Verify candidate grid collection stays bounded by spatial hash coverage,
+      not total active grid count.
 - [x] Verify hot paths avoid LINQ and avoid allocations when callers use
-  `GetNeighborsInto(...)`, `GetRectangularNeighborsInto(...)`, and
-  `GetHexNeighborsInto(...)`.
-- [x] Compare the unified resolver against the removed per-voxel cache behavior if
-  a prior benchmark exists, or capture a new baseline before considering any
-  replacement cache.
-- [x] Only add caching if benchmark data proves the uncached resolver is too slow.
-  Any new cache must have explicit invalidation for grid load/unload, sparse
-  mutation, and topology-specific footprint changes.
+      `GetNeighborsInto(...)`, `GetRectangularNeighborsInto(...)`, and
+      `GetHexNeighborsInto(...)`.
+- [x] Compare the unified resolver against the removed per-voxel cache behavior
+      if a prior benchmark exists, or capture a new baseline before considering
+      any replacement cache.
+- [x] Only add caching if benchmark data proves the uncached resolver is too
+      slow. Any new cache must have explicit invalidation for grid load/unload,
+      sparse mutation, and topology-specific footprint changes.
 
 Result:
 
@@ -480,10 +477,10 @@ Result:
   same-topology contacts, empty mixed-scope queries, pointy-top and flat-top
   mixed contacts, many nearby candidate grids, sparse mostly-missing targets,
   and rectangular/hex direction-labeled caller-owned result paths.
-- Replaced per-query shared-pool scratch rentals inside
-  `VoxelNeighborResolver` contact lookup with thread-local scratch storage and
-  a reentrant fallback. This keeps the public API allocation-conscious without
-  adding caller-visible cache controls.
+- Replaced per-query shared-pool scratch rentals inside `VoxelNeighborResolver`
+  contact lookup with thread-local scratch storage and a reentrant fallback.
+  This keeps the public API allocation-conscious without adding caller-visible
+  cache controls.
 - Kept source-grid contact neighbors in deterministic topology-slot order and
   sorted cross-grid candidate voxels only where spatial-range collection can
   produce non-directional ordering.
@@ -511,25 +508,25 @@ fake direction mappings across topology families.
 Tasks:
 
 - [x] Update `docs/wiki/VoxelGrid-and-Voxel-Model.md` with the unified
-  `GetNeighborsInto(...)` contact-query semantics and directed
-  `TryGetNeighbor(...)` overload semantics.
+      `GetNeighborsInto(...)` contact-query semantics and directed
+      `TryGetNeighbor(...)` overload semantics.
 - [x] Update `docs/wiki/Architecture-Overview.md` to distinguish same-topology
-  grid-slot acceleration from public contact queries.
-- [x] Update `docs/wiki/Core-Concepts.md` so users see one primary neighbor query
-  and topology-specific directed overloads.
-- [x] Update `docs/wiki/Testing-and-Benchmarking.md` with the unified neighbor test
-  and benchmark surfaces.
-- [x] Update README only if the public API becomes important enough for the front
-  door.
+      grid-slot acceleration from public contact queries.
+- [x] Update `docs/wiki/Core-Concepts.md` so users see one primary neighbor
+      query and topology-specific directed overloads.
+- [x] Update `docs/wiki/Testing-and-Benchmarking.md` with the unified neighbor
+      test and benchmark surfaces.
+- [x] Update README only if the public API becomes important enough for the
+      front door.
 - [x] Mark this follow-up plan `**Status:** Done` and move it under
-  `docs/feature-work/done` only after sparse hex validation and mixed topology
-  bridging/API hardening are complete.
+      `docs/feature-work/done` only after sparse hex validation and mixed
+      topology bridging/API hardening are complete.
 
 Result:
 
-- `docs/wiki/VoxelGrid-and-Voxel-Model.md`, `docs/wiki/Architecture-Overview.md`,
-  and `docs/wiki/Core-Concepts.md` already describe the final
-  contact-query-versus-directed-lookup model from phases 5-7.
+- `docs/wiki/VoxelGrid-and-Voxel-Model.md`,
+  `docs/wiki/Architecture-Overview.md`, and `docs/wiki/Core-Concepts.md` already
+  describe the final contact-query-versus-directed-lookup model from phases 5-7.
 - `docs/wiki/Testing-and-Benchmarking.md` was aligned in phase 8 with the
   unified neighbor benchmark matrix.
 - README/AGENTS front-door wording was cleaned up to remove stale references to
@@ -551,12 +548,13 @@ before documenting it as a recommended workflow.
 Checklist:
 
 - [x] Add tests for sparse hex construction from topology-local `(q, layer, r)`
-  configured indices.
-- [x] Add lookup, coverage, blocker, occupant, scan, and runtime mutation coverage
-  for sparse hex grids.
+      configured indices.
+- [x] Add lookup, coverage, blocker, occupant, scan, and runtime mutation
+      coverage for sparse hex grids.
 - [x] Evaluate whether benchmark coverage is needed beyond dense hex and sparse
-  rectangular grid coverage.
-- [x] Update sparse and topology docs if sparse hex becomes a highlighted scenario.
+      rectangular grid coverage.
+- [x] Update sparse and topology docs if sparse hex becomes a highlighted
+      scenario.
 
 Result:
 
