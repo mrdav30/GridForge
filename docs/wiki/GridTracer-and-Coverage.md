@@ -93,7 +93,9 @@ costs while still resolving the owning grid from `voxel.GridIndex` when needed.
 Consumers that build their own GridForge-backed broad phases can use
 `GridTraversal` and `GridTraversalState` for duplicate-safe voxel traversal.
 `GridTraversal.TryGetUniquePartition(...)` suppresses repeated voxel visits by
-voxel spawn token before resolving a typed partition.
+exact `WorldVoxelIndex` before resolving a typed partition. Callers provide a
+reusable `SwiftHashSet<WorldVoxelIndex>`; clear it between independent
+traversals. Object hash codes are never treated as unique voxel identities.
 
 `GridTraversalState` caches the selected topology edge per grid while walking
 voxels. Use `GridTraversalPaddingMode.MaxCellEdge` for full 3D padding and

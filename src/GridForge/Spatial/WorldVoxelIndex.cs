@@ -92,7 +92,7 @@ public struct WorldVoxelIndex : IEquatable<WorldVoxelIndex>
     }
 
     /// <summary>
-    /// Computes a hash code for uniquely identifying this world-scoped voxel identity.
+    /// Computes a hash code for hash-based lookup. Exact equality remains authoritative.
     /// </summary>
     public override readonly int GetHashCode() =>
         SwiftHashTools.CombineHashCodes(

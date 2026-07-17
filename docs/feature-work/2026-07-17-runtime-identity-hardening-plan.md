@@ -9,7 +9,7 @@
 > before claiming a phase is complete. Steps use checkbox (`- [ ]`) syntax for
 > tracking.
 
-**Status:** Planned
+**Status:** In Progress
 
 **Goal:** Make every runtime identity used for stale-reference rejection,
 deduplication, blocker ownership, or occupant lookup exact across pooled reuse,
@@ -29,13 +29,15 @@ identities are transient safety data, not serialized simulation state.
 
 ## Status
 
-- Started: not started.
+- Started: 2026-07-17.
 - Planning date: 2026-07-17.
 - Release posture: intentionally breaking pre-release hardening.
-- Current state: RCA and identity audit complete; implementation has not
-  started.
-- Working agreement: keep local project references in place and leave runtime,
-  test, benchmark, and documentation changes unstaged for owner review.
+- Current state: Phases 0-2 are complete. Exact voxel identity and local-linked
+  Gravitas propagation are verified and independently reviewed. Phase 3 is
+  next.
+- Working agreement: keep local project references in place and uncommitted;
+  commit coherent implementation milestones directly to `develop` while
+  preserving unrelated owner changes.
 - Execution order: finish one phase and its focused verification before moving
   to the next phase.
 
@@ -183,104 +185,168 @@ current grid hash is structural over slot and bounds.
 Intent: preserve evidence and establish focused performance and behavior
 baselines before runtime changes.
 
-- [ ] Confirm the local FixedMathSharp and SwiftCollections project references
+- [x] Confirm the local FixedMathSharp and SwiftCollections project references
   remain present in the GridForge library, test, and benchmark projects.
-- [ ] Confirm the local GridForge project reference remains present in the
+- [x] Confirm the local GridForge project reference remains present in the
   Gravitas library, test, and benchmark projects.
-- [ ] Record current `git status` in both repositories and preserve unrelated
+- [x] Record current `git status` in both repositories and preserve unrelated
   owner changes.
-- [ ] Run the GridForge Debug test baseline.
-- [ ] Capture the closest existing grid lifecycle, traversal, blocker, and
+- [x] Run the GridForge Debug test baseline.
+- [x] Capture the closest existing grid lifecycle, traversal, blocker, and
   occupant benchmark baselines. Add a narrowly scoped benchmark only if an
   affected hot path has no meaningful existing signal.
-- [ ] Add focused failing regressions before changing runtime behavior.
+- [x] Add focused failing regressions before changing runtime behavior.
 
 Exit criteria:
 
-- [ ] Baseline tests pass before new regressions are introduced.
-- [ ] The exact stale-grid reproduction fails for the expected reason.
-- [ ] Benchmark commands and baseline medians are recorded in this plan.
+- [x] Baseline tests pass before new regressions are introduced.
+- [x] The exact stale-grid reproduction fails for the expected reason.
+- [x] Benchmark commands and baseline medians are recorded in this plan.
+
+Phase 0 evidence:
+
+- Debug baseline: `429/429` passed, `0` failed.
+- RED regressions: `2/2` failed because stale identities resolved replacement
+  grids after identical remove/re-add and `Reset(deactivate: false)`.
+- Benchmark command:
+
+  ```powershell
+  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- grid-registration grid-tracer blocker-memory occupant-wave --filter '*' --job short --exporters json
+  ```
+
+- Default-toolchain baseline means/allocations:
+
+  | Signal | Mean | Allocated |
+  | --- | ---: | ---: |
+  | Register many adjacent grids | 2,389.4 us | 1,004.58 KB |
+  | Remove many adjacent grids | 1,781.7 us | 24.11 KB |
+  | Covered voxels, warm pools | 612.07 us | 760 B |
+  | Trace line, warm pools | 194.57 us | 704 B |
+  | Blocker apply/remove, uncached | 64.40 ms | 28.11 MB |
+  | Blocker apply/remove, cached | 46.78 ms | 27.98 MB |
+  | Occupant wave, cold pools | 55.43 ms | 32.77 MB |
+  | Occupant wave, warm pools | 79.85 ms | 31.95 MB |
+
+Short-run timing variance is high for several rows. Allocation deltas and
+large repeatable timing changes are stronger signals than small mean changes.
 
 ## Phase 1: World And Grid Allocation Identity
 
 Intent: make `WorldVoxelIndex` reject stale grid generations and foreign worlds
 without relying on hash-code luck.
 
-- [ ] Add one small internal 64-bit allocation helper that atomically issues a
+- [x] Add one small internal 64-bit allocation helper that atomically issues a
   nonzero value and throws before overflow. Do not add an interface, registry,
   or pluggable provider.
-- [ ] Allocate each active `GridWorld` a process-unique runtime token.
-- [ ] Give each world a private grid-generation counter.
-- [ ] Issue a new grid generation for every successful grid allocation,
+- [x] Allocate each active `GridWorld` a process-unique runtime token.
+- [x] Give each world a private grid-generation counter.
+- [x] Issue a new grid generation for every successful grid allocation,
   independent of pool object, slot, bounds, topology, or storage kind.
-- [ ] Preserve the world's grid-generation counter across
+- [x] Preserve the world's grid-generation counter across
   `Reset(deactivate: false)`.
-- [ ] Invalidate the public world token when the world is deactivated, while
+- [x] Invalidate the public world token when the world is deactivated, while
   never returning its issued process token to an allocator.
-- [ ] Widen the world and grid token fields carried by `WorldVoxelIndex`, grid
+- [x] Widen the world and grid token fields carried by `WorldVoxelIndex`, grid
   events, diagnostics, and comparisons to 64-bit values.
-- [ ] Ensure allocator exhaustion fails before a replacement becomes visible or
+- [x] Ensure allocator exhaustion fails before a replacement becomes visible or
   a prior generation can be reused.
 
 Required tests:
 
-- [ ] Remove and re-add the identical configuration into the reused slot: the
+- [x] Remove and re-add the identical configuration into the reused slot: the
   stale identity fails grid, voxel, and partition lookup; the replacement
   identity succeeds.
-- [ ] `Reset(deactivate: false)` plus identical re-add preserves world identity
+- [x] `Reset(deactivate: false)` plus identical re-add preserves world identity
   and advances grid generation.
-- [ ] Two simultaneously live worlds with identical layouts have different
+- [x] Two simultaneously live worlds with identical layouts have different
   world identities and reject each other's voxel identities.
-- [ ] Generation values are nonzero and advance even when the pool returns the
+- [x] Generation values are nonzero and advance even when the pool returns the
   same object.
-- [ ] The allocator's boundary behavior throws before wraparound.
+- [x] The allocator's boundary behavior throws before wraparound.
 
 Exit criteria:
 
-- [ ] All focused world/grid identity tests pass.
-- [ ] No production identity is assigned from `GetHashCode()`.
-- [ ] Grid lookup remains O(1) by slot plus generation validation.
+- [x] All focused world/grid identity tests pass.
+- [x] No world or grid allocation identity is assigned from `GetHashCode()`;
+  the deliberately deferred voxel/scan-cell hash tokens remain Phase 2 scope.
+- [x] Grid lookup remains O(1) by slot plus generation validation.
+
+Phase 1 evidence:
+
+- Commit: `0c5420f` (`fix(identity): make world and grid generations
+  allocation-safe`).
+- Focused world/grid/allocator suite: `5/5` passed.
+- Full Debug suite: `433/433` passed, `0` failed.
+- `RuntimeIdentityAllocator` uses compare-and-swap allocation, reserves zero,
+  and throws without mutating a counter already at `long.MaxValue`.
+- Grid generations are allocated before a replacement becomes visible and the
+  world-local counter survives non-deactivating reset.
+- Independent Phase 1 review: no findings.
 
 ## Phase 2: Exact Voxel Deduplication And Gravitas Consumers
 
 Intent: remove object-hash collision risk from traversal and prove the corrected
 identity through every downstream physics mode.
 
-- [ ] Change `GridTraversal` visited sets from `SwiftHashSet<int>` object hashes
+- [x] Change `GridTraversal` visited sets from `SwiftHashSet<int>` object hashes
   to `SwiftHashSet<WorldVoxelIndex>` exact identities.
-- [ ] Update all GridForge traversal callers and pooled set ownership.
-- [ ] Update Gravitas 3D query deduplication and every other local-linked
+- [x] Update all GridForge traversal callers; no pooled production set exists,
+  so the existing caller-owned ownership remains unchanged.
+- [x] Update Gravitas 3D query deduplication and every other local-linked
   consumer to use exact identities.
-- [ ] Remove `Voxel.SpawnToken` after its final consumer is gone.
-- [ ] Remove unused `ScanCell.SpawnToken` rather than hardening dead identity.
-- [ ] Audit diagnostic and deterministic sort comparers after token widening;
+- [x] Remove `Voxel.SpawnToken` after its final consumer is gone.
+- [x] Remove unused `ScanCell.SpawnToken` rather than hardening dead identity.
+- [x] Audit diagnostic and deterministic sort comparers after token widening;
   keep coordinate/entity ordering authoritative.
-- [ ] Update GridForge XML documentation and the migration guide for the
+- [x] Update GridForge XML documentation and the migration guide for the
   breaking token-width and removed-member changes.
 
 Required tests:
 
-- [ ] Grid traversal visits two distinct voxels even when a synthetic comparer
+- [x] Grid traversal visits two distinct voxels even when a synthetic comparer
   or hash path produces collisions.
-- [ ] Existing duplicate-voxel suppression still visits one exact identity only
+- [x] Existing duplicate-voxel suppression still visits one exact identity only
   once.
-- [ ] Gravitas 3D same-configuration grid replacement rejects stale collider
+- [x] Gravitas 3D same-configuration grid replacement rejects stale collider
   coordinates and returns the replacement partition correctly.
-- [ ] Repeat the same regression for Gravitas 2D and mixed partition paths.
-- [ ] Query result ordering and repeated-run determinism remain stable.
+- [x] Repeat the same regression for Gravitas 2D and mixed partition paths.
+- [x] Query result ordering and repeated-run determinism remain stable.
 
 Performance evidence:
 
-- [ ] Compare traversal/query benchmarks before and after replacing integer
+- [x] Compare traversal/query benchmarks before and after replacing integer
   tokens with `WorldVoxelIndex` values.
-- [ ] Investigate only a measured regression. Do not restore hash-only identity
+- [x] Investigate only a measured regression. Do not restore hash-only identity
   for speed.
 
 Exit criteria:
 
-- [ ] No traversal or query path treats an object hash as unique.
-- [ ] GridForge and Gravitas focused identity/query tests pass.
-- [ ] Benchmark deltas are recorded and acceptable.
+- [x] No traversal or query path treats an object hash as unique.
+- [x] GridForge and Gravitas focused identity/query tests pass.
+- [x] Benchmark deltas are recorded and acceptable.
+
+Phase 2 evidence:
+
+- The synthetic hash-collision regression failed on the former integer-token
+  path and passes with exact `WorldVoxelIndex`; duplicate exact identities are
+  still suppressed.
+- Direct traversal benchmark, 4,096 unique plus 4,096 duplicate visits:
+  integer-token median `101.008 us`, exact-identity median `133.591 us`, both
+  `0 B`. The roughly `4 ns` per-lookup correctness cost is accepted.
+- Exact-identity Debug allocation tests cover single and 256-voxel
+  unique/duplicate paths at `0 B` after warmup.
+- GridForge Debug: `437/437` passed, including the strengthened multi-voxel
+  allocation regression.
+- Gravitas focused Debug identity/query/order suite: `159/159` passed.
+- Gravitas RaycastAll and ConeAll allocation guards: `2/2` passed in Release.
+  Debug-only bytes were isolated entirely to pre-existing GridTracer coverage
+  tracing; processing all returned voxels through the new exact set is `0 B`.
+- The investigation exposed SwiftCollections generic null-guard boxing for
+  custom value types. Commit `0baa703` fixes the shared owner with Debug
+  `1090/1090` and Release `1093/1093` passing.
+- Independent review found no code, determinism, performance, benchmark, or
+  test-quality blockers. Its one wording finding was corrected so
+  `WorldVoxelIndex.GetHashCode()` explicitly defers authority to equality.
 
 ## Phase 3: Independent Same-Bounds Blockers
 
@@ -378,8 +444,8 @@ local links needed for the remaining lower-stack hardening work.
 - [ ] Run an independent final code review covering correctness, determinism,
   pooling, public API quality, test value, and documentation accuracy.
 - [ ] Address review findings and repeat affected verification.
-- [ ] Leave all implementation and documentation changes unstaged for owner
-  review. Keep local project-reference changes uncommitted.
+- [ ] Commit coherent implementation and documentation milestones directly to
+  `develop`. Keep local project-reference changes uncommitted.
 
 Exit criteria:
 
@@ -420,11 +486,14 @@ Exit criteria:
 | Date | Phase | Result |
 | --- | --- | --- |
 | 2026-07-17 | Planning/RCA | Confirmed pooled-grid alias, cross-world hash collision, voxel hash deduplication risk, same-bounds blocker collapse, and recyclable occupant-ticket alias. Locked phased 64-bit runtime identity approach. |
+| 2026-07-17 | Phase 0 | Confirmed local links and owner changes, passed the 429-test Debug baseline, captured lifecycle/traversal/blocker/occupant benchmark baselines, and added two RED stale-grid regressions. |
+| 2026-07-17 | Phase 1 | Added process-unique world identity and world-local grid generations, widened identity carriers, passed the focused 5-test suite and full 433-test Debug suite, and committed as `0c5420f`. |
+| 2026-07-17 | Phase 2 | Replaced hash-only voxel deduplication with exact identities, removed dead voxel/scan-cell tokens, propagated same-configuration replacement through Gravitas 2D/3D/mixed paths, and fixed a shared SwiftCollections Debug boxing defect exposed by the wider value key. |
 
 ## Suggested Commit Sequence
 
-Changes remain unstaged for owner review. When each phase is approved, prefer
-independent commits so release notes and regressions remain easy to audit:
+Commit each coherent phase directly to `develop` so release notes and
+regressions remain easy to audit:
 
 1. `fix(identity): make world and grid generations allocation-safe`
 2. `fix(traversal): deduplicate voxels by exact world identity`

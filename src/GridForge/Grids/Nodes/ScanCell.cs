@@ -37,12 +37,6 @@ public class ScanCell
     /// </summary>
     public int CellKey { get; private set; }
 
-
-    /// <summary>
-    /// Unique token identifying this scan cell instance.
-    /// </summary>
-    public int SpawnToken { get; private set; }
-
     /// <summary>
     /// Maps a <see cref="Voxel.WorldIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
     /// </summary>
@@ -76,7 +70,6 @@ public class ScanCell
         World = world;
         GridIndex = gridIndex;
         CellKey = cellKey;
-        SpawnToken = GetHashCode();
         IsAllocated = true;
     }
 

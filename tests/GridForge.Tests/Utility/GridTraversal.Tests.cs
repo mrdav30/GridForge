@@ -5,6 +5,7 @@ using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using Xunit;
 
 namespace GridForge.Utility.Tests;
@@ -17,7 +18,7 @@ public sealed class GridTraversalTests
         using GridWorld world = CreateWorldWithRectangularGrid(
             GridTopologyMetrics.Rectangular((Fixed64)2, (Fixed64)9, (Fixed64)4));
         Voxel voxel = GetVoxel(world, Vector3d.Zero);
-        SwiftHashSet<int> visited = new SwiftHashSet<int>();
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
 
         GridTraversalState maxTraversal = new GridTraversalState(
             world,
@@ -37,18 +38,127 @@ public sealed class GridTraversalTests
     }
 
     [Fact]
+    public void TryVisitUnique_VisitsDistinctWorldIndicesWhenVoxelHashesCollide()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
+        VoxelGrid grid = world.ActiveGrids[0];
+        HashCollidingVoxel first = CreateHashCollidingVoxel(grid, new VoxelIndex(0, 0, 0));
+        HashCollidingVoxel second = CreateHashCollidingVoxel(grid, new VoxelIndex(1, 0, 0));
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
+        GridTraversalState traversal = new GridTraversalState(world, GridTraversalPaddingMode.MaxCellEdge);
+
+        Assert.True(traversal.TryVisitUnique(first, visited, out _));
+        Assert.True(traversal.TryVisitUnique(second, visited, out _));
+        Assert.False(traversal.TryVisitUnique(first, visited, out _));
+    }
+
+    [Fact]
+    public void TryVisitUnique_WithReusableExactIdentitySet_ShouldNotAllocateAfterWarmup()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
+        Voxel voxel = GetVoxel(world, Vector3d.Zero);
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
+
+        for (int i = 0; i < 16; i++)
+        {
+            visited.Clear();
+            GridTraversalState warmup = new GridTraversalState(world, GridTraversalPaddingMode.MaxCellEdge);
+            Assert.True(warmup.TryVisitUnique(voxel, visited, out _));
+            Assert.False(warmup.TryVisitUnique(voxel, visited, out _));
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1_024; i++)
+        {
+            visited.Clear();
+            GridTraversalState traversal = new GridTraversalState(world, GridTraversalPaddingMode.MaxCellEdge);
+            traversal.TryVisitUnique(voxel, visited, out _);
+            traversal.TryVisitUnique(voxel, visited, out _);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
     public void TryGetUniquePartition_ReturnsAttachedPartitionOnce()
     {
         using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
         Voxel voxel = GetVoxel(world, Vector3d.Zero);
         TestPartition partition = new TestPartition();
         Assert.True(voxel.TryAddPartition(partition));
-        SwiftHashSet<int> visited = new SwiftHashSet<int>();
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
 
         Assert.True(GridTraversal.TryGetUniquePartition(voxel, visited, out TestPartition resolved));
 
         Assert.Same(partition, resolved);
         Assert.False(GridTraversal.TryGetUniquePartition(voxel, visited, out resolved));
+    }
+
+    [Fact]
+    public void TryGetUniquePartition_WithReusableExactIdentitySet_ShouldNotAllocateAfterWarmup()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
+        Voxel voxel = GetVoxel(world, Vector3d.Zero);
+        Assert.True(voxel.TryAddPartition(new TestPartition()));
+        SwiftHashSet<WorldVoxelIndex> visited = new SwiftHashSet<WorldVoxelIndex>();
+
+        for (int i = 0; i < 16; i++)
+        {
+            visited.Clear();
+            Assert.True(GridTraversal.TryGetUniquePartition(voxel, visited, out TestPartition _));
+            Assert.False(GridTraversal.TryGetUniquePartition(voxel, visited, out TestPartition _));
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1_024; i++)
+        {
+            visited.Clear();
+            GridTraversal.TryGetUniquePartition(voxel, visited, out TestPartition _);
+            GridTraversal.TryGetUniquePartition(voxel, visited, out TestPartition _);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void ExactIdentitySet_WithManyUniqueAndDuplicateVoxels_ShouldNotAllocateAfterWarmup()
+    {
+        using GridWorld world = CreateWorldWithRectangularGrid(GridTopologyMetrics.Rectangular(Fixed64.One));
+        var voxels = new SwiftList<Voxel>(256);
+        foreach (Voxel voxel in world.ActiveGrids[0].EnumerateVoxels())
+        {
+            voxels.Add(voxel);
+            if (voxels.Count == 256)
+                break;
+        }
+
+        var visited = new SwiftHashSet<WorldVoxelIndex>(512);
+        for (int pass = 0; pass < 16; pass++)
+        {
+            visited.Clear();
+            VisitAllTwice(voxels, visited);
+        }
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int pass = 0; pass < 64; pass++)
+        {
+            visited.Clear();
+            VisitAllTwice(voxels, visited);
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(0, allocated);
     }
 
     [Fact]
@@ -134,5 +244,33 @@ public sealed class GridTraversalTests
     {
         Assert.True(world.TryGetVoxel(position, out Voxel voxel));
         return voxel;
+    }
+
+    private static void VisitAllTwice(
+        SwiftList<Voxel> voxels,
+        SwiftHashSet<WorldVoxelIndex> visited)
+    {
+        for (int repeat = 0; repeat < 2; repeat++)
+        {
+            for (int i = 0; i < voxels.Count; i++)
+                visited.Add(voxels[i].WorldIndex);
+        }
+    }
+
+    private static HashCollidingVoxel CreateHashCollidingVoxel(VoxelGrid grid, VoxelIndex index)
+    {
+        HashCollidingVoxel voxel = new HashCollidingVoxel();
+        voxel.Initialize(
+            new WorldVoxelIndex(grid.World!.SpawnToken, grid.GridIndex, grid.SpawnToken, index),
+            grid.GetWorldPosition(index),
+            scanCellKey: 0,
+            isBoundaryVoxel: false,
+            gridVersion: grid.Version);
+        return voxel;
+    }
+
+    private sealed class HashCollidingVoxel : Voxel
+    {
+        public override int GetHashCode() => 1;
     }
 }

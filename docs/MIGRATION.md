@@ -3,6 +3,24 @@
 This block is for projects moving from the v7 release line to the v8 release
 line after the FixedMathSharp v6 bounds and 2D geometry hardening work.
 
+## Runtime Identity And Traversal
+
+World and grid allocation tokens are now signed 64-bit runtime identities.
+Update code that stores `GridWorld.SpawnToken`, `VoxelGrid.SpawnToken`,
+`WorldVoxelIndex.WorldSpawnToken`, or `WorldVoxelIndex.GridSpawnToken` from
+`int` to `long`.
+
+`GridTraversalState.TryVisitUnique(...)` and
+`GridTraversal.TryGetUniquePartition(...)` now accept
+`SwiftHashSet<WorldVoxelIndex>` instead of `SwiftHashSet<int>`. The exact world,
+grid generation, and voxel coordinate prevent both hash collisions and stale
+grid generations from suppressing or aliasing live voxels.
+
+`Voxel.SpawnToken` and `ScanCell.SpawnToken` were hash-derived and have been
+removed. Use `Voxel.WorldIndex` for exact cross-system voxel identity. Scan
+cells have no separate public allocation identity; use their owning world,
+grid, and `CellKey` when addressing current runtime state.
+
 The important blocker and coverage distinction is now explicit:
 
 - Use `FixedBoundBox` and `BoundsBlocker` for world-space 3D box regions.

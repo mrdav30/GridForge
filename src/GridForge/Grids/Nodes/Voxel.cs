@@ -23,11 +23,6 @@ public class Voxel : IEquatable<Voxel>
     #region Properties & Fields
 
     /// <summary>
-    /// Unique token identifying this voxel instance.
-    /// </summary>
-    public int SpawnToken { get; private set; }
-
-    /// <summary>
     /// The world-scoped runtime identity of this voxel within the grid system.
     /// </summary>
     public WorldVoxelIndex WorldIndex { get; set; }
@@ -207,7 +202,6 @@ public class Voxel : IEquatable<Voxel>
         WorldIndex = worldVoxelIndex;
         WorldPosition = worldPosition;
 
-        SpawnToken = GetHashCode();
         CachedGridVersion = gridVersion;
         IsAllocated = true;
     }
@@ -266,7 +260,6 @@ public class Voxel : IEquatable<Voxel>
     {
         IsBoundaryVoxel = false;
 
-        SpawnToken = 0;
         ScanCellKey = 0;
         WorldIndex = default;
 

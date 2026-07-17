@@ -57,10 +57,10 @@ public struct GridTraversalState
     /// Visits a voxel only once and returns the selected cell-edge measurement for its grid.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryVisitUnique(Voxel voxel, SwiftHashSet<int> visited, out Fixed64 cellEdge)
+    public bool TryVisitUnique(Voxel voxel, SwiftHashSet<WorldVoxelIndex> visited, out Fixed64 cellEdge)
     {
         cellEdge = Fixed64.Zero;
-        if (!visited.Add(voxel.SpawnToken))
+        if (!visited.Add(voxel.WorldIndex))
             return false;
 
         cellEdge = GetCellEdge(voxel);
@@ -92,17 +92,17 @@ public struct GridTraversalState
 public static class GridTraversal
 {
     /// <summary>
-    /// Gets a voxel partition once per voxel spawn token.
+    /// Gets a voxel partition once per exact world-scoped voxel identity.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryGetUniquePartition<TPartition>(
         Voxel voxel,
-        SwiftHashSet<int> visited,
+        SwiftHashSet<WorldVoxelIndex> visited,
         out TPartition? partition)
         where TPartition : class, IVoxelPartition
     {
         partition = null;
-        return visited.Add(voxel.SpawnToken)
+        return visited.Add(voxel.WorldIndex)
             && voxel.TryGetPartition(out partition);
     }
 
