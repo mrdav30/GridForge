@@ -1,27 +1,4 @@
-# Feature Work Issue Tracker
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:systematic-debugging before implementing fixes, use
-> superpowers:test-driven-development for runtime behavior changes, and use
-> superpowers:verification-before-completion before claiming an issue is fixed.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Status:** Active
-
-**Goal:** Keep bugs, correctness risks, documentation defects, and
-feature-work-discovered issues separate from feature design plans so each fix
-can be triaged, tested, and committed independently.
-
-**Architecture:** This document is intentionally undated. Each tracked item has
-its own discovery date, source, status, affected files, and recommended
-verification. Feature plans may reference this tracker instead of carrying bug
-fixes inside API or design phases.
-
-**Tech Stack:** `netstandard2.1` and `net8.0` runtime targets, xUnit,
-BenchmarkDotNet when performance evidence is needed, FixedMathSharp core runtime
-and tests.
-
----
+# Issue Tracker
 
 ## Tracker Rules
 
@@ -33,10 +10,85 @@ and tests.
   verification evidence.
 - Do not use this tracker as a substitute for tests, benchmarks, or release
   notes.
+- Performance issues should stay in
+  [`benchmark-signal-hardening-backlog.md`](benchmark-signal-hardening-backlog.md)
+  unless they become a confirmed runtime defect. Do not add performance issues
+  here until they have been investigated and confirmed as runtime defects.
 
 ## Active Issues
 
-- None currently.
+### 1. GridForge Reuses Grid Spawn Tokens Across Pooled Generations
+
+Status: planned on 2026-07-17.
+
+Source: Gravitas release-hardening investigation.
+
+Plan:
+
+- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phases 1-2.
+
+Concern:
+
+`VoxelGrid.SpawnToken` is derived from a structural hash of its recyclable grid
+slot and bounds. Removing and re-adding the same configuration can therefore
+recreate the same token at the same slot, allowing a stale `WorldVoxelIndex` to
+resolve the replacement grid and voxel. `GridWorld.SpawnToken` and voxel
+traversal deduplication have the same underlying hash-as-identity weakness.
+
+Required outcome:
+
+- Allocate nonzero 64-bit world identities and world-local grid generations.
+- Never reuse an issued generation within its owning lifetime.
+- Deduplicate voxels with exact `WorldVoxelIndex` values.
+- Prove same-configuration replacement rejection in GridForge and Gravitas 2D,
+  3D, and mixed paths.
+
+### 2. Identical-Bounds Blockers Share One Registration Identity
+
+Status: planned on 2026-07-17.
+
+Source: runtime identity audit following the pooled-grid generation defect.
+
+Plan:
+
+- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phase 3.
+
+Concern:
+
+`BoundsKey` is a correct exact geometry key, but `Blocker` also uses it as a
+supposedly unique blockage token. Two distinct blockers with identical bounds
+therefore collapse into one voxel obstacle entry and cannot stack or be removed
+independently.
+
+Required outcome:
+
+- Keep `BoundsKey` as geometry only.
+- Give each active blocker registration a distinct world-owned identity.
+- Cover same-bounds stacking, independent removal, rollback, and dynamic-grid
+  behavior.
+
+### 3. Recycled Occupant Tickets Can Resolve Replacement Occupants
+
+Status: planned on 2026-07-17.
+
+Source: runtime identity audit following the pooled-grid generation defect.
+
+Plan:
+
+- `docs/feature-work/2026-07-17-runtime-identity-hardening-plan.md`, Phase 4.
+
+Concern:
+
+The public occupant ticket is currently only a `SwiftBucket` slot. Bucket slots
+are reused immediately, so a ticket retained after removal can resolve or remove
+a different occupant registration later assigned to that slot.
+
+Required outcome:
+
+- Replace the raw slot contract with a generation-aware occupant ticket.
+- Validate both slot and generation during lookup and removal.
+- Cover different-occupant replacement, same-occupant re-registration, pooling,
+  reset, and callback-failure cleanup.
 
 ## Performance Investigation Queue
 
