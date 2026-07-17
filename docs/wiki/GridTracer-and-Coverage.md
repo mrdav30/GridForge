@@ -98,9 +98,9 @@ Consumers that build their own GridForge-backed broad phases can use
 `GridTraversal.TryGetUniquePartition(...)` suppresses repeated voxel visits by
 exact `WorldVoxelIndex` before resolving a typed partition. Callers provide a
 reusable `SwiftHashSet<WorldVoxelIndex>`; clear it between independent
-traversals. Object hash codes are never treated as unique voxel identities.
-The world token and grid generation inside `WorldVoxelIndex` make it exact for
-the current runtime, but the value is not a serialized or durable content ID.
+traversals. Object hash codes are never treated as unique voxel identities. The
+world token and grid generation inside `WorldVoxelIndex` make it exact for the
+current runtime, but the value is not a serialized or durable content ID.
 
 `GridTraversalState` caches the selected topology edge per grid while walking
 voxels. Use `GridTraversalPaddingMode.MaxCellEdge` for full 3D padding and

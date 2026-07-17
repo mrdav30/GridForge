@@ -73,8 +73,8 @@ Resolution:
 - Added process-unique 64-bit world identity and world-local nonrepeating grid
   generations, preserved across non-deactivating reset.
 - Widened identity carriers and kept lookup O(1) by slot plus exact generation.
-- Changed traversal and Gravitas query deduplication to exact
-  `WorldVoxelIndex`, and removed hash-derived voxel/scan-cell token APIs.
+- Changed traversal and Gravitas query deduplication to exact `WorldVoxelIndex`,
+  and removed hash-derived voxel/scan-cell token APIs.
 - Fixed the shared SwiftCollections Debug value-key boxing exposed by the wider
   exact key without adding a GridForge or Gravitas workaround.
 
@@ -82,8 +82,8 @@ Verification:
 
 - GridForge identical configuration, pooled reuse, cross-world, reset, hash
   collision, duplicate, and allocation regressions pass.
-- Gravitas same-configuration replacement passes in 2D, 3D, and mixed modes;
-  its focused identity/query/order suite passed `159/159`.
+- Gravitas same-configuration replacement passes in 2D, 3D, and mixed modes; its
+  focused identity/query/order suite passed `159/159`.
 - Independent review found no unresolved code, determinism, performance,
   benchmark, or test-quality blockers.
 
@@ -102,19 +102,19 @@ removed independently.
 
 Resolution:
 
-- Added opaque process-unique `ObstacleToken` registration identities,
-  allocated through active worlds, and kept `BoundsKey` as geometry only.
+- Added opaque process-unique `ObstacleToken` registration identities, allocated
+  through active worlds, and kept `BoundsKey` as geometry only.
 - Migrated blocker, direct obstacle, voxel tracker, and event paths to the exact
   token contract.
 - Preserved one token across dynamic grid and sparse-voxel reconciliation while
   issuing a fresh token for each later explicit apply lifetime.
-- Kept rollback exact to the registration that performed the mutation and
-  moved the per-voxel maximum-count recheck inside the existing obstacle lock.
+- Kept rollback exact to the registration that performed the mutation and moved
+  the per-voxel maximum-count recheck inside the existing obstacle lock.
 
 Verification:
 
-- Dense and sparse same-bounds blockers stack and remove independently with
-  both cached and retraced coverage.
+- Dense and sparse same-bounds blockers stack and remove independently with both
+  cached and retraced coverage.
 - Dynamic replacement, sparse reconciliation, explicit reapply, rollback,
   default-token, reset, event, concurrent capacity, and cross-world isolation
   regressions pass.

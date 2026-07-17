@@ -124,7 +124,7 @@ workflows stay world/grid/voxel based.
 | `GridOccupantManager`                       | Adds, removes, and queries occupant state                                                                                          |
 | `GridScanManager`                           | Performs scan-driven spatial queries                                                                                               |
 | `Blocker` / `BoundsBlocker` / `AreaBlocker` | Turns traced world-space boxes or layer-locked X/Z areas into obstacle mutations                                                   |
-| `WorldVoxelIndex`                           | Exact transient voxel identity with world token, recyclable grid slot, grid generation, and voxel coordinate                      |
+| `WorldVoxelIndex`                           | Exact transient voxel identity with world token, recyclable grid slot, grid generation, and voxel coordinate                       |
 
 ## Repository Map
 

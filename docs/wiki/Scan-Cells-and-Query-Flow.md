@@ -42,11 +42,11 @@ retrieval straightforward.
 
 `ScanCell` owns four important pieces of runtime state:
 
-| Member              | Purpose                                           |
-| ------------------- | ------------------------------------------------- |
-| `GridIndex`         | Recyclable world-local slot of the owning grid    |
-| `CellKey`           | Grid-local scan-cell value                         |
-| `CellOccupantCount` | How many occupants are currently indexed here     |
+| Member              | Purpose                                                                  |
+| ------------------- | ------------------------------------------------------------------------ |
+| `GridIndex`         | Recyclable world-local slot of the owning grid                           |
+| `CellKey`           | Grid-local scan-cell value                                               |
+| `CellOccupantCount` | How many occupants are currently indexed here                            |
 | `_voxelOccupants`   | Buckets of occupant-plus-generation entries grouped by `WorldVoxelIndex` |
 
 That last point matters a lot: a scan cell is not just a flat bag of occupants.
@@ -177,10 +177,10 @@ ticket, combined with `WorldVoxelIndex`, can later be used to retrieve the exact
 occupant directly.
 
 Lookup and removal first perform `TryGetValue(ticket.Slot, ...)`, then require
-the stored generation to equal `ticket.Generation`. Both operations remain
-O(1), and stale or default tickets fail without indexing or mutating the live
-entry. The generation domain is process-wide, so tickets cannot alias across
-worlds and are not reset when a world is reset without deactivation.
+the stored generation to equal `ticket.Generation`. Both operations remain O(1),
+and stale or default tickets fail without indexing or mutating the live entry.
+The generation domain is process-wide, so tickets cannot alias across worlds and
+are not reset when a world is reset without deactivation.
 
 GridForge tracks that relationship internally:
 
@@ -231,8 +231,8 @@ hardcoded globally.
 Exact ticket-based occupant lookup validates `Slot` plus `Generation` in O(1)
 and uses the owning grid's existing occupant monitor, shared with mutation and
 scan-cell reset. The synchronized benchmark resolved 8,192 current tickets with
-`0 B` allocated. Live registration storage is wider, however: bucket entries
-and tracked records retain the generation needed to reject stale slots, so the
+`0 B` allocated. Live registration storage is wider, however: bucket entries and
+tracked records retain the generation needed to reject stale slots, so the
 allocation-free lookup result does not imply zero-cost registration storage.
 
 ## Where Scan State Lives

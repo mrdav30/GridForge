@@ -1,11 +1,13 @@
-# Migrating From GridForge v8 To v9
+# GridForge Migration Guide
+
+## Migrating From GridForge v8 To v9
 
 This block is for projects moving from the v8 release line to the v9 release
 line. The v9 release is intentionally breaking because runtime identity,
 traversal, obstacle registration, and occupant lookup contracts are now exact
 across pooled reuse.
 
-## Runtime Identity And Traversal
+### Runtime Identity And Traversal
 
 World and grid allocation tokens are now signed 64-bit runtime identities.
 Update code that stores `GridWorld.SpawnToken`, `VoxelGrid.SpawnToken`,
@@ -18,9 +20,9 @@ The identity categories are intentionally different:
   and geometry.
 - `GridIndex` and `OccupantTicket.Slot` are recyclable storage slots, not
   identities by themselves.
-- A world token is process-unique, a grid generation is unique within its
-  world, and `WorldVoxelIndex` combines both with the slot and voxel coordinate
-  for exact current-runtime resolution.
+- A world token is process-unique, a grid generation is unique within its world,
+  and `WorldVoxelIndex` combines both with the slot and voxel coordinate for
+  exact current-runtime resolution.
 - `ObstacleToken` and the complete generation-aware `OccupantTicket` identify
   one transient registration lifetime.
 - `IVoxelOccupant.GlobalId` remains the durable identifier supplied and owned by
@@ -38,8 +40,8 @@ grid generations from suppressing or aliasing live voxels.
 
 `Voxel.SpawnToken` and `ScanCell.SpawnToken` were hash-derived and have been
 removed. Use `Voxel.WorldIndex` for exact cross-system voxel identity. Scan
-cells have no separate public allocation identity; use their owning world,
-grid, and `CellKey` when addressing current runtime state.
+cells have no separate public allocation identity; use their owning world, grid,
+and `CellKey` when addressing current runtime state.
 
 Obstacle mutation no longer accepts `BoundsKey` as registration identity.
 `BoundsKey` remains a geometry value; direct obstacle callers must allocate one
@@ -79,13 +81,13 @@ if (GridOccupantManager.TryGetOccupancyTicket(
 `GridScanManager.TryGetVoxelOccupant(...)` overloads use the same value type.
 `default(OccupantTicket)` is invalid. Construction is internal; obtain current
 tickets from GridForge rather than rebuilding them from `Slot` and `Generation`.
-Tickets are transient process runtime handles and must not be serialized or
-used for authoritative ordering. A ticket retained after removal, grid
-replacement, scan-cell pooling, or reset cannot resolve a replacement occupant.
+Tickets are transient process runtime handles and must not be serialized or used
+for authoritative ordering. A ticket retained after removal, grid replacement,
+scan-cell pooling, or reset cannot resolve a replacement occupant.
 
 ---
 
-# Migrating From GridForge v7 To v8
+## Migrating From GridForge v7 To v8
 
 This block is for projects moving from the v7 release line to the v8 release
 line after the FixedMathSharp v6 bounds and 2D geometry hardening work.
@@ -127,7 +129,7 @@ use `FixedBoundBox`.
 
 ---
 
-# Migrating From GridForge v6 To v7
+## Migrating From GridForge v6 To v7
 
 This guide is for projects moving from `v6.0.6` to the v7 release line. The v7
 release is intentionally breaking because GridForge now supports per-grid
@@ -146,7 +148,7 @@ The short version:
 6. Re-run coverage, blocker, scan, and neighbor tests because sparse and hex
    behavior is more precise than the old dense rectangular model.
 
-## Package And Build Notes
+### Package And Build Notes
 
 GridForge still targets `netstandard2.1` and `net8.0`.
 
@@ -162,7 +164,7 @@ with the .NET 10 SDK line and uses platform-scoped `obj` folders through
 `Directory.Build.props`. Package consumers do not need to mirror the repo
 layout; they only need compatible target frameworks and package dependencies.
 
-## Grid Cell Size Moved Out Of `GridWorld`
+### Grid Cell Size Moved Out Of `GridWorld`
 
 In v6, a `GridWorld` owned one voxel size for every grid in that world:
 
@@ -227,7 +229,7 @@ configuration. If you accessed `world.BoundsTracker` directly, its key type is
 now `GridConfigurationKey`; use `configuration.ToGridKey()` for matching
 topology-aware configuration values.
 
-## Dense Storage Is No Longer The Public Model
+### Dense Storage Is No Longer The Public Model
 
 `VoxelGrid.Voxels` is no longer public. It was dense-only and does not describe
 sparse grids or future storage strategies.
@@ -274,7 +276,7 @@ For dense grids, `ConfiguredVoxelCount == Size`. For sparse grids, `Size` is the
 address-space size and `ConfiguredVoxelCount` is the number of physical voxels
 that exist.
 
-## Sparse Grid Storage
+### Sparse Grid Storage
 
 Dense storage remains the default. Sparse storage is opt-in:
 
@@ -343,7 +345,7 @@ world.TryAddGrid(sparseConfig, mask, out ushort maskGridIndex);
 
 The mask dimensions must match the normalized grid dimensions.
 
-## Hex-Prism Topology
+### Hex-Prism Topology
 
 Rectangular-prism topology remains the default. Hex-prism grids are configured
 per grid:
@@ -382,7 +384,7 @@ queries stay world/grid/voxel based.
 Sparse hex grids are supported too. Configure sparse hex voxels with
 topology-local axial `(q, layer, r)` `VoxelIndex` values.
 
-## Neighbor API Changes
+### Neighbor API Changes
 
 v6 exposed rectangular-only neighbor APIs around `SpatialDirection`,
 `SpatialAwareness`, cached enumerable results, and public `useCache` arguments.
@@ -448,7 +450,7 @@ SwiftList<(HexDirection Direction, Voxel Voxel)> hex = new();
 voxel.GetHexNeighborsInto(ownerGrid, hex);
 ```
 
-### Direction Type Replacements
+#### Direction Type Replacements
 
 | v6                                        | v7                                                                                           |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -464,7 +466,7 @@ Hex direction names are axial and orientation-neutral. For example,
 `HexDirection.QPositive` and `HexDirection.RNegative` describe axial offsets for
 both pointy-top and flat-top grids.
 
-## 2D-Friendly Query APIs
+### 2D-Friendly Query APIs
 
 v7 adds `Vector2d` convenience overloads for flat XZ simulations. GridForge is
 still a 3D runtime internally.
@@ -534,7 +536,7 @@ the end, so prefer named `layerY:` calls when you use it.
 2D radius scans are layer-locked XZ circle scans. They reject occupants on other
 world-Y layers before applying the XZ distance check.
 
-## Closest Grid And Voxel Queries
+### Closest Grid And Voxel Queries
 
 Sparse grids make strict lookup and closest lookup different in useful ways.
 
@@ -556,7 +558,7 @@ world.TryGetClosestGridAndVoxel(position, out VoxelGrid? resolvedGrid, out Voxel
 Closest queries can take an optional `GridTopologyKind` filter when a mixed
 rectangular/hex world should consider only one topology family.
 
-## Tracing, Coverage, Blockers, And Scans
+### Tracing, Coverage, Blockers, And Scans
 
 These workflows are now topology-aware and storage-neutral:
 
@@ -589,7 +591,7 @@ inclusion, and snapping intersected grids from the global trace start.
 `GridVoxelSet.Voxels` is still pooled query storage. Consume it inside the
 enumeration that produced it.
 
-## Diagnostics And Adapter Migration
+### Diagnostics And Adapter Migration
 
 v7 adds `GridForge.Diagnostics` for tools, tests, editor overlays, and renderer
 adapters. Diagnostics are descriptors and geometry helpers only. Rendering stays
@@ -706,7 +708,7 @@ session.ClearDirtyChanges();
 using grid identity and bounds, while adapters that track sparse add/remove or
 dirty regions can use the new fields.
 
-## Serialization Notes
+### Serialization Notes
 
 `GridConfiguration` now serializes:
 
@@ -728,7 +730,7 @@ For sparse grids, persist your configured voxel set separately from
 `GridConfiguration`, then pass it to the sparse `TryAddGrid(...)` overload when
 reconstructing the world.
 
-## Recommended Migration Order
+### Recommended Migration Order
 
 1. Update package references and restore.
 2. Replace `GridWorld` voxel-size construction with per-grid topology metrics.
@@ -742,7 +744,7 @@ reconstructing the world.
 7. Re-run blocker, trace, scan, occupant, sparse, and neighbor tests in Debug,
    Release, and ReleaseLean.
 
-## Related Documentation
+### Related Documentation
 
 - [Sparse Grid Storage](wiki/Sparse-Grid-Storage.md)
 - [VoxelGrid and Voxel Model](wiki/VoxelGrid-and-Voxel-Model.md)

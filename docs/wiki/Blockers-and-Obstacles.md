@@ -117,17 +117,16 @@ from the currently covered voxels.
 
 ### Cached-index removal
 
-If `CacheCoveredVoxels` is enabled, the blocker stores exact
-`WorldVoxelIndex` values when it applies. Removal then uses those current-runtime
-identities directly instead of retracing; world and grid generations prevent a
-stale cached value from resolving a replacement grid.
+If `CacheCoveredVoxels` is enabled, the blocker stores exact `WorldVoxelIndex`
+values when it applies. Removal then uses those current-runtime identities
+directly instead of retracing; world and grid generations prevent a stale cached
+value from resolving a replacement grid.
 
 That is a good trade when:
 
 - the blocker will be toggled often
 - the covered region is large
-- you want removal to reject pooled replacement objects instead of aliasing
-  them
+- you want removal to reject pooled replacement objects instead of aliasing them
 
 The tradeoff is memory: you are keeping an extra list of covered voxel
 identities alive for the blocker.

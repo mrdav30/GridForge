@@ -13,14 +13,14 @@ plus tracers provide mutation and query workflows on top of that state.
 
 GridForge is organized as a small set of cooperating layers:
 
-| Layer                      | Main Types                                                                                     | Primary Responsibility                                                                      |
-| -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| World coordination         | `GridWorld`                                                                                    | World lifecycle, registration, spatial hashing, top-level lookup, world events              |
+| Layer                      | Main Types                                                                                                                   | Primary Responsibility                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| World coordination         | `GridWorld`                                                                                                                  | World lifecycle, registration, spatial hashing, top-level lookup, world events              |
 | Configuration and identity | `GridConfiguration`, `GridConfigurationKey`, `BoundsKey`, `ObstacleToken`, `OccupantTicket`, `VoxelIndex`, `WorldVoxelIndex` | Configuration and geometry values plus exact transient runtime identity                     |
-| Per-grid storage           | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies                              | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state               |
-| Mutation services          | `GridObstacleManager`, `GridOccupantManager`, `Blocker`                                        | Safe state changes, events, and higher-level world-space mutations                          |
-| Query services             | `GridScanManager`, `GridTracer`                                                                | Radius scans, filtered retrieval, line tracing, coverage enumeration                        |
-| Extension and diagnostics  | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, `GridForgeLogger`, `GridDiagnostics` | Domain integration, metadata hooks, logging, diagnostic cell projection, and dirty tracking |
+| Per-grid storage           | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies                                                            | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state               |
+| Mutation services          | `GridObstacleManager`, `GridOccupantManager`, `Blocker`                                                                      | Safe state changes, events, and higher-level world-space mutations                          |
+| Query services             | `GridScanManager`, `GridTracer`                                                                                              | Radius scans, filtered retrieval, line tracing, coverage enumeration                        |
+| Extension and diagnostics  | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, `GridForgeLogger`, `GridDiagnostics`                               | Domain integration, metadata hooks, logging, diagnostic cell projection, and dirty tracking |
 
 ## Repository Layout By Responsibility
 
@@ -163,12 +163,12 @@ That split is one of the library's most important performance decisions.
 
 ## Mutation Architecture
 
-| Mutation Type   | Main Entry Point                            | State Touched                                                           |
-| --------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| Mutation Type   | Main Entry Point                            | State Touched                                                                          |
+| --------------- | ------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Obstacles       | `GridObstacleManager`                       | Process-unique voxel obstacle tokens/counts, grid obstacle count, grid version, events |
-| Occupants       | `GridOccupantManager`                       | Voxel occupant counts, generation-aware scan-cell buckets, active scan cells, events |
-| Region blockers | `Blocker` / `BoundsBlocker` / `AreaBlocker` | Traced coverage across one or more grids, obstacle application/removal  |
-| Partitions      | `Voxel.TryAddPartition(...)`                | Typed metadata or behavior attached directly to a voxel                 |
+| Occupants       | `GridOccupantManager`                       | Voxel occupant counts, generation-aware scan-cell buckets, active scan cells, events   |
+| Region blockers | `Blocker` / `BoundsBlocker` / `AreaBlocker` | Traced coverage across one or more grids, obstacle application/removal                 |
+| Partitions      | `Voxel.TryAddPartition(...)`                | Typed metadata or behavior attached directly to a voxel                                |
 
 ## Event And Version Model
 

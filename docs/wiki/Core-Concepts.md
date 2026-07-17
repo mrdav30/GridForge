@@ -171,7 +171,8 @@ Important blocker concepts:
 - `AreaBlocker` blocks X/Z-plane `FixedBoundArea` regions on one world Y layer
 - blockers are bound to a `GridWorld`
 - blockers use traced coverage to find the voxels they affect
-- each active blocker registration owns a distinct process-unique `ObstacleToken`
+- each active blocker registration owns a distinct process-unique
+  `ObstacleToken`
 
 ### Occupants
 
@@ -193,12 +194,12 @@ voxel.
 
 GridForge uses several deliberately different identity categories:
 
-| Category | Types | Contract |
-| --- | --- | --- |
-| Value keys | `GridConfigurationKey`, `BoundsKey` | Describe configuration or geometry by value; they do not identify one allocation lifetime. |
-| Recyclable slots | `GridIndex`, `OccupantTicket.Slot` | Locate current storage efficiently, but can be reused after removal. |
-| Exact runtime identities | `WorldVoxelIndex`, `ObstacleToken`, `OccupantTicket` | Include the generation or token needed to reject stale and foreign runtime state. |
-| Durable host identity | `IVoxelOccupant.GlobalId` | Supplied and owned by the host for occupant ownership across runtime registrations. |
+| Category                 | Types                                                | Contract                                                                                   |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Value keys               | `GridConfigurationKey`, `BoundsKey`                  | Describe configuration or geometry by value; they do not identify one allocation lifetime. |
+| Recyclable slots         | `GridIndex`, `OccupantTicket.Slot`                   | Locate current storage efficiently, but can be reused after removal.                       |
+| Exact runtime identities | `WorldVoxelIndex`, `ObstacleToken`, `OccupantTicket` | Include the generation or token needed to reject stale and foreign runtime state.          |
+| Durable host identity    | `IVoxelOccupant.GlobalId`                            | Supplied and owned by the host for occupant ownership across runtime registrations.        |
 
 World, grid, obstacle, and occupant generations are transient safety metadata.
 They are not serialized state, durable save IDs, or authoritative ordering
