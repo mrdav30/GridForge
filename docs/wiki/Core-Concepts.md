@@ -77,6 +77,7 @@ It defines:
 
 - `BoundsMin`
 - `BoundsMax`
+- derived `GridCenter`
 - `ScanCellSize`
 - `TopologyKind`
 - `TopologyMetrics`
@@ -86,6 +87,8 @@ Important details:
 
 - bounds are ordered during construction, but not snapped until a world
   registers the grid
+- `GridCenter` uses the full-domain nearest-even Q32.32 midpoint and does not
+  saturate same-sign endpoints before halving
 - `ScanCellSize` is expressed in voxels, not world units
 - `TopologyKind` chooses rectangular-prism or hex-prism cells for this grid
 - `TopologyMetrics` owns rectangular cell width/layer height/length or hex

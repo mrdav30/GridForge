@@ -105,6 +105,27 @@ public class SpatialTypesTests
     }
 
     [Fact]
+    public void GridConfiguration_GridCenter_UsesFullDomainNearestEvenMidpoint()
+    {
+        GridConfiguration configuration = new(
+            new Vector3d(
+                Fixed64.FromRaw(long.MaxValue - 3),
+                Fixed64.FromRaw(long.MinValue + 1),
+                Fixed64.FromRaw(1)),
+            new Vector3d(
+                Fixed64.FromRaw(long.MaxValue - 1),
+                Fixed64.FromRaw(long.MinValue + 3),
+                Fixed64.FromRaw(2)));
+
+        Assert.Equal(
+            new Vector3d(
+                Fixed64.FromRaw(long.MaxValue - 2),
+                Fixed64.FromRaw(long.MinValue + 2),
+                Fixed64.FromRaw(2)),
+            configuration.GridCenter);
+    }
+
+    [Fact]
     public void GridConfiguration_ShouldIncludeTopologyInGridIdentity()
     {
         GridConfiguration defaultRectangular = new(

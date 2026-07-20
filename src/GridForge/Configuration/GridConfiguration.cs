@@ -84,7 +84,7 @@ public readonly partial struct GridConfiguration
     /// </summary>
     [JsonIgnore]
     [MemoryPackIgnore]
-    public readonly Vector3d GridCenter => (BoundsMin + BoundsMax) * Fixed64.Half;
+    public readonly Vector3d GridCenter => Vector3d.Midpoint(BoundsMin, BoundsMax);
 
     #endregion
 
