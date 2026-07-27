@@ -248,7 +248,7 @@ world-space projection that GridForge uses for registration and scan filtering.
 
 ```csharp
 using FixedMathSharp;
-using FixedMathSharp.Bounds;
+using FixedMathSharp.Geometry;
 using GridForge.Blockers;
 
 FixedBoundBox blockedBounds = FixedBoundBox.FromMinMax(

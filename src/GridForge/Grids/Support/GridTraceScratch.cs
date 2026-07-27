@@ -14,6 +14,8 @@ namespace GridForge.Grids;
 /// </summary>
 public sealed class GridTraceScratch
 {
+    internal SwiftList<ushort> CandidateGrids { get; } = new();
+
     internal SwiftHashSet<ushort> ProcessedGrids { get; } = new();
 
     internal SwiftHashSet<Voxel> VoxelRedundancy { get; } = new();
@@ -23,6 +25,7 @@ public sealed class GridTraceScratch
     /// </summary>
     public void Clear()
     {
+        CandidateGrids.Clear();
         ProcessedGrids.Clear();
         VoxelRedundancy.Clear();
     }

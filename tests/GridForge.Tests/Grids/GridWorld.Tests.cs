@@ -1,5 +1,5 @@
 ﻿using FixedMathSharp;
-using FixedMathSharp.Bounds;
+using FixedMathSharp.Geometry;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -499,6 +499,22 @@ public class GridWorldTests
             new Vector3d(-12, -4, -20)).ToArray();
 
         Assert.Equal(forwardCells, reversedCells);
+    }
+
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void SpatialCellEnumeration_ShouldTerminateAtScalarDomainFaces(
+        long coordinateRaw)
+    {
+        using GridWorld world =
+            GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        Fixed64 coordinate = Fixed64.FromRaw(coordinateRaw);
+        Vector3d point = new(coordinate, coordinate, coordinate);
+
+        int[] cells = world.GetSpatialGridCells(point, point).ToArray();
+
+        Assert.Single(cells);
     }
 
     [Fact]

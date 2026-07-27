@@ -14,6 +14,8 @@ namespace GridForge.Grids;
 /// </summary>
 public sealed class GridScanScratch
 {
+    internal SwiftList<ushort> CandidateGrids { get; } = new();
+
     internal SwiftList<ScanCell> ScanCells { get; } = new();
 
     internal SwiftHashSet<ushort> ProcessedGrids { get; } = new();
@@ -25,6 +27,7 @@ public sealed class GridScanScratch
     /// </summary>
     public void Clear()
     {
+        CandidateGrids.Clear();
         ScanCells.Clear();
         ProcessedGrids.Clear();
         ScanCellRedundancy.Clear();

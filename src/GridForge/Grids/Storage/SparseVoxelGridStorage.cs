@@ -228,13 +228,16 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         int scanYMax = max.y / _scanCellSize;
         int scanZMax = max.z / _scanCellSize;
 
-        for (int scanX = scanXMin; scanX <= scanXMax; scanX++)
+        for (long scanX = scanXMin; scanX <= scanXMax; scanX++)
         {
-            for (int scanY = scanYMin; scanY <= scanYMax; scanY++)
+            for (long scanY = scanYMin; scanY <= scanYMax; scanY++)
             {
-                for (int scanZ = scanZMin; scanZ <= scanZMax; scanZ++)
+                for (long scanZ = scanZMin; scanZ <= scanZMax; scanZ++)
                 {
-                    int cellKey = GetScanCellKeyFromScanCoordinates(scanX, scanY, scanZ);
+                    int cellKey = GetScanCellKeyFromScanCoordinates(
+                        (int)scanX,
+                        (int)scanY,
+                        (int)scanZ);
                     if (cellKey >= 0 && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block))
                         block.AddVoxelsInIndexRange(min, max, results, redundancy);
                 }
@@ -256,13 +259,16 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         if (_blocks == null)
             return;
 
-        for (int x = xMin; x <= xMax; x++)
+        for (long x = xMin; x <= xMax; x++)
         {
-            for (int y = yMin; y <= yMax; y++)
+            for (long y = yMin; y <= yMax; y++)
             {
-                for (int z = zMin; z <= zMax; z++)
+                for (long z = zMin; z <= zMax; z++)
                 {
-                    int cellKey = GetScanCellKeyFromScanCoordinates(x, y, z);
+                    int cellKey = GetScanCellKeyFromScanCoordinates(
+                        (int)x,
+                        (int)y,
+                        (int)z);
                     if (cellKey >= 0
                         && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
                         && block.ScanCell != null

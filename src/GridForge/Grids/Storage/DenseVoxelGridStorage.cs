@@ -125,13 +125,13 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         if (Voxels == null)
             return;
 
-        for (int x = min.x; x <= max.x; x++)
+        for (long x = min.x; x <= max.x; x++)
         {
-            for (int y = min.y; y <= max.y; y++)
+            for (long y = min.y; y <= max.y; y++)
             {
-                for (int z = min.z; z <= max.z; z++)
+                for (long z = min.z; z <= max.z; z++)
                 {
-                    Voxel voxel = Voxels[x, y, z];
+                    Voxel voxel = Voxels[(int)x, (int)y, (int)z];
                     if (redundancy.Add(voxel))
                         results.Add(voxel);
                 }
@@ -153,13 +153,16 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
         if (ScanCells == null)
             return;
 
-        for (int x = xMin; x <= xMax; x++)
+        for (long x = xMin; x <= xMax; x++)
         {
-            for (int y = yMin; y <= yMax; y++)
+            for (long y = yMin; y <= yMax; y++)
             {
-                for (int z = zMin; z <= zMax; z++)
+                for (long z = zMin; z <= zMax; z++)
                 {
-                    int scanCellKey = grid.GetScanCellKey(x, y, z);
+                    int scanCellKey = grid.GetScanCellKey(
+                        (int)x,
+                        (int)y,
+                        (int)z);
                     if (scanCellKey >= 0
                         && ScanCells.TryGetValue(scanCellKey, out ScanCell? scanCell)
                         && redundancy.Add(scanCell))

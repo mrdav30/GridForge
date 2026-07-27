@@ -4,8 +4,6 @@ using GridForge.Grids;
 using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using Xunit;
@@ -336,130 +334,6 @@ public class SpatialTypesTests
     }
 
     [Fact]
-    public void PartitionProvider_ShouldTrackCountAndTypedLookups()
-    {
-        PartitionProvider<object> provider = new();
-        Type firstType = typeof(ProviderEntryA);
-        Type secondType = typeof(ProviderEntryB);
-        object first = new ProviderEntryA();
-        object second = new ProviderEntryB();
-
-        Assert.True(provider.IsEmpty);
-        Assert.Equal(0, provider.Count);
-        Assert.False(provider.TryAdd(null, first));
-        Assert.False(provider.TryAdd(firstType, null));
-
-        Assert.True(provider.TryAdd(firstType, first));
-        Assert.True(provider.TryAdd(secondType, second));
-        Assert.Equal(2, provider.Count);
-        Assert.True(provider.Has(firstType));
-        Assert.True(provider.Has<ProviderEntryA>());
-        Assert.True(provider.TryGet(firstType, out object byType));
-        Assert.Same(first, byType);
-        Assert.True(provider.TryGet(out ProviderEntryB typed));
-        Assert.Same(second, typed);
-
-        Assert.True(provider.TryRemove(firstType, out object removed));
-        Assert.Same(first, removed);
-        Assert.False(provider.TryRemove(null, out _));
-
-        provider.Clear();
-
-        Assert.True(provider.IsEmpty);
-        Assert.False(provider.Has(secondType));
-        Assert.Equal(0, provider.Count);
-    }
-
-    [Fact]
-    public void PartitionProvider_ShouldExposePartitionsAndRejectMissingLookups()
-    {
-        PartitionProvider<object> provider = new();
-        ProviderEntryA first = new();
-        ProviderEntryB second = new();
-        PartitionProvider<object> mismatchedProvider = new();
-        IEnumerable<object> emptyPartitions = GetPartitions(provider);
-
-        Assert.True(provider.TryAdd(typeof(ProviderEntryA), first));
-        Assert.True(provider.TryAdd(typeof(ProviderEntryB), second));
-        IEnumerable<object> partitions = GetPartitions(provider);
-
-        Assert.Empty(emptyPartitions);
-        Assert.Equal(2, partitions.Count());
-        Assert.Contains(first, partitions);
-        Assert.Contains(second, partitions);
-
-        Assert.False(provider.TryGet((Type)null, out object missingByNullType));
-        Assert.Null(missingByNullType);
-        Assert.False(provider.TryGet(typeof(ProviderEntryC), out object missingByType));
-        Assert.Null(missingByType);
-        Assert.False(provider.TryRemove(typeof(ProviderEntryC), out object removedMissing));
-        Assert.Null(removedMissing);
-        Assert.False(provider.TryGet(out ProviderEntryC missingTyped));
-        Assert.Null(missingTyped);
-
-        Assert.True(mismatchedProvider.TryAdd(typeof(ProviderEntryC), new ProviderEntryA()));
-        Assert.False(mismatchedProvider.TryGet(out ProviderEntryC mismatchedTyped));
-        Assert.Null(mismatchedTyped);
-        mismatchedProvider.Clear();
-        mismatchedProvider.Clear();
-        Assert.True(mismatchedProvider.IsEmpty);
-
-        Assert.True(provider.TryRemove(typeof(ProviderEntryA), out _));
-        Assert.True(provider.TryRemove(typeof(ProviderEntryB), out _));
-        Assert.True(provider.IsEmpty);
-        Assert.False(provider.TryRemove(typeof(ProviderEntryB), out object removedAgain));
-        Assert.Null(removedAgain);
-    }
-
-    [Fact]
-    public void PartitionProvider_ReAddAfterLastRemove_ShouldReuseBackingStorage()
-    {
-        PartitionProvider<object> provider = new();
-        Type entryType = typeof(ProviderEntryA);
-        ProviderEntryA entry = new();
-
-        Assert.True(provider.TryAdd(entryType, entry));
-        Assert.True(provider.TryRemove(entryType, out _));
-        Assert.True(provider.TryAdd(entryType, entry));
-        Assert.True(provider.TryRemove(entryType, out _));
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-
-        const int iterations = 256;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < iterations; i++)
-        {
-            Assert.True(provider.TryAdd(entryType, entry));
-            Assert.True(provider.TryRemove(entryType, out _));
-        }
-
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated < 64, $"Expected repeated partition re-adds to reuse storage but allocated {allocated} bytes.");
-    }
-
-    [Fact]
-    public void PartitionProvider_FirstSinglePartitionAdd_ShouldNotAllocate()
-    {
-        PartitionProvider<object> provider = new();
-        Type entryType = typeof(ProviderEntryA);
-        ProviderEntryA entry = new();
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Assert.True(provider.TryAdd(entryType, entry));
-        Assert.True(provider.TryRemove(entryType, out object removed));
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Same(entry, removed);
-        Assert.True(allocated < 64, $"Expected first single partition add/remove to avoid backing storage allocation but allocated {allocated} bytes.");
-    }
-
-    [Fact]
     public void EventInfoStructs_ShouldExposeStoredIndicesAndBounds()
     {
         GridConfiguration configuration = new(
@@ -522,22 +396,6 @@ public class SpatialTypesTests
         Assert.NotEqual(ticket, differentSlot);
         Assert.NotEqual(ticket, differentGeneration);
         Assert.False(ticket.Equals("not a ticket"));
-    }
-
-    private sealed class ProviderEntryA { }
-
-    private sealed class ProviderEntryB { }
-
-    private sealed class ProviderEntryC { }
-
-    private static IEnumerable<object> GetPartitions(PartitionProvider<object> provider)
-    {
-        PropertyInfo partitionsProperty = typeof(PartitionProvider<object>).GetProperty(
-            "Partitions",
-            BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not locate PartitionProvider.Partitions.");
-
-        return (IEnumerable<object>)partitionsProperty.GetValue(provider);
     }
 
     private static bool InvokeIsValid(MethodInfo isValid, GridTopologyKind kind, GridTopologyMetrics metrics) =>

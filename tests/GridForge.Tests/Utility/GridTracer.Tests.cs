@@ -1,5 +1,5 @@
 ﻿using FixedMathSharp;
-using FixedMathSharp.Bounds;
+using FixedMathSharp.Geometry;
 using GridForge.Blockers;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -152,8 +152,406 @@ public class GridTracerTests : IDisposable
         Assert.Empty(results);
 
         results.Add(staleVoxel);
+        GridTracer.TraceLineInto(null, start, end, results, scratch);
+
+        Assert.Empty(results);
+
+        results.Add(staleVoxel);
 
         GridTracer.TraceLineInto(inactiveWorld, start, end, results, scratch);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void LargeDomainQueries_PreserveCoverageAndTraceParityWithoutCellVolumeTraversal()
+    {
+        ResetWorld(spatialGridCellSize: 50);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(-2, 0, 0),
+                new Vector3d(2, 0, 0),
+                scanCellSize: 2),
+            out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(100, 0, 0),
+                new Vector3d(102, 0, 0),
+                scanCellSize: 2),
+            out ushort secondGridIndex));
+
+        Vector3d domainMin = new(-48_000, -48_000, -48_000);
+        Vector3d domainMax = new(48_000, 48_000, 48_000);
+        WorldVoxelIndex[] covered = CopyCoveredVoxelIndices(
+            GridTracer.GetCoveredVoxels(_world, domainMin, domainMax));
+        Assert.Equal(
+            new[] { firstGridIndex, secondGridIndex },
+            covered.Select(index => index.GridIndex).Distinct().ToArray());
+
+        SwiftList<Voxel> voxels = new();
+        GridTraceScratch traceScratch = new();
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            domainMin,
+            domainMax,
+            voxels,
+            traceScratch);
+        Assert.Equal(covered, CopyCoveredVoxelIndices(voxels));
+        Assert.Equal(
+            covered,
+            CopyCoveredVoxelIndices(
+                GridTracer.GetCoveredVoxels(_world, domainMin, domainMax)));
+
+        (ushort GridIndex, int CellKey)[] scanCells =
+            CopyCoveredScanCells(
+                GridTracer.GetCoveredScanCells(
+                    _world,
+                    domainMin,
+                    domainMax));
+        SwiftList<ScanCell> scanCellResults = new();
+        GridScanScratch scanScratch = new();
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            domainMin,
+            domainMax,
+            scanCellResults,
+            scanScratch);
+        Assert.Equal(scanCells, CopyCoveredScanCells(scanCellResults));
+        Assert.Equal(
+            scanCells,
+            CopyCoveredScanCells(
+                GridTracer.GetCoveredScanCells(
+                    _world,
+                    domainMin,
+                    domainMax)));
+
+        Vector3d lineStart = new(-48_000, 0, 0);
+        Vector3d lineEnd = new(48_000, 0, 0);
+        WorldVoxelIndex[] traced = CopyCoveredVoxelIndices(
+            GridTracer.TraceLine(
+                _world,
+                lineStart,
+                lineEnd,
+                includeEnd: true));
+        GridTracer.TraceLineInto(
+            _world,
+            lineStart,
+            lineEnd,
+            voxels,
+            traceScratch,
+            includeEnd: true);
+        Assert.Equal(traced, CopyCoveredVoxelIndices(voxels));
+        Assert.Equal(
+            traced,
+            CopyCoveredVoxelIndices(
+                GridTracer.TraceLine(
+                    _world,
+                    lineStart,
+                    lineEnd,
+                    includeEnd: true)));
+    }
+
+    [Fact]
+    public void AdaptiveDiscovery_PreservesGridSlotOrderAcrossQuerySizes()
+    {
+        ResetWorld(spatialGridCellSize: 1_000);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(1_001, 0, 0),
+                new Vector3d(1_001, 0, 0)),
+            out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero),
+            out ushort secondGridIndex));
+        for (int index = 0; index < 16; index++)
+        {
+            Fixed64 coordinate = (Fixed64)(1_000_000 + index * 2_000);
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(
+                    new Vector3d(
+                        coordinate,
+                        Fixed64.Zero,
+                        Fixed64.Zero),
+                    new Vector3d(
+                        coordinate,
+                        Fixed64.Zero,
+                        Fixed64.Zero)),
+                out _));
+        }
+
+        SwiftList<Voxel> local = new();
+        GridTraceScratch scratch = new();
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            Vector3d.Zero,
+            new Vector3d(1_001, 0, 0),
+            local,
+            scratch);
+        ushort[] localOrder = local
+            .Select(voxel => voxel.GridIndex)
+            .Distinct()
+            .ToArray();
+
+        SwiftList<Voxel> large = new();
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            new Vector3d(-48_000, -48_000, -48_000),
+            new Vector3d(48_000, 48_000, 48_000),
+            large,
+            scratch);
+        ushort[] largeOrder = large
+            .Select(voxel => voxel.GridIndex)
+            .Distinct()
+            .ToArray();
+
+        Assert.Equal(
+            new[] { firstGridIndex, secondGridIndex },
+            localOrder);
+        Assert.Equal(localOrder, largeOrder);
+    }
+
+    [Fact]
+    public void TraceLine_AdaptiveDiscoveryScalesWithSparseActiveGrids()
+    {
+        ResetWorld(spatialGridCellSize: 1);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(1_000_000, 0, 0),
+                new Vector3d(1_000_000, 0, 0)),
+            out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort secondGridIndex));
+
+        List<(ushort GridIndex, int VoxelCount)> traced = new();
+        foreach (GridVoxelSet voxelSet in GridTracer.TraceLine(
+            _world,
+            Vector3d.Zero,
+            new Vector3d(1_000_000, 0, 0),
+            includeEnd: true))
+        {
+            traced.Add((voxelSet.Grid.GridIndex, voxelSet.Voxels.Count));
+        }
+
+        Assert.Equal(
+            new[]
+            {
+                (firstGridIndex, 1),
+                (secondGridIndex, 1)
+            },
+            traced);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void TraceLine_CoarseSpatialCandidateRejectsExactGridMiss(
+        int separatedAxis)
+    {
+        ResetWorld(spatialGridCellSize: 100);
+        Vector3d gridMin = separatedAxis switch
+        {
+            0 => new Vector3d(10, 0, 0),
+            1 => new Vector3d(0, 10, 0),
+            _ => new Vector3d(0, 0, 10),
+        };
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                gridMin,
+                gridMin + Vector3d.One),
+            out _));
+
+        Assert.Empty(GridTracer.TraceLine(
+            _world,
+            Vector3d.Zero,
+            Vector3d.One,
+            padding: -Fixed64.One,
+            includeEnd: true));
+    }
+
+    [Fact]
+    public void TraceLine_RejectsDiagonalMissInsideCandidateBounds()
+    {
+        ResetWorld(spatialGridCellSize: 100);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(0, 9, 0),
+                new Vector3d(1, 10, 1)),
+            out _));
+
+        Vector3d start = Vector3d.Zero;
+        Vector3d end = new(10, 10, 0);
+        Assert.Empty(GridTracer.TraceLine(
+            _world,
+            start,
+            end,
+            includeEnd: true));
+
+        SwiftList<Voxel> results = new();
+        GridTracer.TraceLineInto(
+            _world,
+            start,
+            end,
+            results,
+            includeEnd: true);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void CoveredScanCells_AdaptiveDiscoveryScalesWithSparseActiveGrids()
+    {
+        ResetWorld(spatialGridCellSize: 1);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(0, 1_000_000, 0),
+                new Vector3d(0, 1_000_000, 0),
+                scanCellSize: 1),
+            out ushort firstGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                scanCellSize: 1),
+            out ushort secondGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(0, 500_000, 0),
+                new Vector3d(0, 500_000, 0),
+                scanCellSize: 1),
+            out ushort thirdGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(0, 750_000, 0),
+                new Vector3d(0, 750_000, 0),
+                scanCellSize: 1),
+            out ushort fourthGridIndex));
+
+        ScanCell[] covered = GridTracer.GetCoveredScanCells(
+                _world,
+                Vector3d.Zero,
+                new Vector3d(0, 1_000_000, 0))
+            .ToArray();
+
+        Assert.Equal(4, covered.Length);
+        Assert.Equal(firstGridIndex, covered[0].GridIndex);
+        Assert.Equal(secondGridIndex, covered[1].GridIndex);
+        Assert.Equal(thirdGridIndex, covered[2].GridIndex);
+        Assert.Equal(fourthGridIndex, covered[3].GridIndex);
+    }
+
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void AdaptiveDiscovery_TerminatesAtScalarDomainFaces(
+        long coordinateRaw)
+    {
+        ResetWorld(spatialGridCellSize: 1);
+        Fixed64 coordinate = Fixed64.FromRaw(coordinateRaw);
+        Vector3d point = new(coordinate, Fixed64.Zero, coordinate);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(point, point),
+            out ushort targetGridIndex));
+        for (int index = 0; index < 8; index++)
+        {
+            Fixed64 dummy = (Fixed64)(index * 4);
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(
+                    new Vector3d(
+                        dummy,
+                        Fixed64.Zero,
+                        Fixed64.Zero),
+                    new Vector3d(
+                        dummy,
+                        Fixed64.Zero,
+                        Fixed64.Zero)),
+                out _));
+        }
+
+        SwiftList<Voxel> results = new();
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            point,
+            point,
+            results,
+            new GridTraceScratch());
+
+        Voxel voxel = Assert.Single(results);
+        Assert.Equal(targetGridIndex, voxel.GridIndex);
+    }
+
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void HexCoverage_TerminatesAtScalarDomainFaces(
+        long coordinateRaw)
+    {
+        ResetWorld(spatialGridCellSize: 1);
+        Fixed64 coordinate = Fixed64.FromRaw(coordinateRaw);
+        Vector3d point = new(coordinate, Fixed64.Zero, coordinate);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            Fixed64.One,
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(
+                point,
+                metrics,
+                new VoxelIndex(0, 0, 0),
+                scanCellSize: 1),
+            out ushort gridIndex));
+
+        SwiftList<Voxel> voxels = new();
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            point,
+            point,
+            voxels,
+            new GridTraceScratch());
+        SwiftList<ScanCell> scanCells = new();
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            point,
+            point,
+            scanCells,
+            new GridScanScratch());
+
+        Assert.Equal(gridIndex, Assert.Single(voxels).GridIndex);
+        Assert.Equal(gridIndex, Assert.Single(scanCells).GridIndex);
+    }
+
+    [Theory]
+    [InlineData(GridStorageKind.Dense)]
+    [InlineData(GridStorageKind.Sparse)]
+    public void ScanCellRangeAppend_TerminatesAtMaximumIndex(
+        GridStorageKind storageKind)
+    {
+        ResetWorld();
+        GridConfiguration configuration = new(
+            Vector3d.Zero,
+            Vector3d.Zero,
+            scanCellSize: 1,
+            storageKind: storageKind);
+        bool added = storageKind == GridStorageKind.Sparse
+            ? _world.TryAddGrid(
+                configuration,
+                new[] { new VoxelIndex(0, 0, 0) },
+                out ushort gridIndex)
+            : _world.TryAddGrid(configuration, out gridIndex);
+        Assert.True(added);
+
+        SwiftList<ScanCell> results = new();
+        _world.ActiveGrids[gridIndex].AddScanCellsInRange(
+            int.MaxValue,
+            int.MaxValue,
+            int.MaxValue,
+            int.MaxValue,
+            int.MaxValue,
+            int.MaxValue,
+            results,
+            new SwiftHashSet<ScanCell>());
 
         Assert.Empty(results);
     }
@@ -683,6 +1081,16 @@ public class GridTracerTests : IDisposable
         Assert.Empty(results);
 
         results.Add(staleVoxel);
+        GridTracer.GetCoveredVoxelsInto(
+            null,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            results,
+            scratch);
+
+        Assert.Empty(results);
+
+        results.Add(staleVoxel);
 
         GridTracer.GetCoveredVoxelsInto(
             inactiveWorld,
@@ -1207,6 +1615,54 @@ public class GridTracerTests : IDisposable
                 .ToArray();
 
             Assert.DoesNotContain(endIndex, tracedIndices);
+        }
+        finally
+        {
+            ResetWorld();
+        }
+    }
+
+    [Fact]
+    public void TraceLine_IncludesHexBoundaryBeforeEndpointOutsideFootprint()
+    {
+        ResetWorld(spatialGridCellSize: 64);
+
+        try
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+                new Fixed64(2),
+                Fixed64.One,
+                HexOrientation.PointyTop);
+            GridConfiguration configuration = CreateHexConfiguration(
+                metrics,
+                new VoxelIndex(3, 0, 3));
+
+            Assert.True(_world.TryAddGrid(configuration, out _));
+
+            VoxelGrid grid = _world.ActiveGrids[0];
+            Vector3d endOutsideHexFootprint = new(
+                grid.BoundsMax.X,
+                grid.BoundsMin.Y,
+                grid.BoundsMin.Z);
+            Assert.False(grid.TryGetVoxelIndex(
+                endOutsideHexFootprint,
+                out _));
+            Vector3d clippedBoundary = grid.FloorToGrid(
+                endOutsideHexFootprint);
+            Assert.True(grid.TryGetVoxelIndex(
+                clippedBoundary,
+                out VoxelIndex boundaryIndex));
+
+            VoxelIndex[] tracedIndices = GridTracer.TraceLine(
+                    _world,
+                    grid.BoundsMin,
+                    endOutsideHexFootprint,
+                    includeEnd: false)
+                .SelectMany(set => set.Voxels)
+                .Select(voxel => voxel.Index)
+                .ToArray();
+
+            Assert.Contains(boundaryIndex, tracedIndices);
         }
         finally
         {

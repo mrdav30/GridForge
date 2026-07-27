@@ -1133,12 +1133,17 @@ public sealed class GridWorld : IDisposable
     {
         (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) = GetSpatialGridCellBounds(min, max);
 
-        for (int z = zMin; z <= zMax; z++)
+        for (long z = zMin; z <= zMax; z++)
         {
-            for (int y = yMin; y <= yMax; y++)
+            for (long y = yMin; y <= yMax; y++)
             {
-                for (int x = xMin; x <= xMax; x++)
-                    yield return SwiftHashTools.CombineHashCodes(x, y, z);
+                for (long x = xMin; x <= xMax; x++)
+                {
+                    yield return SwiftHashTools.CombineHashCodes(
+                        (int)x,
+                        (int)y,
+                        (int)z);
+                }
             }
         }
     }

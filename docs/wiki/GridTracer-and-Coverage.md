@@ -44,6 +44,15 @@ conservative: it expands the broad phase by the hex radius, projects candidate
 corners into axial space, then filters candidate voxels by horizontal cell
 reach.
 
+Candidate discovery is adaptive. Local queries walk the smaller spatial-hash
+cell range, while queries spanning more spatial cells than active grids walk
+the active grids in stable slot order and clip the requested geometry against
+each grid. Spatial-hash candidates are sorted by recyclable grid slot before
+topology traversal, so both discovery plans expose the same stable grid order;
+query size does not change observable ordering. This keeps sparse, large-domain
+bounds and long traces proportional to loaded world state instead of empty
+coordinate volume.
+
 The result is intentionally practical for blockers and scans: coverage may
 include every hex cell touched by a world-space region without asking callers to
 branch on `GridTopologyKind`.
@@ -84,7 +93,8 @@ that reality.
 Allocation-sensitive callers can use `GetCoveredVoxelsInto(...)` instead. It
 clears and fills a caller-owned `SwiftList<Voxel>` with the same covered voxels
 as the grouped enumerable path. Pass a reusable `GridTraceScratch` when the
-caller also wants to own the temporary processed-grid and duplicate-voxel sets.
+caller also wants to own the temporary candidate-grid list, processed-grid set,
+and duplicate-voxel set.
 The flat result lets hot paths avoid enumerable and pooled grouped-list lifetime
 costs while still resolving the owning grid from `voxel.GridIndex` while that
 returned voxel is current. `GridIndex` is a recyclable slot; longer-lived

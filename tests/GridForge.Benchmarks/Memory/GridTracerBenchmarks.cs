@@ -3,6 +3,7 @@ using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Utility;
+using SwiftCollections;
 using System;
 
 namespace GridForge.Benchmarks;
@@ -20,6 +21,8 @@ public class GridTracerBenchmarks
     private Vector2d _coverageMax2d;
     private Vector2d _lineStart2d;
     private Vector2d _lineEnd2d;
+    private SwiftList<Voxel> _largeCoverageResults;
+    private GridTraceScratch _largeCoverageScratch;
 
     [IterationSetup(Target = nameof(GetCoveredVoxels_ColdPools))]
     public void SetupCoverageColdIteration()
@@ -67,6 +70,15 @@ public class GridTracerBenchmarks
     public void SetupTrace2DWarmIteration()
     {
         InitializeScenario(clearAllPools: false);
+    }
+
+    [IterationSetup(Target = nameof(GetCoveredVoxelsInto_LargeDomain))]
+    public void SetupLargeDomainCoverageIteration()
+    {
+        InitializeScenario(clearAllPools: false);
+        _largeCoverageResults = new SwiftList<Voxel>();
+        _largeCoverageScratch = new GridTraceScratch();
+        ExecuteLargeDomainCoverage();
     }
 
     [IterationCleanup]
@@ -129,6 +141,24 @@ public class GridTracerBenchmarks
     public int TraceLine2D_WarmPools()
     {
         return ExecuteLineTrace2D();
+    }
+
+    [Benchmark(Description = "GetCoveredVoxelsInto across a sparse large domain")]
+    [BenchmarkCategory("GridTracerCoverage", "LargeDomain")]
+    public int GetCoveredVoxelsInto_LargeDomain()
+    {
+        return ExecuteLargeDomainCoverage();
+    }
+
+    private int ExecuteLargeDomainCoverage()
+    {
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            new Vector3d(-48_000, -48_000, -48_000),
+            new Vector3d(48_000, 48_000, 48_000),
+            _largeCoverageResults,
+            _largeCoverageScratch);
+        return _largeCoverageResults.Count;
     }
 
     private void InitializeScenario(bool clearAllPools)

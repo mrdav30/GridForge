@@ -41,7 +41,7 @@ IVoxelOccupant[] enemiesInRange = GridScanManager.ScanRadius(
 
 ```csharp
 using FixedMathSharp;
-using FixedMathSharp.Bounds;
+using FixedMathSharp.Geometry;
 using GridForge.Blockers;
 
 FixedBoundBox footprint = FixedBoundBox.FromMinMax(

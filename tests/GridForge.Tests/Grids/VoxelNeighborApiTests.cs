@@ -121,6 +121,88 @@ public sealed class VoxelNeighborApiTests : IDisposable
     }
 
     [Fact]
+    public void GetNeighborsInto_ShouldPreserveGridSlotOrderAcrossDiscoveryStrategies()
+    {
+        using GridWorld world =
+            GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1_000);
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(1, 0, 0),
+                new Vector3d(1, 0, 0)),
+            out ushort firstTargetIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(-1, 0, 0),
+                new Vector3d(-1, 0, 0)),
+            out ushort secondTargetIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort sourceGridIndex));
+
+        VoxelGrid sourceGrid = world.ActiveGrids[sourceGridIndex];
+        Assert.True(sourceGrid.TryGetVoxel(
+            new VoxelIndex(0, 0, 0),
+            out Voxel source));
+
+        SwiftList<Voxel> results = new();
+        source.GetNeighborsInto(
+            sourceGrid,
+            results,
+            VoxelNeighborScope.SameTopologyGrids);
+        Assert.Equal(2, results.Count);
+        ushort[] localOrder =
+        {
+            results[0].GridIndex,
+            results[1].GridIndex
+        };
+
+        source.GetNeighborsInto(
+            sourceGrid,
+            results,
+            VoxelNeighborScope.SameTopologyGrids,
+            tolerance: new Fixed64(10_000));
+        Assert.Equal(2, results.Count);
+        ushort[] activeOrder =
+        {
+            results[0].GridIndex,
+            results[1].GridIndex
+        };
+
+        Assert.Equal(
+            new[] { firstTargetIndex, secondTargetIndex },
+            localOrder);
+        Assert.Equal(localOrder, activeOrder);
+    }
+
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    public void GetNeighborsInto_ShouldTerminateAtScalarDomainFaces(
+        long coordinateRaw)
+    {
+        using GridWorld world =
+            GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        Fixed64 coordinate = Fixed64.FromRaw(coordinateRaw);
+        Vector3d point = new(coordinate, coordinate, coordinate);
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(point, point),
+            out ushort sourceGridIndex));
+
+        VoxelGrid sourceGrid = world.ActiveGrids[sourceGridIndex];
+        Assert.True(sourceGrid.TryGetVoxel(
+            new VoxelIndex(0, 0, 0),
+            out Voxel source));
+
+        SwiftList<Voxel> results = new();
+        source.GetNeighborsInto(
+            sourceGrid,
+            results,
+            VoxelNeighborScope.SameTopologyGrids);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void NeighborListEntryPoints_ShouldClearAndReturnForInvalidOwnerGrid()
     {
         Assert.True(_world.TryAddGrid(

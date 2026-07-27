@@ -7,7 +7,6 @@
 
 using SwiftCollections;
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Spatial;
@@ -15,49 +14,52 @@ namespace GridForge.Spatial;
 /// <summary>
 /// Provides efficient storage and retrieval of partitions keyed by their exact concrete <see cref="Type"/>.
 /// </summary>
+/// <remarks>
+/// The first two concrete types are stored inline. Additional types use provider-owned overflow
+/// storage that is cleared and retained after compaction so a later promotion can reuse it.
+/// Enumeration and compaction preserve registration order.
+/// </remarks>
 public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : class
 {
     /// <summary>
-    /// The single inline partition used by the common one-partition-per-voxel path.
+    /// The first inline partition used by the common one- and two-partition paths.
     /// </summary>
-    private Type? _singlePartitionType;
+    private Type? _firstPartitionType;
 
     /// <summary>
-    /// The single inline partition used by the common one-partition-per-voxel path.
+    /// The first inline partition used by the common one- and two-partition paths.
     /// </summary>
-    private TPartitionBase? _singlePartition;
+    private TPartitionBase? _firstPartition;
 
     /// <summary>
-    /// Backing dictionary used only when a voxel hosts multiple concrete partition types.
+    /// The second inline partition used by the common two-partition-per-voxel path.
     /// </summary>
-    private SwiftDictionary<Type, TPartitionBase>? _partitions;
+    private Type? _secondPartitionType;
 
     /// <summary>
-    /// Returns an enumerable of all partitions currently stored in the provider.
+    /// The second inline partition used by the common two-partition-per-voxel path.
     /// </summary>
-    internal IEnumerable<TPartitionBase> Partitions
-    {
-        get
-        {
-            if (_singlePartition != null)
-                return new SinglePartitionEnumerable(_singlePartition);
+    private TPartitionBase? _secondPartition;
 
-            return _partitions != null && _partitions.Count > 0
-                ? _partitions.Values
-                : Array.Empty<TPartitionBase>();
-        }
-    }
+    /// <summary>
+    /// Overflow storage used only when a voxel hosts more than two concrete partition types.
+    /// The dictionary remains owned by the provider after compaction so later promotions can reuse it.
+    /// </summary>
+    private SwiftList<OverflowPartition>? _overflowPartitions;
 
     /// <summary>
     /// Indicates whether the provider currently contains any partitions.
     /// Returns true if empty; otherwise, false.
     /// </summary>
-    public bool IsEmpty => _singlePartition == null && (_partitions == null || _partitions.Count == 0);
+    public bool IsEmpty => _firstPartition == null;
 
     /// <summary>
     /// Gets the current number of partitions stored in the provider.
     /// </summary>
-    public int Count => _singlePartition != null ? 1 : _partitions?.Count ?? 0;
+    public int Count =>
+        (_firstPartition != null ? 1 : 0)
+        + (_secondPartition != null ? 1 : 0)
+        + (_overflowPartitions?.Count ?? 0);
 
     /// <summary>
     /// Attempts to add a partition to the provider with the specified type key.
@@ -66,30 +68,31 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryAdd(Type partitionType, TPartitionBase partition)
     {
-        if (partitionType == null || partition == null)
+        // Both checks are side-effect free; evaluating both avoids an extra hot-path branch.
+        if (partitionType == null | partition == null)
             return false;
 
-        if (_partitions != null)
-            return _partitions.Add(partitionType, partition);
-
-        if (_singlePartition != null)
+        if (_firstPartition == null)
         {
-            if (_singlePartitionType == partitionType)
-                return false;
-
-            _partitions = new SwiftDictionary<Type, TPartitionBase>(2)
-            {
-                { _singlePartitionType!, _singlePartition }
-            };
-            bool added = _partitions.Add(partitionType, partition);
-            _singlePartitionType = null;
-            _singlePartition = null;
-            return added;
+            _firstPartitionType = partitionType;
+            _firstPartition = partition;
+            return true;
         }
 
-        _singlePartitionType = partitionType;
-        _singlePartition = partition;
-        return true;
+        if (_firstPartitionType == partitionType)
+            return false;
+
+        if (_secondPartition == null)
+        {
+            _secondPartitionType = partitionType;
+            _secondPartition = partition;
+            return true;
+        }
+
+        if (_secondPartitionType == partitionType)
+            return false;
+
+        return TryAddOverflowPartition(partitionType!, partition!);
     }
 
     /// <summary>
@@ -105,26 +108,25 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
         if (partitionType == null)
             return false;
 
-        if (_singlePartition != null)
+        if (_firstPartitionType == partitionType)
         {
-            if (_singlePartitionType != partitionType)
-                return false;
-
-            partition = _singlePartition;
-            _singlePartitionType = null;
-            _singlePartition = null;
+            partition = _firstPartition;
+            _firstPartitionType = _secondPartitionType;
+            _firstPartition = _secondPartition;
+            ClearSecondPartition();
+            MoveFirstOverflowPartitionToSecondSlot();
             return true;
         }
 
-        if (_partitions == null)
-            return false;
+        if (_secondPartitionType == partitionType)
+        {
+            partition = _secondPartition;
+            ClearSecondPartition();
+            MoveFirstOverflowPartitionToSecondSlot();
+            return true;
+        }
 
-        if (!_partitions.TryGetValue(partitionType, out partition))
-            return false;
-
-        _partitions.Remove(partitionType);
-
-        return true;
+        return TryRemoveOverflowPartition(partitionType, out partition);
     }
 
     /// <summary>
@@ -138,19 +140,19 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
         if (partitionType == null)
             return false;
 
-        if (_singlePartition != null)
+        if (_firstPartitionType == partitionType)
         {
-            if (_singlePartitionType != partitionType)
-                return false;
-
-            partition = _singlePartition;
+            partition = _firstPartition;
             return true;
         }
 
-        if (_partitions == null)
-            return false;
+        if (_secondPartitionType == partitionType)
+        {
+            partition = _secondPartition;
+            return true;
+        }
 
-        return _partitions.TryGetValue(partitionType, out partition);
+        return TryGetOverflowPartition(partitionType, out partition);
     }
 
     /// <summary>
@@ -194,9 +196,84 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear()
     {
-        _singlePartitionType = null;
-        _singlePartition = null;
-        _partitions?.Clear();
+        _firstPartitionType = null;
+        _firstPartition = null;
+        ClearSecondPartition();
+        _overflowPartitions?.Clear();
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ClearSecondPartition()
+    {
+        _secondPartitionType = null;
+        _secondPartition = null;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryAddOverflowPartition(Type partitionType, TPartitionBase partition)
+    {
+        if (FindOverflowPartitionIndex(partitionType) >= 0)
+            return false;
+
+        _overflowPartitions ??= new SwiftList<OverflowPartition>(4);
+        _overflowPartitions.Add(new OverflowPartition(partitionType, partition));
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryRemoveOverflowPartition(Type partitionType, out TPartitionBase? partition)
+    {
+        int index = FindOverflowPartitionIndex(partitionType);
+        if (index < 0)
+        {
+            partition = null;
+            return false;
+        }
+
+        partition = _overflowPartitions!.InnerArray[index].Partition;
+        _overflowPartitions.RemoveAt(index);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryGetOverflowPartition(Type partitionType, out TPartitionBase? partition)
+    {
+        int index = FindOverflowPartitionIndex(partitionType);
+        if (index < 0)
+        {
+            partition = null;
+            return false;
+        }
+
+        partition = _overflowPartitions!.InnerArray[index].Partition;
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int FindOverflowPartitionIndex(Type partitionType)
+    {
+        if (_overflowPartitions == null)
+            return -1;
+
+        OverflowPartition[] partitions = _overflowPartitions.InnerArray;
+        for (int i = 0; i < _overflowPartitions.Count; i++)
+        {
+            if (partitions[i].Type == partitionType)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private void MoveFirstOverflowPartitionToSecondSlot()
+    {
+        if (_overflowPartitions == null || _overflowPartitions.Count == 0)
+            return;
+
+        OverflowPartition overflowPartition = _overflowPartitions[0];
+        _overflowPartitions.RemoveAt(0);
+        _secondPartitionType = overflowPartition.Type;
+        _secondPartition = overflowPartition.Partition;
     }
 
     /// <summary>
@@ -207,19 +284,22 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
 
     internal struct Enumerator
     {
-        private readonly TPartitionBase? _singlePartition;
-        private readonly bool _hasDictionary;
-        private SwiftDictionary<Type, TPartitionBase>.SwiftDictionaryEnumerator _dictionaryEnumerator;
-        private int _singleState;
+        private readonly TPartitionBase? _firstPartition;
+        private readonly TPartitionBase? _secondPartition;
+        private readonly bool _hasOverflow;
+        private SwiftList<OverflowPartition>.SwiftListEnumerator _overflowEnumerator;
+        private int _inlineState;
 
         internal Enumerator(PartitionProvider<TPartitionBase> provider)
         {
-            _singlePartition = provider._singlePartition;
-            _dictionaryEnumerator = provider._partitions != null
-                ? provider._partitions.GetEnumerator()
+            _firstPartition = provider._firstPartition;
+            _secondPartition = provider._secondPartition;
+            _overflowEnumerator = provider._overflowPartitions != null
+                ? provider._overflowPartitions.GetEnumerator()
                 : default;
-            _hasDictionary = provider._partitions != null;
-            _singleState = _singlePartition != null ? 0 : 1;
+            _hasOverflow = provider._overflowPartitions != null
+                && provider._overflowPartitions.Count > 0;
+            _inlineState = _firstPartition != null ? 0 : 2;
             Current = default!;
         }
 
@@ -227,38 +307,41 @@ public sealed class PartitionProvider<TPartitionBase> where TPartitionBase : cla
 
         public bool MoveNext()
         {
-            if (_singleState == 0)
+            if (_inlineState == 0)
             {
-                Current = _singlePartition!;
-                _singleState = 1;
+                Current = _firstPartition!;
+                _inlineState = 1;
                 return true;
             }
 
-            if (!_hasDictionary)
+            if (_inlineState == 1)
+            {
+                _inlineState = 2;
+                if (_secondPartition != null)
+                {
+                    Current = _secondPartition;
+                    return true;
+                }
+            }
+
+            if (!_hasOverflow || !_overflowEnumerator.MoveNext())
                 return false;
 
-            if (!_dictionaryEnumerator.MoveNext())
-                return false;
-
-            Current = _dictionaryEnumerator.Current.Value;
+            Current = _overflowEnumerator.Current.Partition;
             return true;
         }
     }
 
-    private sealed class SinglePartitionEnumerable : IEnumerable<TPartitionBase>
+    private readonly struct OverflowPartition
     {
-        private readonly TPartitionBase _partition;
-
-        public SinglePartitionEnumerable(TPartitionBase partition)
+        internal OverflowPartition(Type type, TPartitionBase partition)
         {
-            _partition = partition;
+            Type = type;
+            Partition = partition;
         }
 
-        public IEnumerator<TPartitionBase> GetEnumerator()
-        {
-            yield return _partition;
-        }
+        internal Type Type { get; }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        internal TPartitionBase Partition { get; }
     }
 }

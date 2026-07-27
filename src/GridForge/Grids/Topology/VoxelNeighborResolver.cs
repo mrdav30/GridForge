@@ -7,8 +7,8 @@
 
 using FixedMathSharp;
 using GridForge.Spatial;
+using GridForge.Utility;
 using SwiftCollections;
-using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -170,9 +170,20 @@ internal static class VoxelNeighborResolver
         SwiftList<ushort> candidateGridIds,
         SwiftHashSet<ushort> processedGridIds)
     {
-        CollectCandidateGridIds(world, queryBounds, candidateGridIds, processedGridIds);
-        if (candidateGridIds.Count > 1)
-            candidateGridIds.SortInPlace();
+        TopologyVoxelAabb spatialBounds = queryBounds.Expand(world.MaxTopologyCellEdge);
+        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
+            world.GetSpatialGridCellBounds(spatialBounds.Min, spatialBounds.Max);
+
+        GridCandidateDiscovery.CollectInStableSlotOrder(
+            world,
+            cellXMin,
+            cellYMin,
+            cellZMin,
+            cellXMax,
+            cellYMax,
+            cellZMax,
+            processedGridIds,
+            candidateGridIds);
     }
 
     private static bool TryGetCandidateGrid(
@@ -281,36 +292,6 @@ internal static class VoxelNeighborResolver
         {
             if (TryGetLocalNeighborFromSlot(source, ownerGrid, slot, out Voxel? neighbor))
                 results.Add(neighbor!);
-        }
-    }
-
-    private static void CollectCandidateGridIds(
-        GridWorld world,
-        TopologyVoxelAabb queryBounds,
-        SwiftList<ushort> candidateGridIds,
-        SwiftHashSet<ushort> processedGridIds)
-    {
-        TopologyVoxelAabb spatialBounds = queryBounds.Expand(world.MaxTopologyCellEdge);
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(spatialBounds.Min, spatialBounds.Max);
-
-        for (int cellZ = cellZMin; cellZ <= cellZMax; cellZ++)
-        {
-            for (int cellY = cellYMin; cellY <= cellYMax; cellY++)
-            {
-                for (int cellX = cellXMin; cellX <= cellXMax; cellX++)
-                {
-                    int cellIndex = SwiftHashTools.CombineHashCodes(cellX, cellY, cellZ);
-                    if (!world.SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridIds))
-                        continue;
-
-                    foreach (ushort gridId in gridIds)
-                    {
-                        if (processedGridIds.Add(gridId))
-                            candidateGridIds.Add(gridId);
-                    }
-                }
-            }
         }
     }
 

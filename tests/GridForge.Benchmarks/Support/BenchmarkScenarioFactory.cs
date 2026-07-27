@@ -1,5 +1,5 @@
 ﻿using FixedMathSharp;
-using FixedMathSharp.Bounds;
+using FixedMathSharp.Geometry;
 using GridForge.Configuration;
 using System;
 
