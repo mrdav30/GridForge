@@ -7,6 +7,16 @@ line. The v9 release is intentionally breaking because runtime identity,
 traversal, obstacle registration, and occupant lookup contracts are now exact
 across pooled reuse.
 
+### FixedMathSharp Geometry Namespace
+
+FixedMathSharp bounds and geometry primitives moved from
+`FixedMathSharp.Bounds` to `FixedMathSharp.Geometry`. Type names are unchanged;
+update the namespace import:
+
+```csharp
+using FixedMathSharp.Geometry;
+```
+
 ### Runtime Identity And Traversal
 
 World and grid allocation tokens are now signed 64-bit runtime identities.
