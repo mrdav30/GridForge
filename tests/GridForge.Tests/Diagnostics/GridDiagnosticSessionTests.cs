@@ -247,6 +247,67 @@ public class GridDiagnosticSessionTests
     }
 
     [Fact]
+    public void Session_ShouldIgnoreCapturedGridChangeAfterEarlierCallbackDisposesIt()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseGrid(world);
+        GridDiagnosticSession session = null!;
+        world.OnActiveGridChange += _ => session.Dispose();
+        session = new GridDiagnosticSession(world);
+        SwiftList<GridDiagnosticChange> changes = new();
+
+        Assert.True(grid.TryAddVoxel(new VoxelIndex(1, 0, 1), out _));
+
+        Assert.Equal(0, session.GetDirtyChangesInto(changes));
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void Session_ShouldIgnoreCapturedObstacleEventAfterEarlierCallbackDisposesIt()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
+        GridDiagnosticSession session = null!;
+        Action<ObstacleEventInfo> disposeHandler = _ => session.Dispose();
+        GridObstacleManager.OnObstacleAdded += disposeHandler;
+        session = new GridDiagnosticSession(world);
+        SwiftList<GridDiagnosticChange> changes = new();
+
+        try
+        {
+            Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+        }
+        finally
+        {
+            GridObstacleManager.OnObstacleAdded -= disposeHandler;
+        }
+
+        Assert.Equal(0, session.GetDirtyChangesInto(changes));
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void Session_ShouldIgnoreCapturedSparseChangeAfterEarlierCallbackRemovesGrid()
+    {
+        using DiagnosticCaptureScope diagnostics = new();
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseGrid(world);
+        bool removed = false;
+        world.OnActiveGridChange += eventInfo => removed = world.TryRemoveGrid(eventInfo.GridIndex);
+        using GridDiagnosticSession session = new(world);
+        SwiftList<GridDiagnosticChange> changes = new();
+
+        Assert.True(grid.TryAddVoxel(new VoxelIndex(1, 0, 1), out _));
+
+        Assert.True(removed);
+        session.GetDirtyChangesInto(changes);
+        GridDiagnosticChange change = Assert.Single(changes);
+        Assert.Equal(GridDiagnosticChangeKind.GridRemoved, change.Kind);
+        Assert.DoesNotContain(diagnostics.Messages, message => message.Message.Contains("change notification error"));
+    }
+
+    [Fact]
     public void Session_ShouldIgnoreEventsFromOtherWorlds()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();

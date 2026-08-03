@@ -218,7 +218,7 @@ Use `CreateChangeKey` in `HandleWorldReset` and `RecordChange`, delete `GridDiag
 Run:
 
 ```powershell
-dotnet test tests/GridForge.Tests/GridForge.Tests.csproj -c Debug --filter "FullyQualifiedName~GridForge.Tests.Diagnostics" --property:UseLocalLsfStack=false
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj -c Debug --filter "FullyQualifiedName~GridForge.Diagnostics.Tests" --property:UseLocalLsfStack=false
 ```
 
 Expected: all diagnostic tests pass.

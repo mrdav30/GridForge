@@ -119,17 +119,23 @@ public sealed class GridDiagnosticSession : IDisposable
 
     private void HandleActiveGridAdded(GridEventInfo eventInfo)
     {
+        if (!CanRecordGrid(eventInfo))
+            return;
+
         RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridAdded);
     }
 
     private void HandleActiveGridRemoved(GridEventInfo eventInfo)
     {
+        if (!CanRecord(eventInfo.WorldSpawnToken))
+            return;
+
         RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridRemoved);
     }
 
     private void HandleActiveGridChanged(GridEventInfo eventInfo)
     {
-        if (HasPendingWorldReset())
+        if (!CanRecordGrid(eventInfo) || HasPendingWorldReset())
             return;
 
         switch (eventInfo.ChangeKind)
@@ -148,6 +154,9 @@ public sealed class GridDiagnosticSession : IDisposable
 
     private void HandleWorldReset()
     {
+        if (!CanRecord(_worldSpawnToken))
+            return;
+
         GridDiagnosticChange change = new(
             GridDiagnosticChangeKind.WorldReset,
             _worldSpawnToken,
@@ -193,8 +202,17 @@ public sealed class GridDiagnosticSession : IDisposable
         RecordCellChange(eventInfo.VoxelIndex, GridDiagnosticChangeKind.OccupantChanged);
     }
 
+    private bool CanRecord(long worldSpawnToken) =>
+        !_disposed
+        && worldSpawnToken == _worldSpawnToken;
+
+    private bool CanRecordGrid(GridEventInfo eventInfo) =>
+        CanRecord(eventInfo.WorldSpawnToken)
+        && _world.TryGetGrid(eventInfo.GridIndex, out VoxelGrid? grid)
+        && grid!.SpawnToken == eventInfo.GridSpawnToken;
+
     private bool CanRecordCell(WorldVoxelIndex worldIndex) =>
-        worldIndex.WorldSpawnToken == _worldSpawnToken
+        CanRecord(worldIndex.WorldSpawnToken)
         && !HasPendingWorldReset()
         && _world.TryGetGrid(worldIndex, out _);
 
@@ -244,8 +262,14 @@ public sealed class GridDiagnosticSession : IDisposable
 
     private void RecordSparseAddressRangeChange(GridEventInfo eventInfo)
     {
-        VoxelGrid grid = _world.ActiveGrids[eventInfo.GridIndex];
-        TopologyVoxelAabb bounds = TopologyVoxelAabb.FromIndex(grid, eventInfo.VoxelIndex);
+        Vector3d boundsMin = eventInfo.AffectedBoundsMin;
+        Vector3d boundsMax = eventInfo.AffectedBoundsMax;
+        if (_world.TryGetGrid(eventInfo.GridIndex, out VoxelGrid? grid))
+        {
+            TopologyVoxelAabb bounds = TopologyVoxelAabb.FromIndex(grid!, eventInfo.VoxelIndex);
+            boundsMin = bounds.Min;
+            boundsMax = bounds.Max;
+        }
 
         RecordChange(new GridDiagnosticChange(
             GridDiagnosticChangeKind.SparseAddressChanged,
@@ -254,8 +278,8 @@ public sealed class GridDiagnosticSession : IDisposable
             eventInfo.GridSpawnToken,
             default,
             eventInfo.VoxelIndex,
-            bounds.Min,
-            bounds.Max));
+            boundsMin,
+            boundsMax));
     }
 
     private void RecordCellChange(
