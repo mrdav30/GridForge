@@ -22,6 +22,8 @@ public class GridDiagnosticsContractTests
         Assert.Equal(65536, GridDiagnosticQuery.DefaultMaxCells);
         Assert.Equal(GridDiagnosticAddressMode.PhysicalOnly, allPhysical.AddressMode);
         Assert.Equal(GridDiagnosticQuery.DefaultMaxCells, allPhysical.MaxCells);
+        Assert.Equal(GridDiagnosticQuery.DefaultMaxCells, new GridDiagnosticQuery(maxCells: 0).MaxCells);
+        Assert.Equal(GridDiagnosticQuery.DefaultMaxCells, new GridDiagnosticQuery(maxCells: -1).MaxCells);
         Assert.Null(allPhysical.GridIndex);
         Assert.Null(allPhysical.TopologyKind);
         Assert.Null(allPhysical.StorageKind);
@@ -85,6 +87,9 @@ public class GridDiagnosticsContractTests
         Assert.Equal(GridDiagnosticQueryStatus.InactiveWorld, result.Status);
         Assert.Equal(0, result.CellCount);
         Assert.Equal(0, visitor.Count);
+        Assert.Equal(
+            GridDiagnosticQueryStatus.InactiveWorld,
+            GridDiagnostics.VisitCells(null!, GridDiagnosticQuery.AllPhysical(), ref visitor).Status);
     }
 
     [Fact]
@@ -158,6 +163,70 @@ public class GridDiagnosticsContractTests
             staleCell,
             out _,
             out _));
+
+        GridDiagnosticCell mismatchedWorldToken = new(
+            GridDiagnosticCellKind.Physical,
+            world.SpawnToken + 1,
+            grid.GridIndex,
+            grid.SpawnToken,
+            voxel.Index,
+            voxel.WorldPosition,
+            grid.Configuration.TopologyKind,
+            grid.StorageKind,
+            grid.Configuration.TopologyMetrics,
+            GridDiagnosticCellState.Empty,
+            voxel.WorldIndex);
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(world, mismatchedWorldToken, out VoxelGrid worldGrid, out Voxel worldVoxel));
+        Assert.Null(worldGrid);
+        Assert.Null(worldVoxel);
+
+        GridDiagnosticCell mismatchedGridIndex = new(
+            GridDiagnosticCellKind.Physical,
+            world.SpawnToken,
+            (ushort)(grid.GridIndex + 1),
+            grid.SpawnToken,
+            voxel.Index,
+            voxel.WorldPosition,
+            grid.Configuration.TopologyKind,
+            grid.StorageKind,
+            grid.Configuration.TopologyMetrics,
+            GridDiagnosticCellState.Empty,
+            voxel.WorldIndex);
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(world, mismatchedGridIndex, out VoxelGrid indexGrid, out Voxel indexVoxel));
+        Assert.Null(indexGrid);
+        Assert.Null(indexVoxel);
+
+        GridDiagnosticCell mismatchedGridSpawnToken = new(
+            GridDiagnosticCellKind.Physical,
+            world.SpawnToken,
+            grid.GridIndex,
+            grid.SpawnToken + 1,
+            voxel.Index,
+            voxel.WorldPosition,
+            grid.Configuration.TopologyKind,
+            grid.StorageKind,
+            grid.Configuration.TopologyMetrics,
+            GridDiagnosticCellState.Empty,
+            voxel.WorldIndex);
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(world, mismatchedGridSpawnToken, out VoxelGrid tokenGrid, out Voxel tokenVoxel));
+        Assert.Null(tokenGrid);
+        Assert.Null(tokenVoxel);
+
+        GridDiagnosticCell mismatchedVoxelIndex = new(
+            GridDiagnosticCellKind.Physical,
+            world.SpawnToken,
+            grid.GridIndex,
+            grid.SpawnToken,
+            new VoxelIndex(1, 0, 0),
+            voxel.WorldPosition,
+            grid.Configuration.TopologyKind,
+            grid.StorageKind,
+            grid.Configuration.TopologyMetrics,
+            GridDiagnosticCellState.Empty,
+            voxel.WorldIndex);
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(world, mismatchedVoxelIndex, out VoxelGrid voxelGrid, out Voxel mismatchedIndexVoxel));
+        Assert.Null(voxelGrid);
+        Assert.Null(mismatchedIndexVoxel);
     }
 
     private struct CountingVisitor : IGridDiagnosticCellVisitor

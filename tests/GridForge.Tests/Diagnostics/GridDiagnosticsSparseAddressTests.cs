@@ -177,6 +177,53 @@ public class GridDiagnosticsSparseAddressTests
     }
 
     [Fact]
+    public void SelectedSparseMissingOnlyWithoutBounds_ShouldRequireAddressBounds()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseRectangularGrid(
+            world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(2, 0, 2),
+            new[] { new VoxelIndex(0, 0, 0) });
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(gridIndex: grid.GridIndex, addressMode: GridDiagnosticAddressMode.MissingOnly),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.MissingAddressSpaceRequiresBounds, result.Status);
+        Assert.Equal(0, result.CellCount);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void MissingSparseAddresses_ShouldMarkOnlyEdgeCellsAsBoundary()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseRectangularGrid(
+            world,
+            new Vector3d(0, 0, 0),
+            new Vector3d(2, 0, 2),
+            new VoxelIndex[0]);
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(
+                addressMode: GridDiagnosticAddressMode.MissingOnly,
+                boundsMin: grid.BoundsMin,
+                boundsMax: grid.BoundsMax),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
+        GridDiagnosticCell interior = Assert.Single(results, cell => cell.Index == new VoxelIndex(1, 0, 1));
+        GridDiagnosticCell edge = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 0, 1));
+        Assert.True((interior.State & GridDiagnosticCellState.Boundary) == 0);
+        Assert.True((edge.State & GridDiagnosticCellState.Boundary) != 0);
+    }
+
+    [Fact]
     public void FullAddressSpaceOptIn_ShouldRespectMaxCells()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();

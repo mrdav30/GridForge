@@ -181,6 +181,30 @@ public class GridDiagnosticsPhysicalQueryTests
     }
 
     [Fact]
+    public void SelectedGrid_WithConflictingTopologyOrStorageFilter_ShouldReturnNoCells()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult topologyResult = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(gridIndex: grid.GridIndex, topologyKind: GridTopologyKind.HexPrism),
+            results);
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, topologyResult.Status);
+        Assert.Equal(0, topologyResult.CellCount);
+        Assert.Empty(results);
+
+        GridDiagnosticQueryResult storageResult = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(gridIndex: grid.GridIndex, storageKind: GridStorageKind.Sparse),
+            results);
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, storageResult.Status);
+        Assert.Equal(0, storageResult.CellCount);
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void GetCellsInto_ShouldExposePhysicalStateAndApplyStateFilters()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
@@ -278,6 +302,44 @@ public class GridDiagnosticsPhysicalQueryTests
             },
             results.Select(cell => cell.Index).ToArray());
         Assert.All(results, cell => Assert.Equal(grid.GridIndex, cell.GridIndex));
+    }
+
+    [Fact]
+    public void SelectedDenseGrid_WithBoundsOutsideGrid_ShouldReturnNoCells()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(2, 0, 2));
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(
+                gridIndex: grid.GridIndex,
+                boundsMin: new Vector3d(10, 0, 10),
+                boundsMax: new Vector3d(11, 0, 11)),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
+        Assert.Equal(0, result.CellCount);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void DenseBoundsAtExactCentre_ShouldExcludeLowerAndUpperLayers()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            GridDiagnosticQuery.ForBounds(new Vector3d(1, 1, 1), new Vector3d(1, 1, 1)),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
+        GridDiagnosticCell cell = Assert.Single(results);
+        AssertCell(cell, grid, new VoxelIndex(1, 1, 1));
+        Assert.DoesNotContain(results, resultCell => resultCell.Index.y == 0 || resultCell.Index.y == 2);
     }
 
     [Fact]

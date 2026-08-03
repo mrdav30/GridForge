@@ -64,17 +64,14 @@ public static class GridDiagnostics
         bool hasBounds = TryGetQueryBounds(query, out TopologyVoxelAabb queryBounds);
         if (query.GridIndex.HasValue)
         {
-            if (!world.TryGetGrid(query.GridIndex.Value, out VoxelGrid? requestedGrid)
-                || requestedGrid == null
-                || !requestedGrid.IsActive)
-            {
+            if (!world.TryGetGrid(query.GridIndex.Value, out VoxelGrid? requestedGrid))
                 return new GridDiagnosticQueryResult(GridDiagnosticQueryStatus.InvalidGrid, 0, 0);
-            }
 
-            if (RequiresMissingAddressBounds(requestedGrid, query, hasBounds))
+            VoxelGrid grid = requestedGrid!;
+            if (RequiresMissingAddressBounds(grid, query, hasBounds))
                 return new GridDiagnosticQueryResult(GridDiagnosticQueryStatus.MissingAddressSpaceRequiresBounds, 0, 0);
 
-            return VisitGridCells(world, requestedGrid, query, hasBounds, queryBounds, ref visitor);
+            return VisitGridCells(world, grid, query, hasBounds, queryBounds, ref visitor);
         }
 
         int cellCount = 0;
@@ -292,9 +289,6 @@ public static class GridDiagnostics
         VoxelGrid grid,
         in GridDiagnosticQuery query)
     {
-        if (!grid.IsActive)
-            return false;
-
         if (query.TopologyKind.HasValue && grid.Configuration.TopologyKind != query.TopologyKind.Value)
             return false;
 
@@ -430,7 +424,9 @@ public static class GridDiagnostics
         VoxelIndex index)
     {
         GridDiagnosticCellState state = GridDiagnosticCellState.MissingSparseAddress;
-        if (grid.IsOnBoundary(index))
+        if ((grid.Width > 1 && (index.x == 0 || index.x == grid.Width - 1))
+            || (grid.Height > 1 && (index.y == 0 || index.y == grid.Height - 1))
+            || (grid.Length > 1 && (index.z == 0 || index.z == grid.Length - 1)))
             state |= GridDiagnosticCellState.Boundary;
 
         return state;
@@ -460,7 +456,7 @@ public static class GridDiagnostics
 
         minIndex = new VoxelIndex(0, 0, 0);
         maxIndex = new VoxelIndex(grid.Width - 1, grid.Height - 1, grid.Length - 1);
-        return grid.Width > 0 && grid.Height > 0 && grid.Length > 0;
+        return true;
     }
 
     private static bool TryVisitCell<TVisitor>(

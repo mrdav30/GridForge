@@ -25,6 +25,23 @@ public class GridDiagnosticGeometryTests
     }
 
     [Fact]
+    public void UnsupportedTopology_ShouldExposeNoDiagnosticGeometry()
+    {
+        GridTopologyKind unsupported = (GridTopologyKind)999;
+        GridDiagnosticCell unsupportedCell = CreateCell(
+            GridDiagnosticCellKind.Physical,
+            unsupported,
+            GridTopologyMetrics.Rectangular(Fixed64.One),
+            Vector3d.Zero);
+        Span<Vector3d> vertices = stackalloc Vector3d[GridDiagnosticGeometry.RectangularPrismVertexCount];
+
+        Assert.Equal(0, GridDiagnosticGeometry.GetVertexCount(unsupported));
+        Assert.Equal(0, GridDiagnosticGeometry.GetEdgeCount(unsupported));
+        Assert.Equal(0, GridDiagnosticGeometry.WriteVertices(in unsupportedCell, vertices));
+        Assert.True(GridDiagnosticGeometry.GetEdges(unsupported).IsEmpty);
+    }
+
+    [Fact]
     public void WriteVertices_ShouldUseRectangularMetrics()
     {
         GridDiagnosticCell cell = CreateCell(

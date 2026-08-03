@@ -13,6 +13,7 @@ using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using System;
 using Xunit;
 
 namespace GridForge.Diagnostics.Tests;
@@ -20,6 +21,76 @@ namespace GridForge.Diagnostics.Tests;
 [Collection("GridForgeCollection")]
 public class GridDiagnosticSessionTests
 {
+    [Fact]
+    public void GridDiagnosticChange_ShouldImplementComparisonEqualityAndHashContracts()
+    {
+        WorldVoxelIndex cellIndex = new(1, 2, 3, new VoxelIndex(4, 5, 6));
+        GridDiagnosticChange baseline = new(
+            GridDiagnosticChangeKind.GridChanged,
+            1,
+            2,
+            3,
+            default,
+            new VoxelIndex(4, 5, 6),
+            new Vector3d(1, 2, 3),
+            new Vector3d(4, 5, 6));
+        GridDiagnosticChange equal = baseline;
+
+        Assert.Equal(0, baseline.CompareTo(equal));
+        Assert.True(baseline.Equals(equal));
+        Assert.True(baseline.Equals((object)equal));
+        Assert.False(baseline.Equals(null));
+        Assert.False(baseline.Equals("not a change"));
+        Assert.Equal(baseline.GetHashCode(), equal.GetHashCode());
+
+        GridDiagnosticChange Variant(
+            GridDiagnosticChangeKind? kind = null,
+            long? worldSpawnToken = null,
+            ushort? gridIndex = null,
+            long? gridSpawnToken = null,
+            WorldVoxelIndex? worldIndex = null,
+            VoxelIndex? voxelIndex = null,
+            Vector3d? boundsMin = null,
+            Vector3d? boundsMax = null) => new(
+                kind ?? baseline.Kind,
+                worldSpawnToken ?? baseline.WorldSpawnToken,
+                gridIndex ?? baseline.GridIndex,
+                gridSpawnToken ?? baseline.GridSpawnToken,
+                worldIndex ?? baseline.WorldIndex,
+                voxelIndex ?? baseline.VoxelIndex,
+                boundsMin ?? baseline.BoundsMin,
+                boundsMax ?? baseline.BoundsMax);
+
+        static void AssertComparisonDiffers(GridDiagnosticChange left, GridDiagnosticChange right)
+        {
+            int forward = left.CompareTo(right);
+            int reverse = right.CompareTo(left);
+            Assert.NotEqual(0, forward);
+            Assert.Equal(-Math.Sign(forward), Math.Sign(reverse));
+            Assert.False(left.Equals(right));
+        }
+
+        GridDiagnosticChange world = new(GridDiagnosticChangeKind.WorldReset, 1, ushort.MaxValue, 0, default, default, default, default);
+        GridDiagnosticChange cell = new(GridDiagnosticChangeKind.OccupantChanged, 1, 2, 3, cellIndex, cellIndex.VoxelIndex, default, default);
+        GridDiagnosticChange range = new(GridDiagnosticChangeKind.SparseAddressChanged, 1, 2, 3, default, new VoxelIndex(1, 0, 1), default, default);
+        Assert.True(world.CompareTo(baseline) < 0);
+        Assert.True(baseline.CompareTo(cell) < 0);
+        Assert.True(cell.CompareTo(range) < 0);
+
+        AssertComparisonDiffers(baseline, Variant(worldSpawnToken: 2));
+        AssertComparisonDiffers(baseline, Variant(gridIndex: 3));
+        AssertComparisonDiffers(baseline, Variant(gridSpawnToken: 4));
+        AssertComparisonDiffers(baseline, Variant(voxelIndex: new VoxelIndex(5, 5, 6)));
+        AssertComparisonDiffers(baseline, Variant(boundsMin: new Vector3d(2, 2, 3)));
+        AssertComparisonDiffers(baseline, Variant(boundsMin: new Vector3d(1, 3, 3)));
+        AssertComparisonDiffers(baseline, Variant(boundsMin: new Vector3d(1, 2, 4)));
+        AssertComparisonDiffers(baseline, Variant(boundsMax: new Vector3d(5, 5, 6)));
+        AssertComparisonDiffers(baseline, Variant(boundsMax: new Vector3d(4, 6, 6)));
+        AssertComparisonDiffers(baseline, Variant(boundsMax: new Vector3d(4, 5, 7)));
+        AssertComparisonDiffers(baseline, Variant(kind: GridDiagnosticChangeKind.GridAdded));
+        Assert.False(baseline.Equals(Variant(worldIndex: cellIndex)));
+    }
+
     [Fact]
     public void Session_ShouldCaptureGridAddRemoveAndResetChanges()
     {
@@ -194,6 +265,32 @@ public class GridDiagnosticSessionTests
         Assert.Equal(0, session.GetDirtyChangesInto(changes));
         Assert.Empty(changes);
         Assert.True(localGrid.IsActive);
+    }
+
+    [Fact]
+    public void Session_ShouldValidateConstructionCaptureBulkObstacleClearAndDisposeIdempotently()
+    {
+        Assert.Throws<ArgumentNullException>(() => new GridDiagnosticSession(null!));
+        using GridWorld inactiveWorld = new();
+        inactiveWorld.Dispose();
+        Assert.Throws<InvalidOperationException>(() => new GridDiagnosticSession(inactiveWorld));
+
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, new Vector3d(0, 0, 0), new Vector3d(0, 0, 0));
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
+        using GridDiagnosticSession session = new(world);
+        SwiftList<GridDiagnosticChange> changes = new();
+
+        Assert.True(GridObstacleManager.TryAddObstacle(world, voxel.WorldIndex, world.AllocateObstacleToken()));
+        grid.ClearObstacles(voxel);
+
+        session.GetDirtyChangesInto(changes);
+        Assert.Contains(changes, change =>
+            change.Kind == GridDiagnosticChangeKind.ObstacleChanged
+            && change.WorldIndex.Equals(voxel.WorldIndex));
+
+        session.Dispose();
+        session.Dispose();
     }
 
     [Fact]
