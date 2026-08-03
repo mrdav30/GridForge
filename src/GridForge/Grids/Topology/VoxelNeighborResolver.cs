@@ -194,9 +194,6 @@ internal static class VoxelNeighborResolver
         out VoxelGrid candidateGrid)
     {
         candidateGrid = null!;
-        if (!world.ActiveGrids.IsAllocated(candidateGridId))
-            return false;
-
         VoxelGrid resolvedGrid = world.ActiveGrids[candidateGridId];
         if (!IsCandidateInScope(ownerGrid, resolvedGrid, scope))
             return false;

@@ -163,11 +163,11 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                         (int)x,
                         (int)y,
                         (int)z);
-                    if (scanCellKey >= 0
-                        && ScanCells.TryGetValue(scanCellKey, out ScanCell? scanCell)
-                        && redundancy.Add(scanCell))
+                    if (scanCellKey >= 0)
                     {
-                        results.Add(scanCell!);
+                        ScanCell scanCell = ScanCells[scanCellKey];
+                        if (redundancy.Add(scanCell))
+                            results.Add(scanCell);
                     }
                 }
             }

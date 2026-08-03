@@ -186,6 +186,14 @@ public sealed class ClosestQueryTests : IDisposable
 
         Assert.True(_world.TryGetClosestVoxel(query, out Voxel filteredVoxelOnly, GridTopologyKind.HexPrism));
         Assert.Same(filteredVoxel, filteredVoxelOnly);
+
+        Assert.False(_world.TryGetClosestGridAndVoxel(
+            query,
+            out VoxelGrid missingGrid,
+            out Voxel missingVoxel,
+            (GridTopologyKind)byte.MaxValue));
+        Assert.Null(missingGrid);
+        Assert.Null(missingVoxel);
     }
 
     [Fact]

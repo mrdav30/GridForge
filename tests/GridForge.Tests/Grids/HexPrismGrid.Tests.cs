@@ -90,6 +90,33 @@ public class HexPrismGridTests
         Assert.Same(maxVoxel, resolvedVoxel);
     }
 
+    [Theory]
+    [InlineData(1, 0, 0, 1, 2, 2)]
+    [InlineData(0, 1, 0, 2, 1, 2)]
+    [InlineData(0, 0, 1, 2, 2, 1)]
+    public void TryGetVoxelIndex_ShouldRejectProjectedIndexOutsideDimensions(
+        int x,
+        int y,
+        int z,
+        int width,
+        int height,
+        int length)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        HexPrismTopology topology = new(metrics);
+        Vector3d position = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(x, y, z), metrics);
+
+        Assert.False(topology.TryGetVoxelIndex(
+            Vector3d.Zero,
+            new Vector3d(10, 10, 10),
+            width,
+            height,
+            length,
+            position,
+            out VoxelIndex index));
+        Assert.Equal(default, index);
+    }
+
     [Fact]
     public void TryGetGrid_ShouldAllowMixedRectangularAndHexTopologies()
     {

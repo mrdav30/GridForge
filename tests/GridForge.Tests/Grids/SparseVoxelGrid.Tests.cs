@@ -181,6 +181,10 @@ public class SparseVoxelGridTests : IDisposable
         Assert.False(grid.TryGetVoxel(new VoxelIndex(1, 0, 1), out _));
         Assert.False(_world.TryGetGridAndVoxel(new Vector3d(1, 0, 1), out _, out _));
         Assert.False(grid.TryGetScanCell(new Vector3d(1, 0, 1), out _));
+
+        uint originalVersion = grid.Version;
+        Assert.False(grid.TryRemoveVoxel(new VoxelIndex(0, 0, 0)));
+        Assert.Equal(originalVersion, grid.Version);
     }
 
     [Fact]

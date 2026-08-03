@@ -100,15 +100,12 @@ public class ScanCell
     /// </summary>
     internal void Reset()
     {
-        object? syncRoot = Volatile.Read(ref _occupantSyncRoot);
+        object? syncRoot = Interlocked.Exchange(ref _occupantSyncRoot, null);
         if (syncRoot == null)
             return;
 
         lock (syncRoot)
         {
-            if (!ReferenceEquals(syncRoot, Volatile.Read(ref _occupantSyncRoot)) || !IsAllocated)
-                return;
-
             if (_voxelOccupants != null)
             {
                 foreach (var kvp in _voxelOccupants)
@@ -131,7 +128,6 @@ public class ScanCell
             CellKey = byte.MaxValue;
 
             IsAllocated = false;
-            Volatile.Write(ref _occupantSyncRoot, null);
         }
     }
 

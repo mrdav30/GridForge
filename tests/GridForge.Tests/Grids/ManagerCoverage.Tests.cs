@@ -981,6 +981,9 @@ public class ManagerCoverageTests : IDisposable
         SharedIdOccupant collidingOccupant = new(sharedId, new Vector3d(0, 0, 0));
         TestOccupant missingOccupant = new(new Vector3d(99, 0, 99));
 
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(null!, primaryOccupant, default, out OccupantTicket nullWorldTicket));
+        Assert.Equal(default, nullWorldTicket);
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(null!, primaryOccupant));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world, null, default, out OccupantTicket nullTicket));
         Assert.Equal(default, nullTicket);
 
@@ -997,6 +1000,7 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, null));
 
         Assert.False(firstGrid.TryAddVoxelOccupant(firstVoxel, collidingOccupant));
+        Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, collidingOccupant));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world,
             collidingOccupant, firstVoxel.WorldIndex, out OccupantTicket collisionTicket));
         Assert.Equal(default, collisionTicket);
@@ -1013,6 +1017,9 @@ public class ManagerCoverageTests : IDisposable
             trackedIndices);
 
         Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, primaryOccupant, firstVoxel.WorldIndex, out _));
+
+        using GridWorld freshWorld = GridWorldTestFactory.CreateWorld();
+        Assert.Empty(GridOccupantManager.GetOccupiedIndices(freshWorld, primaryOccupant));
     }
 
     [Fact]

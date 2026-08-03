@@ -7,6 +7,7 @@
 
 using FixedMathSharp;
 using GridForge.Spatial;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Topology;
@@ -51,13 +52,12 @@ internal static class TopologyVoxelRangeUtility
         maxIndex = default;
 
         (Vector3d snappedMin, Vector3d snappedMax) = grid.NormalizeBounds(queryMin, queryMax);
-        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax)
-            || !grid.TryGetVoxelIndex(clippedMin, out minIndex)
-            || !grid.TryGetVoxelIndex(clippedMax, out maxIndex))
-        {
+        if (!TryClipBoundsToGrid(grid, snappedMin, snappedMax, out Vector3d clippedMin, out Vector3d clippedMax))
             return false;
-        }
 
+        bool minResolved = grid.TryGetVoxelIndex(clippedMin, out minIndex);
+        bool maxResolved = grid.TryGetVoxelIndex(clippedMax, out maxIndex);
+        Debug.Assert(minResolved && maxResolved);
         return true;
     }
 

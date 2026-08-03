@@ -562,6 +562,10 @@ public class ScanCellTests : IDisposable
         Assert.False(inactiveCell.IsOccupied);
         Assert.Equal(0, inactiveCell.CellOccupantCount);
         Assert.False(inactiveCell.TryRemoveOccupant(default, default));
+#nullable enable
+        Assert.False(inactiveCell.TryGetOccupantAt(default, default, out IVoxelOccupant? found));
+#nullable disable
+        Assert.Null(found);
     }
 
     [Fact]

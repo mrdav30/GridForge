@@ -288,6 +288,27 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
+    public void ContactNeighborQuery_ShouldResolveStableAllocatedRectangularCandidate()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort firstIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort secondIndex));
+        VoxelGrid firstGrid = _world.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondIndex];
+        Assert.True(firstGrid.TryGetVoxel(Vector3d.Zero, out Voxel source));
+        Assert.True(secondGrid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel expectedNeighbor));
+        SwiftList<Voxel> neighbors = new();
+
+        source.GetNeighborsInto(firstGrid, neighbors);
+
+        Assert.Single(neighbors);
+        Assert.Same(expectedNeighbor, neighbors[0]);
+    }
+
+    [Fact]
     public void Reset_ShouldReturnEarlyWhenGridIsInactive()
     {
         VoxelGrid detachedGrid = new();
@@ -423,9 +444,22 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(-1, grid.GetScanCellKey(new Vector3d(8, 0, 8)));
         Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(99, 0, 99)));
         Assert.Equal(-1, grid.GetScanCellKey(new VoxelIndex(-3, 0, 0)));
+        Assert.Equal(-1, grid.GetScanCellKey(0, -1, 0));
+        Assert.Equal(-1, grid.GetScanCellKey(0, 0, -1));
         Assert.False(grid.TryGetScanCell(-1, out _));
         Assert.False(grid.TryGetScanCell(999, out _));
         Assert.False(grid.TryGetScanCell(new VoxelIndex(99, 0, 99), out _));
+    }
+
+    [Fact]
+    public void VoxelGrid_VisitVoxels_ShouldNoOpWhenStorageIsMissing()
+    {
+        VoxelGrid inactiveGrid = new();
+        CountingVoxelVisitor visitor = new(@continue: true);
+
+        inactiveGrid.VisitVoxels(ref visitor);
+
+        Assert.Equal(0, visitor.Count);
     }
 
     [Fact]
@@ -1017,6 +1051,24 @@ public class VoxelGridTests : IDisposable
 
         Assert.NotNull(versionField);
         versionField.SetValue(grid, version);
+    }
+
+    private struct CountingVoxelVisitor : IVoxelStorageVisitor
+    {
+        private readonly bool _continue;
+        public int Count;
+
+        public CountingVoxelVisitor(bool @continue)
+        {
+            _continue = @continue;
+            Count = 0;
+        }
+
+        public bool Visit(Voxel voxel)
+        {
+            Count++;
+            return _continue;
+        }
     }
 
     private void ResetWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)

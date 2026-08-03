@@ -17,6 +17,7 @@ public sealed class StorageGuardTests
     public void DenseStorage_ShouldNoOpWhenUninitialized()
     {
         DenseVoxelGridStorage storage = new();
+        CountingVoxelVisitor visitor = new(@continue: true);
         SwiftList<Voxel> voxels = new SwiftList<Voxel>();
         SwiftHashSet<Voxel> voxelRedundancy = new SwiftHashSet<Voxel>();
         SwiftList<ScanCell> scanCells = new SwiftList<ScanCell>();
@@ -30,10 +31,12 @@ public sealed class StorageGuardTests
 
         storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(1, 1, 1), voxels, voxelRedundancy);
         storage.AddScanCellsInRange(new VoxelGrid(), 0, 0, 0, 1, 1, 1, scanCells, scanCellRedundancy);
+        storage.VisitVoxels(ref visitor);
         storage.Reset(new VoxelGrid());
 
         Assert.Empty(voxels);
         Assert.Empty(scanCells);
+        Assert.Equal(0, visitor.Count);
     }
 
     [Fact]
@@ -67,6 +70,7 @@ public sealed class StorageGuardTests
     public void SparseStorage_ShouldNoOpWhenUninitialized()
     {
         SparseVoxelGridStorage storage = new();
+        CountingVoxelVisitor visitor = new(@continue: true);
         SwiftList<Voxel> voxels = new SwiftList<Voxel>();
         SwiftHashSet<Voxel> voxelRedundancy = new SwiftHashSet<Voxel>();
         SwiftList<ScanCell> scanCells = new SwiftList<ScanCell>();
@@ -88,10 +92,33 @@ public sealed class StorageGuardTests
 
         storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(1, 1, 1), voxels, voxelRedundancy);
         storage.AddScanCellsInRange(grid, 0, 0, 0, 1, 1, 1, scanCells, scanCellRedundancy);
+        storage.VisitVoxels(ref visitor);
         storage.Reset(grid);
 
         Assert.Empty(voxels);
         Assert.Empty(scanCells);
+        Assert.Equal(0, visitor.Count);
+    }
+
+    [Fact]
+    public void SparseStorage_VisitVoxels_ShouldStopWhenVisitorReturnsFalse()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                new Vector3d(1, 0, 0),
+                storageKind: GridStorageKind.Sparse),
+            out ushort gridIndex));
+        VoxelGrid grid = world.ActiveGrids[gridIndex];
+        SparseVoxelGridStorage storage = new();
+        storage.Initialize(grid, new[] { new VoxelIndex(0, 0, 0), new VoxelIndex(1, 0, 0) });
+        CountingVoxelVisitor visitor = new(@continue: false);
+
+        storage.VisitVoxels(ref visitor);
+
+        Assert.Equal(1, visitor.Count);
+        storage.Reset(grid);
     }
 
     [Fact]
@@ -127,12 +154,24 @@ public sealed class StorageGuardTests
         Assert.False(storage.TryRemoveVoxel(grid, new VoxelIndex(1, 0, 0), out Voxel missing));
         Assert.Null(missing);
 
+        Assert.True(storage.TryAddVoxel(grid, new VoxelIndex(1, 0, 0), out Voxel outOfRange));
+        Assert.NotNull(outOfRange);
+
+        storage.AddScanCellsInRange(grid, 0, 0, 0, 1, 0, 0, scanCells, scanCellRedundancy);
+        Assert.Single(scanCells);
+        storage.AddScanCellsInRange(grid, 0, 0, 0, 1, 0, 0, scanCells, scanCellRedundancy);
+        storage.AddScanCellsInRange(grid, 0, -1, 0, 0, -1, 0, scanCells, scanCellRedundancy);
+        storage.AddScanCellsInRange(grid, 0, 0, -1, 0, 0, -1, scanCells, scanCellRedundancy);
+        Assert.Single(scanCells);
+
+        scanCells.Clear();
+        scanCellRedundancy.Clear();
         storage.AddScanCellsInRange(grid, -1, 0, 0, -1, 0, 0, scanCells, scanCellRedundancy);
         Assert.Empty(scanCells);
 
         SwiftList<Voxel> voxels = new SwiftList<Voxel>();
         SwiftHashSet<Voxel> voxelRedundancy = new SwiftHashSet<Voxel>();
-        storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(1, 0, 0), voxels, voxelRedundancy);
+        storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(0, 0, 0), voxels, voxelRedundancy);
         Assert.Single(voxels);
         Assert.Same(added, voxels[0]);
 
@@ -142,6 +181,7 @@ public sealed class StorageGuardTests
 
         Assert.True(storage.TryRemoveVoxel(grid, new VoxelIndex(0, 0, 0), out Voxel removed));
         Assert.Same(added, removed);
+        Assert.True(storage.TryRemoveVoxel(grid, new VoxelIndex(1, 0, 0), out _));
         storage.Reset(grid);
     }
 
@@ -219,6 +259,17 @@ public sealed class StorageGuardTests
         Assert.NotNull(second);
         Assert.Equal(2, block.Count);
 
+        SwiftList<Voxel> voxels = new SwiftList<Voxel>();
+        SwiftHashSet<Voxel> redundancy = new SwiftHashSet<Voxel>();
+        block.AddVoxelsInIndexRange(
+            new VoxelIndex(0, 0, 0),
+            new VoxelIndex(0, 0, 0),
+            voxels,
+            redundancy);
+
+        Assert.Single(voxels);
+        Assert.Same(first, voxels[0]);
+
         block.Reset(grid);
     }
 
@@ -283,5 +334,23 @@ public sealed class StorageGuardTests
             isBoundaryVoxel: false,
             gridVersion: 1);
         return voxel;
+    }
+
+    private struct CountingVoxelVisitor : IVoxelStorageVisitor
+    {
+        private readonly bool _continue;
+        public int Count;
+
+        public CountingVoxelVisitor(bool @continue)
+        {
+            _continue = @continue;
+            Count = 0;
+        }
+
+        public bool Visit(Voxel voxel)
+        {
+            Count++;
+            return _continue;
+        }
     }
 }

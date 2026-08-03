@@ -271,10 +271,9 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
                         (int)z);
                     if (cellKey >= 0
                         && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
-                        && block.ScanCell != null
-                        && redundancy.Add(block.ScanCell))
+                        && redundancy.Add(block.ScanCell!))
                     {
-                        results.Add(block.ScanCell);
+                        results.Add(block.ScanCell!);
                     }
                 }
             }
