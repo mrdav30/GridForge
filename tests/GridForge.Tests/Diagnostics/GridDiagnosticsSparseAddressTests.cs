@@ -232,13 +232,13 @@ public class GridDiagnosticsSparseAddressTests
     }
 
     [Fact]
-    public void MissingSparseAddresses_ShouldMarkOnlyEdgeCellsAsBoundary()
+    public void MissingSparseAddresses_ShouldDistinguishTrueInteriorFromEdgeBoundary()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
         VoxelGrid grid = AddSparseRectangularGrid(
             world,
             new Vector3d(0, 0, 0),
-            new Vector3d(2, 0, 2),
+            new Vector3d(2, 2, 2),
             new VoxelIndex[0]);
         SwiftList<GridDiagnosticCell> results = new();
 
@@ -251,14 +251,14 @@ public class GridDiagnosticsSparseAddressTests
             results);
 
         Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
-        GridDiagnosticCell interior = Assert.Single(results, cell => cell.Index == new VoxelIndex(1, 0, 1));
-        GridDiagnosticCell edge = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 0, 1));
+        GridDiagnosticCell interior = Assert.Single(results, cell => cell.Index == new VoxelIndex(1, 1, 1));
+        GridDiagnosticCell edge = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 1, 1));
         Assert.True((interior.State & GridDiagnosticCellState.Boundary) == 0);
         Assert.True((edge.State & GridDiagnosticCellState.Boundary) != 0);
     }
 
     [Fact]
-    public void MissingSparseAddresses_ShouldHandleSingletonHorizontalAxesAndVerticalBoundaries()
+    public void MissingSparseAddresses_ShouldTreatSingletonAxesAsBoundary()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
         VoxelGrid grid = AddSparseRectangularGrid(
@@ -282,7 +282,7 @@ public class GridDiagnosticsSparseAddressTests
         GridDiagnosticCell middle = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 1, 0));
         GridDiagnosticCell upper = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 2, 0));
         Assert.True((lower.State & GridDiagnosticCellState.Boundary) != 0);
-        Assert.True((middle.State & GridDiagnosticCellState.Boundary) == 0);
+        Assert.True((middle.State & GridDiagnosticCellState.Boundary) != 0);
         Assert.True((upper.State & GridDiagnosticCellState.Boundary) != 0);
     }
 

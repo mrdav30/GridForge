@@ -339,7 +339,7 @@ public static class GridOccupantManager
             return false;
 
         lock (registry!.SyncRoot)
-            return ForgetTrackedOccupancyUnsafe(world, occupant, index, registry);
+            return ForgetTrackedOccupancyUnsafe(occupant, index, registry);
     }
 
     internal static void ClearTrackedOccupancies(GridWorld world)
@@ -456,7 +456,6 @@ public static class GridOccupantManager
     }
 
     private static bool ForgetTrackedOccupancyUnsafe(
-        GridWorld world,
         IVoxelOccupant occupant,
         WorldVoxelIndex index,
         WorldOccupancyRegistry registry)

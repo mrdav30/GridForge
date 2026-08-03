@@ -424,9 +424,7 @@ public static class GridDiagnostics
         VoxelIndex index)
     {
         GridDiagnosticCellState state = GridDiagnosticCellState.MissingSparseAddress;
-        if ((grid.Width > 1 && (index.x == 0 || index.x == grid.Width - 1))
-            || (grid.Height > 1 && (index.y == 0 || index.y == grid.Height - 1))
-            || (grid.Length > 1 && (index.z == 0 || index.z == grid.Length - 1)))
+        if (grid.IsOnBoundary(index))
             state |= GridDiagnosticCellState.Boundary;
 
         return state;

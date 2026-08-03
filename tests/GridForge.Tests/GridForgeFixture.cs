@@ -4,7 +4,7 @@ using Xunit;
 namespace GridForge.Grids.Tests;
 
 /// <summary>
-/// Class Fixture for all GridForge tests, ensuring proper setup and teardown.
+/// Class fixture for all GridForge tests that configures shared logger output.
 /// </summary>
 public class GridForgeFixture
 {

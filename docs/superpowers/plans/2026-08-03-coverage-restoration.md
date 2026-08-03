@@ -151,7 +151,7 @@ Add the following behavioral scenarios using existing grid helpers:
 // selected active grid plus conflicting topology/storage filter -> Completed, zero cells
 // selected sparse MissingOnly query without bounds -> MissingAddressSpaceRequiresBounds
 // dense selected grid with bounds wholly outside -> Completed, zero cells
-// 3x1x3 sparse MissingOnly query -> interior missing cell lacks Boundary, edge missing cell has Boundary
+// 3x3x3 sparse MissingOnly query -> interior missing cell lacks Boundary, edge missing cell has Boundary
 // 3x3x3 dense exact-centre bounds -> only (1,1,1), rejecting lower and upper Y layers
 ```
 
