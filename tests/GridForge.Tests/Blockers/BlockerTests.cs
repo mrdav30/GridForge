@@ -63,13 +63,16 @@ public class BlockerTests : IDisposable
             Assert.Equal(obstacleCount, grid.ObstacleCount);
             Assert.Equal(blockageToken, blocker.BlockageToken);
             Assert.Equal(1, appliedCount);
+            Assert.True(voxel.IsBlocked); // Voxel should now be blocked
+
+            blocker.RemoveBlockage();
+
+            Assert.False(voxel.IsBlocked);
         }
         finally
         {
             Blocker.OnBlockageApplied -= appliedHandler;
         }
-
-        Assert.True(voxel.IsBlocked); // Voxel should now be blocked
     }
 
     [Fact]
