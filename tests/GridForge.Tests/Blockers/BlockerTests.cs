@@ -43,9 +43,31 @@ public class BlockerTests : IDisposable
         Assert.NotNull(voxel);
         Assert.False(voxel.IsBlocked); // Ensure voxel is initially unblocked
 
-        FixedBoundBox boundingBox = FixedBoundBox.FromMinMax(new Vector3d(32, 0, 32), new Vector3d(34, 0, 34));
-        var blocker = new BoundsBlocker(_world, boundingBox);
-        blocker.ApplyBlockage();
+        BoundsBlocker blocker = new(
+            _world,
+            new Vector3d(32, 0, 32),
+            new Vector3d(34, 0, 34));
+        int appliedCount = 0;
+        Action<BlockageEventInfo> appliedHandler = _ => appliedCount++;
+        Blocker.OnBlockageApplied += appliedHandler;
+
+        try
+        {
+            blocker.ApplyBlockage();
+
+            int obstacleCount = grid.ObstacleCount;
+            ObstacleToken blockageToken = blocker.BlockageToken;
+
+            blocker.ApplyBlockage();
+
+            Assert.Equal(obstacleCount, grid.ObstacleCount);
+            Assert.Equal(blockageToken, blocker.BlockageToken);
+            Assert.Equal(1, appliedCount);
+        }
+        finally
+        {
+            Blocker.OnBlockageApplied -= appliedHandler;
+        }
 
         Assert.True(voxel.IsBlocked); // Voxel should now be blocked
     }
@@ -93,18 +115,21 @@ public class BlockerTests : IDisposable
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(new VoxelIndex(2, 1, 2), out Voxel coveredVoxel));
         Assert.True(grid.TryGetVoxel(new VoxelIndex(2, 0, 2), out Voxel otherLayerVoxel));
-        FixedBoundArea area = FixedBoundArea.FromMinMax(new Vector2d(1, 1), new Vector2d(3, 3));
-        AreaBlocker blocker = new(_world, area, layerY: Fixed64.One);
+        AreaBlocker areaBlocker = new(
+            _world,
+            new Vector2d(1, 1),
+            new Vector2d(3, 3),
+            layerY: Fixed64.One);
 
-        blocker.ApplyBlockage();
+        areaBlocker.ApplyBlockage();
 
-        Assert.True(blocker.IsBlocking);
+        Assert.True(areaBlocker.IsBlocking);
         Assert.True(coveredVoxel.IsBlocked);
         Assert.False(otherLayerVoxel.IsBlocked);
 
-        blocker.RemoveBlockage();
+        areaBlocker.RemoveBlockage();
 
-        Assert.False(blocker.IsBlocking);
+        Assert.False(areaBlocker.IsBlocking);
         Assert.False(coveredVoxel.IsBlocked);
         Assert.False(otherLayerVoxel.IsBlocked);
     }

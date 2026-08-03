@@ -246,6 +246,8 @@ public class SpatialTypesTests
         Assert.True(HexDirectionUtility.IsVertical(HexDirection.Above));
         Assert.False(HexDirectionUtility.IsVertical(HexDirection.QPositive));
         Assert.Equal(RectangularDirection.None, RectangularDirectionUtility.GetDirectionFromOffset((2, 0, 0)));
+        Assert.Equal(RectangularDirection.None,
+            RectangularDirectionUtility.GetDirectionFromOffset((0, 2, 0)));
     }
 
     [Fact]
@@ -386,6 +388,7 @@ public class SpatialTypesTests
         OccupantTicket differentGeneration = new(12, 35);
 
         Assert.False(default(OccupantTicket).IsValid);
+        Assert.False(new OccupantTicket(-1, 1).IsValid);
         Assert.True(ticket.IsValid);
         Assert.Equal(12, ticket.Slot);
         Assert.Equal(34, ticket.Generation);
@@ -396,6 +399,22 @@ public class SpatialTypesTests
         Assert.NotEqual(ticket, differentSlot);
         Assert.NotEqual(ticket, differentGeneration);
         Assert.False(ticket.Equals("not a ticket"));
+    }
+
+    [Fact]
+    public void ObstacleToken_ShouldUseExactValueSemantics()
+    {
+        ObstacleToken token = new(42);
+        ObstacleToken same = new(42);
+        ObstacleToken different = new(43);
+
+        Assert.True(token == same);
+        Assert.False(token != same);
+        Assert.False(token == different);
+        Assert.True(token != different);
+        Assert.True(token.Equals((object)same));
+        Assert.False(token.Equals("not a token"));
+        Assert.Equal("42", token.ToString());
     }
 
     private static bool InvokeIsValid(MethodInfo isValid, GridTopologyKind kind, GridTopologyMetrics metrics) =>

@@ -1009,6 +1009,11 @@ public class GridWorldTests
         Assert.Equal(long.MaxValue, RuntimeIdentityAllocator.Allocate(ref counter));
         Assert.Throws<InvalidOperationException>(() => RuntimeIdentityAllocator.Allocate(ref counter));
         Assert.Equal(long.MaxValue, counter);
+
+        long negativeCounter = -1;
+        Assert.Throws<InvalidOperationException>(
+            () => RuntimeIdentityAllocator.Allocate(ref negativeCounter));
+        Assert.Equal(-1, negativeCounter);
     }
 
     private static bool InvokeTryValidateGridDimensions(GridDimensions dimensions)

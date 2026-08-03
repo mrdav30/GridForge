@@ -1,5 +1,4 @@
 ﻿using SwiftCollections.Diagnostics;
-using System;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -7,16 +6,11 @@ namespace GridForge.Grids.Tests;
 /// <summary>
 /// Class Fixture for all GridForge tests, ensuring proper setup and teardown.
 /// </summary>
-public class GridForgeFixture : IDisposable
+public class GridForgeFixture
 {
     public GridForgeFixture()
     {
         GridForgeLogger.MinimumLevel = DiagnosticLevel.Error;
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
     }
 }
 
