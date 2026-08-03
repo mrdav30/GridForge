@@ -3,6 +3,7 @@ obj/
 .vs/
 TestResults/
 .codex
+.worktrees/
 *.lscache
 
 # Local build, release, and CI artifact output
