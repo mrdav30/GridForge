@@ -14,6 +14,7 @@ using SwiftCollections;
 using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -861,9 +862,13 @@ public sealed class GridWorld : IDisposable
 
         Fixed64 closestDistanceSquared = Fixed64.MaxValue;
         if (TryGetClosestGrid(position, out VoxelGrid? closestBoundsGrid, topologyKind)
-            && closestBoundsGrid!.ConfiguredVoxelCount != 0
-            && closestBoundsGrid.TryGetClosestVoxel(position, out outVoxel, out closestDistanceSquared))
+            && closestBoundsGrid!.ConfiguredVoxelCount != 0)
         {
+            bool resolved = closestBoundsGrid.TryGetClosestVoxel(
+                position,
+                out outVoxel,
+                out closestDistanceSquared);
+            Debug.Assert(resolved);
             outGrid = closestBoundsGrid;
         }
 

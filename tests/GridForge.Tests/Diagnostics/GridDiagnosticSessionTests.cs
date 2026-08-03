@@ -263,6 +263,35 @@ public class GridDiagnosticSessionTests
     }
 
     [Fact]
+    public void Session_ShouldIgnoreCapturedLifecycleEventsAfterEarlierCallbacksDisposeIt()
+    {
+        SwiftList<GridDiagnosticChange> changes = new();
+
+        using GridWorld addWorld = GridWorldTestFactory.CreateWorld();
+        GridDiagnosticSession addSession = null!;
+        addWorld.OnActiveGridAdded += _ => addSession.Dispose();
+        addSession = new GridDiagnosticSession(addWorld);
+        GridWorldTestFactory.AddGrid(addWorld, Vector3d.Zero, Vector3d.Zero);
+        Assert.Equal(0, addSession.GetDirtyChangesInto(changes));
+
+        using GridWorld removeWorld = GridWorldTestFactory.CreateWorld();
+        VoxelGrid removeGrid = GridWorldTestFactory.AddGrid(removeWorld, Vector3d.Zero, Vector3d.Zero);
+        GridDiagnosticSession removeSession = null!;
+        removeWorld.OnActiveGridRemoved += _ => removeSession.Dispose();
+        removeSession = new GridDiagnosticSession(removeWorld);
+        Assert.True(removeWorld.TryRemoveGrid(removeGrid.GridIndex));
+        Assert.Equal(0, removeSession.GetDirtyChangesInto(changes));
+
+        using GridWorld resetWorld = GridWorldTestFactory.CreateWorld();
+        GridWorldTestFactory.AddGrid(resetWorld, Vector3d.Zero, Vector3d.Zero);
+        GridDiagnosticSession resetSession = null!;
+        resetWorld.OnReset += () => resetSession.Dispose();
+        resetSession = new GridDiagnosticSession(resetWorld);
+        resetWorld.Reset();
+        Assert.Equal(0, resetSession.GetDirtyChangesInto(changes));
+    }
+
+    [Fact]
     public void Session_ShouldIgnoreCapturedObstacleEventAfterEarlierCallbackDisposesIt()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();

@@ -150,6 +150,15 @@ public class GridDiagnosticsSparseAddressTests
         Assert.Equal(GridDiagnosticQueryStatus.Completed, physicalAndMissingResult.Status);
         Assert.Equal(grid.Size, physicalAndMissingResult.CellCount);
         Assert.All(results, cell => Assert.Equal(GridDiagnosticCellKind.Physical, cell.Kind));
+
+        GridDiagnosticQueryResult unboundedMissingOnlyResult = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(addressMode: GridDiagnosticAddressMode.MissingOnly),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, unboundedMissingOnlyResult.Status);
+        Assert.Equal(0, unboundedMissingOnlyResult.CellCount);
+        Assert.Empty(results);
     }
 
     [Theory]
@@ -198,6 +207,31 @@ public class GridDiagnosticsSparseAddressTests
     }
 
     [Fact]
+    public void SelectedSparseMissingOnlyOutsideBounds_ShouldReturnNoCells()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseRectangularGrid(
+            world,
+            Vector3d.Zero,
+            new Vector3d(2, 0, 2),
+            new[] { new VoxelIndex(0, 0, 0) });
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(
+                gridIndex: grid.GridIndex,
+                addressMode: GridDiagnosticAddressMode.MissingOnly,
+                boundsMin: new Vector3d(10, 0, 10),
+                boundsMax: new Vector3d(11, 0, 11)),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
+        Assert.Equal(0, result.CellCount);
+        Assert.Empty(results);
+    }
+
+    [Fact]
     public void MissingSparseAddresses_ShouldMarkOnlyEdgeCellsAsBoundary()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
@@ -221,6 +255,35 @@ public class GridDiagnosticsSparseAddressTests
         GridDiagnosticCell edge = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 0, 1));
         Assert.True((interior.State & GridDiagnosticCellState.Boundary) == 0);
         Assert.True((edge.State & GridDiagnosticCellState.Boundary) != 0);
+    }
+
+    [Fact]
+    public void MissingSparseAddresses_ShouldHandleSingletonHorizontalAxesAndVerticalBoundaries()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseRectangularGrid(
+            world,
+            Vector3d.Zero,
+            new Vector3d(0, 2, 0),
+            new VoxelIndex[0]);
+        SwiftList<GridDiagnosticCell> results = new();
+
+        GridDiagnosticQueryResult result = GridDiagnostics.GetCellsInto(
+            world,
+            new GridDiagnosticQuery(
+                addressMode: GridDiagnosticAddressMode.MissingOnly,
+                boundsMin: grid.BoundsMin,
+                boundsMax: grid.BoundsMax),
+            results);
+
+        Assert.Equal(GridDiagnosticQueryStatus.Completed, result.Status);
+        Assert.Equal(3, result.CellCount);
+        GridDiagnosticCell lower = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 0, 0));
+        GridDiagnosticCell middle = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 1, 0));
+        GridDiagnosticCell upper = Assert.Single(results, cell => cell.Index == new VoxelIndex(0, 2, 0));
+        Assert.True((lower.State & GridDiagnosticCellState.Boundary) != 0);
+        Assert.True((middle.State & GridDiagnosticCellState.Boundary) == 0);
+        Assert.True((upper.State & GridDiagnosticCellState.Boundary) != 0);
     }
 
     [Fact]

@@ -471,6 +471,10 @@ git commit -m "test: close value and blocker coverage gaps"
 **Files:**
 - Generate only: `tests/GridForge.Tests/TestResults/coverage-final/`
 - Modify only if a residual is reported: the nearest file already named in Tasks 1-3.
+- A proven unreachable private guard or redundant unlocked precheck may also be
+  deleted from `src/GridForge/Grids/Managers/GridOccupantManager.cs` when every
+  caller prevalidates the same condition or an authoritative locked validation
+  preserves the public contract.
 
 **Interfaces:**
 - Consumes: completed Tasks 1-3 and the repository Coverlet configuration.
@@ -538,7 +542,7 @@ Expected: all builds/tests pass with zero failures.
 If Step 2 passed immediately, make no Task 4 commit. If a residual was fixed in a file already listed by Tasks 1-3, mutation-check the covering test, rerun Steps 1-4, and stage the allowed source/test set; unchanged files are ignored by Git:
 
 ```powershell
-git add src/GridForge/Diagnostics/GridDiagnosticSession.cs src/GridForge/Diagnostics/GridDiagnostics.cs src/GridForge/Grids/Nodes/ScanCell.cs src/GridForge/Grids/Storage/DenseVoxelGridStorage.cs src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs src/GridForge/Grids/Topology/TopologyVoxelRangeUtility.cs src/GridForge/Grids/Topology/VoxelNeighborResolver.cs tests/GridForge.Tests/Diagnostics tests/GridForge.Tests/Grids tests/GridForge.Tests/Blockers/BlockerTests.cs tests/GridForge.Tests/Spatial/SpatialTypes.Tests.cs tests/GridForge.Tests/GridForgeFixture.cs
+git add src/GridForge/Diagnostics/GridDiagnosticSession.cs src/GridForge/Diagnostics/GridDiagnostics.cs src/GridForge/Grids/Managers/GridOccupantManager.cs src/GridForge/Grids/Managers/GridWorld.cs src/GridForge/Grids/Nodes/ScanCell.cs src/GridForge/Grids/Storage/DenseVoxelGridStorage.cs src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs src/GridForge/Grids/Topology/TopologyVoxelRangeUtility.cs src/GridForge/Grids/Topology/VoxelNeighborResolver.cs tests/GridForge.Tests/Diagnostics tests/GridForge.Tests/Grids tests/GridForge.Tests/Blockers/BlockerTests.cs tests/GridForge.Tests/Spatial/SpatialTypes.Tests.cs tests/GridForge.Tests/GridForgeFixture.cs docs/superpowers/plans/2026-08-03-coverage-restoration.md
 git commit -m "test: close final coverage residuals"
 ```
 

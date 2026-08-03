@@ -10,6 +10,7 @@ using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Dimensions;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Storage;
@@ -165,9 +166,10 @@ internal sealed class DenseVoxelGridStorage : IVoxelGridStorage
                         (int)z);
                     if (scanCellKey >= 0)
                     {
-                        ScanCell scanCell = ScanCells[scanCellKey];
-                        if (redundancy.Add(scanCell))
-                            results.Add(scanCell);
+                        bool found = ScanCells.TryGetValue(scanCellKey, out ScanCell? scanCell);
+                        Debug.Assert(found);
+                        if (redundancy.Add(scanCell!))
+                            results.Add(scanCell!);
                     }
                 }
             }

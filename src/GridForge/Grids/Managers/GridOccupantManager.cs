@@ -151,7 +151,7 @@ public static class GridOccupantManager
             return false;
 
         lock (registry!.SyncRoot)
-            return TryGetTrackedRecordUnsafe(world, occupant, out OccupancyRecord? record)
+            return TryGetTrackedRecordUnsafe(registry, occupant, out OccupancyRecord? record)
                 && record!.Tickets.TryGetValue(index, out ticket);
     }
 
@@ -375,7 +375,6 @@ public static class GridOccupantManager
         scanCell = null;
         return occupant != null
             && world != null
-            && targetVoxel.HasVacancy
             && grid.TryGetScanCell(targetVoxel.ScanCellKey, out scanCell);
     }
 
@@ -462,7 +461,7 @@ public static class GridOccupantManager
         WorldVoxelIndex index,
         WorldOccupancyRegistry registry)
     {
-        if (!TryGetTrackedRecordUnsafe(world, occupant, out OccupancyRecord? record)
+        if (!TryGetTrackedRecordUnsafe(registry, occupant, out OccupancyRecord? record)
             || !TryRemoveTrackedTicket(record!, index))
         {
             return false;
@@ -484,18 +483,13 @@ public static class GridOccupantManager
     }
 
     private static bool TryGetTrackedRecordUnsafe(
-        GridWorld world,
+        WorldOccupancyRegistry registry,
         IVoxelOccupant occupant,
         out OccupancyRecord? record)
     {
         record = null;
-        if (world == null
-            || occupant == null
-            || !TryGetWorldRegistry(world, out WorldOccupancyRegistry? registry)
-            || !registry!.Records.TryGetValue(occupant.GlobalId, out record))
-        {
+        if (!registry.Records.TryGetValue(occupant.GlobalId, out record))
             return false;
-        }
 
         return ReferenceEquals(record.Occupant, occupant);
     }
@@ -510,7 +504,7 @@ public static class GridOccupantManager
 
         lock (registry!.SyncRoot)
         {
-            if (!TryGetTrackedRecordUnsafe(world, occupant, out OccupancyRecord? record) || record!.Tickets.Count == 0)
+            if (!TryGetTrackedRecordUnsafe(registry, occupant, out OccupancyRecord? record) || record!.Tickets.Count == 0)
                 return Array.Empty<TrackedOccupancy>();
 
             TrackedOccupancy[] occupancies = new TrackedOccupancy[record.Tickets.Count];

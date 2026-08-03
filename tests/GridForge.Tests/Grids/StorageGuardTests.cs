@@ -179,6 +179,13 @@ public sealed class StorageGuardTests
         storage.AddVoxelsInIndexRange(new VoxelIndex(4, 0, 0), new VoxelIndex(4, 0, 0), voxels, voxelRedundancy);
         Assert.Single(voxels);
 
+        voxels.Clear();
+        voxelRedundancy.Clear();
+        storage.AddVoxelsInIndexRange(new VoxelIndex(0, 0, 0), new VoxelIndex(3, 0, 0), voxels, voxelRedundancy);
+        Assert.Equal(2, voxels.Count);
+        Assert.Contains(added, voxels);
+        Assert.Contains(outOfRange, voxels);
+
         Assert.True(storage.TryRemoveVoxel(grid, new VoxelIndex(0, 0, 0), out Voxel removed));
         Assert.Same(added, removed);
         Assert.True(storage.TryRemoveVoxel(grid, new VoxelIndex(1, 0, 0), out _));
@@ -269,6 +276,13 @@ public sealed class StorageGuardTests
 
         Assert.Single(voxels);
         Assert.Same(first, voxels[0]);
+
+        block.AddVoxelsInIndexRange(
+            new VoxelIndex(0, 0, 0),
+            new VoxelIndex(0, 0, 0),
+            voxels,
+            redundancy);
+        Assert.Single(voxels);
 
         block.Reset(grid);
     }

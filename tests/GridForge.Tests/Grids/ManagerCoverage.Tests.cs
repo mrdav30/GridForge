@@ -997,7 +997,6 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world,
             missingOccupant, firstVoxel.WorldIndex, out OccupantTicket missingTicket));
         Assert.Equal(default, missingTicket);
-        Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, null));
 
         Assert.False(firstGrid.TryAddVoxelOccupant(firstVoxel, collidingOccupant));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world,
@@ -1018,6 +1017,12 @@ public class ManagerCoverageTests : IDisposable
         Assert.True(GridOccupantManager.TryGetOccupancyTicket(_world, primaryOccupant, firstVoxel.WorldIndex, out _));
 
         using GridWorld freshWorld = GridWorldTestFactory.CreateWorld();
+        Assert.False(GridOccupantManager.TryGetOccupancyTicket(
+            freshWorld,
+            primaryOccupant,
+            firstVoxel.WorldIndex,
+            out OccupantTicket freshWorldTicket));
+        Assert.Equal(default, freshWorldTicket);
         Assert.Empty(GridOccupantManager.GetOccupiedIndices(freshWorld, primaryOccupant));
     }
 
@@ -1216,18 +1221,6 @@ public class ManagerCoverageTests : IDisposable
             ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryTrackOccupancy.");
 
         return (bool)method.Invoke(null, new object[] { world, occupant, index, ticket });
-    }
-
-    private static bool InvokeTryGetTrackedRecordUnsafe(GridWorld world, IVoxelOccupant occupant)
-    {
-        MethodInfo method = typeof(GridOccupantManager).GetMethod(
-            "TryGetTrackedRecordUnsafe",
-            BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryGetTrackedRecordUnsafe.");
-        object[] arguments = { world, occupant, null };
-
-        bool result = (bool)method.Invoke(null, arguments);
-        return result;
     }
 
     private static int CompareTrackedOccupancies(

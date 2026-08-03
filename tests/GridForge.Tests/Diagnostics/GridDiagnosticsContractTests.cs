@@ -125,6 +125,13 @@ public class GridDiagnosticsContractTests
             out Voxel resolvedVoxel));
         Assert.Same(grid, resolvedGrid);
         Assert.Same(voxel, resolvedVoxel);
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(
+            null!,
+            physicalCell,
+            out VoxelGrid nullWorldGrid,
+            out Voxel nullWorldVoxel));
+        Assert.Null(nullWorldGrid);
+        Assert.Null(nullWorldVoxel);
 
         GridDiagnosticCell missingCell = new(
             GridDiagnosticCellKind.MissingSparseAddress,
@@ -179,6 +186,26 @@ public class GridDiagnosticsContractTests
         Assert.False(GridDiagnostics.TryResolvePhysicalCell(world, mismatchedWorldToken, out VoxelGrid worldGrid, out Voxel worldVoxel));
         Assert.Null(worldGrid);
         Assert.Null(worldVoxel);
+
+        GridDiagnosticCell mismatchedInnerWorldToken = new(
+            GridDiagnosticCellKind.Physical,
+            world.SpawnToken,
+            grid.GridIndex,
+            grid.SpawnToken,
+            voxel.Index,
+            voxel.WorldPosition,
+            grid.Configuration.TopologyKind,
+            grid.StorageKind,
+            grid.Configuration.TopologyMetrics,
+            GridDiagnosticCellState.Empty,
+            new WorldVoxelIndex(world.SpawnToken + 1, grid.GridIndex, grid.SpawnToken, voxel.Index));
+        Assert.False(GridDiagnostics.TryResolvePhysicalCell(
+            world,
+            mismatchedInnerWorldToken,
+            out VoxelGrid innerWorldGrid,
+            out Voxel innerWorldVoxel));
+        Assert.Null(innerWorldGrid);
+        Assert.Null(innerWorldVoxel);
 
         GridDiagnosticCell mismatchedGridIndex = new(
             GridDiagnosticCellKind.Physical,
