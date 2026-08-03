@@ -9,7 +9,7 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Planned
+**Status:** Phase 0 complete; ready for owner review
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -69,7 +69,12 @@ Gravitas mixed queries, standard and Lean package variants.
   sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
-- Current state: architecture approved; no production implementation started.
+- Current state: Phase 0 baseline and RED evidence complete; no production
+  implementation started.
+- Coverage context: GridForge and Gravitas are at 100% reachable line, branch,
+  and method coverage. SwiftCollections is at 97% in its separate hardening
+  workstream and is intentionally non-blocking because this plan does not modify
+  SwiftCollections source.
 - Review cadence: stop after each phase for owner review unless explicitly
   asked to combine phases.
 - Evidence rule: preserve raw before/after/confirmation artifacts under each
@@ -312,10 +317,14 @@ dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -
 dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll `
   grid-registration grid-tracer vector2d-lookup neighbor-lookup grid-spatial-index `
   --filter "*" `
-  --job short `
   --exporters json `
   --artifacts "artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline"
 ```
+
+The benchmark types already apply `InProcessShortRunConfig`. Do not add the
+redundant CLI `--job short`: it creates a second out-of-process job, and
+BenchmarkDotNet rejects the duplicate benchmark project name while the owner's
+ignored `.worktrees/coverage-restoration` worktree is present.
 
 The new benchmark type must exist before capturing the authoritative baseline.
 Its safe pre-change scaling rows may stop below the pathological 64-billion-cell
@@ -378,7 +387,7 @@ and topology metrics large enough to keep the voxel address space bounded.
 | Mixed scale | 256 ordinary tiled grids plus 8 spatially separated grids spanning at least 17 hash cells per axis | Exercise both tiers in one world |
 | Many oversized | 8, 64, and 256 spatially separated oversized grids with point and bounded-region queries that intersect one grid | Demonstrate BVH scaling against the rejected linear scan |
 | Exact huge grid | Default 50-unit world hash; bounds `[-100,000, +100,000]`; 100,000-unit rectangular topology cells | Reproduce and close the 64,048,012,001-cell registration failure |
-| Exact Gravitas sweep | Start `(-200,000, 0)`, end `(200,000, 0)`, radius `100,000`, layer Y `0`, through the exact huge grid | Close the originating public mixed-query signal |
+| Exact Gravitas sweep | Start `(-200,000, 0)`, end `(200,000, 0)`, radius `100,000`, layer Y `0`, half-thickness `1`, through the exact huge grid | Close the originating public mixed-query signal |
 
 Use fixed deterministic positions and insertion permutations checked into the
 benchmark/test source. Do not generate benchmark layouts from wall-clock or
@@ -414,27 +423,134 @@ hope.
 Intent: make the current failure and ordinary costs reproducible before runtime
 behavior changes.
 
-- [ ] Record `git status --short` for SwiftCollections, GridForge, and Gravitas;
+- [x] Record `git status --short` for SwiftCollections, GridForge, and Gravitas;
       preserve the intentional local-link files and all unrelated owner work.
-- [ ] Confirm the locally linked FixedMathSharp, SwiftCollections, GridForge,
+- [x] Confirm the locally linked FixedMathSharp, SwiftCollections, GridForge,
       and Gravitas projects build in `Release` from their direct project files.
-- [ ] Add `GridSpatialIndexBenchmarks` with safe pre-change grid-footprint
+- [x] Add `GridSpatialIndexBenchmarks` with safe pre-change grid-footprint
       scaling, mixed-scale point/bounds queries, and many-large-grid scenarios.
-- [ ] Add the GridForge `HugeBounds` and Gravitas `ExtremeSparseGridSpan`
+- [x] Add the GridForge `HugeBounds` and Gravitas `ExtremeSparseGridSpan`
       regressions before changing production code.
-- [ ] Run the bounded RED commands and preserve the termination artifacts.
-- [ ] Capture the matched GridForge baseline artifact.
-- [ ] Run the current full GridForge and Gravitas tests and record counts.
-- [ ] Capture current 100% GridForge and Gravitas coverage reports and CRAP
+- [x] Run the bounded RED commands and preserve the termination artifacts.
+- [x] Capture the matched GridForge baseline artifact.
+- [x] Run the current full GridForge and Gravitas tests and record counts.
+- [x] Capture current 100% GridForge and Gravitas coverage reports and CRAP
       summaries.
-- [ ] Record baseline medians, allocations, scaling curve, coverage, and exact
+- [x] Record baseline medians, allocations, scaling curve, coverage, and exact
       artifact paths in this plan.
 
 Exit criteria:
 
-- [ ] The exact failure is retained as bounded evidence rather than anecdote.
-- [ ] Ordinary and safe heterogeneous baselines exist before production edits.
-- [ ] No unexplained failing test or dirty source change is mixed into Phase 1.
+- [x] The exact failure is retained as bounded evidence rather than anecdote.
+- [x] Ordinary and safe heterogeneous baselines exist before production edits.
+- [x] No unexplained failing test or dirty source change is mixed into Phase 1.
+
+### Phase 0 Evidence
+
+Repository state and build gate:
+
+- All four stack repositories were on `develop` on 2026-08-03.
+- FixedMathSharp was clean. SwiftCollections, GridForge, and Gravitas retained
+  their known unstaged local-link `.csproj`, `.slnx`, and
+  `Directory.Build.props` changes. The two benchmark-backlog edits were also
+  preserved.
+- Direct `Release` builds of `FixedMathSharp.csproj`,
+  `SwiftCollections.FixedMathSharp.csproj`, `GridForge.csproj`, and
+  `Gravitas.csproj` each completed with zero warnings and zero errors.
+
+Bounded RED evidence:
+
+- GridForge `TryAddGrid_WithHugeBounds_ShouldRegisterResolveAndRemoveAtDefaultSpatialCellSize`
+  was terminated after 30 seconds inside `RegisterGridSpatialCells`. The run
+  retained sequence, Cobertura/OpenCover, and two hang dumps under
+  `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/gridforge-red/f35667fe-3719-4996-8287-0af9382175e7/`.
+- Gravitas `SweepCircleAgainst3DAll_WithExtremeSparseGridSpan_ShouldReturnExpectedHit`
+  was independently terminated after 30 seconds during the same upstream grid
+  registration. It retained sequence and two hang dumps under
+  `artifacts/benchmarks/2026-08-03-mixed-sparse-span-baseline/gravitas-red/a1401294-fb82-4a97-8090-75fcc73ccb2f/`.
+- The downstream run never reached mixed narrow phase. This confirms that the
+  public Gravitas signal is an upstream GridForge registration-scale defect.
+
+Authoritative matched benchmark artifact:
+
+- Command: the matched command above, using the repository-owned in-process
+  ShortRun job and no redundant CLI job.
+- Runtime: .NET 8.0.28, BenchmarkDotNet 0.15.8, Intel Core i7-9700K, Windows 11.
+- Run log:
+  `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/BenchmarkRun-20260803-162641.log`.
+- Machine-readable and rendered results:
+  `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/results/`.
+- Result: 40 of 40 benchmark cases completed in 1 minute 49 seconds.
+
+Safe registration footprint scaling at the default 50-unit hash:
+
+| Hash cells per axis | Cell visits | Median | Allocated |
+| ---: | ---: | ---: | ---: |
+| 1 | 1 | 14.4 us | 712 B |
+| 4 | 64 | 46.85 us | 17,368 B |
+| 8 | 512 | 175.9 us | 164,872 B |
+| 16 | 4,096 | 913.2 us | 1,049,632 B |
+| 24 | 13,824 | 2.4329 ms | 3,703,864 B |
+
+The curve and allocation growth follow hash-cell volume, not active-grid count.
+The exact 4,001-cells-per-axis case was therefore retained only as the bounded
+RED run.
+
+`SpatialGridCellSize` sensitivity for one fixed 800-unit grid:
+
+| Cell size | Effective cells per axis | Median | Allocated |
+| ---: | ---: | ---: | ---: |
+| 25 | 33 | 8.5778 ms | 10,905,232 B |
+| 50 | 17 | 257.3 us | 1,206,496 B |
+| 100 | 9 | 55.6 us | 206,536 B |
+| 200 | 5 | 20.9 us | 40,432 B |
+
+Larger global cells materially reduce registration cost for that one scale, but
+no single value preserves fine ordinary lookup resolution while safely handling
+arbitrarily large streamed grids. Keep `SpatialGridCellSize` optional; do not
+turn it into the correctness mechanism.
+
+Mixed and many-large query baselines:
+
+| Scenario | Median | Allocated |
+| --- | ---: | ---: |
+| Mixed 256 ordinary + 8 large, point | 22.423 ns | 0 B |
+| Mixed 256 ordinary + 8 large, bounds | 274.258 ns | 448 B |
+| 8 large, point / bounds | 24.025 ns / 269.778 ns | 0 B / 448 B |
+| 64 large, point / bounds | 22.576 ns / 270.909 ns | 0 B / 448 B |
+| 256 large, point / bounds | 22.290 ns / 271.527 ns | 0 B / 448 B |
+
+The current hash keeps one-cell point and bounds probes constant as active-grid
+count grows; the bounds API creates a 448-byte result set. These rows isolate
+top-level candidate discovery without measuring a large query volume. The later
+BVH evidence must retain the point fast path, remove warmed bounds allocation,
+and demonstrate sublinear candidate discovery as the number of oversized grids
+grows.
+
+Representative ordinary guard baselines are retained in the same artifact:
+adjacent registration/removal medians were 2.0733 ms / 1.7043 ms; warmed line
+trace was 77.1 us with 1,704 B; warmed bounds coverage was 343.9 us with
+1,760 B; Vector2d/Vector3d voxel lookup medians were 170.2 us / 146.0 us with
+1,296 B. All ordinary rows in the artifact remain comparison gates, including
+neighbor families rather than only these concise representatives.
+
+Tests and coverage:
+
+- GridForge: 504 existing tests passed with the one intentional RED excluded.
+  ReportGenerator recorded 100% line (5,254/5,254), branch
+  (2,367/2,367), and method (845/845) coverage. CRAP analysis found zero
+  methods above 30. Raw coverage is under
+  `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/gridforge-full/830c4b8a-5968-4fc2-9964-6dd0db1cf7bc/`;
+  rendered reports are under
+  `TestResults/coverage-analysis/phase0-grid-spatial-index/`.
+- Gravitas: 3,928 existing tests passed with the one intentional RED excluded.
+  ReportGenerator recorded 100% line (55,869/55,869), branch
+  (15,833/15,833), and method (5,321/5,321) coverage. CRAP analysis found
+  27 complexity-only scores above 30, all at 100% coverage and therefore no
+  coverage gap. Raw coverage is under
+  `artifacts/benchmarks/2026-08-03-mixed-sparse-span-baseline/gravitas-coverage/4b420c8b-e04e-4304-93ae-9204cf23b6af/`;
+  rendered reports are under
+  `TestResults/coverage-analysis/phase0-grid-spatial-index/`.
 
 ## Phase 1: Internal Two-Tier Index Foundation
 
@@ -615,3 +731,4 @@ Release order remains:
 | Date | Phase | Summary |
 | --- | --- | --- |
 | 2026-08-03 | Planning | Confirmed registration-scale root cause, rejected full-BVH and dynamic-global-hash designs, selected the evidence-gated fixed hash plus fixed BVH architecture, and locked before/after artifact and rollback requirements. |
+| 2026-08-03 | Phase 0 | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed. |

@@ -17,6 +17,25 @@ namespace GridForge.Grids.Tests;
 public class GridWorldTests
 {
     [Fact]
+    public void TryAddGrid_WithHugeBounds_ShouldRegisterResolveAndRemoveAtDefaultSpatialCellSize()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Fixed64 extent = (Fixed64)100_000;
+        GridConfiguration configuration = new(
+            new Vector3d(-extent, -extent, -extent),
+            new Vector3d(extent, extent, extent),
+            topologyMetrics: GridTopologyMetrics.Rectangular(extent),
+            storageKind: GridStorageKind.Sparse);
+
+        Assert.True(world.TryAddGrid(configuration, out ushort gridIndex));
+        Assert.True(world.TryGetGrid(Vector3d.Zero, out VoxelGrid resolvedGrid));
+        Assert.Equal(gridIndex, resolvedGrid.GridIndex);
+
+        Assert.True(world.TryRemoveGrid(gridIndex));
+        Assert.False(world.TryGetGrid(Vector3d.Zero, out _));
+    }
+
+    [Fact]
     public void TryAddGrid_ShouldNormalizeBoundsUsingRectangularTopologyMetrics()
     {
         GridConfiguration rawConfiguration = new(
