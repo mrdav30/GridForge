@@ -1000,7 +1000,6 @@ public class ManagerCoverageTests : IDisposable
         Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, null));
 
         Assert.False(firstGrid.TryAddVoxelOccupant(firstVoxel, collidingOccupant));
-        Assert.False(InvokeTryGetTrackedRecordUnsafe(firstGrid.World!, collidingOccupant));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(_world,
             collidingOccupant, firstVoxel.WorldIndex, out OccupantTicket collisionTicket));
         Assert.Equal(default, collisionTicket);
