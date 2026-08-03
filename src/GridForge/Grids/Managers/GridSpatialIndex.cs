@@ -1,0 +1,168 @@
+//=======================================================================
+// GridSpatialIndex.cs
+//=======================================================================
+// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// See LICENSE file in the project root for full license information.
+//=======================================================================
+
+using FixedMathSharp;
+using SwiftCollections;
+using SwiftCollections.Query;
+
+namespace GridForge.Grids;
+
+/// <summary>
+/// Owns deterministic top-level grid spatial classification and lookup.
+/// </summary>
+internal sealed class GridSpatialIndex
+{
+    private const int InitialCapacity = 16;
+    internal const ulong DefaultHashCellBudget = 64UL;
+
+    private readonly Fixed64 _cellSize;
+    private readonly ulong _cellBudget;
+    private readonly SwiftFixedSpatialHash<ushort> _ordinaryGrids;
+    private readonly SwiftFixedBVH<ushort> _oversizedGrids;
+    private readonly SwiftHashSet<ushort> _oversizedSlots;
+
+    internal GridSpatialIndex(int cellSize)
+        : this(cellSize, DefaultHashCellBudget)
+    {
+    }
+
+    internal GridSpatialIndex(int cellSize, ulong cellBudget)
+    {
+        _cellSize = (Fixed64)cellSize;
+        _cellBudget = cellBudget;
+        _ordinaryGrids = new SwiftFixedSpatialHash<ushort>(InitialCapacity, _cellSize);
+        _oversizedGrids = new SwiftFixedBVH<ushort>(InitialCapacity);
+        _oversizedSlots = new SwiftHashSet<ushort>();
+    }
+
+    internal int Count => OrdinaryCount + OversizedCount;
+
+    internal int OrdinaryCount => _ordinaryGrids.Count;
+
+    internal int OversizedCount => _oversizedGrids.Count;
+
+    internal bool Insert(ushort gridIndex, FixedBoundVolume bounds)
+    {
+        if (_ordinaryGrids.Contains(gridIndex) || _oversizedSlots.Contains(gridIndex))
+            return false;
+
+        if (FitsHashCellBudget(bounds, _cellSize, _cellBudget))
+            return _ordinaryGrids.Insert(gridIndex, bounds);
+
+        _oversizedGrids.Insert(gridIndex, bounds);
+        _oversizedSlots.Add(gridIndex);
+        return true;
+    }
+
+    internal bool Remove(ushort gridIndex)
+    {
+        if (!_oversizedSlots.Contains(gridIndex))
+            return _ordinaryGrids.Remove(gridIndex);
+
+        _oversizedGrids.Remove(gridIndex);
+        _oversizedSlots.Remove(gridIndex);
+        return true;
+    }
+
+    internal void Clear()
+    {
+        _ordinaryGrids.Clear();
+        _oversizedGrids.Clear();
+        _oversizedSlots.Clear();
+    }
+
+    internal void CollectCandidates(
+        FixedBoundVolume queryBounds,
+        SwiftBucket<VoxelGrid> activeGrids,
+        SwiftList<ushort> candidates)
+    {
+        candidates.Clear();
+        if (activeGrids.Count == 0)
+            return;
+
+        if (ShouldScanActiveGrids(queryBounds, _cellSize, activeGrids.Count))
+        {
+            foreach (VoxelGrid grid in activeGrids)
+            {
+                var gridBounds = new FixedBoundVolume(grid.BoundsMin, grid.BoundsMax);
+                if (gridBounds.Intersects(queryBounds))
+                    candidates.Add(grid.GridIndex);
+            }
+        }
+        else
+        {
+            _ordinaryGrids.Query(queryBounds, candidates);
+            _oversizedGrids.Query(queryBounds, candidates);
+        }
+
+        candidates.SortInPlace();
+    }
+
+    internal static bool FitsHashCellBudget(
+        FixedBoundVolume bounds,
+        Fixed64 cellSize,
+        ulong cellBudget)
+    {
+        if (cellBudget == 0UL)
+            return false;
+
+        GetCellRange(bounds, cellSize, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
+        ulong xCount = GetCellCount(minCell.X, maxCell.X);
+        if (xCount > cellBudget)
+            return false;
+
+        ulong yCount = GetCellCount(minCell.Y, maxCell.Y);
+        if (yCount > cellBudget / xCount)
+            return false;
+
+        ulong xyCount = xCount * yCount;
+        ulong zCount = GetCellCount(minCell.Z, maxCell.Z);
+        return zCount <= cellBudget / xyCount;
+    }
+
+    internal static void GetCellRange(
+        FixedBoundVolume bounds,
+        Fixed64 cellSize,
+        out SwiftSpatialHashCellIndex minCell,
+        out SwiftSpatialHashCellIndex maxCell)
+    {
+        minCell = new SwiftSpatialHashCellIndex(
+            ToCell(bounds.Min.X, cellSize),
+            ToCell(bounds.Min.Y, cellSize),
+            ToCell(bounds.Min.Z, cellSize));
+        maxCell = new SwiftSpatialHashCellIndex(
+            ToCell(bounds.Max.X, cellSize),
+            ToCell(bounds.Max.Y, cellSize),
+            ToCell(bounds.Max.Z, cellSize));
+    }
+
+    internal static bool ShouldScanActiveGrids(
+        FixedBoundVolume queryBounds,
+        Fixed64 cellSize,
+        int activeGridCount)
+    {
+        GetCellRange(queryBounds, cellSize, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
+        ulong count = (ulong)activeGridCount;
+        ulong xCount = GetCellCount(minCell.X, maxCell.X);
+        if (xCount > count)
+            return true;
+
+        ulong yCount = GetCellCount(minCell.Y, maxCell.Y);
+        if (yCount > count / xCount)
+            return true;
+
+        ulong xyCount = xCount * yCount;
+        ulong zCount = GetCellCount(minCell.Z, maxCell.Z);
+        return zCount > count / xyCount;
+    }
+
+    private static int ToCell(Fixed64 value, Fixed64 cellSize) =>
+        (value / cellSize).FloorToInt();
+
+    private static ulong GetCellCount(int minimum, int maximum) =>
+        (ulong)((long)maximum - minimum + 1L);
+}

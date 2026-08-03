@@ -9,7 +9,7 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phase 0 complete; ready for owner review
+**Status:** Phase 1 complete; ready for owner review
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -51,8 +51,9 @@ Gravitas mixed queries, standard and Lean package variants.
 - GridForge and Gravitas must retain 100% reachable line, branch, and method
   coverage at every phase review boundary.
 - FixedMathSharp and SwiftCollections source are not expected to change. If
-  either repository is touched, its own 100% coverage and package gates become
-  mandatory before the dependent GridForge phase can close.
+  either repository is touched, add a focused regression and run its full test
+  gate. SwiftCollections' existing repo-wide coverage restoration remains its
+  separate non-blocking workstream; do not add an uncovered changed branch.
 - Preserve local project links as unstaged validation scaffolding. Do not commit
   `.csproj`, `.slnx`, or `Directory.Build.props` local-link changes.
 - Leave implementation changes unstaged and uncommitted for owner review.
@@ -69,12 +70,12 @@ Gravitas mixed queries, standard and Lean package variants.
   sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
-- Current state: Phase 0 baseline and RED evidence complete; no production
-  implementation started.
+- Current state: Phase 1 internal index foundation complete and awaiting owner
+  review; no public `GridWorld` behavior has migrated yet.
 - Coverage context: GridForge and Gravitas are at 100% reachable line, branch,
-  and method coverage. SwiftCollections is at 97% in its separate hardening
-  workstream and is intentionally non-blocking because this plan does not modify
-  SwiftCollections source.
+  and method coverage. SwiftCollections remains at 97% in its separate owner-led
+  hardening workstream; Phase 1 changed only its spatial-hash boundary loops and
+  covered that contract with a focused lifecycle regression.
 - Review cadence: stop after each phase for owner review unless explicitly
   asked to combine phases.
 - Evidence rule: preserve raw before/after/confirmation artifacts under each
@@ -557,32 +558,85 @@ Tests and coverage:
 Intent: introduce the smallest reusable owner for the approved architecture
 without changing every caller at once.
 
-- [ ] Write focused tests for exact cell-range classification at positive,
+- [x] Write focused tests for exact cell-range classification at positive,
       negative, reversed, zero-volume, threshold-minus-one, threshold,
       threshold-plus-one, and full-domain bounds.
-- [ ] Prove the cell-budget comparison cannot overflow when all three spans are
+- [x] Prove the cell-budget comparison cannot overflow when all three spans are
       near the complete signed cell-coordinate range.
-- [ ] Add `GridSpatialIndex` with one `SwiftFixedSpatialHash<ushort>`, one
+- [x] Add `GridSpatialIndex` with one `SwiftFixedSpatialHash<ushort>`, one
       `SwiftFixedBVH<ushort>`, and no interface/factory/strategy hierarchy.
-- [ ] Add mutually exclusive insert/remove/clear behavior and assert through
+- [x] Add mutually exclusive insert/remove/clear behavior and assert through
       tests that a slot cannot survive in both tiers or neither tier.
-- [ ] Add bounds-based candidate collection with exact filtering, the
+- [x] Add bounds-based candidate collection with exact filtering, the
       overflow-safe active-grid scan decision, and final ascending slot sort.
-- [ ] Measure threshold candidates 64, 512, and 4,096 under the new focused
+- [x] Measure threshold candidates 64, 512, and 4,096 under the new focused
       benchmark rows; apply the selection rule and delete experimental values.
-- [ ] Verify first-use and warmed allocations separately. Do not change
+- [x] Verify first-use and warmed allocations separately. Do not change
       SwiftCollections merely to make a cold benchmark column read zero.
-- [ ] Run focused tests, full GridForge tests, and 100% GridForge coverage.
-- [ ] Request an independent review of classification arithmetic, fixed-volume
+- [x] Run focused tests, full GridForge tests, and 100% GridForge coverage.
+- [x] Request an independent review of classification arithmetic, fixed-volume
       semantics, deterministic ordering, and collection ownership.
-- [ ] Record the selected threshold and Phase 1 evidence in this plan.
+- [x] Record the selected threshold and Phase 1 evidence in this plan.
 
 Exit criteria:
 
-- [ ] The internal index contract is complete and independently testable.
-- [ ] Threshold selection is measured, internal, and documented.
-- [ ] No public GridWorld behavior has been migrated piecemeal.
-- [ ] GridForge remains at 100% coverage.
+- [x] The internal index contract is complete and independently testable.
+- [x] Threshold selection is measured, internal, and documented.
+- [x] No public GridWorld behavior has been migrated piecemeal.
+- [x] GridForge remains at 100% coverage.
+
+### Phase 1 Evidence
+
+The internal owner contains only the two approved collections plus one
+oversized-slot membership set required because `SwiftFixedBVH` permits duplicate
+keys. Inserts are tier-exclusive, removal follows recorded membership, queries
+exact-filter both tiers or the active-grid scan, and every result is sorted by
+ascending `GridIndex`.
+
+The full-domain regression exposed a real upstream boundary defect rather than a
+GridForge classification exception: `SwiftSpatialHash` used `int` loop counters,
+so insert/query/remove could wrap at `int.MaxValue`, while padded queries could
+overflow before iteration. The bounded RED run terminated after five seconds and
+retained its sequence under
+`../SwiftCollections/artifacts/phase1-spatial-hash-red/`. The shared Swift loop
+owner now uses `long` counters, clamps padded ranges to the signed cell domain,
+and casts only each representable cell coordinate. The exact maximum-cell
+signed-minimum and signed-maximum insert/query/neighborhood/remove regressions
+pass, as do all 1,098 SwiftCollections Release tests and 1,070 ReleaseLean
+tests. No downstream boundary routing workaround remains.
+
+Threshold evidence used 24 deterministic entries: eight each at 64, 512, and
+4,096 hash cells. All warmed query candidates allocated `0 B`; the separate cold
+owner row includes construction, first BVH scratch where applicable, insertion,
+and one query.
+
+| Cell budget | Warmed mixed query | Cold maximum candidate | Warmed mixed lifecycle per entry |
+| ---: | ---: | ---: | ---: |
+| 64 | 372.9 ns / 0 B | 1.532 us / 4,560 B | 2.795 us / 3,064 B |
+| 512 | 318.7 ns / 0 B | 1.502 us / 4,560 B | 22.305 us / 24,931 B |
+| 4,096 | 293.4 ns / 0 B | 1.372 ms / 1,096,220 B | 300.317 us / 199,723 B |
+
+Budget 4,096 is rejected by unsafe hash registration growth. Budget 512 saves
+54.2 ns per warmed scale probe relative to 64, but makes mixed lifecycle
+work about eight times slower. Budget 64 therefore has the strongest mixed
+geometric result and is retained as the sole internal default. The experimental
+values remain only as benchmark parameters.
+
+The nine-case ShortRun completed in 1 minute 4 seconds. Machine-readable and
+rendered artifacts are under
+`artifacts/benchmarks/2026-08-03-grid-spatial-index-phase1-threshold/`.
+
+Verification:
+
+- 29 focused `GridSpatialIndex` cases passed.
+- 533 GridForge tests passed with the intentional Phase 0 `HugeBounds` RED held
+  out until public adoption in Phase 2.
+- ReportGenerator recorded 100% line (5,328/5,328), branch (2,393/2,393), and
+  method (859/859) coverage under
+  `TestResults/coverage-analysis/phase1-grid-spatial-index/`.
+- Independent review found only the missing symmetric signed-minimum Swift hash
+  regression. That case was added and both Swift package variants were
+  reverified; no other finding remains.
 
 ## Phase 2: GridWorld Lifecycle, Lookup, And Neighbor Adoption
 
@@ -732,3 +786,4 @@ Release order remains:
 | --- | --- | --- |
 | 2026-08-03 | Planning | Confirmed registration-scale root cause, rejected full-BVH and dynamic-global-hash designs, selected the evidence-gated fixed hash plus fixed BVH architecture, and locked before/after artifact and rollback requirements. |
 | 2026-08-03 | Phase 0 | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed. |
+| 2026-08-03 | Phase 1 | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2. |
