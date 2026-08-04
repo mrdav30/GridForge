@@ -52,13 +52,14 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
-| Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](2026-08-03-two-tier-grid-spatial-index-plan.md) |
+| Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
 
 ### Signal: Top-Level Grid Indexing Scales With Covered Hash-Cell Volume
 
 **Discovered:** 2026-08-03  
 **Source:** Gravitas mixed public sweep sparse-span investigation  
-**Status:** Closed upstream; downstream Gravitas confirmation remains Phase 5
+**Status:** Closed upstream and confirmed through the downstream Gravitas public
+sweep
 
 With the default 50-unit spatial-grid cell size, registering one sparse grid
 whose normalized bounds span `[-100,000, +100,000]` on all three axes attempts

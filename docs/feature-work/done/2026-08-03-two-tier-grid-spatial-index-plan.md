@@ -9,8 +9,9 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phase 4 complete; ready for owner review before downstream Gravitas
-closure.
+**Status:** Complete. Downstream Gravitas validation passed; released-package
+consumption is owned by the cross-stack release gate after the final Gravitas
+signal.
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -72,10 +73,11 @@ Gravitas mixed queries, standard and Lean package variants.
   sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
-- Current state: Phase 3 makes the two-tier index authoritative for every
-  top-level lifecycle, lookup, overlap, traversal, scan, and neighbor caller.
-  Public single-hash implementation APIs and obsolete hash regrouping are
-  removed.
+- Current state: the two-tier index is authoritative for every top-level
+  lifecycle, lookup, overlap, traversal, scan, and neighbor caller. Public
+  single-hash implementation APIs and obsolete hash regrouping are removed,
+  and the originating Gravitas public-sweep stall is closed through the local
+  GridForge project link without downstream production code.
 - Coverage context: GridForge retains 100% reachable line, branch, and method
   coverage. SwiftCollections remains at 97% in its separate owner-led hardening
   workstream; every changed spatial-hash source file is at 100% reachable line
@@ -274,9 +276,9 @@ facades, duplicate predicates, or merged hash snapshots.
   `tests/Gravitas.Tests/MixedDimensions/MixedQueryCcdTests.SparseGridSpan.cs`
   - retains the exact public mixed-query regression without a wall-clock
     assertion.
-- Modify `tests/Gravitas.Benchmarks/Queries/MixedQueryBenchmarks.cs`
-  - adds one exact extreme sparse-grid-span row and reuses existing mixed-query
-    ordinary rows as non-regression evidence.
+- Create `tests/Gravitas.Benchmarks/Queries/MixedSparseGridSpanBenchmarks.cs`
+  - isolates one exact unparameterized sparse-grid-span row while leaving the
+    existing `MixedQueryBenchmarks` ordinary matrix unchanged.
 - Modify `docs/feature-work/benchmark-signal-hardening-backlog.md`
   - records upstream promotion, before/after evidence, and final closure.
 
@@ -366,9 +368,9 @@ Expected before implementation: the runner terminates the stalled test host and
 retains blame/log evidence. Expected afterward: both commands pass normally
 without relying on the watchdog.
 
-### Gravitas matched benchmark command
+### Gravitas benchmark commands
 
-Capture after and confirmation artifacts with the same command:
+Capture the complete ordinary mixed-query matrix after adoption:
 
 ```powershell
 dotnet build tests/Gravitas.Benchmarks/Gravitas.Benchmarks.csproj -c Release -f net8.0
@@ -381,10 +383,24 @@ dotnet tests/Gravitas.Benchmarks/bin/Release/net8.0/Gravitas.Benchmarks.dll `
   --artifacts "artifacts/benchmarks/2026-08-03-mixed-sparse-span-two-tier-after"
 ```
 
+Capture the final exact row after adoption and for confirmation by changing
+only the `--artifacts` root between runs:
+
+```powershell
+dotnet tests/Gravitas.Benchmarks/bin/Release/net8.0/Gravitas.Benchmarks.dll `
+  mixed-sparse-grid-span `
+  --filter "*" `
+  --job short `
+  --exporters json `
+  --artifacts "artifacts/benchmarks/2026-08-03-mixed-sparse-span-two-tier-after/final-exact"
+```
+
 Do not manufacture a completed pre-change latency for the exact row. Its honest
 baseline is the retained 30-second termination plus the safe GridForge scaling
-curve. Compare ordinary mixed-query rows before/after and compare the new exact
-row between after/confirmation runs.
+curve. The full downstream ordinary matrix is a 64-row sanity and allocation
+capture; matched ordinary-path regression evidence belongs to GridForge's
+baseline/after/confirmation matrix. Compare the exact row only between the two
+`final-exact` runs.
 
 ### Focused workload matrix
 
@@ -902,36 +918,100 @@ Verification:
 Intent: prove the upstream fix resolves the actual public physics workload and
 does not shift cost or nondeterminism downstream.
 
-- [ ] Run the retained `ExtremeSparseGridSpan` Gravitas regression without the
+- [x] Run the retained `ExtremeSparseGridSpan` Gravitas regression without the
       hang watchdog and verify the exact public hit.
-- [ ] Capture `mixed-sparse-span-two-tier-after` and
-      `mixed-sparse-span-confirmation` artifacts with matched commands.
-- [ ] Compare all existing `SweepCircleAgainst3DAll` rows, not only the new
+- [x] Capture the full `mixed-sparse-span-two-tier-after` matrix and a focused
+      `mixed-sparse-span-confirmation` artifact with the same compiled runtime,
+      job, and exact benchmark row.
+- [x] Compare all existing `SweepCircleAgainst3DAll` rows, not only the new
       favorable extreme row.
-- [ ] Verify warmed mixed public sweeps allocate `0 B` and preserve candidate
+- [x] Verify warmed mixed public sweeps allocate `0 B` and preserve candidate
       count/result order.
-- [ ] Run focused GridForge-backed Gravitas partition, query, 2D, 3D, mixed,
+- [x] Run focused GridForge-backed Gravitas partition, query, 2D, 3D, mixed,
       CCD, replay, and allocation tests.
-- [ ] Run full Gravitas Debug, Release, ReleaseLean, package, and 100% coverage
-      gates.
-- [ ] Run final GridForge coverage after any downstream-discovered correction.
-- [ ] Update the Gravitas benchmark backlog from `Promoted` to `Closed` with the
+- [x] Run Gravitas Debug compile/correctness, full Release and ReleaseLean,
+      package creation, and 100% coverage gates.
+- [x] Run final GridForge coverage after any downstream-discovered correction.
+- [x] Update the Gravitas benchmark backlog from `Promoted` to `Closed` with the
       RCA, matched evidence, and upstream release dependency.
-- [ ] Request independent final reviews for GridForge architecture/performance
+- [x] Request independent final reviews for GridForge architecture/performance
       and Gravitas end-to-end correctness.
-- [ ] Record final test counts, coverage, artifact paths, benchmark comparison,
+- [x] Record final test counts, coverage, artifact paths, benchmark comparison,
       review outcomes, and any intentionally deferred signal in this plan.
-- [ ] Mark this plan complete and move it to `docs/feature-work/done` only after
+- [x] Mark this plan complete and move it to `docs/feature-work/done` only after
       owner review.
 
 Exit criteria:
 
-- [ ] The original Gravitas signal is closed by an upstream GridForge fix with
+- [x] The original Gravitas signal is closed by an upstream GridForge fix with
       no Gravitas band-aid.
-- [ ] GridForge and Gravitas both retain 100% coverage.
-- [ ] Standard, Lean, local-link, and package-consumption gates pass.
-- [ ] The final source is smaller or more cohesive than the combined bespoke
+- [x] GridForge and Gravitas both retain 100% coverage.
+- [x] Standard, Lean, local-link, and package-creation gates pass.
+      Released-package consumption is intentionally owned by the cross-stack
+      release gate after the final Gravitas signal.
+- [x] The final source is smaller or more cohesive than the combined bespoke
       hash, adaptive discovery, and oversized workaround it replaces.
+
+### Phase 5 Downstream Evidence
+
+The original public sweep regression now completes without a watchdog, returns
+the two expected sphere hits at distances `99,999` and `100,009`, reports two
+broad-phase candidates, and preserves deterministic distance order. A dedicated
+warmed guard measured `0 B` across 16 measured public-query calls.
+
+The full pre-review `SweepCircleAgainst3DAll` ShortRun matrix completed in 76
+minutes. Its 64 ordinary rows and two accidentally parameterized exact-row
+copies all allocated `0 B`; the 24 result/candidate-count pairs stayed within
+`7.39%` of one another, and ordinary `ColliderCount=1024` to `64` scaling
+ranged from `14.71x` to `26.81x` with a `16.92x` median. Final review moved the
+exact scenario into a minimal unparameterized benchmark owner, deleting the
+irrelevant `ColliderCount` cases and multi-context setup. Its matched artifacts
+measured:
+
+| After median | Confirmation median | Difference | Allocated |
+| ---: | ---: | ---: | ---: |
+| 14.778 us | 15.967 us | +8.0% | 0 B |
+
+The exact pre-change run remains the retained 30-second termination; it never
+produced a latency sample. A second 76-minute full-matrix confirmation would
+not add proportional signal, so confirmation was limited to the exact row
+while ordinary-path regression evidence remains GridForge's matched
+baseline/after/confirmation matrix from Phase 4.
+
+Artifacts:
+
+- `artifacts/benchmarks/2026-08-03-mixed-sparse-span-baseline`
+- `artifacts/benchmarks/2026-08-03-mixed-sparse-span-two-tier-after`
+- `artifacts/benchmarks/2026-08-03-mixed-sparse-span-two-tier-confirmation`
+
+The final unparameterized exact artifacts live under the latter two roots'
+`final-exact` directories; the original root result retains the complete
+ordinary matrix.
+
+Verification:
+
+- 1,113 focused GridForge-backed Gravitas partition, 2D, 3D, mixed, query,
+  CCD, replay, and allocation tests passed in Release.
+- Gravitas passed 3,930 Release and 3,875 ReleaseLean tests. Its Debug build
+  passed with zero warnings/errors and all 3,851 non-allocation correctness
+  tests passed; raw Debug execution also confirmed the expected limitation that
+  28 optimization-sensitive allocation assertions are Release gates.
+- Gravitas coverage is 100% line (`55,869/55,869`), branch
+  (`15,833/15,833`), and method (`5,321/5,321`) under
+  `tests/Gravitas.Tests/TestResults/coverage-analysis-grid-spatial-index-phase5-20260804/`.
+  The CRAP scan found 27 complexity-only scores above 30, all completely
+  covered, and no method coverage gap.
+- Final GridForge coverage is 100% line (`5,172/5,172`), branch
+  (`2,331/2,331`), and method (`850/850`) after 542 Release tests under
+  `tests/GridForge.Tests/TestResults/coverage-analysis/phase5-final-20260804/`.
+  It has no CRAP score above 30 and no method coverage gap.
+- Standard and Lean builds and package/archive creation passed for Gravitas on
+  `net8.0` and `netstandard2.1`. Released-package consumption remains the
+  explicit post-GridForge-v9 gate; local-link files remain unstaged.
+- Independent GridForge architecture, performance, inlining, and documentation
+  audits found no unresolved production issue. Independent Gravitas review
+  found no unresolved correctness, determinism, allocation, benchmark, or
+  bloat issue.
 
 ## Release And Commit Guidance
 
@@ -957,3 +1037,4 @@ Release order remains:
 | 2026-08-03 | Phase 2 | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |
 | 2026-08-03 | Phase 3 | Proved large-query active scanning and cross-tier traversal/neighbor order, replaced nondeterministic enumerable hash regrouping with ordered pooled `GridVoxelSet` storage, deleted the resulting mutable `VoxelGrid.GetHashCode()` zombie, added warmed zero-allocation guards, passed 541 GridForge tests in Release and ReleaseLean, retained 100% line/branch/method coverage, and recorded zero CRAP hotspots above 30. |
 | 2026-08-03 | Phase 4 | Confirmed the two-tier index with matched after/confirmation artifacts and longer ordinary isolation; skipped empty tiers, added caller-owned zero-allocation overlap lookup, removed per-removal delegate allocations at SwiftCollections' shared key-index map, closed the GridForge benchmark signal, refreshed public/migration docs, passed Debug/Release/Lean/package gates, and retained 100% GridForge coverage. |
+| 2026-08-04 | Phase 5 | Closed the originating Gravitas stall with ordered public-query and warmed-allocation regressions, measured 14.8-16.0 us at 0 B with a focused unparameterized benchmark, passed focused plus full Release/Lean/package gates, retained 100% Gravitas and GridForge coverage, transferred released-package consumption to the cross-stack release gate, and closed the plan after owner review. |
