@@ -150,6 +150,82 @@ public sealed class MixedTopologyNeighborTests : IDisposable
     }
 
     [Fact]
+    public void MixedTopologyNeighbors_ShouldPreserveCrossTierOrderAfterSlotReuse()
+    {
+        GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        Vector3d originPosition = new(8, 0, 0);
+        GridConfiguration oversizedConfiguration = CreateSparseHexConfiguration(
+            originPosition,
+            hexMetrics,
+            new VoxelIndex(1_000, 0, 0));
+        VoxelIndex origin = new(0, 0, 0);
+
+        Assert.True(_world.TryAddGrid(
+            oversizedConfiguration,
+            new[] { origin },
+            out ushort oversizedIndex));
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(originPosition, hexMetrics, origin),
+            out ushort ordinaryIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(originPosition, originPosition),
+            out ushort sourceGridIndex));
+
+        VoxelGrid sourceGrid = _world.ActiveGrids[sourceGridIndex];
+        Assert.True(sourceGrid.TryGetVoxel(origin, out Voxel source));
+        SwiftList<Voxel> results = new();
+
+        source.GetNeighborsInto(sourceGrid, results, VoxelNeighborScope.MixedTopologyGrids);
+        Assert.Equal(
+            new[] { oversizedIndex, ordinaryIndex },
+            results.Select(voxel => voxel.GridIndex));
+
+        Assert.True(_world.TryRemoveGrid(oversizedIndex));
+        Assert.True(_world.TryAddGrid(
+            oversizedConfiguration,
+            new[] { origin },
+            out ushort reusedIndex));
+        Assert.Equal(oversizedIndex, reusedIndex);
+
+        source.GetNeighborsInto(sourceGrid, results, VoxelNeighborScope.MixedTopologyGrids);
+        Assert.Equal(
+            new[] { reusedIndex, ordinaryIndex },
+            results.Select(voxel => voxel.GridIndex));
+    }
+
+    [Fact]
+    public void MixedTopologyNeighbors_ShouldAllocateZeroAfterWarmupAcrossIndexTiers()
+    {
+        GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        Vector3d originPosition = new(8, 0, 0);
+        VoxelIndex origin = new(0, 0, 0);
+        Assert.True(_world.TryAddGrid(
+            CreateSparseHexConfiguration(
+                originPosition,
+                hexMetrics,
+                new VoxelIndex(1_000, 0, 0)),
+            new[] { origin },
+            out _));
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(originPosition, hexMetrics, origin),
+            out _));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(originPosition, originPosition),
+            out ushort sourceGridIndex));
+
+        VoxelGrid sourceGrid = _world.ActiveGrids[sourceGridIndex];
+        Assert.True(sourceGrid.TryGetVoxel(origin, out Voxel source));
+        SwiftList<Voxel> results = new();
+        source.GetNeighborsInto(sourceGrid, results, VoxelNeighborScope.MixedTopologyGrids);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        source.GetNeighborsInto(sourceGrid, results, VoxelNeighborScope.MixedTopologyGrids);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
     public void MixedTopologyNeighbors_ShouldFilterNonOverlappingAabbCandidates()
     {
         GridTopologyMetrics hexMetrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, HexOrientation.PointyTop);

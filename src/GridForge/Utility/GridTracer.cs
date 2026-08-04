@@ -742,7 +742,7 @@ public static partial class GridTracer
         Vector3d boundsMax,
         Fixed64? padding)
     {
-        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
+        SwiftList<GridVoxelSet> gridVoxelSets = SwiftListPool<GridVoxelSet>.Shared.Rent();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
@@ -753,16 +753,16 @@ public static partial class GridTracer
                 boundsMin,
                 boundsMax,
                 padding,
-                gridVoxelMapping,
+                gridVoxelSets,
                 voxelRedundancyCheck,
                 candidateGrids);
 
-            foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
-                yield return new GridVoxelSet(kvp.Key, kvp.Value);
+            foreach (GridVoxelSet gridVoxelSet in gridVoxelSets)
+                yield return gridVoxelSet;
         }
         finally
         {
-            ReleaseGridVoxelMapping(gridVoxelMapping);
+            ReleaseGridVoxelSets(gridVoxelSets);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
@@ -773,7 +773,7 @@ public static partial class GridTracer
         Vector3d boundsMin,
         Vector3d boundsMax,
         Fixed64? padding,
-        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
+        SwiftList<GridVoxelSet> gridVoxelSets,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
         SwiftList<ushort> candidateGrids)
     {
@@ -789,7 +789,7 @@ public static partial class GridTracer
                 world.ActiveGrids[gridIndex],
                 queryMin,
                 queryMax,
-                gridVoxelMapping,
+                gridVoxelSets,
                 voxelRedundancyCheck);
         }
     }

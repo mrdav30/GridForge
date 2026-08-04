@@ -13,7 +13,6 @@ using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Dimensions;
 using SwiftCollections.Pool;
-using SwiftCollections.Utility;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -987,13 +986,6 @@ public class VoxelGrid
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Vector3d GetWorldOffset((int x, int y, int z) offset) =>
         Topology.GetWorldOffset(offset);
-
-    /// <inheritdoc/>
-    public override int GetHashCode() =>
-        SwiftHashTools.CombineHashCodes(
-            GridIndex.GetHashCode(),
-            BoundsMin.GetHashCode(),
-            BoundsMax.GetHashCode());
 
     #endregion
 }

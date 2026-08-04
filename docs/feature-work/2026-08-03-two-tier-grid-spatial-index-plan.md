@@ -9,8 +9,8 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phase 2 implementation complete; ready for owner review. Longer
-ordinary-query performance confirmation remains a Phase 4 release gate.
+**Status:** Phase 3 complete; ready for owner review. Longer ordinary-query
+performance confirmation remains a Phase 4 release gate.
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -72,9 +72,10 @@ Gravitas mixed queries, standard and Lean package variants.
   sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
-- Current state: Phase 2 makes the two-tier index authoritative for `GridWorld`
-  lifecycle, direct lookup, overlap, neighbor discovery, and the existing
-  traversal callers. Public single-hash implementation APIs are removed.
+- Current state: Phase 3 makes the two-tier index authoritative for every
+  top-level lifecycle, lookup, overlap, traversal, scan, and neighbor caller.
+  Public single-hash implementation APIs and obsolete hash regrouping are
+  removed.
 - Coverage context: GridForge retains 100% reachable line, branch, and method
   coverage. SwiftCollections remains at 97% in its separate owner-led hardening
   workstream; every changed spatial-hash source file is at 100% reachable line
@@ -746,21 +747,57 @@ grid bounds and large query bounds scale safely.
       no caller needs it.
 - [x] Delete `GridCandidateDiscovery` and all obsolete cell-bound/hash-key
       forwarding methods after the final caller moves.
-- [ ] Add repeated-order regressions for coverage, line tracing, scans, and
+- [x] Add repeated-order regressions for coverage, line tracing, scans, and
       mixed-topology neighbor queries across both tiers.
-- [ ] Add a large-query/small-active-world regression proving the active-grid
+- [x] Add a large-query/small-active-world regression proving the active-grid
       scan wins without iterating the empty hash volume.
-- [ ] Run focused tests, full GridForge tests, 100% GridForge coverage, and
+- [x] Run focused tests, full GridForge tests, 100% GridForge coverage, and
       allocation guards.
-- [ ] Request an independent zombie-code and deterministic-order review.
-- [ ] Pause for owner review.
+- [x] Request an independent zombie-code and deterministic-order review.
+- [x] Pause for owner review.
 
 Exit criteria:
 
-- [ ] There is one candidate-discovery implementation in GridForge.
-- [ ] Neither grid extent nor query extent forces empty-world cell traversal.
-- [ ] Scratch objects contain only state still required by reachable code.
-- [ ] GridForge remains at 100% coverage.
+- [x] There is one candidate-discovery implementation in GridForge.
+- [x] Neither grid extent nor query extent forces empty-world cell traversal.
+- [x] Scratch objects contain only state still required by reachable code.
+- [x] GridForge remains at 100% coverage.
+
+### Phase 3 Completion Evidence
+
+The Phase 2 mechanical adoption already routed line tracing, voxel coverage,
+scan-cell coverage, and contact-neighbor discovery through the shared index.
+Phase 3 verified those callers rather than duplicating another adapter. Existing
+public regressions cover a 96,000-unit query and a one-million-cell sparse span,
+proving the active-grid scan filters exact bounds without enumerating empty hash
+volume.
+
+The independent audit found one remaining deterministic-order defect after the
+index: enumerable line and voxel-coverage APIs inserted sorted candidates into
+a `SwiftDictionary<VoxelGrid, SwiftList<Voxel>>`, then emitted hash-table order.
+The new cross-tier regression went RED with expected slots `0,1,2,3...` but
+actual order `0,7,6,2,5...`. Both enumerable paths now append pooled
+`GridVoxelSet` values directly in candidate order. This deletes the obsolete
+hash regrouping, preserves enumerable/caller-owned parity through slot reuse,
+and avoids sorting a second time.
+
+Coverage then exposed `VoxelGrid.GetHashCode()` as reachable only through that
+deleted dictionary. The override hashed mutable pooled-grid fields without a
+matching equality contract, so it and its unused `SwiftHashTools` dependency
+were deleted instead of receiving a hollow test.
+
+Verification:
+
+- Cross-tier line, voxel-coverage, scan-cell, and mixed-topology neighbor order
+  remain ascending after removal and pooled slot reuse.
+- Warmed caller-owned line, voxel-coverage, scan-cell, and mixed-neighbor paths
+  allocate `0 B` in focused guards.
+- 541/541 GridForge Release and 541/541 ReleaseLean tests passed.
+- Both configurations report 5,163/5,163 lines and 2,323/2,323 branches
+  covered; all 847 reachable methods are covered.
+- CRAP analysis reports zero methods above 30; the highest score is 28 at 100%
+  coverage. Reports are retained under
+  `tests/GridForge.Tests/TestResults/coverage-analysis/phase3/`.
 
 ## Phase 4: GridForge Performance Confirmation And API Documentation
 
@@ -850,3 +887,4 @@ Release order remains:
 | 2026-08-03 | Phase 0 | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed. |
 | 2026-08-03 | Phase 1 | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2. |
 | 2026-08-03 | Phase 2 | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |
+| 2026-08-03 | Phase 3 | Proved large-query active scanning and cross-tier traversal/neighbor order, replaced nondeterministic enumerable hash regrouping with ordered pooled `GridVoxelSet` storage, deleted the resulting mutable `VoxelGrid.GetHashCode()` zombie, added warmed zero-allocation guards, passed 541 GridForge tests in Release and ReleaseLean, retained 100% line/branch/method coverage, and recorded zero CRAP hotspots above 30. |

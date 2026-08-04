@@ -18,6 +18,7 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public class GridTracerTests : IDisposable
 {
+    private static readonly Vector3d CrossTierQueryPoint = new(500, 0, 0);
     private GridWorld _world;
 
     public GridTracerTests()
@@ -310,6 +311,100 @@ public class GridTracerTests : IDisposable
             new[] { firstGridIndex, secondGridIndex },
             localOrder);
         Assert.Equal(localOrder, largeOrder);
+    }
+
+    [Fact]
+    public void Traversal_ShouldPreserveCrossTierOrderAfterSlotReuse()
+    {
+        ResetWorld(spatialGridCellSize: 1_000);
+        (GridConfiguration oversizedConfiguration, ushort oversizedIndex, ushort ordinaryIndex) =
+            AddCrossTierQueryGrids(_world);
+        List<ushort> expectedOrder = new() { oversizedIndex, ordinaryIndex };
+        for (int pairIndex = 0; pairIndex < 3; pairIndex++)
+        {
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(
+                    Vector3d.Zero,
+                    new Vector3d(65_000 + pairIndex * 1_000, 0, 0),
+                    scanCellSize: 1,
+                    storageKind: GridStorageKind.Sparse),
+                new[] { new VoxelIndex(500, 0, 0) },
+                out ushort oversizedPairIndex));
+            Assert.True(_world.TryAddGrid(
+                new GridConfiguration(
+                    CrossTierQueryPoint,
+                    CrossTierQueryPoint,
+                    scanCellSize: 1,
+                    topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)(pairIndex + 2))),
+                out ushort ordinaryPairIndex));
+            expectedOrder.Add(oversizedPairIndex);
+            expectedOrder.Add(ordinaryPairIndex);
+        }
+
+        AssertTraversalOrder(_world, expectedOrder.ToArray());
+
+        Assert.True(_world.TryRemoveGrid(oversizedIndex));
+        Assert.True(_world.TryAddGrid(
+            oversizedConfiguration,
+            new[] { new VoxelIndex(500, 0, 0) },
+            out ushort reusedIndex));
+        Assert.Equal(oversizedIndex, reusedIndex);
+        AssertTraversalOrder(_world, expectedOrder.ToArray());
+    }
+
+    [Fact]
+    public void CallerOwnedTraversal_ShouldAllocateZeroAfterWarmupAcrossIndexTiers()
+    {
+        ResetWorld(spatialGridCellSize: 1_000);
+        AddCrossTierQueryGrids(_world);
+        SwiftList<Voxel> voxels = new();
+        SwiftList<ScanCell> scanCells = new();
+        GridTraceScratch traceScratch = new();
+        GridScanScratch scanScratch = new();
+
+        GridTracer.TraceLineInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch,
+            includeEnd: true);
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch);
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            scanCells,
+            scanScratch);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        GridTracer.TraceLineInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch,
+            includeEnd: true);
+        GridTracer.GetCoveredVoxelsInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch);
+        GridTracer.GetCoveredScanCellsInto(
+            _world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            scanCells,
+            scanScratch);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
     }
 
     [Fact]
@@ -2003,6 +2098,81 @@ public class GridTracerTests : IDisposable
     {
         _world.Dispose();
         _world = GridWorldTestFactory.CreateWorld(spatialGridCellSize);
+    }
+
+    private static (GridConfiguration Configuration, ushort OversizedIndex, ushort OrdinaryIndex)
+        AddCrossTierQueryGrids(GridWorld world)
+    {
+        GridConfiguration oversizedConfiguration = new(
+            Vector3d.Zero,
+            new Vector3d(64_000, 0, 0),
+            scanCellSize: 1,
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(world.TryAddGrid(
+            oversizedConfiguration,
+            new[] { new VoxelIndex(500, 0, 0) },
+            out ushort oversizedIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(CrossTierQueryPoint, CrossTierQueryPoint, scanCellSize: 1),
+            out ushort ordinaryIndex));
+
+        return (oversizedConfiguration, oversizedIndex, ordinaryIndex);
+    }
+
+    private static void AssertTraversalOrder(GridWorld world, ushort[] expected)
+    {
+        Assert.Equal(
+            expected,
+            GridTracer.TraceLine(
+                    world,
+                    CrossTierQueryPoint,
+                    CrossTierQueryPoint,
+                    includeEnd: true)
+                .Select(set => set.Grid.GridIndex));
+        Assert.Equal(
+            expected,
+            GridTracer.GetCoveredVoxels(
+                    world,
+                    CrossTierQueryPoint,
+                    CrossTierQueryPoint)
+                .Select(set => set.Grid.GridIndex));
+        Assert.Equal(
+            expected,
+            GridTracer.GetCoveredScanCells(
+                    world,
+                    CrossTierQueryPoint,
+                    CrossTierQueryPoint)
+                .Select(scanCell => scanCell.GridIndex)
+                .Distinct());
+
+        SwiftList<Voxel> voxels = new();
+        GridTraceScratch traceScratch = new();
+
+        GridTracer.TraceLineInto(
+            world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch,
+            includeEnd: true);
+        Assert.Equal(expected, voxels.Select(voxel => voxel.GridIndex).Distinct());
+
+        GridTracer.GetCoveredVoxelsInto(
+            world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            voxels,
+            traceScratch);
+        Assert.Equal(expected, voxels.Select(voxel => voxel.GridIndex).Distinct());
+
+        SwiftList<ScanCell> scanCells = new();
+        GridTracer.GetCoveredScanCellsInto(
+            world,
+            CrossTierQueryPoint,
+            CrossTierQueryPoint,
+            scanCells,
+            new GridScanScratch());
+        Assert.Equal(expected, scanCells.Select(scanCell => scanCell.GridIndex).Distinct());
     }
 
     private static WorldVoxelIndex[] CopyCoveredVoxelIndices(IEnumerable<GridVoxelSet> coveredSets)

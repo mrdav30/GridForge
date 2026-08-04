@@ -68,7 +68,7 @@ public static partial class GridTracer
         VoxelGrid currentGrid,
         Vector3d queryMin,
         Vector3d queryMax,
-        SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
+        SwiftList<GridVoxelSet> gridVoxelSets,
         SwiftHashSet<Voxel> voxelRedundancyCheck)
     {
         SwiftList<Voxel> voxelList = SwiftListPool<Voxel>.Shared.Rent();
@@ -80,7 +80,7 @@ public static partial class GridTracer
             voxelRedundancyCheck);
 
         if (voxelList.Count > 0)
-            gridVoxelMapping.Add(currentGrid, voxelList);
+            gridVoxelSets.Add(new GridVoxelSet(currentGrid, voxelList));
         else
             SwiftListPool<Voxel>.Shared.Release(voxelList);
     }
