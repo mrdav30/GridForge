@@ -11,7 +11,7 @@ using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
-using SwiftCollections.Utility;
+using SwiftCollections.Query;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -65,11 +65,6 @@ public sealed class GridWorld : IDisposable
     public SwiftDictionary<GridConfigurationKey, ushort> BoundsTracker { get; }
 
     /// <summary>
-    /// Dictionary mapping spatial hash keys to grid indices for fast lookups.
-    /// </summary>
-    public SwiftDictionary<int, SwiftHashSet<ushort>> SpatialGridHash { get; }
-
-    /// <summary>
     /// Nonzero process-unique 64-bit runtime allocation token for this active world.
     /// Zero indicates an inactive world.
     /// </summary>
@@ -91,6 +86,8 @@ public sealed class GridWorld : IDisposable
     private static long s_obstacleRegistrationCounter;
 
     private readonly ReaderWriterLockSlim _gridLock = new();
+    private readonly SwiftList<ushort> _gridCandidates = new();
+    private readonly GridSpatialIndex _spatialIndex;
     private long _gridGenerationCounter;
 
     #endregion
@@ -148,9 +145,9 @@ public sealed class GridWorld : IDisposable
     {
         ActiveGrids = new SwiftBucket<VoxelGrid>();
         BoundsTracker = new SwiftDictionary<GridConfigurationKey, ushort>();
-        SpatialGridHash = new SwiftDictionary<int, SwiftHashSet<ushort>>();
 
         SpatialGridCellSize = ResolveSpatialGridCellSize(spatialGridCellSize);
+        _spatialIndex = new GridSpatialIndex(SpatialGridCellSize);
         SpawnToken = RuntimeIdentityAllocator.Allocate(ref s_worldAllocationCounter);
         Version = 1;
         IsActive = true;
@@ -208,12 +205,13 @@ public sealed class GridWorld : IDisposable
 
     private void ReleaseActiveGrids()
     {
+        _spatialIndex.Clear();
+
         foreach (VoxelGrid grid in ActiveGrids)
             Pools.GridPool.Release(grid);
 
         ActiveGrids.Clear();
         BoundsTracker.Clear();
-        SpatialGridHash.Clear();
         MaxTopologyCellEdge = Fixed64.Zero;
     }
 
@@ -243,7 +241,7 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
-    /// Adds a new grid to this world and registers it in the spatial hash.
+    /// Adds a new grid to this world and registers it in the spatial index.
     /// </summary>
     /// <param name="configuration">The grid configuration to normalize and register.</param>
     /// <param name="allocatedIndex">The allocated world-local grid slot on success.</param>
@@ -330,7 +328,7 @@ public sealed class GridWorld : IDisposable
 
             newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
             UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
-            RegisterGridSpatialCells(newGrid, allocatedIndex);
+            RegisterGrid(newGrid, allocatedIndex);
 
             Version++;
             addedGridInfo = CreateGridEventInfo(newGrid, GridEventKind.GridAdded);
@@ -362,7 +360,7 @@ public sealed class GridWorld : IDisposable
         {
             gridToRemove = ActiveGrids[removeIndex];
             Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
-            UnregisterGridSpatialCells(gridToRemove, removeIndex);
+            UnregisterGrid(gridToRemove, removeIndex);
             BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
             ActiveGrids.RemoveAt(removeIndex);
             RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
@@ -582,71 +580,70 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
-    private void RegisterGridSpatialCells(VoxelGrid newGrid, ushort allocatedIndex)
+    private void RegisterGrid(VoxelGrid newGrid, ushort allocatedIndex)
     {
-        foreach (int cellIndex in GetSpatialGridCells(newGrid.BoundsMin, newGrid.BoundsMax))
-        {
-            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-            {
-                gridList = new SwiftHashSet<ushort>();
-                SpatialGridHash.Add(cellIndex, gridList);
-            }
+        _spatialIndex.Insert(
+            allocatedIndex,
+            new FixedBoundVolume(newGrid.BoundsMin, newGrid.BoundsMax));
+        _spatialIndex.CollectCandidates(
+            CreateExpandedBounds(
+                newGrid.BoundsMin,
+                newGrid.BoundsMax,
+                newGrid.Topology.OverlapTolerance),
+            ActiveGrids,
+            _gridCandidates);
 
-            LinkGridWithCellNeighbors(newGrid, allocatedIndex, gridList);
-            gridList.Add(allocatedIndex);
-        }
-    }
-
-    private void LinkGridWithCellNeighbors(
-        VoxelGrid newGrid,
-        ushort allocatedIndex,
-        SwiftHashSet<ushort> gridList)
-    {
-        foreach (ushort neighborIndex in gridList)
+        for (int candidateIndex = 0; candidateIndex < _gridCandidates.Count; candidateIndex++)
         {
-            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == allocatedIndex)
+            ushort neighborIndex = _gridCandidates[candidateIndex];
+            if (neighborIndex == allocatedIndex)
                 continue;
 
             VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
-            if (!VoxelGrid.IsGridOverlapValid(newGrid, neighborGrid))
-                continue;
-
             newGrid.TryAddGridNeighbor(neighborGrid);
             neighborGrid.TryAddGridNeighbor(newGrid);
         }
     }
 
-    private void UnregisterGridSpatialCells(VoxelGrid gridToRemove, ushort removeIndex)
+    private void UnregisterGrid(VoxelGrid gridToRemove, ushort removeIndex)
     {
-        foreach (int cellIndex in GetSpatialGridCells(gridToRemove.BoundsMin, gridToRemove.BoundsMax))
+        _spatialIndex.Remove(removeIndex);
+        UnlinkGridNeighbors(gridToRemove);
+    }
+
+    private void UnlinkGridNeighbors(VoxelGrid gridToRemove)
+    {
+        if (!gridToRemove.IsConjoined)
+            return;
+
+        var neighborSets = gridToRemove.Neighbors!.DenseValues;
+        int neighborSetCount = gridToRemove.Neighbors.Count;
+        for (int neighborSetIndex = 0; neighborSetIndex < neighborSetCount; neighborSetIndex++)
         {
-            if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-                continue;
-
-            gridList.Remove(gridToRemove.GridIndex);
-
-            if (gridToRemove.IsConjoined)
-                UnlinkGridCellNeighbors(gridToRemove, removeIndex, gridList);
-
-            if (gridList.Count == 0)
-                SpatialGridHash.Remove(cellIndex);
+            foreach (int neighborIndex in neighborSets[neighborSetIndex])
+            {
+                VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
+                neighborGrid.TryRemoveGridNeighbor(gridToRemove);
+            }
         }
     }
 
-    private void UnlinkGridCellNeighbors(
-        VoxelGrid gridToRemove,
-        ushort removeIndex,
-        SwiftHashSet<ushort> gridList)
-    {
-        foreach (ushort neighborIndex in gridList)
-        {
-            if (!ActiveGrids.IsAllocated(neighborIndex) || neighborIndex == removeIndex)
-                continue;
+    internal void CollectGridCandidates(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        SwiftList<ushort> candidates) =>
+        _spatialIndex.CollectCandidates(
+            new FixedBoundVolume(boundsMin, boundsMax),
+            ActiveGrids,
+            candidates);
 
-            VoxelGrid neighborGrid = ActiveGrids[neighborIndex];
-            if (VoxelGrid.IsGridOverlapValid(gridToRemove, neighborGrid))
-                neighborGrid.TryRemoveGridNeighbor(gridToRemove);
-        }
+    private static FixedBoundVolume CreateExpandedBounds(
+        Vector3d boundsMin,
+        Vector3d boundsMax,
+        Fixed64 padding)
+    {
+        Vector3d expansion = new(padding, padding, padding);
+        return new FixedBoundVolume(boundsMin - expansion, boundsMax + expansion);
     }
 
     #region Lookup
@@ -676,10 +673,11 @@ public sealed class GridWorld : IDisposable
     public bool TryGetGrid(Vector3d position, out VoxelGrid? outGrid)
     {
         outGrid = null;
-        if (!TryGetSpatialGridCandidates(position, out SwiftHashSet<ushort>? gridList))
+        if (!CanResolvePosition())
             return false;
 
-        if (TryGetContainingGrid(position, gridList!, out outGrid))
+        _spatialIndex.CollectPointCandidates(position, _gridCandidates);
+        if (TryGetContainingGrid(position, _gridCandidates, out outGrid))
             return true;
 
         GridForgeLogger.Channel.Info($"No grid contains position {position}.");
@@ -1132,50 +1130,11 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
-    /// Enumerates the spatial-hash cells that intersect the supplied bounds.
-    /// </summary>
-    public IEnumerable<int> GetSpatialGridCells(Vector3d min, Vector3d max)
-    {
-        (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) = GetSpatialGridCellBounds(min, max);
-
-        for (long z = zMin; z <= zMax; z++)
-        {
-            for (long y = yMin; y <= yMax; y++)
-            {
-                for (long x = xMin; x <= xMax; x++)
-                {
-                    yield return SwiftHashTools.CombineHashCodes(
-                        (int)x,
-                        (int)y,
-                        (int)z);
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Computes normalized spatial-hash cell bounds for the supplied world-space bounds.
-    /// </summary>
-    internal (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) GetSpatialGridCellBounds(
-        Vector3d min,
-        Vector3d max)
-    {
-        (int xMin, int yMin, int zMin) = SnapToSpatialGrid(min);
-        (int xMax, int yMax, int zMax) = SnapToSpatialGrid(max);
-
-        (xMin, xMax) = xMin > xMax ? (xMax, xMin) : (xMin, xMax);
-        (yMin, yMax) = yMin > yMax ? (yMax, yMin) : (yMin, yMax);
-        (zMin, zMax) = zMin > zMax ? (zMax, zMin) : (zMin, zMax);
-
-        return (xMin, yMin, zMin, xMax, yMax, zMax);
-    }
-
-    /// <summary>
     /// Finds active grids in this world that overlap the supplied target grid.
     /// </summary>
     public IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
     {
-        SwiftHashSet<VoxelGrid> overlappingGrids = new();
+        SwiftList<VoxelGrid> overlappingGrids = new();
 
         if (!IsActive)
         {
@@ -1183,8 +1142,15 @@ public sealed class GridWorld : IDisposable
             return overlappingGrids;
         }
 
-        foreach (int cellIndex in GetSpatialGridCells(targetGrid.BoundsMin, targetGrid.BoundsMax))
-            AddOverlappingGridsFromCell(targetGrid, cellIndex, overlappingGrids);
+        _spatialIndex.CollectCandidates(
+            CreateExpandedBounds(
+                targetGrid.BoundsMin,
+                targetGrid.BoundsMax,
+                targetGrid.Topology.OverlapTolerance),
+            ActiveGrids,
+            _gridCandidates);
+        for (int candidateIndex = 0; candidateIndex < _gridCandidates.Count; candidateIndex++)
+            TryAddOverlappingGrid(targetGrid, _gridCandidates[candidateIndex], overlappingGrids);
 
         return overlappingGrids;
     }
@@ -1266,32 +1232,27 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool TryGetSpatialGridCandidates(
-        Vector3d position,
-        out SwiftHashSet<ushort>? gridList)
+    private bool CanResolvePosition()
     {
-        gridList = null;
-        if (!IsActive)
-        {
-            GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve positions.");
-            return false;
-        }
+        if (IsActive)
+            return true;
 
-        return SpatialGridHash.TryGetValue(GetSpatialGridKey(position), out gridList);
+        GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve positions.");
+        return false;
     }
 
     private bool TryGetContainingGrid(
         Vector3d position,
-        SwiftHashSet<ushort> gridList,
+        SwiftList<ushort> gridList,
         out VoxelGrid? outGrid)
     {
         outGrid = null;
 
-        foreach (ushort candidateIndex in gridList)
+        for (int index = 0; index < gridList.Count; index++)
         {
-            if (TryGetActiveGridCandidate(candidateIndex, out VoxelGrid? candidateGrid)
-                && candidateGrid!.IsInBounds(position))
+            ushort candidateIndex = gridList[index];
+            VoxelGrid candidateGrid = ActiveGrids[candidateIndex];
+            if (candidateGrid.IsInBounds(position))
             {
                 outGrid = candidateGrid;
                 return true;
@@ -1301,56 +1262,15 @@ public sealed class GridWorld : IDisposable
         return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool TryGetActiveGridCandidate(ushort gridIndex, out VoxelGrid? grid)
-    {
-        grid = null;
-        if (!ActiveGrids.IsAllocated(gridIndex))
-            return false;
-
-        grid = ActiveGrids[gridIndex];
-        return grid.IsActive;
-    }
-
-    private void AddOverlappingGridsFromCell(
-        VoxelGrid targetGrid,
-        int cellIndex,
-        SwiftHashSet<VoxelGrid> overlappingGrids)
-    {
-        if (!SpatialGridHash.TryGetValue(cellIndex, out SwiftHashSet<ushort> gridList))
-            return;
-
-        foreach (ushort neighborIndex in gridList)
-            TryAddOverlappingGrid(targetGrid, neighborIndex, overlappingGrids);
-    }
-
     private void TryAddOverlappingGrid(
         VoxelGrid targetGrid,
         ushort neighborIndex,
-        SwiftHashSet<VoxelGrid> overlappingGrids)
+        SwiftList<VoxelGrid> overlappingGrids)
     {
-        if (neighborIndex == targetGrid.GridIndex
-            || !TryGetActiveGridCandidate(neighborIndex, out VoxelGrid? neighborGrid))
-        {
+        if (neighborIndex == targetGrid.GridIndex)
             return;
-        }
 
-        if (VoxelGrid.IsGridOverlapValid(targetGrid, neighborGrid!))
-            overlappingGrids.Add(neighborGrid!);
-    }
-
-    /// <summary>
-    /// Computes the spatial-hash key for the supplied world-space position.
-    /// </summary>
-    public int GetSpatialGridKey(Vector3d position)
-    {
-        (int x, int y, int z) = (
-            position.X.FloorToInt() / SpatialGridCellSize,
-            position.Y.FloorToInt() / SpatialGridCellSize,
-            position.Z.FloorToInt() / SpatialGridCellSize
-        );
-
-        return SwiftHashTools.CombineHashCodes(x, y, z);
+        overlappingGrids.Add(ActiveGrids[neighborIndex]);
     }
 
     internal void NotifyActiveGridChange(VoxelGrid? grid)
@@ -1477,16 +1397,6 @@ public sealed class GridWorld : IDisposable
                 GridForgeLogger.Channel.Error($"[Grid {eventInfo.GridIndex}] change notification error: {ex.Message}");
             }
         }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private (int xMin, int yMin, int zMin) SnapToSpatialGrid(Vector3d position)
-    {
-        return (
-            (position.X.Abs() / SpatialGridCellSize).FloorToInt() * position.X.Sign(),
-            (position.Y.Abs() / SpatialGridCellSize).FloorToInt() * position.Y.Sign(),
-            (position.Z.Abs() / SpatialGridCellSize).FloorToInt() * position.Z.Sign()
-        );
     }
 
     #endregion

@@ -7,7 +7,6 @@
 
 using FixedMathSharp;
 using GridForge.Spatial;
-using GridForge.Utility;
 using SwiftCollections;
 using System;
 using System.Collections.Generic;
@@ -113,13 +112,12 @@ internal static class VoxelNeighborResolver
         NeighborResolverScratch scratch = RentContactScratch();
         GridWorld world = ownerGrid.World!;
         SwiftList<ushort> candidateGridIds = scratch.CandidateGridIds;
-        SwiftHashSet<ushort> processedGridIds = scratch.ProcessedGridIds;
         SwiftList<Voxel> voxelCandidates = scratch.CandidateVoxels;
         SwiftHashSet<Voxel> processedVoxels = scratch.ProcessedVoxels;
 
         try
         {
-            PopulateCandidateGridIds(world, ownerGrid, queryBounds, scope, candidateGridIds, processedGridIds);
+            PopulateCandidateGridIds(world, queryBounds, candidateGridIds);
 
             for (int i = 0; i < candidateGridIds.Count; i++)
             {
@@ -164,26 +162,11 @@ internal static class VoxelNeighborResolver
 
     private static void PopulateCandidateGridIds(
         GridWorld world,
-        VoxelGrid ownerGrid,
         TopologyVoxelAabb queryBounds,
-        VoxelNeighborScope scope,
-        SwiftList<ushort> candidateGridIds,
-        SwiftHashSet<ushort> processedGridIds)
+        SwiftList<ushort> candidateGridIds)
     {
         TopologyVoxelAabb spatialBounds = queryBounds.Expand(world.MaxTopologyCellEdge);
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(spatialBounds.Min, spatialBounds.Max);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGridIds,
-            candidateGridIds);
+        world.CollectGridCandidates(spatialBounds.Min, spatialBounds.Max, candidateGridIds);
     }
 
     private static bool TryGetCandidateGrid(
@@ -383,14 +366,12 @@ internal static class VoxelNeighborResolver
     private sealed class NeighborResolverScratch
     {
         public readonly SwiftList<ushort> CandidateGridIds = new();
-        public readonly SwiftHashSet<ushort> ProcessedGridIds = new();
         public readonly SwiftList<Voxel> CandidateVoxels = new();
         public readonly SwiftHashSet<Voxel> ProcessedVoxels = new();
 
         public void Clear()
         {
             CandidateGridIds.Clear();
-            ProcessedGridIds.Clear();
             CandidateVoxels.Clear();
             ProcessedVoxels.Clear();
         }

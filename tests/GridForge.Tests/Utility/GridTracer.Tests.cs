@@ -354,9 +354,9 @@ public class GridTracerTests : IDisposable
         ResetWorld(spatialGridCellSize: 100);
         Vector3d gridMin = separatedAxis switch
         {
-            0 => new Vector3d(10, 0, 0),
-            1 => new Vector3d(0, 10, 0),
-            _ => new Vector3d(0, 0, 10),
+            0 => new Vector3d(2, 0, 0),
+            1 => new Vector3d(0, 2, 0),
+            _ => new Vector3d(0, 0, 2),
         };
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(
@@ -370,6 +370,21 @@ public class GridTracerTests : IDisposable
             Vector3d.One,
             padding: -Fixed64.One,
             includeEnd: true));
+    }
+
+    [Fact]
+    public void TraceLine_ShouldRejectConstantAxisMissWithinCandidatePadding()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(0, 1, 0),
+                new Vector3d(1, 2, 1)),
+            out _));
+
+        Assert.Empty(GridTracer.TraceLine(
+            _world,
+            Vector3d.Zero,
+            new Vector3d(1, 0, 1)));
     }
 
     [Fact]
@@ -1283,7 +1298,7 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
-    public void TraceLine_ShouldSkipEmptyCellsStaleEntriesAndDuplicateGridMembership()
+    public void TraceLine_ShouldReturnUniqueVoxelsAcrossMultipleSpatialCells()
     {
         ResetWorld(spatialGridCellSize: 10);
 
@@ -1292,8 +1307,6 @@ public class GridTracerTests : IDisposable
             Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
                 out ushort gridIndex));
-            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
-
             int tracedSetCount = 0;
             ushort tracedGridIndex = ushort.MaxValue;
             List<WorldVoxelIndex> tracedVoxelIndices = new();
@@ -1683,13 +1696,15 @@ public class GridTracerTests : IDisposable
                 HexOrientation.PointyTop);
             GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1), scanCellSize: 1);
 
-            Assert.True(_world.TryAddGrid(configuration, out _));
+            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
 
-            Vector3d queryMin = new Vector3d(100, 0, 100);
-            Vector3d queryMax = new Vector3d(101, 0, 101);
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Vector3d queryMin = grid.BoundsMax + new Vector3d(4, 0, 4);
+            Vector3d queryMax = queryMin;
 
             Assert.Empty(GridTracer.GetCoveredVoxels(_world, queryMin, queryMax).ToArray());
             Assert.Empty(GridTracer.GetCoveredScanCells(_world, queryMin, queryMax).ToArray());
+            Assert.False(grid.TryGetVoxelIndex(queryMin, out _));
         }
         finally
         {
@@ -1706,15 +1721,22 @@ public class GridTracerTests : IDisposable
         {
             Assert.True(_world.TryAddGrid(
                 new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 1), scanCellSize: 1),
-                out _));
+                out ushort gridIndex));
+
+            VoxelGrid grid = _world.ActiveGrids[gridIndex];
+            Vector3d query = grid.BoundsMax + Vector3d.One;
 
             ScanCell[] scanCells = GridTracer.GetCoveredScanCells(
                     _world,
-                    new Vector3d(100, 0, 100),
-                    new Vector3d(101, 0, 101))
+                    query,
+                    query)
+                .ToArray();
+            Voxel[] voxels = GridTracer.GetCoveredVoxels(_world, query, query)
+                .SelectMany(set => set.Voxels)
                 .ToArray();
 
             Assert.Empty(scanCells);
+            Assert.Empty(voxels);
         }
         finally
         {
@@ -1825,7 +1847,7 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
-    public void GetCoveredVoxels_ShouldIgnoreStaleGridReferences()
+    public void GetCoveredVoxels_ShouldReturnEachCandidateGridOnce()
     {
         ResetWorld(spatialGridCellSize: 10);
 
@@ -1834,8 +1856,6 @@ public class GridTracerTests : IDisposable
             Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0)),
                 out ushort gridIndex));
-            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
-
             int coveredSetCount = 0;
             ushort coveredGridIndex = ushort.MaxValue;
             List<WorldVoxelIndex> coveredVoxelIndices = new();
@@ -1861,7 +1881,7 @@ public class GridTracerTests : IDisposable
     }
 
     [Fact]
-    public void GetCoveredScanCells_ShouldIgnoreStaleAndDuplicateGridMembership()
+    public void GetCoveredScanCells_ShouldReturnUniqueCellsAcrossMultipleSpatialCells()
     {
         ResetWorld(spatialGridCellSize: 10);
 
@@ -1870,8 +1890,6 @@ public class GridTracerTests : IDisposable
             Assert.True(_world.TryAddGrid(
                 new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(20, 0, 0), scanCellSize: 4),
                 out _));
-            AddStaleSpatialGridReference(new Vector3d(0, 0, 0), ushort.MaxValue);
-
             ScanCell[] coveredScanCells = GridTracer.GetCoveredScanCells(
                 _world,
                 new Vector3d(0, 0, 0),
@@ -1979,12 +1997,6 @@ public class GridTracerTests : IDisposable
         {
             ResetWorld();
         }
-    }
-
-    private void AddStaleSpatialGridReference(Vector3d position, ushort staleIndex)
-    {
-        int cellIndex = _world.GetSpatialGridKey(position);
-        _world.SpatialGridHash[cellIndex].Add(staleIndex);
     }
 
     private void ResetWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)

@@ -1,5 +1,6 @@
 using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
@@ -300,6 +301,39 @@ public class HexPrismGridTests
         Assert.True(world.TryRemoveGrid(secondGridIndex));
 
         Assert.False(boundaryVoxel.TryGetNeighbor(firstGrid, HexDirection.QPositive, out _));
+    }
+
+    [Fact]
+    public void HexGridNeighbors_ShouldLinkAndUnlinkAcrossSpatialIndexTiers()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One);
+        Vector3d firstMax = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(1_000, 0, 1), metrics);
+        GridConfiguration oversizedConfiguration = new(
+            Vector3d.Zero,
+            firstMax,
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics,
+            storageKind: GridStorageKind.Sparse);
+        Vector3d secondMin = HexCoordinateUtility.AxialToWorldOffset(
+            new VoxelIndex(1_001, 0, 0),
+            metrics);
+        GridConfiguration ordinaryConfiguration = CreateHexConfiguration(
+            secondMin,
+            metrics,
+            new VoxelIndex(1, 0, 1));
+
+        Assert.True(world.TryAddGrid(oversizedConfiguration, out ushort oversizedIndex));
+        Assert.True(world.TryAddGrid(ordinaryConfiguration, out ushort ordinaryIndex));
+
+        VoxelGrid oversizedGrid = world.ActiveGrids[oversizedIndex];
+        VoxelGrid ordinaryGrid = world.ActiveGrids[ordinaryIndex];
+        Assert.Equal(1, oversizedGrid.NeighborCount);
+        Assert.Equal(1, ordinaryGrid.NeighborCount);
+
+        Assert.True(world.TryRemoveGrid(ordinaryIndex));
+        Assert.Equal(0, oversizedGrid.NeighborCount);
+        Assert.Empty(oversizedGrid.GetAllGridNeighbors());
     }
 
     [Fact]

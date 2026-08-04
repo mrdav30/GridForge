@@ -98,29 +98,6 @@ public sealed class VoxelNeighborApiTests : IDisposable
     }
 
     [Fact]
-    public void GetNeighborsInto_ShouldSkipStaleSpatialCandidates()
-    {
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
-            out ushort gridIndex));
-
-        VoxelGrid grid = _world.ActiveGrids[gridIndex];
-        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel source));
-        Assert.True(grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel expectedNeighbor));
-        int spatialCell = _world.GetSpatialGridKey(source.WorldPosition);
-        _world.SpatialGridHash[spatialCell].Add(ushort.MaxValue);
-
-        SwiftList<Voxel> results = new SwiftList<Voxel>();
-        source.GetNeighborsInto(grid, results, VoxelNeighborScope.All, tolerance: new Fixed64(20));
-
-        Assert.Contains(expectedNeighbor, results.ToArray());
-
-        results.Clear();
-        source.GetNeighborsInto(grid, results, VoxelNeighborScope.All, tolerance: Fixed64.Zero);
-        Assert.Contains(expectedNeighbor, results.ToArray());
-    }
-
-    [Fact]
     public void GetNeighborsInto_ShouldPreserveGridSlotOrderAcrossDiscoveryStrategies()
     {
         using GridWorld world =
@@ -172,6 +149,13 @@ public sealed class VoxelNeighborApiTests : IDisposable
             new[] { firstTargetIndex, secondTargetIndex },
             localOrder);
         Assert.Equal(localOrder, activeOrder);
+
+        source.GetNeighborsInto(
+            sourceGrid,
+            results,
+            VoxelNeighborScope.SameTopologyGrids,
+            tolerance: Fixed64.Zero);
+        Assert.Equal(localOrder, new[] { results[0].GridIndex, results[1].GridIndex });
     }
 
     [Theory]

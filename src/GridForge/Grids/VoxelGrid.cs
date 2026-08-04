@@ -523,31 +523,6 @@ public class VoxelGrid
         IsActive && Topology.IsInBounds(BoundsMin, BoundsMax, Width, Height, Length, target);
 
     /// <summary>
-    /// Checks if two grids are overlapping within a given tolerance threshold.
-    /// This is used to determine if grids should be linked as neighbors.
-    /// </summary>
-    /// <param name="a">The first grid.</param>
-    /// <param name="b">The second grid.</param>
-    /// <param name="tolerance">Optional tolerance to account for minor floating-point errors.</param>
-    /// <returns>True if the grids overlap within the tolerance, otherwise false.</returns>
-    public static bool IsGridOverlapValid(VoxelGrid a, VoxelGrid b, Fixed64? tolerance = null)
-    {
-        Fixed64 toleranceValue = tolerance ?? a.Topology.OverlapTolerance;
-
-        return AxisOverlaps(a.BoundsMin.X, a.BoundsMax.X, b.BoundsMin.X, b.BoundsMax.X, toleranceValue)
-            && AxisOverlaps(a.BoundsMin.Y, a.BoundsMax.Y, b.BoundsMin.Y, b.BoundsMax.Y, toleranceValue)
-            && AxisOverlaps(a.BoundsMin.Z, a.BoundsMax.Z, b.BoundsMin.Z, b.BoundsMax.Z, toleranceValue);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool AxisOverlaps(
-        Fixed64 firstMin,
-        Fixed64 firstMax,
-        Fixed64 secondMin,
-        Fixed64 secondMax,
-        Fixed64 tolerance) => firstMax >= secondMin - tolerance && firstMin <= secondMax + tolerance;
-
-    /// <summary>
     /// Retrieves all neighboring grids connected to this grid.
     /// </summary>
     /// <returns>An enumeration of all neighboring grids.</returns>

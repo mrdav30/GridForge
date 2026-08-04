@@ -650,23 +650,6 @@ public class VoxelGridTests : IDisposable
     }
 
     [Fact]
-    public void IsGridOverlapValid_ShouldRespectExplicitTolerance()
-    {
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(0, 0, 0)),
-            out ushort firstIndex));
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(new Vector3d(2, 0, 0), new Vector3d(2, 0, 0)),
-            out ushort secondIndex));
-
-        VoxelGrid firstGrid = _world.ActiveGrids[firstIndex];
-        VoxelGrid secondGrid = _world.ActiveGrids[secondIndex];
-
-        Assert.False(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: Fixed64.Zero));
-        Assert.True(VoxelGrid.IsGridOverlapValid(firstGrid, secondGrid, tolerance: (Fixed64)2));
-    }
-
-    [Fact]
     public void GetActiveScanCells_ShouldReturnEmptyWhenGridHasNoOccupants()
     {
         Assert.True(_world.TryAddGrid(
@@ -766,6 +749,46 @@ public class VoxelGridTests : IDisposable
 
         Assert.Equal(2, centerGrid.NeighborCount);
         Assert.Equal(2, centerGrid.GetAllGridNeighbors().Select(grid => grid.GridIndex).Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData(false, false, GridStorageKind.Dense, GridStorageKind.Sparse)]
+    [InlineData(false, true, GridStorageKind.Dense, GridStorageKind.Sparse)]
+    [InlineData(true, true, GridStorageKind.Sparse, GridStorageKind.Dense)]
+    public void GridNeighbors_ShouldLinkAndUnlinkAcrossSpatialIndexTiers(
+        bool firstOversized,
+        bool secondOversized,
+        GridStorageKind firstStorage,
+        GridStorageKind secondStorage)
+    {
+        _world.Dispose();
+        _world = GridWorldTestFactory.CreateWorld();
+        Fixed64 firstExtent = firstOversized ? (Fixed64)3_200 : Fixed64.One;
+        Fixed64 secondExtent = secondOversized ? (Fixed64)3_200 : Fixed64.One;
+        GridConfiguration firstConfiguration = new(
+            Vector3d.Zero,
+            new Vector3d(firstExtent, Fixed64.Zero, Fixed64.Zero),
+            topologyMetrics: GridTopologyMetrics.Rectangular(firstExtent),
+            storageKind: firstStorage);
+        GridConfiguration secondConfiguration = new(
+            new Vector3d(firstExtent, Fixed64.Zero, Fixed64.Zero),
+            new Vector3d(firstExtent + secondExtent, Fixed64.Zero, Fixed64.Zero),
+            topologyMetrics: GridTopologyMetrics.Rectangular(secondExtent),
+            storageKind: secondStorage);
+
+        Assert.True(_world.TryAddGrid(firstConfiguration, out ushort firstIndex));
+        Assert.True(_world.TryAddGrid(secondConfiguration, out ushort secondIndex));
+
+        VoxelGrid firstGrid = _world.ActiveGrids[firstIndex];
+        VoxelGrid secondGrid = _world.ActiveGrids[secondIndex];
+        Assert.Equal(1, firstGrid.NeighborCount);
+        Assert.Equal(1, secondGrid.NeighborCount);
+        Assert.Same(secondGrid, Assert.Single(firstGrid.GetAllGridNeighbors()));
+        Assert.Same(firstGrid, Assert.Single(secondGrid.GetAllGridNeighbors()));
+
+        Assert.True(_world.TryRemoveGrid(firstIndex));
+        Assert.Equal(0, secondGrid.NeighborCount);
+        Assert.Empty(secondGrid.GetAllGridNeighbors());
     }
 
     [Fact]

@@ -92,6 +92,22 @@ public sealed class GridSpatialIndexTests
     }
 
     [Fact]
+    public void CollectPointCandidates_ShouldMergeBothTiersInAscendingSlotOrder()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(1);
+        VoxelGrid oversizedGrid = AddSparseGrid(world, Vector3d.Zero, Vector3d.One);
+        VoxelGrid ordinaryGrid = AddSparseGrid(world, Vector3d.One, Vector3d.One);
+        var index = new GridSpatialIndex(1, 1UL);
+        Assert.True(index.Insert(ordinaryGrid.GridIndex, GetBounds(ordinaryGrid)));
+        Assert.True(index.Insert(oversizedGrid.GridIndex, GetBounds(oversizedGrid)));
+        var candidates = new SwiftList<ushort> { ushort.MaxValue };
+
+        index.CollectPointCandidates(Vector3d.One, candidates);
+
+        Assert.Equal(new[] { oversizedGrid.GridIndex, ordinaryGrid.GridIndex }, candidates);
+    }
+
+    [Fact]
     public void CollectCandidates_WhenQueryVolumeExceedsActiveCount_ShouldScanAndFilterExactBounds()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(1);
@@ -154,9 +170,8 @@ public sealed class GridSpatialIndexTests
     {
         FixedBoundVolume bounds = CreateUniformBounds(first, second);
 
-        GridSpatialIndex.GetCellRange(
+        new GridSpatialIndex(50).GetCellRange(
             bounds,
-            (Fixed64)50,
             out SwiftSpatialHashCellIndex minCell,
             out SwiftSpatialHashCellIndex maxCell);
 
@@ -169,14 +184,28 @@ public sealed class GridSpatialIndexTests
     {
         FixedBoundVolume bounds = CreateUniformBounds(Fixed64.MinValue, Fixed64.MaxValue);
 
-        GridSpatialIndex.GetCellRange(
+        new GridSpatialIndex(50).GetCellRange(
             bounds,
-            (Fixed64)50,
             out SwiftSpatialHashCellIndex minCell,
             out SwiftSpatialHashCellIndex maxCell);
 
         Assert.Equal(new SwiftSpatialHashCellIndex(-42_949_673, -42_949_673, -42_949_673), minCell);
         Assert.Equal(new SwiftSpatialHashCellIndex(42_949_672, 42_949_672, 42_949_672), maxCell);
+    }
+
+    [Fact]
+    public void GetCellRange_ImmediatelyBeforeBoundary_ShouldUseExactRawFloor()
+    {
+        Fixed64 coordinate = Fixed64.FromRaw(((long)50 << 32) - 1L);
+        FixedBoundVolume bounds = CreateUniformBounds(coordinate, coordinate);
+
+        new GridSpatialIndex(50).GetCellRange(
+            bounds,
+            out SwiftSpatialHashCellIndex minCell,
+            out SwiftSpatialHashCellIndex maxCell);
+
+        Assert.Equal(new SwiftSpatialHashCellIndex(0, 0, 0), minCell);
+        Assert.Equal(minCell, maxCell);
     }
 
     [Theory]
@@ -193,7 +222,7 @@ public sealed class GridSpatialIndexTests
 
         Assert.Equal(
             expected,
-            GridSpatialIndex.FitsHashCellBudget(bounds, (Fixed64)50, 64UL));
+            new GridSpatialIndex(50, 64UL).FitsHashCellBudget(bounds));
     }
 
     [Fact]
@@ -201,7 +230,7 @@ public sealed class GridSpatialIndexTests
     {
         FixedBoundVolume bounds = CreateUniformBounds(Fixed64.MinValue, Fixed64.MaxValue);
 
-        Assert.False(GridSpatialIndex.FitsHashCellBudget(bounds, (Fixed64)50, 4_096UL));
+        Assert.False(new GridSpatialIndex(50, 4_096UL).FitsHashCellBudget(bounds));
     }
 
     [Theory]
@@ -221,16 +250,14 @@ public sealed class GridSpatialIndexTests
                 (Fixed64)((yCells - 1) * 50),
                 (Fixed64)((zCells - 1) * 50)));
 
-        Assert.Equal(expected, GridSpatialIndex.FitsHashCellBudget(bounds, (Fixed64)50, 64UL));
+        Assert.Equal(expected, new GridSpatialIndex(50, 64UL).FitsHashCellBudget(bounds));
     }
 
     [Fact]
     public void FitsHashCellBudget_WithZeroBudget_ShouldReturnFalse()
     {
-        Assert.False(GridSpatialIndex.FitsHashCellBudget(
-            new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero),
-            (Fixed64)50,
-            0UL));
+        Assert.False(new GridSpatialIndex(50, 0UL).FitsHashCellBudget(
+            new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero)));
     }
 
     [Fact]
@@ -238,7 +265,7 @@ public sealed class GridSpatialIndexTests
     {
         FixedBoundVolume bounds = CreateUniformBounds(Fixed64.MaxValue, Fixed64.MaxValue);
 
-        Assert.True(GridSpatialIndex.FitsHashCellBudget(bounds, Fixed64.One, 4_096UL));
+        Assert.True(new GridSpatialIndex(1, 4_096UL).FitsHashCellBudget(bounds));
     }
 
     [Theory]
@@ -260,7 +287,7 @@ public sealed class GridSpatialIndexTests
 
         Assert.Equal(
             expected,
-            GridSpatialIndex.ShouldScanActiveGrids(bounds, Fixed64.One, activeGridCount));
+            new GridSpatialIndex(1).ShouldScanActiveGrids(bounds, activeGridCount));
     }
 
     private static FixedBoundVolume CreateUniformBounds(int first, int second) =>

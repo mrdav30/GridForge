@@ -9,7 +9,8 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phase 1 complete; ready for owner review
+**Status:** Phase 2 implementation complete; ready for owner review. Longer
+ordinary-query performance confirmation remains a Phase 4 release gate.
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -50,10 +51,11 @@ Gravitas mixed queries, standard and Lean package variants.
   than hidden.
 - GridForge and Gravitas must retain 100% reachable line, branch, and method
   coverage at every phase review boundary.
-- FixedMathSharp and SwiftCollections source are not expected to change. If
-  either repository is touched, add a focused regression and run its full test
-  gate. SwiftCollections' existing repo-wide coverage restoration remains its
-  separate non-blocking workstream; do not add an uncovered changed branch.
+- FixedMathSharp and SwiftCollections source are not expected to change unless
+  measurement exposes an upstream defect. Any such change requires a focused
+  regression and its full test gate. SwiftCollections' existing repo-wide
+  coverage restoration remains its separate non-blocking workstream; changed
+  spatial-hash files must retain complete reachable coverage.
 - Preserve local project links as unstaged validation scaffolding. Do not commit
   `.csproj`, `.slnx`, or `Directory.Build.props` local-link changes.
 - Leave implementation changes unstaged and uncommitted for owner review.
@@ -70,12 +72,13 @@ Gravitas mixed queries, standard and Lean package variants.
   sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
-- Current state: Phase 1 internal index foundation complete and awaiting owner
-  review; no public `GridWorld` behavior has migrated yet.
-- Coverage context: GridForge and Gravitas are at 100% reachable line, branch,
-  and method coverage. SwiftCollections remains at 97% in its separate owner-led
-  hardening workstream; Phase 1 changed only its spatial-hash boundary loops and
-  covered that contract with a focused lifecycle regression.
+- Current state: Phase 2 makes the two-tier index authoritative for `GridWorld`
+  lifecycle, direct lookup, overlap, neighbor discovery, and the existing
+  traversal callers. Public single-hash implementation APIs are removed.
+- Coverage context: GridForge retains 100% reachable line, branch, and method
+  coverage. SwiftCollections remains at 97% in its separate owner-led hardening
+  workstream; every changed spatial-hash source file is at 100% reachable line
+  and branch coverage.
 - Review cadence: stop after each phase for owner review unless explicitly
   asked to combine phases.
 - Evidence rule: preserve raw before/after/confirmation artifacts under each
@@ -180,9 +183,10 @@ same rather than returning every active grid and relying on later topology
 work.
 
 Point lookup uses a degenerate point volume and resolves the lowest valid grid
-slot when overlapping grids contain the same position. Neighbor and overlap
-queries expand by the exact topology overlap tolerance before applying
-`VoxelGrid.IsGridOverlapValid(...)`.
+slot when overlapping grids contain the same position. Top-level neighbor and
+overlap queries expand by the target topology's exact overlap tolerance, then
+use the index's exact `FixedBoundVolume` intersection filter as the single
+grid-bound relation.
 
 ### Public Boundary
 
@@ -197,10 +201,13 @@ Remove from the v9 public surface:
 - `GridWorld.SpatialGridHash`
 - `GridWorld.GetSpatialGridCells(...)`
 - `GridWorld.GetSpatialGridKey(...)`
+- `VoxelGrid.IsGridOverlapValid(...)`
 
-Those APIs expose one implementation tier and become misleading once some
-grids are intentionally absent from the hash. They are not valid host extension
-points. Do not retain compatibility facades or return merged snapshots.
+The three `GridWorld` APIs expose one implementation tier and become misleading
+once some grids are intentionally absent from the hash. They are not valid host
+extension points. The overlap helper duplicated the new index's exact
+expanded-bound filter and had no production caller. Do not retain compatibility
+facades, duplicate predicates, or merged hash snapshots.
 
 ### Allocation And Concurrency Boundary
 
@@ -225,6 +232,9 @@ points. Do not retain compatibility facades or return merged snapshots.
 - Modify `src/GridForge/Grids/Managers/GridWorld.cs`
   - delegates registration/removal/point/overlap/neighbor candidate work;
     removes exposed hash authority and obsolete key/cell helpers.
+- Modify `src/GridForge/Grids/VoxelGrid.cs`
+  - removes the duplicate public overlap predicate after its single exact owner
+    moves into the spatial index.
 - Modify `src/GridForge/Utility/GridTracer.cs`
   - passes world-space candidate bounds to the shared index.
 - Modify `src/GridForge/Utility/GridTracer.TraceLine.cs`
@@ -643,46 +653,98 @@ Verification:
 Intent: make the two-tier owner authoritative for all top-level grid lifecycle
 and direct world queries.
 
-- [ ] Replace `RegisterGridSpatialCells` with neighbor-candidate collection
+- [x] Replace `RegisterGridSpatialCells` with neighbor-candidate collection
       followed by exact linking and one-tier insertion.
-- [ ] Replace `UnregisterGridSpatialCells` with exact neighbor unlinking and
+- [x] Replace `UnregisterGridSpatialCells` with exact neighbor unlinking and
       removal from the recorded tier before the grid is returned to its pool.
-- [ ] Route `TryGetGrid(position)`, `FindOverlappingGrids`, reset, and dispose
+- [x] Route `TryGetGrid(position)`, `FindOverlappingGrids`, reset, and dispose
       through `GridSpatialIndex`.
-- [ ] Resolve overlapping containing grids by ascending grid slot and add
+- [x] Resolve overlapping containing grids by ascending grid slot and add
       insertion/removal-order regressions for that contract.
-- [ ] Cover hash/hash, hash/BVH, and BVH/BVH link/unlink pairs for rectangular,
+- [x] Cover hash/hash, hash/BVH, and BVH/BVH link/unlink pairs for rectangular,
       hex, dense, and sparse grid combinations where topology permits contact.
-- [ ] Ensure duplicate-configuration rejection and failed registration do not
+- [x] Ensure duplicate-configuration rejection and failed registration do not
       leak a tier entry or neighbor link.
-- [ ] Remove `SpatialGridHash`, `GetSpatialGridCells`, and `GetSpatialGridKey`
+- [x] Remove `SpatialGridHash`, `GetSpatialGridCells`, and `GetSpatialGridKey`
       from the public surface and delete tests that only existed to mutate stale
       implementation buckets.
-- [ ] Keep `SpatialGridCellSize` and its constructor validation unchanged.
-- [ ] Run focused tests, full GridForge tests, 100% GridForge coverage, and the
+- [x] Remove the now-duplicate public `VoxelGrid.IsGridOverlapValid(...)`
+      predicate rather than retain a second expanded-bound authority.
+- [x] Keep `SpatialGridCellSize` and its constructor validation unchanged.
+- [x] Run focused tests, full GridForge tests, 100% GridForge coverage, and the
       first matched `two-tier-after` benchmark artifact.
-- [ ] Pause for owner review before traversal adoption.
+- [x] Pause for owner review before further traversal hardening.
 
 Exit criteria:
 
-- [ ] Huge-grid registration/removal no longer enumerates its hash-cell volume.
+- [x] Huge-grid registration/removal no longer enumerates its hash-cell volume.
 - [ ] Ordinary point and lifecycle behavior meets the 5% and allocation gates.
-- [ ] All neighbor relationships survive cross-tier registration and removal.
-- [ ] GridForge remains at 100% coverage.
+- [x] All neighbor relationships survive cross-tier registration and removal.
+- [x] GridForge remains at 100% coverage.
+
+### Phase 2 Completion Evidence
+
+`GridWorld` now inserts each live grid into one recorded tier before neighbor
+linking, removes it from that tier before unlinking its recorded reciprocal
+neighbors, and clears the index before returning pooled grids during reset.
+Point and overlap queries use exact two-tier candidates sorted by grid slot, so
+hash order, BVH shape, removal history, and pooled slot reuse cannot change the
+winner. The old public hash/key/cell surface and tests that corrupted its
+implementation buckets were deleted rather than preserved as facades.
+
+The adoption exposed two policy-neutral SwiftCollections defects and fixed them
+at their shared owners: fixed spatial-cell mapping now floors exact Q32.32 raw
+ratios across negative and fractional coordinates, and spatial cell hashes now
+use deterministic `SwiftHashTools` combination rather than
+`System.HashCode.Combine`. `SwiftFixedSpatialHash` exposes that one exact cell
+mapping authority plus the broad-phase point candidate operation required by
+GridForge; the experimented exact-query and collection-specialized forwarders
+were deleted when they added no retained value.
+
+Matched ShortRun evidence under
+`artifacts/benchmarks/2026-08-03-grid-spatial-index-two-tier-phase2-accepted/`
+shows the retained architecture removes the catastrophic footprint curve and
+keeps its new point-index paths allocation-free:
+
+| Workload | Baseline | Phase 2 | Direction |
+| --- | ---: | ---: | ---: |
+| Register 64 adjacent grids | 2.078 ms / 1,099.95 KB | 1.862 ms / 1,106.05 KB | -10.4% time; +0.6% allocation |
+| Remove 64 adjacent grids | 1.708 ms / 25.22 KB | 1.170 ms / 32.93 KB | -31.5% time; +7.71 KB per batch |
+| Mixed-scale point lookup | n/a | 91.67 ns / 0 B | New two-tier row |
+| Point lookup, 8/64/256 oversized grids | n/a | 90.21/129.41/151.98 ns / 0 B | Sublinear BVH growth |
+
+The ordinary `TryGetVoxel` ShortRun rows were directionally 7.8% slower for 3D
+and 12.9% slower for 2D, but each benchmark iteration is only about 0.15-0.20
+ms and BenchmarkDotNet reports confidence ranges too broad to establish a
+repeatable regression. The removal allocation increase is also retained as an
+explicit signal. Phase 4 must run isolated longer confirmation before either is
+accepted or optimized; the unchecked performance exit criterion above is
+intentional.
+
+Verification:
+
+- 537/537 GridForge Release and 537/537 ReleaseLean tests passed.
+- Release and ReleaseLean both report 5,166/5,166 lines and 2,323/2,323
+  branches covered; method coverage remains complete.
+- 1,106/1,106 SwiftCollections Release and 1,078/1,078 ReleaseLean tests
+  passed. Every changed spatial-hash file reports 100% reachable line and
+  branch coverage; its unrelated repository-wide 97% restoration remains
+  owner-led.
+- The Release benchmark project builds with zero warnings and errors.
 
 ## Phase 3: Traversal, Coverage, Scan, And Neighbor-Resolver Adoption
 
 Intent: remove the remaining hash-specific query machinery and prove both large
 grid bounds and large query bounds scale safely.
 
-- [ ] Change GridTracer coverage and line workers to pass expanded world-space
+- [x] Change GridTracer coverage and line workers to pass expanded world-space
       candidate bounds directly to the shared index.
-- [ ] Change `VoxelNeighborResolver` to the same bounds-based candidate API.
-- [ ] Preserve `MaxTopologyCellEdge` expansion before index collection and exact
+- [x] Change `VoxelNeighborResolver` to the same bounds-based candidate API.
+- [x] Preserve `MaxTopologyCellEdge` expansion before index collection and exact
       topology/voxel filtering afterward.
-- [ ] Remove `ProcessedGrids` from `GridTraceScratch` and `GridScanScratch` once
+- [x] Remove `ProcessedGrids` from `GridTraceScratch` and `GridScanScratch` once
       no caller needs it.
-- [ ] Delete `GridCandidateDiscovery` and all obsolete cell-bound/hash-key
+- [x] Delete `GridCandidateDiscovery` and all obsolete cell-bound/hash-key
       forwarding methods after the final caller moves.
 - [ ] Add repeated-order regressions for coverage, line tracing, scans, and
       mixed-topology neighbor queries across both tiers.
@@ -787,3 +849,4 @@ Release order remains:
 | 2026-08-03 | Planning | Confirmed registration-scale root cause, rejected full-BVH and dynamic-global-hash designs, selected the evidence-gated fixed hash plus fixed BVH architecture, and locked before/after artifact and rollback requirements. |
 | 2026-08-03 | Phase 0 | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed. |
 | 2026-08-03 | Phase 1 | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2. |
+| 2026-08-03 | Phase 2 | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |

@@ -18,8 +18,6 @@ public sealed class GridScanScratch
 
     internal SwiftList<ScanCell> ScanCells { get; } = new();
 
-    internal SwiftHashSet<ushort> ProcessedGrids { get; } = new();
-
     internal SwiftHashSet<ScanCell> ScanCellRedundancy { get; } = new();
 
     /// <summary>
@@ -29,7 +27,6 @@ public sealed class GridScanScratch
     {
         CandidateGrids.Clear();
         ScanCells.Clear();
-        ProcessedGrids.Clear();
         ScanCellRedundancy.Clear();
     }
 }

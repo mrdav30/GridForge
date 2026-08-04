@@ -32,7 +32,6 @@ public static partial class GridTracer
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
         try
@@ -45,7 +44,6 @@ public static partial class GridTracer
                 includeEnd,
                 gridVoxelMapping,
                 voxelRedundancyCheck,
-                processedGrids,
                 candidateGrids);
 
             foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
@@ -55,7 +53,6 @@ public static partial class GridTracer
         {
             ReleaseGridVoxelMapping(gridVoxelMapping);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
     }
@@ -68,26 +65,13 @@ public static partial class GridTracer
         bool includeEnd,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
-        SwiftHashSet<ushort> processedGrids,
         SwiftList<ushort> candidateGrids)
     {
         (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding);
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGrids,
-            candidateGrids);
+        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddTraceLineVoxelsForGrid(
@@ -109,26 +93,13 @@ public static partial class GridTracer
         bool includeEnd,
         SwiftList<Voxel> voxels,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
-        SwiftHashSet<ushort> processedGrids,
         SwiftList<ushort> candidateGrids)
     {
         (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding);
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGrids,
-            candidateGrids);
+        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddTraceLineVoxelsForGrid(

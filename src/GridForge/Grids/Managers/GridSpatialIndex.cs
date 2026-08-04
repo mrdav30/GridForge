@@ -19,7 +19,6 @@ internal sealed class GridSpatialIndex
     private const int InitialCapacity = 16;
     internal const ulong DefaultHashCellBudget = 64UL;
 
-    private readonly Fixed64 _cellSize;
     private readonly ulong _cellBudget;
     private readonly SwiftFixedSpatialHash<ushort> _ordinaryGrids;
     private readonly SwiftFixedBVH<ushort> _oversizedGrids;
@@ -32,9 +31,8 @@ internal sealed class GridSpatialIndex
 
     internal GridSpatialIndex(int cellSize, ulong cellBudget)
     {
-        _cellSize = (Fixed64)cellSize;
         _cellBudget = cellBudget;
-        _ordinaryGrids = new SwiftFixedSpatialHash<ushort>(InitialCapacity, _cellSize);
+        _ordinaryGrids = new SwiftFixedSpatialHash<ushort>(InitialCapacity, (Fixed64)cellSize);
         _oversizedGrids = new SwiftFixedBVH<ushort>(InitialCapacity);
         _oversizedSlots = new SwiftHashSet<ushort>();
     }
@@ -50,7 +48,7 @@ internal sealed class GridSpatialIndex
         if (_ordinaryGrids.Contains(gridIndex) || _oversizedSlots.Contains(gridIndex))
             return false;
 
-        if (FitsHashCellBudget(bounds, _cellSize, _cellBudget))
+        if (FitsHashCellBudget(bounds))
             return _ordinaryGrids.Insert(gridIndex, bounds);
 
         _oversizedGrids.Insert(gridIndex, bounds);
@@ -84,7 +82,7 @@ internal sealed class GridSpatialIndex
         if (activeGrids.Count == 0)
             return;
 
-        if (ShouldScanActiveGrids(queryBounds, _cellSize, activeGrids.Count))
+        if (ShouldScanActiveGrids(queryBounds, activeGrids.Count))
         {
             foreach (VoxelGrid grid in activeGrids)
             {
@@ -99,53 +97,56 @@ internal sealed class GridSpatialIndex
             _oversizedGrids.Query(queryBounds, candidates);
         }
 
-        candidates.SortInPlace();
+        if (candidates.Count > 1)
+            candidates.SortInPlace();
     }
 
-    internal static bool FitsHashCellBudget(
-        FixedBoundVolume bounds,
-        Fixed64 cellSize,
-        ulong cellBudget)
+    internal void CollectPointCandidates(
+        Vector3d point,
+        SwiftList<ushort> candidates)
     {
-        if (cellBudget == 0UL)
+        candidates.Clear();
+        _ordinaryGrids.CollectPointCandidates(point, candidates);
+
+        _oversizedGrids.Query(new FixedBoundVolume(point, point), candidates);
+
+        if (candidates.Count > 1)
+            candidates.SortInPlace();
+    }
+
+    internal bool FitsHashCellBudget(FixedBoundVolume bounds)
+    {
+        if (_cellBudget == 0UL)
             return false;
 
-        GetCellRange(bounds, cellSize, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
+        GetCellRange(bounds, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
         ulong xCount = GetCellCount(minCell.X, maxCell.X);
-        if (xCount > cellBudget)
+        if (xCount > _cellBudget)
             return false;
 
         ulong yCount = GetCellCount(minCell.Y, maxCell.Y);
-        if (yCount > cellBudget / xCount)
+        if (yCount > _cellBudget / xCount)
             return false;
 
         ulong xyCount = xCount * yCount;
         ulong zCount = GetCellCount(minCell.Z, maxCell.Z);
-        return zCount <= cellBudget / xyCount;
+        return zCount <= _cellBudget / xyCount;
     }
 
-    internal static void GetCellRange(
+    internal void GetCellRange(
         FixedBoundVolume bounds,
-        Fixed64 cellSize,
         out SwiftSpatialHashCellIndex minCell,
         out SwiftSpatialHashCellIndex maxCell)
     {
-        minCell = new SwiftSpatialHashCellIndex(
-            ToCell(bounds.Min.X, cellSize),
-            ToCell(bounds.Min.Y, cellSize),
-            ToCell(bounds.Min.Z, cellSize));
-        maxCell = new SwiftSpatialHashCellIndex(
-            ToCell(bounds.Max.X, cellSize),
-            ToCell(bounds.Max.Y, cellSize),
-            ToCell(bounds.Max.Z, cellSize));
+        minCell = _ordinaryGrids.GetCellIndex(bounds.Min);
+        maxCell = _ordinaryGrids.GetCellIndex(bounds.Max);
     }
 
-    internal static bool ShouldScanActiveGrids(
+    internal bool ShouldScanActiveGrids(
         FixedBoundVolume queryBounds,
-        Fixed64 cellSize,
         int activeGridCount)
     {
-        GetCellRange(queryBounds, cellSize, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
+        GetCellRange(queryBounds, out SwiftSpatialHashCellIndex minCell, out SwiftSpatialHashCellIndex maxCell);
         ulong count = (ulong)activeGridCount;
         ulong xCount = GetCellCount(minCell.X, maxCell.X);
         if (xCount > count)
@@ -159,9 +160,6 @@ internal sealed class GridSpatialIndex
         ulong zCount = GetCellCount(minCell.Z, maxCell.Z);
         return zCount > count / xyCount;
     }
-
-    private static int ToCell(Fixed64 value, Fixed64 cellSize) =>
-        (value / cellSize).FloorToInt();
 
     private static ulong GetCellCount(int minimum, int maximum) =>
         (ulong)((long)maximum - minimum + 1L);

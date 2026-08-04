@@ -36,6 +36,90 @@ public class GridWorldTests
     }
 
     [Fact]
+    public void TryGetGrid_WithOverlappingHashAndBvhGrids_ShouldResolveLowestLiveSlot()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration oversizedConfiguration = new(
+            Vector3d.Zero,
+            new Vector3d(3_200, 0, 0),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)3_200),
+            storageKind: GridStorageKind.Sparse);
+        GridConfiguration ordinaryConfiguration = new(
+            Vector3d.Zero,
+            Vector3d.Zero);
+
+        Assert.True(world.TryAddGrid(oversizedConfiguration, out ushort oversizedIndex));
+        Assert.True(world.TryAddGrid(ordinaryConfiguration, out ushort ordinaryIndex));
+        Assert.Equal(0, oversizedIndex);
+        Assert.Equal(1, ordinaryIndex);
+        Assert.True(world.TryGetGrid(Vector3d.Zero, out VoxelGrid resolved));
+        Assert.Equal(oversizedIndex, resolved.GridIndex);
+
+        Assert.True(world.TryRemoveGrid(oversizedIndex));
+        Assert.True(world.TryGetGrid(Vector3d.Zero, out resolved));
+        Assert.Equal(ordinaryIndex, resolved.GridIndex);
+
+        Assert.True(world.TryAddGrid(oversizedConfiguration, out ushort reusedIndex));
+        Assert.Equal(oversizedIndex, reusedIndex);
+        Assert.True(world.TryGetGrid(Vector3d.Zero, out resolved));
+        Assert.Equal(reusedIndex, resolved.GridIndex);
+    }
+
+    [Fact]
+    public void FindOverlappingGrids_WithHashAndBvhCandidates_ShouldReturnAscendingSlots()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration oversizedConfiguration = new(
+            Vector3d.Zero,
+            new Vector3d(3_200, 0, 0),
+            topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)3_200),
+            storageKind: GridStorageKind.Sparse);
+        Assert.True(world.TryAddGrid(oversizedConfiguration, out ushort oversizedIndex));
+        Assert.False(world.TryAddGrid(oversizedConfiguration, out ushort duplicateIndex));
+        Assert.Equal(oversizedIndex, duplicateIndex);
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort ordinaryIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.Half)),
+            out ushort targetIndex));
+
+        VoxelGrid[] overlaps = world.FindOverlappingGrids(world.ActiveGrids[targetIndex]).ToArray();
+
+        Assert.Equal(new[] { oversizedIndex, ordinaryIndex }, overlaps.Select(grid => grid.GridIndex));
+    }
+
+    [Fact]
+    public void Reset_ShouldClearBothIndexTiersBeforeGridSlotReuse()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                new Vector3d(3_200, 0, 0),
+                topologyMetrics: GridTopologyMetrics.Rectangular((Fixed64)3_200),
+                storageKind: GridStorageKind.Sparse),
+            out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(10_000, 0, 0), new Vector3d(10_000, 0, 0)),
+            out _));
+
+        world.Reset();
+
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(20_000, 0, 0), new Vector3d(20_000, 0, 0)),
+            out ushort replacementIndex));
+        Assert.Equal(0, replacementIndex);
+        Assert.False(world.TryGetGrid(Vector3d.Zero, out _));
+        Assert.False(world.TryGetGrid(new Vector3d(10_000, 0, 0), out _));
+        Assert.True(world.TryGetGrid(new Vector3d(20_000, 0, 0), out VoxelGrid replacement));
+        Assert.Equal(replacementIndex, replacement.GridIndex);
+    }
+
+    [Fact]
     public void TryAddGrid_ShouldNormalizeBoundsUsingRectangularTopologyMetrics()
     {
         GridConfiguration rawConfiguration = new(
@@ -68,13 +152,6 @@ public class GridWorldTests
         Assert.Equal(GridWorld.DefaultSpatialGridCellSize, world.SpatialGridCellSize);
         Assert.Equal(GridWorld.DefaultSpatialGridCellSize, negativeWorld.SpatialGridCellSize);
         Assert.Equal(4, positiveWorld.SpatialGridCellSize);
-
-        (int xMin, int yMin, int zMin, int xMax, int yMax, int zMax) =
-            positiveWorld.GetSpatialGridCellBounds(new Vector3d(8, 8, 8), new Vector3d(0, -8, 0));
-
-        Assert.True(xMin <= xMax);
-        Assert.True(yMin <= yMax);
-        Assert.True(zMin <= zMax);
     }
 
     [Fact]
@@ -205,7 +282,7 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void TryAddGrid_ShouldRejectInactiveDuplicateAndSkipInvalidSpatialNeighbors()
+    public void TryAddGrid_ShouldRejectInactiveAndDuplicateConfigurations()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
         GridConfiguration firstConfiguration = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
@@ -213,9 +290,6 @@ public class GridWorldTests
         Assert.True(world.TryAddGrid(firstConfiguration, out ushort firstIndex));
         Assert.False(world.TryAddGrid(firstConfiguration, out ushort duplicateIndex));
         Assert.Equal(firstIndex, duplicateIndex);
-
-        int firstCellIndex = world.GetSpatialGridKey(new Vector3d(0, 0, 0));
-        world.SpatialGridHash[firstCellIndex].Add(ushort.MaxValue);
 
         Assert.True(world.TryAddGrid(
             new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(11, 0, 11)),
@@ -364,7 +438,6 @@ public class GridWorldTests
             new WorldVoxelIndex(world.SpawnToken, firstGrid.GridIndex, firstGrid.SpawnToken, new VoxelIndex(99, 0, 99)),
             out _));
 
-        world.SpatialGridHash[world.GetSpatialGridKey(new Vector3d(10, 0, 10))].Add(ushort.MaxValue);
         Assert.True(world.TryGetGrid(new Vector3d(10, 0, 10), out VoxelGrid secondByPosition));
         Assert.Same(secondGrid, secondByPosition);
 
@@ -417,7 +490,7 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void ResetAndRemoveGrid_ShouldHandleInactiveMissingAndPartiallyMissingSpatialState()
+    public void ResetAndRemoveGrid_ShouldHandleInactiveAndMissingGrids()
     {
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
         inactiveWorld.Dispose();
@@ -433,29 +506,8 @@ public class GridWorldTests
             new Vector3d(0, 0, 0),
             new Vector3d(4, 0, 4));
 
-        int removedCellIndex = world.GetSpatialGridKey(new Vector3d(0, 0, 0));
-        Assert.True(world.SpatialGridHash.Remove(removedCellIndex));
-
         Assert.True(world.TryRemoveGrid(grid.GridIndex));
         Assert.False(world.TryRemoveGrid(grid.GridIndex));
-    }
-
-    [Fact]
-    public void TryRemoveGrid_ShouldSkipStaleSpatialNeighborEntries()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 8);
-        VoxelGrid firstGrid = GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(0, 0, 0),
-            new Vector3d(1, 0, 1));
-        GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(1, 0, 1),
-            new Vector3d(2, 0, 2));
-        int spatialCell = world.GetSpatialGridKey(firstGrid.BoundsMin);
-        world.SpatialGridHash[spatialCell].Add(ushort.MaxValue);
-
-        Assert.True(world.TryRemoveGrid(firstGrid.GridIndex));
     }
 
     [Fact]
@@ -506,38 +558,7 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void SpatialCellBounds_ShouldNormalizeReversedBounds()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 10);
-
-        int[] forwardCells = world.GetSpatialGridCells(
-            new Vector3d(-12, -4, -20),
-            new Vector3d(21, 9, 30)).ToArray();
-        int[] reversedCells = world.GetSpatialGridCells(
-            new Vector3d(21, 9, 30),
-            new Vector3d(-12, -4, -20)).ToArray();
-
-        Assert.Equal(forwardCells, reversedCells);
-    }
-
-    [Theory]
-    [InlineData(long.MinValue)]
-    [InlineData(long.MaxValue)]
-    public void SpatialCellEnumeration_ShouldTerminateAtScalarDomainFaces(
-        long coordinateRaw)
-    {
-        using GridWorld world =
-            GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
-        Fixed64 coordinate = Fixed64.FromRaw(coordinateRaw);
-        Vector3d point = new(coordinate, coordinate, coordinate);
-
-        int[] cells = world.GetSpatialGridCells(point, point).ToArray();
-
-        Assert.Single(cells);
-    }
-
-    [Fact]
-    public void FindOverlappingGrids_ShouldReturnUniqueActiveOverlaps()
+    public void FindOverlappingGrids_ShouldReturnActiveOverlapsInGridSlotOrder()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1024);
         VoxelGrid targetGrid = GridWorldTestFactory.AddGrid(
@@ -560,8 +581,6 @@ public class GridWorldTests
             new Vector3d(100, 0, 100),
             new Vector3d(104, 0, 104),
             scanCellSize: 2);
-
-        world.SpatialGridHash[world.GetSpatialGridKey(new Vector3d(0, 0, 0))].Add(ushort.MaxValue);
 
         VoxelGrid[] overlaps = world.FindOverlappingGrids(targetGrid).ToArray();
 
@@ -605,29 +624,6 @@ public class GridWorldTests
         world.Dispose();
 
         Assert.Empty(world.FindOverlappingGrids(grid));
-    }
-
-    [Fact]
-    public void FindOverlappingGrids_ShouldSkipMissingSpatialHashCells()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 4);
-        VoxelGrid targetGrid = GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(0, 0, 0),
-            new Vector3d(8, 0, 8),
-            scanCellSize: 2);
-        VoxelGrid overlappingGrid = GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(4, 0, 4),
-            new Vector3d(12, 0, 12),
-            scanCellSize: 2);
-
-        world.SpatialGridHash.Remove(world.GetSpatialGridKey(new Vector3d(8, 0, 8)));
-
-        VoxelGrid[] overlaps = world.FindOverlappingGrids(targetGrid).ToArray();
-
-        Assert.Single(overlaps);
-        Assert.Same(overlappingGrid, overlaps[0]);
     }
 
     [Fact]

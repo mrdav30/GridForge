@@ -98,7 +98,6 @@ public static partial class GridTracer
             return;
 
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
         try
@@ -111,14 +110,12 @@ public static partial class GridTracer
                 includeEnd,
                 results,
                 voxelRedundancyCheck,
-                processedGrids,
                 candidateGrids);
 
         }
         finally
         {
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
     }
@@ -130,7 +127,7 @@ public static partial class GridTracer
     /// <param name="start">Starting position in world space.</param>
     /// <param name="end">Ending position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
-    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="padding">Value applied to the start/end positions before snapping.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     public static void TraceLineInto(
@@ -158,7 +155,6 @@ public static partial class GridTracer
             includeEnd,
             results,
             scratch.VoxelRedundancy,
-            scratch.ProcessedGrids,
             scratch.CandidateGrids);
 
     }
@@ -223,7 +219,7 @@ public static partial class GridTracer
     /// <param name="start">Starting XZ-plane position in world space.</param>
     /// <param name="end">Ending XZ-plane position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
-    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="padding">Value applied to the start/end positions before snapping.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
@@ -365,7 +361,7 @@ public static partial class GridTracer
     /// <param name="boundsMin">The minimum corner of the bounding area.</param>
     /// <param name="boundsMax">The maximum corner of the bounding area.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
-    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
@@ -392,7 +388,7 @@ public static partial class GridTracer
     /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
-    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
     /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
     public static void GetCoveredVoxelsInto(
@@ -414,7 +410,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be queried.</param>
     /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
-    /// <param name="scratch">Reusable scratch storage for processed-grid and duplicate-voxel guards.</param>
+    /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
     /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
     public static void GetCoveredVoxelsInto(
@@ -593,7 +589,6 @@ public static partial class GridTracer
         SwiftList<ScanCell> scanCells,
         Fixed64? padding = null)
     {
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftHashSet<ScanCell> voxelRedundancyCheck = SwiftHashSetPool<ScanCell>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
@@ -604,14 +599,12 @@ public static partial class GridTracer
                 boundsMin,
                 boundsMax,
                 scanCells,
-                processedGrids,
                 candidateGrids,
                 voxelRedundancyCheck,
                 padding);
         }
         finally
         {
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftHashSetPool<ScanCell>.Shared.Release(voxelRedundancyCheck);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
@@ -634,7 +627,6 @@ public static partial class GridTracer
             boundsMin,
             boundsMax,
             scanCells,
-            scratch.ProcessedGrids,
             scratch.CandidateGrids,
             scratch.ScanCellRedundancy,
             padding);
@@ -650,7 +642,6 @@ public static partial class GridTracer
         SwiftList<Voxel> voxels,
         Fixed64? padding = null)
     {
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
@@ -661,14 +652,12 @@ public static partial class GridTracer
                 boundsMin,
                 boundsMax,
                 voxels,
-                processedGrids,
                 candidateGrids,
                 voxelRedundancyCheck,
                 padding);
         }
         finally
         {
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
@@ -691,7 +680,6 @@ public static partial class GridTracer
             boundsMin,
             boundsMax,
             voxels,
-            scratch.ProcessedGrids,
             scratch.CandidateGrids,
             scratch.VoxelRedundancy,
             padding);
@@ -702,7 +690,6 @@ public static partial class GridTracer
         Vector3d boundsMin,
         Vector3d boundsMax,
         SwiftList<Voxel> voxels,
-        SwiftHashSet<ushort> processedGrids,
         SwiftList<ushort> candidateGrids,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
         Fixed64? padding = null)
@@ -712,19 +699,7 @@ public static partial class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGrids,
-            candidateGrids);
+        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredGridVoxels(
@@ -741,7 +716,6 @@ public static partial class GridTracer
         Vector3d boundsMin,
         Vector3d boundsMax,
         SwiftList<ScanCell> scanCells,
-        SwiftHashSet<ushort> processedGrids,
         SwiftList<ushort> candidateGrids,
         SwiftHashSet<ScanCell> voxelRedundancyCheck,
         Fixed64? padding = null)
@@ -750,19 +724,7 @@ public static partial class GridTracer
             CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGrids,
-            candidateGrids);
+        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredScanCellsForGrid(
@@ -782,7 +744,6 @@ public static partial class GridTracer
     {
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping = new();
         SwiftHashSet<Voxel> voxelRedundancyCheck = SwiftHashSetPool<Voxel>.Shared.Rent();
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
         try
@@ -794,7 +755,6 @@ public static partial class GridTracer
                 padding,
                 gridVoxelMapping,
                 voxelRedundancyCheck,
-                processedGrids,
                 candidateGrids);
 
             foreach (KeyValuePair<VoxelGrid, SwiftList<Voxel>> kvp in gridVoxelMapping)
@@ -804,7 +764,6 @@ public static partial class GridTracer
         {
             ReleaseGridVoxelMapping(gridVoxelMapping);
             SwiftHashSetPool<Voxel>.Shared.Release(voxelRedundancyCheck);
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
     }
@@ -816,7 +775,6 @@ public static partial class GridTracer
         Fixed64? padding,
         SwiftDictionary<VoxelGrid, SwiftList<Voxel>> gridVoxelMapping,
         SwiftHashSet<Voxel> voxelRedundancyCheck,
-        SwiftHashSet<ushort> processedGrids,
         SwiftList<ushort> candidateGrids)
     {
         (Vector3d queryMin, Vector3d queryMax) =
@@ -824,19 +782,7 @@ public static partial class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        (int cellXMin, int cellYMin, int cellZMin, int cellXMax, int cellYMax, int cellZMax) =
-            world.GetSpatialGridCellBounds(candidateMin, candidateMax);
-
-        GridCandidateDiscovery.CollectInStableSlotOrder(
-            world,
-            cellXMin,
-            cellYMin,
-            cellZMin,
-            cellXMax,
-            cellYMax,
-            cellZMax,
-            processedGrids,
-            candidateGrids);
+        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredVoxelsForGrid(
@@ -855,7 +801,6 @@ public static partial class GridTracer
         Fixed64? padding)
     {
         SwiftList<ScanCell> scanCells = SwiftListPool<ScanCell>.Shared.Rent();
-        SwiftHashSet<ushort> processedGrids = SwiftHashSetPool<ushort>.Shared.Rent();
         SwiftHashSet<ScanCell> voxelRedundancyCheck = SwiftHashSetPool<ScanCell>.Shared.Rent();
         SwiftList<ushort> candidateGrids = SwiftListPool<ushort>.Shared.Rent();
 
@@ -866,7 +811,6 @@ public static partial class GridTracer
                 boundsMin,
                 boundsMax,
                 scanCells,
-                processedGrids,
                 candidateGrids,
                 voxelRedundancyCheck,
                 padding);
@@ -877,7 +821,6 @@ public static partial class GridTracer
         finally
         {
             SwiftListPool<ScanCell>.Shared.Release(scanCells);
-            SwiftHashSetPool<ushort>.Shared.Release(processedGrids);
             SwiftHashSetPool<ScanCell>.Shared.Release(voxelRedundancyCheck);
             SwiftListPool<ushort>.Shared.Release(candidateGrids);
         }
