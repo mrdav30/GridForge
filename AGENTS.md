@@ -144,9 +144,10 @@ Versioning:
 
 The runtime is built around explicit world ownership:
 
-- `GridWorld` owns one world's spatial hash settings, active grid bucket, bounds
-  tracker, spatial hash, maximum topology cell edge, versioning, lifecycle, and
-  world-level events.
+- `GridWorld` owns one world's ordinary-tier lookup tuning, active grid bucket,
+  bounds tracker, adaptive two-tier spatial index, maximum topology cell edge,
+  versioning, lifecycle, and world-level events. Oversized grids are routed to
+  the secondary fixed BVH automatically.
 - `GridConfiguration` carries per-grid storage and topology intent through
   `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics`.
 - `VoxelGrid` owns one grid's snapped bounds, dimensions, topology instance,
@@ -211,8 +212,8 @@ Always prefer optimized, low time-complexity code. No band-aid solutions.
 
 Likely hotspots include:
 
-- `GridWorld.TryAddGrid`, `TryRemoveGrid`, lookup, spatial-hash registration,
-  and neighbor updates.
+- `GridWorld.TryAddGrid`, `TryRemoveGrid`, lookup, adaptive spatial-index
+  registration, and neighbor updates.
 - `VoxelGrid` generation, reset, same-topology neighbor linking, and scan-cell
   generation.
 - Dense and sparse voxel storage construction, lookup, enumeration, and runtime
@@ -330,7 +331,7 @@ GitHub wiki publishing.
 - Start in `src/GridForge/Grids`.
 - Decide whether the behavior belongs at world, grid, voxel, scan-cell, query,
   storage, topology, or manager level.
-- Check interactions with snapping, spatial hashing, pooling, versioning,
+- Check interactions with snapping, spatial indexing, pooling, versioning,
   events, neighbor resolution, storage kind, topology metrics, and identity
   tokens.
 - Add or update tests under `tests/GridForge.Tests/Grids` or

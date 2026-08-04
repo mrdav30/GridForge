@@ -9,8 +9,8 @@
 > `superpowers:verification-before-completion` before claiming a phase is
 > complete. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Phase 3 complete; ready for owner review. Longer ordinary-query
-performance confirmation remains a Phase 4 release gate.
+**Status:** Phase 4 complete; ready for owner review before downstream Gravitas
+closure.
 
 **Goal:** Make top-level `VoxelGrid` registration, removal, lookup, overlap,
 neighbor discovery, and traversal scale with active grids rather than the empty
@@ -46,9 +46,9 @@ Gravitas mixed queries, standard and Lean package variants.
 - Candidate order is ascending world-local `GridIndex`, independent of hash
   bucket order, BVH tree shape, insertion order, removal history, or pooled
   reuse.
-- Hot query paths must allocate `0 B` after warmup. Cold index growth and the
-  BVH's first-thread traversal scratch must be measured and documented rather
-  than hidden.
+- Scalar and caller-owned hot query paths must allocate `0 B` after warmup.
+  Enumerable convenience APIs, cold index growth, and the BVH's first-thread
+  traversal scratch must be measured and documented rather than hidden.
 - GridForge and Gravitas must retain 100% reachable line, branch, and method
   coverage at every phase review boundary.
 - FixedMathSharp and SwiftCollections source are not expected to change unless
@@ -417,7 +417,8 @@ process-random seeds.
   changed to chase noise.
 - Many-oversized-grid queries demonstrate sublinear candidate discovery versus
   the rejected direct-list design.
-- Warmed point, bounds, neighbor, trace, and Gravitas sweep rows allocate `0 B`.
+- Warmed scalar point plus caller-owned bounds, neighbor, trace, and Gravitas
+  sweep paths allocate `0 B`.
 - Candidate order and replay-visible results are stable across repeated
   insertion/removal orders; overlapping point lookup uses the newly explicit
   lowest-live-slot contract.
@@ -679,7 +680,7 @@ and direct world queries.
 Exit criteria:
 
 - [x] Huge-grid registration/removal no longer enumerates its hash-cell volume.
-- [ ] Ordinary point and lifecycle behavior meets the 5% and allocation gates.
+- [x] Ordinary point and lifecycle behavior meets the 5% and allocation gates.
 - [x] All neighbor relationships survive cross-tier registration and removal.
 - [x] GridForge remains at 100% coverage.
 
@@ -804,30 +805,97 @@ Verification:
 Intent: decide from matched evidence whether the implementation deserves to
 ship, then document only the retained design.
 
-- [ ] Capture the `grid-spatial-index-two-tier-after` artifact using the exact
+- [x] Capture the `grid-spatial-index-two-tier-after` artifact using the exact
       baseline command and runtime.
-- [ ] Isolate any apparent ordinary regression over 5% with a longer matched
+- [x] Isolate any apparent ordinary regression over 5% with a longer matched
       job; optimize only a confirmed hotspot.
-- [ ] Capture the independent `grid-spatial-index-confirmation` artifact after
+- [x] Capture the independent `grid-spatial-index-confirmation` artifact after
       source and machine state stabilize.
-- [ ] Compare medians, distributions, allocations, and scaling rather than one
+- [x] Compare medians, distributions, allocations, and scaling rather than one
       favorable mean.
-- [ ] Confirm many-oversized-grid lookup remains sublinear and no direct-list
+- [x] Confirm many-oversized-grid lookup remains sublinear and no direct-list
       fallback survived.
-- [ ] Update README/wiki architecture and testing guidance.
-- [ ] Add the concise v8-to-v9 migration note for removed hash implementation
+- [x] Update README/wiki architecture and testing guidance.
+- [x] Add the concise v8-to-v9 migration note for removed hash implementation
       APIs and optional cell-size tuning.
-- [ ] Update GridForge's benchmark backlog with the measured before/after table
+- [x] Update GridForge's benchmark backlog with the measured before/after table
       and retained artifact paths.
-- [ ] Run GridForge Debug, Release, ReleaseLean, package, and 100% coverage gates.
-- [ ] Pause for owner review before downstream closure.
+- [x] Run GridForge Debug, Release, ReleaseLean, package, and 100% coverage gates.
+- [x] Pause for owner review before downstream closure.
 
 Exit criteria:
 
-- [ ] The two-tier implementation passes every acceptance and rollback gate.
-- [ ] Documentation describes behavior and tuning, not internal collection
+- [x] The two-tier implementation passes every GridForge acceptance and
+      rollback gate.
+- [x] Documentation describes behavior and tuning, not internal collection
       trivia that hosts must reproduce.
-- [ ] GridForge remains at 100% coverage in its retained source shape.
+- [x] GridForge remains at 100% coverage in its retained source shape.
+
+### Phase 4 Performance Evidence
+
+The exact matched 49-row matrix was captured twice from the compiled
+`Release/net8.0` benchmark DLL. The retained source skips empty index tiers,
+adds a caller-owned overlap API, and fixes the measured SwiftCollections
+allocation cause at `QueryKeyIndexMap`: index callbacks are captured once at
+construction rather than recreated during every remove or lookup.
+
+| Workload | Baseline | After | Confirmation |
+| --- | ---: | ---: | ---: |
+| Register 64 adjacent grids | 2.073 ms / 1,126,352 B | 1.854 ms / 1,124,144 B | 1.755 ms / 1,124,144 B |
+| Remove 64 adjacent grids | 1.704 ms / 25,824 B | 1.174 ms / 17,384 B | 1.186 ms / 17,672 B |
+| Register one 24-cell-per-axis grid | 2.433 ms / 3,703,864 B | 10.1 us / 96 B | 10.0 us / 1,056 B |
+| Mixed point lookup | n/a | 93.4 ns / 0 B | 95.4 ns / 0 B |
+| Mixed bounds lookup | n/a | 205.4 ns / 0 B | 206.3 ns / 0 B |
+
+Many-oversized point lookup grows from 93.0 to 163.5 ns after and 92.6 to
+154.8 ns in confirmation as the grid count grows 32x from 8 to 256. Bounds
+lookup grows from 197.6 to 239.3 ns after and 200.2 to 248.2 ns in confirmation.
+All six point and bounds rows allocate `0 B`, and source inspection confirms
+the fixed BVH remains authoritative rather than a linear oversized-grid list.
+
+ShortRun ordinary rows were too brief to interpret: several single-invocation
+samples crossed the 5% gate in only one run or in opposite directions. Longer
+batched isolation after the empty-tier guards produced stable medians of
+130.7 us (2D point), 129.2 us (3D point), 275.7 us (3D coverage), 264.4 us (2D
+coverage), 39.9 us (3D line), 38.7 us (2D line), and 2.996 ms (boundary
+neighbors). Each is directionally below its Phase 0 ShortRun baseline, and the
+independent longer rerun retained the same performance class. Allocation tests,
+rather than enumerable convenience benchmarks, verify `0 B` for caller-owned
+point, overlap, trace, coverage, and neighbor paths.
+
+The matched artifact roots are:
+
+- `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline`
+- `artifacts/benchmarks/2026-08-03-grid-spatial-index-two-tier-after`
+- `artifacts/benchmarks/2026-08-03-grid-spatial-index-confirmation`
+
+Focused longer artifacts retain the ordinary vector, tracer, neighbor, and
+registration/removal investigations under sibling `...-isolation-*` roots. An
+independent inlining audit found no evidence for additional
+`AggressiveInlining`: existing annotations already cover the small leaf
+helpers, while forcing branch-heavy collection and traversal methods would risk
+code-size growth without a measured gain.
+
+Verification:
+
+- 539 GridForge Debug, 542 Release, and 542 ReleaseLean tests passed.
+- Coverage is 100% line (5,172/5,172), branch (2,331/2,331), and method
+  (850/850) under
+  `tests/GridForge.Tests/TestResults/coverage-analysis/phase4-final-confirmation/`.
+- CRAP analysis found zero methods above 30; `GridSpatialIndex.CollectCandidates`
+  is 14 at complete coverage.
+- Standard `GridForge` and `GridForge.Lean` `.nupkg` and `.snupkg` artifacts
+  were produced successfully.
+- 1,107 SwiftCollections Release and 1,079 ReleaseLean tests passed. The changed
+  `QueryKeyIndexMap` and `SwiftSpatialHash` owners retain 100% reachable line
+  and branch coverage; pre-existing repository-wide Swift coverage restoration
+  remains separate and non-blocking.
+- Independent final review found no correctness, determinism, ordering,
+  allocation, package, or code-bloat issue. Its only documentation finding was
+  the remaining single-hash wording in public IntelliSense and `AGENTS.md`,
+  which is corrected in this phase.
+- `git diff --check` passed in both repositories. Local-link project and
+  solution files remain intentionally unstaged.
 
 ## Phase 5: Gravitas Signal Closure And Cross-Stack Release Gates
 
@@ -888,3 +956,4 @@ Release order remains:
 | 2026-08-03 | Phase 1 | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2. |
 | 2026-08-03 | Phase 2 | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |
 | 2026-08-03 | Phase 3 | Proved large-query active scanning and cross-tier traversal/neighbor order, replaced nondeterministic enumerable hash regrouping with ordered pooled `GridVoxelSet` storage, deleted the resulting mutable `VoxelGrid.GetHashCode()` zombie, added warmed zero-allocation guards, passed 541 GridForge tests in Release and ReleaseLean, retained 100% line/branch/method coverage, and recorded zero CRAP hotspots above 30. |
+| 2026-08-03 | Phase 4 | Confirmed the two-tier index with matched after/confirmation artifacts and longer ordinary isolation; skipped empty tiers, added caller-owned zero-allocation overlap lookup, removed per-removal delegate allocations at SwiftCollections' shared key-index map, closed the GridForge benchmark signal, refreshed public/migration docs, passed Debug/Release/Lean/package gates, and retained 100% GridForge coverage. |

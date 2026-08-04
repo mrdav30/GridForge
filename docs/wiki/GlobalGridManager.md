@@ -15,11 +15,16 @@ That means:
 - `TryGetGrid(...)`
 - `TryGetGridAndVoxel(...)`
 - `TryGetVoxel(...)`
+- `FindOverlappingGridsInto(...)`
 - `SpatialGridCellSize`
 - construct and own a `GridWorld`
 - register grids with explicit `GridConfiguration.TopologyMetrics`
 - route tracing, blockers, occupants, and queries through that world
 - treat `WorldVoxelIndex` as the exact transient cross-system runtime identity
+
+`SpatialGridCellSize` is optional tuning for ordinary, similarly sized grids.
+GridForge automatically routes large spatial footprints away from that path,
+so do not size it to the largest grid a streamed world may ever load.
 
 ## Read This Next
 

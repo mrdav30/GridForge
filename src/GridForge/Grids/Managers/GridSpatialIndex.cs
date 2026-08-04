@@ -93,8 +93,11 @@ internal sealed class GridSpatialIndex
         }
         else
         {
-            _ordinaryGrids.Query(queryBounds, candidates);
-            _oversizedGrids.Query(queryBounds, candidates);
+            if (_ordinaryGrids.Count > 0)
+                _ordinaryGrids.Query(queryBounds, candidates);
+
+            if (_oversizedGrids.Count > 0)
+                _oversizedGrids.Query(queryBounds, candidates);
         }
 
         if (candidates.Count > 1)
@@ -106,9 +109,11 @@ internal sealed class GridSpatialIndex
         SwiftList<ushort> candidates)
     {
         candidates.Clear();
-        _ordinaryGrids.CollectPointCandidates(point, candidates);
+        if (_ordinaryGrids.Count > 0)
+            _ordinaryGrids.CollectPointCandidates(point, candidates);
 
-        _oversizedGrids.Query(new FixedBoundVolume(point, point), candidates);
+        if (_oversizedGrids.Count > 0)
+            _oversizedGrids.Query(new FixedBoundVolume(point, point), candidates);
 
         if (candidates.Count > 1)
             candidates.SortInPlace();

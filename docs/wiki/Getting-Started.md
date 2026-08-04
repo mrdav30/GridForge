@@ -45,8 +45,8 @@ using SwiftCollections.Diagnostics;
 
 ## 1. Create A World
 
-`GridWorld` owns spatial hashing, active grids, and top-level world-space lookup
-for one isolated world.
+`GridWorld` owns active grids and adaptive top-level world-space lookup for one
+isolated world.
 
 ```csharp
 using GridWorld world = new GridWorld();
@@ -55,7 +55,8 @@ using GridWorld world = new GridWorld();
 This uses the library defaults:
 
 - Rectangular topology metrics: `1 x 1 x 1`
-- Spatial hash cell size: `50`
+- Ordinary-lookup cell size: `50` (optional tuning; oversized grids are handled
+  automatically)
 
 ## 2. Create Your First Grid
 
@@ -126,7 +127,8 @@ if (world.TryGetVoxel(flatPosition, out Voxel flatVoxel))
 ## 4. Customize Cell And Scan Granularity
 
 When you need finer spatial resolution, configure rectangular cell metrics on
-the grid configuration. The world still owns spatial-hash granularity.
+the grid configuration. The world separately owns optional ordinary-lookup
+granularity.
 
 ```csharp
 using GridForge.Grids.Topology;

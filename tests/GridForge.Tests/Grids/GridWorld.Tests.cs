@@ -6,6 +6,7 @@ using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
+using SwiftCollections;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -90,6 +91,32 @@ public class GridWorldTests
         VoxelGrid[] overlaps = world.FindOverlappingGrids(world.ActiveGrids[targetIndex]).ToArray();
 
         Assert.Equal(new[] { oversizedIndex, ordinaryIndex }, overlaps.Select(grid => grid.GridIndex));
+    }
+
+    [Fact]
+    public void FindOverlappingGridsInto_AfterWarmup_ClearsAndFillsWithoutAllocating()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid target = GridWorldTestFactory.AddGrid(
+            world,
+            Vector3d.Zero,
+            new Vector3d(2, 0, 2));
+        VoxelGrid overlap = GridWorldTestFactory.AddGrid(
+            world,
+            new Vector3d(1, 0, 1),
+            new Vector3d(3, 0, 3));
+        var results = new SwiftList<VoxelGrid>(2);
+
+        world.FindOverlappingGridsInto(target, results);
+        results.Add(target);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        world.FindOverlappingGridsInto(target, results);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(0, allocated);
+        Assert.Single(results);
+        Assert.Same(overlap, results[0]);
     }
 
     [Fact]

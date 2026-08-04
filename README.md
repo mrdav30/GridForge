@@ -45,7 +45,7 @@ library only when your game or simulation actually needs it.
 - Explicit `GridWorld` ownership for isolated runtime state
 - Multiple active grids per world, with conjoined boundary neighbor lookup
 - Deterministic fixed-point math through `FixedMathSharp`
-- Fast world-space lookup through snapped bounds and a spatial hash
+- Fast world-space lookup through snapped bounds and an adaptive world index
 - Rectangular-prism and hex-prism topology through the same `VoxelGrid` model
 - Dense and sparse voxel storage behind the same `VoxelGrid` query model
 - Scan-cell overlays for efficient radius and occupant queries
@@ -57,6 +57,10 @@ library only when your game or simulation actually needs it.
 - Allocation-conscious internals built on `SwiftCollections` pools and
   containers
 - Standard and lean package variants for different dependency needs
+
+The default `SpatialGridCellSize` is `50` and remains optional tuning for
+ordinary similarly sized grids. Oversized grid footprints are indexed
+automatically; hosts should not match this value to the largest streamed grid.
 
 ## Install
 
@@ -196,7 +200,7 @@ identity remains host-owned through `IVoxelOccupant.GlobalId`.
 
 | Concept           | Role                                                                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GridWorld`       | Owns spatial hashing, active grids, lifecycle, events, and top-level lookup for one isolated world.                                                   |
+| `GridWorld`       | Owns adaptive top-level lookup, active grids, lifecycle, and events for one isolated world.                                                          |
 | `VoxelGrid`       | Owns one grid's snapped bounds, topology metrics, physical voxel storage, scan cells, neighbor relationships, obstacle summary state, and versioning. |
 | `Voxel`           | Represents one snapped cell with obstacle, occupant, partition, boundary, and neighbor query state.                                                   |
 | `ScanCell`        | Groups voxels into query buckets so radius scans can skip empty regions.                                                                              |

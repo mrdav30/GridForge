@@ -209,12 +209,14 @@ public class GridSpatialIndexMixedBenchmarks
 {
     private GridWorld _world;
     private VoxelGrid _boundsQueryGrid;
+    private SwiftList<VoxelGrid> _overlaps;
     private Vector3d _queryPosition;
 
     [GlobalSetup]
     public void Setup()
     {
         _world = new GridWorld(GridSpatialIndexBenchmarkData.HashCellSize);
+        _overlaps = new SwiftList<VoxelGrid>(1);
 
         for (int z = 0; z < 16; z++)
         {
@@ -263,7 +265,11 @@ public class GridSpatialIndexMixedBenchmarks
 
     [Benchmark(Description = "Bounds lookup in a mixed-scale grid world")]
     [BenchmarkCategory("Memory", "Lookup", "GridWorld", "SpatialIndex")]
-    public int BoundsLookup() => GridSpatialIndexBenchmarkData.CountOverlaps(_world, _boundsQueryGrid);
+    public int BoundsLookup()
+    {
+        _world.FindOverlappingGridsInto(_boundsQueryGrid, _overlaps);
+        return _overlaps.Count;
+    }
 }
 
 [MemoryDiagnoser]
@@ -272,6 +278,7 @@ public class GridSpatialIndexLargeBenchmarks
 {
     private GridWorld _world;
     private VoxelGrid _boundsQueryGrid;
+    private SwiftList<VoxelGrid> _overlaps;
     private Vector3d _queryPosition;
 
     [Params(8, 64, 256)]
@@ -281,6 +288,7 @@ public class GridSpatialIndexLargeBenchmarks
     public void Setup()
     {
         _world = new GridWorld(GridSpatialIndexBenchmarkData.HashCellSize);
+        _overlaps = new SwiftList<VoxelGrid>(1);
 
         Vector3d firstLargeOrigin = default;
         for (int i = 0; i < GridCount; i++)
@@ -319,7 +327,11 @@ public class GridSpatialIndexLargeBenchmarks
 
     [Benchmark(Description = "Bounds lookup among large grids")]
     [BenchmarkCategory("Memory", "Lookup", "GridWorld", "SpatialIndex")]
-    public int BoundsLookup() => GridSpatialIndexBenchmarkData.CountOverlaps(_world, _boundsQueryGrid);
+    public int BoundsLookup()
+    {
+        _world.FindOverlappingGridsInto(_boundsQueryGrid, _overlaps);
+        return _overlaps.Count;
+    }
 }
 
 internal static class GridSpatialIndexBenchmarkData
@@ -356,12 +368,4 @@ internal static class GridSpatialIndexBenchmarkData
         return world.ActiveGrids[gridIndex];
     }
 
-    public static int CountOverlaps(GridWorld world, VoxelGrid target)
-    {
-        int count = 0;
-        foreach (VoxelGrid _ in world.FindOverlappingGrids(target))
-            count++;
-
-        return count;
-    }
 }

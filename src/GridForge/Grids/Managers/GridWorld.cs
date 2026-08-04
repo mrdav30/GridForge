@@ -38,7 +38,8 @@ public sealed class GridWorld : IDisposable
     public static readonly Fixed64 DefaultRectangularCellSize = Fixed64.One;
 
     /// <summary>
-    /// The default size of a spatial hash cell used for grid lookup.
+    /// The default cell size used to tune ordinary-grid lookup.
+    /// Oversized grids are indexed automatically outside this tier.
     /// </summary>
     public const int DefaultSpatialGridCellSize = 50;
 
@@ -50,7 +51,8 @@ public sealed class GridWorld : IDisposable
         static (left, right) => left.CompareTo(right);
 
     /// <summary>
-    /// The size of a spatial hash cell used for grid lookup in this world.
+    /// The cell size used to tune ordinary-grid lookup in this world.
+    /// Oversized grids are indexed automatically outside this tier.
     /// </summary>
     public int SpatialGridCellSize { get; }
 
@@ -138,9 +140,9 @@ public sealed class GridWorld : IDisposable
     #endregion
 
     /// <summary>
-    /// Initializes a new world with the supplied spatial-hash settings.
+    /// Initializes a new world with optional ordinary-grid lookup tuning.
     /// </summary>
-    /// <param name="spatialGridCellSize">Optional spatial hash cell size for this world.</param>
+    /// <param name="spatialGridCellSize">Optional ordinary-grid lookup cell size for this world.</param>
     public GridWorld(int spatialGridCellSize = DefaultSpatialGridCellSize)
     {
         ActiveGrids = new SwiftBucket<VoxelGrid>();
@@ -1135,11 +1137,26 @@ public sealed class GridWorld : IDisposable
     public IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
     {
         SwiftList<VoxelGrid> overlappingGrids = new();
+        FindOverlappingGridsInto(targetGrid, overlappingGrids);
+        return overlappingGrids;
+    }
+
+    /// <summary>
+    /// Clears and fills caller-owned storage with active grids that overlap the supplied target grid.
+    /// </summary>
+    /// <param name="targetGrid">The grid whose expanded topology bounds define the overlap query.</param>
+    /// <param name="results">Caller-owned storage cleared and filled in ascending grid-slot order.</param>
+    public void FindOverlappingGridsInto(VoxelGrid targetGrid, SwiftList<VoxelGrid> results)
+    {
+        SwiftThrowHelper.ThrowIfNull(targetGrid, nameof(targetGrid));
+        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+
+        results.Clear();
 
         if (!IsActive)
         {
             GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve overlaps.");
-            return overlappingGrids;
+            return;
         }
 
         _spatialIndex.CollectCandidates(
@@ -1150,9 +1167,7 @@ public sealed class GridWorld : IDisposable
             ActiveGrids,
             _gridCandidates);
         for (int candidateIndex = 0; candidateIndex < _gridCandidates.Count; candidateIndex++)
-            TryAddOverlappingGrid(targetGrid, _gridCandidates[candidateIndex], overlappingGrids);
-
-        return overlappingGrids;
+            TryAddOverlappingGrid(targetGrid, _gridCandidates[candidateIndex], results);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

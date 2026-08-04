@@ -89,6 +89,14 @@ public sealed class GridSpatialIndexTests
             candidates);
 
         Assert.Equal(new[] { oversizedGrid.GridIndex, ordinaryGrid.GridIndex }, candidates);
+
+        Assert.True(index.Remove(ordinaryGrid.GridIndex));
+        index.CollectCandidates(
+            new FixedBoundVolume(Vector3d.One, Vector3d.One),
+            world.ActiveGrids,
+            candidates);
+
+        Assert.Equal(new[] { oversizedGrid.GridIndex }, candidates);
     }
 
     [Fact]

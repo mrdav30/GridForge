@@ -114,7 +114,7 @@ workflows stay world/grid/voxel based.
 
 | Type                                        | Role                                                                                                                               |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `GridWorld`                                 | Owns one world's spatial hash, active grids, events, and top-level lookups                                                         |
+| `GridWorld`                                 | Owns one world's adaptive top-level index, active grids, events, and lookups                                                       |
 | `VoxelGrid`                                 | Owns a single grid's dimensions, topology metrics, physical voxel storage, scan cells, neighbor relationships, and versioned state |
 | `Voxel`                                     | Represents one snapped cell and tracks occupants, obstacles, partitions, and neighbor queries                                      |
 | `ScanCell`                                  | Overlay node used to accelerate neighborhood and area queries                                                                      |

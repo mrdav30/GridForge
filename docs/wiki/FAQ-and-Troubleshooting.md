@@ -96,7 +96,7 @@ Use `Reset()` when:
 Use `Reset(deactivate: true)` when:
 
 - you want a full teardown
-- you are about to use different topology or spatial-hash settings
+- you are about to use different topology or ordinary-lookup settings
 - you want to guarantee the next run starts from an inactive state
 
 ## Quick Troubleshooting Checklist

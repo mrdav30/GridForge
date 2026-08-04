@@ -17,6 +17,21 @@ update the namespace import:
 using FixedMathSharp.Geometry;
 ```
 
+### Top-Level Grid Lookup
+
+`GridWorld` now chooses its internal top-level lookup strategy automatically.
+Remove direct use of these v8 implementation APIs:
+
+- `GridWorld.SpatialGridHash`
+- `GridWorld.GetSpatialGridCells(...)`
+- `GridWorld.GetSpatialGridKey(...)`
+- `VoxelGrid.IsGridOverlapValid(...)`
+
+Use `TryGetGrid(...)`, `TryGetGridAndVoxel(...)`, `GridTracer`, neighbor APIs,
+or `FindOverlappingGridsInto(...)` instead. `SpatialGridCellSize` remains
+optional tuning for ordinary similarly sized grids; it no longer needs to
+match the largest grid a world may stream.
+
 ### Runtime Identity And Traversal
 
 World and grid allocation tokens are now signed 64-bit runtime identities.

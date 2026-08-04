@@ -25,9 +25,9 @@ coordinated through an explicit `GridWorld`.
 
 `GridWorld` is responsible for:
 
-- owning spatial hash settings for one world instance
+- owning optional ordinary-lookup tuning for one world instance
 - registering and removing grids
-- spatial hashing for fast grid lookup
+- adaptive indexing for fast grid lookup across ordinary and oversized grids
 - resolving world positions or `WorldVoxelIndex` values back to active grids and
   voxels
 - issuing a process-unique world token and world-local grid generations

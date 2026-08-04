@@ -103,6 +103,7 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-spatial-index --filter '*GridSpatialIndex*'
 ```
 
 The `sparse-voxel-grid` alias covers sparse construction density, configured and
@@ -122,9 +123,15 @@ surface those benchmarks protect.
 The `neighbor-lookup` alias covers stateless directed boundary lookup plus the
 unified neighbor resolver matrix: source-grid contacts, same-topology conjoined
 contacts, no mixed candidates nearby, pointy-top and flat-top mixed contacts,
-many nearby spatial-hash candidate grids, sparse targets with mostly missing
+many nearby candidate grids, sparse targets with mostly missing
 candidate cells, and rectangular/hex direction-labeled caller-owned result
 paths.
+
+The `grid-spatial-index` alias covers threshold selection, grid-footprint
+scaling, mixed ordinary/oversized lookup, and many-oversized-grid scaling. For
+matched evidence, build once and run the compiled `Release/net8.0` benchmark
+DLL with the same aliases and filters, changing only `--artifacts` between the
+baseline, after, and confirmation roots.
 
 ## Benchmark Environment Behavior
 
@@ -133,5 +140,5 @@ paths.
 - suppresses logging by setting `GridForgeLogger.MinimumLevel` to `None`
 - creates or resets an explicit `GridWorld` between iterations
 - optionally clears GridForge and shared SwiftCollections pools
-- configures the world with the benchmark's requested voxel and spatial-hash
+- configures the world with the benchmark's requested voxel and ordinary-lookup
   settings

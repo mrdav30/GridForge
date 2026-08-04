@@ -44,14 +44,12 @@ conservative: it expands the broad phase by the hex radius, projects candidate
 corners into axial space, then filters candidate voxels by horizontal cell
 reach.
 
-Candidate discovery is adaptive. Local queries walk the smaller spatial-hash
-cell range, while queries spanning more spatial cells than active grids walk
-the active grids in stable slot order and clip the requested geometry against
-each grid. Spatial-hash candidates are sorted by recyclable grid slot before
-topology traversal, so both discovery plans expose the same stable grid order;
-query size does not change observable ordering. This keeps sparse, large-domain
-bounds and long traces proportional to loaded world state instead of empty
-coordinate volume.
+Candidate discovery is adaptive. Local queries use the world's internal spatial
+index, while queries whose coordinate volume is more expensive than the loaded
+world scan active grids and filter exact bounds. Candidates are sorted by
+recyclable grid slot before topology traversal, so the selected discovery path
+does not change observable ordering. No path enumerates empty coordinate volume
+merely because a sparse grid or query spans a large world-space range.
 
 The result is intentionally practical for blockers and scans: coverage may
 include every hex cell touched by a world-space region without asking callers to

@@ -15,7 +15,7 @@ GridForge is organized as a small set of cooperating layers:
 
 | Layer                      | Main Types                                                                                                                   | Primary Responsibility                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| World coordination         | `GridWorld`                                                                                                                  | World lifecycle, registration, spatial hashing, top-level lookup, world events              |
+| World coordination         | `GridWorld`                                                                                                                  | World lifecycle, registration, adaptive top-level lookup, world events                      |
 | Configuration and identity | `GridConfiguration`, `GridConfigurationKey`, `BoundsKey`, `ObstacleToken`, `OccupantTicket`, `VoxelIndex`, `WorldVoxelIndex` | Configuration and geometry values plus exact transient runtime identity                     |
 | Per-grid storage           | `VoxelGrid`, `Voxel`, `ScanCell`, dense/sparse storage strategies                                                            | Core spatial data, local lookup, grid neighbors, occupancy and obstacle state               |
 | Mutation services          | `GridObstacleManager`, `GridOccupantManager`, `Blocker`                                                                      | Safe state changes, events, and higher-level world-space mutations                          |
@@ -56,10 +56,10 @@ world-space input
 ### `GridWorld` owns
 
 - active/inactive lifecycle for one world instance
-- that world's spatial hash cell size
+- that world's optional ordinary-lookup cell size
 - the active grid bucket
 - exact-bounds duplicate tracking
-- the spatial hash used for coarse grid lookup
+- the adaptive index used for coarse grid lookup
 - world versioning and grid-level events
 - a process-unique runtime world token
 - world-local grid generations
@@ -100,7 +100,7 @@ as "one or more isolated worlds, each of which may own many grids."
 That is why `GridWorld` sits above everything else:
 
 - it maps snapped bounds to a reusable world-local grid slot
-- it builds the coarse spatial hash used to find candidate grids quickly
+- it maintains an adaptive coarse index for candidate grids
 - it links neighboring grids when overlap is valid
 - it resolves world-space and world-scoped voxel identities back to active
   runtime objects
@@ -116,7 +116,7 @@ GridConfiguration
       -> topology-specific dimension calculation
       -> dense or sparse physical voxel storage initialization
       -> scan-cell storage for configured voxels
-  -> spatial hash registration
+  -> adaptive world-index registration
   -> neighbor linking
   -> world add notification
 ```
@@ -153,7 +153,7 @@ GridForge uses two different query scales:
 
 ### Coarse query scale
 
-Handled through the world's spatial hash.
+Handled through the world's adaptive top-level index.
 
 ### Fine query scale
 
@@ -210,7 +210,7 @@ Neighbor handling is split into two related but distinct problems:
 
 `VoxelGrid.Neighbors` remains a same-topology grid-slot accelerator, but public
 contact discovery is resolved by `VoxelNeighborResolver`. Contact queries use
-the world's spatial hash, derive a topology-aware candidate range per target
+the world's adaptive index, derive a topology-aware candidate range per target
 grid, and final-filter by fixed-point AABB overlap. This avoids ambiguous
 direction slots, keeps sparse target grids configured-only, and reflects grid
 load/unload or sparse mutation without per-voxel neighbor caches.
