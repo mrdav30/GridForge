@@ -60,6 +60,12 @@ jobs:
 
           cd "$wiki_dir"
 
+          current_main_sha="$(git ls-remote "https://x-access-token:${WIKI_TOKEN}@github.com/${REPOSITORY}.git" refs/heads/main | cut -f1)"
+          if [[ "$SYNC_SHA" != "$current_main_sha" ]]; then
+            echo "Skipping stale wiki sync for ${SYNC_SHA}; main is ${current_main_sha}."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 

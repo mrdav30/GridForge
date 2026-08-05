@@ -63,9 +63,9 @@ The `Vector2d` overloads are convenience APIs over the same 3D world model:
 - `Vector2d.Y` maps to world Z
 - `layerY` maps to world Y and defaults to `0`
 
-`TraceLine(Vector2d, Vector2d, ...)` keeps the existing positional `padding` and
-`includeEnd` argument order. Supply `layerY` by name when using the 2D trace
-overload with nonzero layers.
+`TraceLine(Vector2d, Vector2d, ...)` accepts positional `padding` followed by
+`includeEnd`. Supply `layerY` by name when using the 2D trace overload with
+nonzero layers.
 
 ```csharp
 Vector2d start = new Vector2d(-2, -2);

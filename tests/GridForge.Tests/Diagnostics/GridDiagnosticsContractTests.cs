@@ -1,4 +1,5 @@
-﻿using FixedMathSharp;
+using System;
+using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
@@ -6,7 +7,6 @@ using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
-using System;
 using Xunit;
 
 namespace GridForge.Diagnostics.Tests;

@@ -90,6 +90,7 @@ The add path rejects a few important cases:
 
 - null occupants
 - duplicate registration to the same voxel identity
+- a different occupant instance already using the same `GlobalId` in that world
 - voxels without vacancy
 - voxels whose scan cell cannot be resolved
 - missing sparse voxels

@@ -3,7 +3,7 @@
 ![GridForge Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
 
 [![Build](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml)
-[![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmrdav30.github.io%2FGridForge%2FSummary.json&query=%24.summary.linecoverage&suffix=%25&label=coverage&color=brightgreen)](https://mrdav30.github.io/GridForge/)
+[![Branch Coverage](https://mrdav30.github.io/GridForge/coverage/badge_branchcoverage.svg)](https://mrdav30.github.io/GridForge/coverage/)
 [![NuGet](https://img.shields.io/nuget/v/GridForge.svg)](https://www.nuget.org/packages/GridForge)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/GridForge.svg)](https://www.nuget.org/packages/GridForge)
 [![License](https://img.shields.io/github/license/mrdav30/GridForge.svg)](https://github.com/mrdav30/GridForge/blob/main/LICENSE)
@@ -212,11 +212,16 @@ identity remains host-owned through `IVoxelOccupant.GlobalId`.
 
 ## Documentation
 
-For breaking upgrades, start with the [Migration Guide](docs/MIGRATION.md).
+For breaking upgrades, start with the
+[Migration Guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md).
 
-Start with the wiki:
-
+- [Documentation site](https://mrdav30.github.io/GridForge/)
+- [API reference](https://mrdav30.github.io/GridForge/api/GridForge.html)
 - [Wiki Home](https://github.com/mrdav30/GridForge/wiki/Home)
+- [Coverage report](https://mrdav30.github.io/GridForge/coverage/)
+
+The wiki includes:
+
 - [Getting Started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)
 - [Core Concepts](https://github.com/mrdav30/GridForge/wiki/Core-Concepts)
 - [Sparse Grid Storage](https://github.com/mrdav30/GridForge/wiki/Sparse-Grid-Storage)
@@ -229,6 +234,9 @@ Start with the wiki:
 The source for those pages lives in [`docs/wiki`](docs/wiki).
 
 ## Local Validation
+
+Install the SDK selected by `global.json` and the runtimes targeted by the test
+and benchmark projects before running the repository commands.
 
 ```bash
 dotnet restore GridForge.slnx

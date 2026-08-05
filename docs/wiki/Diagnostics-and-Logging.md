@@ -73,6 +73,7 @@ The public entry points are intentionally minimal:
 - `GridForgeLogger.Channel.Warn(...)`
 - `GridForgeLogger.Channel.Error(...)`
 - `GridForgeLogger.Channel.Log(DiagnosticLevel, ...)`
+- `GridForgeLogger.DebugChannel.Info(...)` for verbose opt-in diagnostics
 
 `Info(...)`, `Warn(...)`, and `Error(...)` are fixed-level interpolated
 diagnostic helpers. `Log(DiagnosticLevel, ...)` is the matching generic
@@ -80,6 +81,11 @@ primitive when the level is selected dynamically. These helpers are
 `DiagnosticChannel` extensions, so `GridForgeLogger.Channel` is the default
 GridForge channel, but the same no-work-when-disabled path can be reused with
 another diagnostic channel.
+
+`DebugChannel` has a separate gate. Set
+`GridForgeLogger.EnableDebugLogging = true` to opt in; otherwise debug-channel
+messages remain disabled even when their diagnostic level would be emitted on
+the standard channel.
 
 All logger entry points use the SwiftCollections diagnostic string handler, so
 formatted expressions are not evaluated when the requested level is disabled.

@@ -230,10 +230,10 @@ hardcoded globally.
 
 Exact ticket-based occupant lookup validates `Slot` plus `Generation` in O(1)
 and uses the owning grid's existing occupant monitor, shared with mutation and
-scan-cell reset. The synchronized benchmark resolved 8,192 current tickets with
-`0 B` allocated. Live registration storage is wider, however: bucket entries and
-tracked records retain the generation needed to reject stale slots, so the
-allocation-free lookup result does not imply zero-cost registration storage.
+scan-cell reset. Use the `occupant-wave` benchmark to measure the current lookup
+and allocation behavior on the target runtime. Live registration storage also
+retains the generation needed to reject stale slots, so lookup results do not
+describe registration-storage cost.
 
 ## Where Scan State Lives
 

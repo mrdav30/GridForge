@@ -5,9 +5,9 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System.Runtime.CompilerServices;
 using FixedMathSharp;
 using GridForge.Spatial;
-using System.Runtime.CompilerServices;
 
 namespace GridForge.Grids.Topology;
 

@@ -248,3 +248,5 @@ is simpler and safer.
   first grid
 - [Architecture Overview](Architecture-Overview.md) when you want to understand
   where behavior lives in the codebase
+- [API reference](https://mrdav30.github.io/GridForge/api/GridForge.html) for
+  complete public member documentation

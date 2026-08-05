@@ -5,11 +5,11 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System;
+using System.Runtime.CompilerServices;
 using FixedMathSharp;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using System;
-using System.Runtime.CompilerServices;
 
 namespace GridForge.Diagnostics;
 

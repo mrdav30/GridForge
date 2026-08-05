@@ -1,8 +1,8 @@
+using System;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Tests;
-using System;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;

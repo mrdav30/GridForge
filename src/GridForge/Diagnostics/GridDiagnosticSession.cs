@@ -5,13 +5,11 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using FixedMathSharp;
+using System;
 using GridForge.Grids;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
-using SwiftCollections.Utility;
-using System;
 
 namespace GridForge.Diagnostics;
 

@@ -5,12 +5,12 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using FixedMathSharp;
-using MemoryPack;
-using SwiftCollections.Utility;
 using System;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using FixedMathSharp;
+using MemoryPack;
+using SwiftCollections.Utility;
 
 namespace GridForge.Grids.Topology;
 

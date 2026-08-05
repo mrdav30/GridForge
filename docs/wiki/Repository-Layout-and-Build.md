@@ -6,9 +6,12 @@ solution is put together, and what the build actually does.
 If you are onboarding as a contributor, this is the page that turns "I know what
 GridForge is" into "I know where to work and which command to run."
 
+Install the SDK selected by `global.json` and the runtimes targeted by the test
+and benchmark projects before running repository commands.
+
 ## Solution Shape
 
-The solution currently contains three projects:
+The solution contains three projects:
 
 | Project                | Path                                                     | Purpose                                               |
 | ---------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
@@ -29,16 +32,19 @@ The root solution file is `GridForge.slnx`.
 | `src/GridForge/Grids/Topology` | Per-grid topology metrics, snapping, dimensions, and world/index projection              |
 | `src/GridForge/Spatial`        | Shared indices, occupants, partitions, directions, and awareness types                   |
 | `src/GridForge/Blockers`       | Bounds-based obstacle application built on tracer coverage                               |
+| `src/GridForge/Diagnostics`    | Engine-agnostic diagnostic descriptors, geometry, and dirty sessions                     |
+| `src/GridForge/Support`        | Cross-cutting support types and pooled query results                                     |
 | `src/GridForge/Utility`        | Tracing and logging support                                                              |
 | `tests/GridForge.Tests`        | Unit tests organized by subsystem                                                        |
 | `tests/GridForge.Benchmarks`   | Focused perf and allocation scenarios                                                    |
 | `.github/workflows`            | CI automation                                                                            |
 | `.assets/scripts`              | Release-oriented PowerShell helpers                                                      |
 | `docs/wiki`                    | GitHub wiki source content used as the deeper documentation companion                    |
+| `docs/api`                     | DocFX landing page, navigation, and API build configuration                              |
 
 The solution also exposes a small set of root-level "solution items" such as
-`.editorconfig`, `README.md`, `AGENTS.md`, `LICENSE`, and
-`coverlet.runsettings`.
+`.editorconfig`, `README.md`, `AGENTS.md`, and `LICENSE`. Coverage settings live
+at `tests/GridForge.Tests/coverlet.runsettings`.
 
 ## Main Library Build Facts
 
@@ -59,7 +65,7 @@ artifacts.
 
 ## Package And Dependency Notes
 
-The standard package currently depends on:
+The standard package depends on:
 
 - `FixedMathSharp`
 - `SwiftCollections`
@@ -72,6 +78,8 @@ The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
 - `FixedMathSharp.Lean`
 - `SwiftCollections.Lean`
 - `SwiftCollections.FixedMathSharp.Lean`
+- `Chronicler.MemoryPackShim` for annotation compatibility without the
+  `MemoryPack` runtime dependency
 - the `GRIDFORGE_DISABLE_MEMORYPACK` compilation symbol
 
 Both package variants expose the same core voxel-grid API.
@@ -119,8 +127,8 @@ The test project:
 - includes `coverlet.collector`
 - points to `coverlet.runsettings`
 
-The runsettings currently exclude generated MemoryPack files from coverage
-collection so coverage numbers are less noisy.
+The runsettings exclude generated MemoryPack files from coverage collection so
+the report measures maintained source.
 
 ### `GridForge.Benchmarks`
 
@@ -154,9 +162,24 @@ dotnet build src/GridForge/GridForge.csproj --configuration Release
 
 Because packaging is enabled on build, this also emits the package artifacts.
 
+## API Documentation And GitHub Pages
+
+The Release build produces the assembly and XML documentation consumed by DocFX.
+Build the local documentation site with:
+
+```bash
+dotnet build GridForge.slnx --configuration Release
+dotnet tool restore
+dotnet tool run docfx docs/api/docfx.json
+```
+
+The generated site is written to `docs/api/obj/_site`. On successful pushes to
+`main`, `.github/workflows/coverage.yml` publishes that site to GitHub Pages and
+places the coverage report beneath `/coverage`.
+
 ## CI Expectations
 
-The current CI workflow lives in `.github/workflows/build-and-test.yml`.
+The CI workflow lives in `.github/workflows/build-and-test.yml`.
 
 At a high level it:
 
@@ -164,7 +187,7 @@ At a high level it:
 - triggers on pushes except `dependabot/**`, `gh-pages`, and version tags like
   `v*`
 - triggers on pull requests targeting `main` or `develop`
-- installs .NET 8
+- installs .NET 8 and .NET 10
 - installs and executes GitVersion
 - restores dependencies
 - builds the solution in both `Release` and `ReleaseLean`

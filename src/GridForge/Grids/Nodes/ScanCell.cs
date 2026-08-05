@@ -1,17 +1,17 @@
-﻿//=======================================================================
+//=======================================================================
 // ScanCell.cs
 //=======================================================================
 // MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Utility;
-using System;
-using System.Collections.Generic;
-using System.Threading;
 
 namespace GridForge.Grids;
 

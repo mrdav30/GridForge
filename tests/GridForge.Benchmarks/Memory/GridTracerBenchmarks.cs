@@ -1,10 +1,10 @@
-﻿using BenchmarkDotNet.Attributes;
+using System;
+using BenchmarkDotNet.Attributes;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Utility;
 using SwiftCollections;
-using System;
 
 namespace GridForge.Benchmarks;
 

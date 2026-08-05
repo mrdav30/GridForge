@@ -1,14 +1,14 @@
-﻿using FixedMathSharp;
-using GridForge.Configuration;
-using GridForge.Grids.Storage;
-using GridForge.Grids.Topology;
-using GridForge.Spatial;
-using SwiftCollections;
 using System;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using FixedMathSharp;
+using GridForge.Configuration;
+using GridForge.Grids.Storage;
+using GridForge.Grids.Topology;
+using GridForge.Spatial;
+using SwiftCollections;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

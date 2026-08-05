@@ -6,6 +6,9 @@ workflows.
 
 ## Recipe 1: Team-Aware Proximity Queries
 
+This example uses the sample `UnitOccupant` defined in
+[Common Workflows](Common-Workflows.md).
+
 ```csharp
 using System.Linq;
 using FixedMathSharp;
@@ -21,9 +24,9 @@ world.TryAddGrid(
         new Vector3d(32, 0, 32)),
     out _);
 
-UnitOccupant ally = new UnitOccupant(new Vector3d(10, 0, 10), 1);
-UnitOccupant enemyA = new UnitOccupant(new Vector3d(12, 0, 10), 2);
-UnitOccupant enemyB = new UnitOccupant(new Vector3d(16, 0, 14), 2);
+UnitOccupant ally = new UnitOccupant(new Vector2d(10, 10), Fixed64.Zero, 1);
+UnitOccupant enemyA = new UnitOccupant(new Vector2d(12, 10), Fixed64.Zero, 2);
+UnitOccupant enemyB = new UnitOccupant(new Vector2d(16, 14), Fixed64.Zero, 2);
 
 GridOccupantManager.TryRegister(world, ally);
 GridOccupantManager.TryRegister(world, enemyA);

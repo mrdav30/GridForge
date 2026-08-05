@@ -1,6 +1,6 @@
 # Testing and Benchmarking
 
-This page explains how GridForge validates behavior and performance today.
+This page explains how GridForge validates behavior and performance.
 
 The short version is:
 
@@ -21,9 +21,9 @@ The short version is:
 The test suite uses xUnit v3 and a shared collection fixture:
 
 - `GridForgeFixture` sets `GridForgeLogger.MinimumLevel` to `Error`
-- `GridForgeFixture` no longer creates the active runtime world by default
-- `[Collection("GridForgeCollection")]` is still used where tests intentionally
-  interact with shared compatibility state
+- `GridForgeFixture` does not create a runtime world
+- `[Collection("GridForgeCollection")]` is used where tests share the
+  fixture-managed logger configuration
 
 New tests should prefer explicit `GridWorld` creation. The test project includes
 helpers such as `GridWorldTestFactory` to keep that setup small and consistent.
@@ -36,10 +36,12 @@ The test folders mirror the main subsystem boundaries:
   voxel/grid state, scan cells, and neighbor logic
 - `tests/GridForge.Tests/Blockers` covers blocker application, stacking,
   removal, and reapply behavior
+- `tests/GridForge.Tests/Diagnostics` covers diagnostic contracts, geometry,
+  physical queries, and dirty sessions
 - `tests/GridForge.Tests/Utility` covers tracing and logging
 - `tests/GridForge.Tests/Spatial` covers index and provider semantics
 
-Phase 4 also added explicit isolation coverage for:
+Isolation coverage includes:
 
 - multiple worlds loaded simultaneously with overlapping local coordinates
 - stale identity rejection after world teardown
@@ -82,8 +84,12 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 ## Coverage Notes
 
 ```bash
-dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Debug --collect:"XPlat Code Coverage"
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
 ```
+
+The main-branch coverage workflow enforces full line, branch, and method
+coverage and publishes the report at
+[GridForge coverage](https://mrdav30.github.io/GridForge/coverage/).
 
 ## Test Design Expectations
 

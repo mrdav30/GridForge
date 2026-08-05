@@ -5,11 +5,11 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using GridForge.Spatial;
-using SwiftCollections;
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using GridForge.Spatial;
+using SwiftCollections;
 
 namespace GridForge.Grids.Storage;
 

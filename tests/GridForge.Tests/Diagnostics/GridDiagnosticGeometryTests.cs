@@ -1,8 +1,8 @@
+using System;
 using FixedMathSharp;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using System;
 using Xunit;
 
 namespace GridForge.Diagnostics.Tests;

@@ -1,6 +1,6 @@
-﻿using BenchmarkDotNet.Running;
 using System;
 using System.Linq;
+using BenchmarkDotNet.Running;
 
 namespace GridForge.Benchmarks;
 

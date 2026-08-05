@@ -1,11 +1,11 @@
-﻿using FixedMathSharp;
+using System;
+using System.Reflection;
+using System.Text.Json;
+using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
-using System;
-using System.Reflection;
-using System.Text.Json;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;

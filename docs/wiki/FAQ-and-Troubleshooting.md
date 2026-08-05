@@ -51,6 +51,7 @@ The add path can fail when:
 - the target voxel is blocked
 - the target voxel is already full
 - the occupant is already registered to that same voxel identity
+- a different occupant instance already owns the same `GlobalId` in that world
 - the voxel or scan cell could not be resolved
 
 ## Why Did Removing One Blocker Not Unblock The Voxel?
@@ -93,11 +94,10 @@ Use `Reset()` when:
 
 - you want to clear the current world but keep it active
 
-Use `Reset(deactivate: true)` when:
-
-- you want a full teardown
-- you are about to use different topology or ordinary-lookup settings
-- you want to guarantee the next run starts from an inactive state
+Use `Reset(deactivate: true)` or dispose the world only for terminal teardown. A
+deactivated world cannot be reactivated. Create a new `GridWorld` to change its
+constructor-owned ordinary-lookup settings; choose topology metrics on each
+`GridConfiguration`.
 
 ## Quick Troubleshooting Checklist
 

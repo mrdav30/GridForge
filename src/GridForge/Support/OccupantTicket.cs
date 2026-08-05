@@ -5,8 +5,8 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using SwiftCollections.Utility;
 using System;
+using SwiftCollections.Utility;
 
 namespace GridForge;
 

@@ -1,4 +1,9 @@
-﻿using FixedMathSharp;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Configuration;
 using GridForge.Grids;
@@ -7,11 +12,6 @@ using GridForge.Grids.Tests;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace GridForge.Blockers.Tests;

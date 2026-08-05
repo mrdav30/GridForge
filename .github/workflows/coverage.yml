@@ -9,10 +9,7 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: coverage-pages
@@ -20,16 +17,29 @@ concurrency:
 
 jobs:
   coverage:
+    permissions:
+      contents: read
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_sha == github.sha
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Cache NuGet packages
         uses: actions/cache@v5
@@ -42,8 +52,22 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore GridForge.slnx --property:Configuration=Release
 
+      - name: Build solution
+        run: dotnet build GridForge.slnx --configuration Release --no-restore
+
       - name: Run tests with coverage
-        run: dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --no-restore --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
+        run: dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Build API documentation
+        run: |
+          test -f src/GridForge/bin/Release/net8.0/GridForge.dll
+          test -f src/GridForge/bin/Release/net8.0/GridForge.xml
+          dotnet tool run docfx docs/api/docfx.json
+          test -f docs/api/obj/_site/index.html
+          test -f docs/api/obj/_site/api/GridForge.html
 
       - name: Install ReportGenerator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
@@ -62,15 +86,46 @@ jobs:
       - name: Add coverage summary to job
         run: cat artifacts/coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Enforce full coverage
+        shell: pwsh
+        run: |
+          $summary = Get-Content -Raw artifacts/coverage-report/Summary.json | ConvertFrom-Json
+          $coverage = $summary.summary
+          $uncoveredLines = $coverage.coverablelines - $coverage.coveredlines
+          $uncoveredBranches = $coverage.totalbranches - $coverage.coveredbranches
+          $uncoveredMethods = $coverage.totalmethods - $coverage.coveredmethods
+          if ($uncoveredLines -ne 0 -or $uncoveredBranches -ne 0 -or $uncoveredMethods -ne 0) {
+            throw "Coverage gate failed: $uncoveredLines uncovered line(s), $uncoveredBranches uncovered branch(es), $uncoveredMethods uncovered method(s)"
+          }
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p artifacts/pages/coverage
+          cp -a docs/api/obj/_site/. artifacts/pages/
+          cp -a artifacts/coverage-report/. artifacts/pages/coverage/
+          test -f artifacts/pages/index.html
+          test -f artifacts/pages/api/GridForge.html
+          test -f artifacts/pages/coverage/Summary.json
+          test -f artifacts/pages/coverage/badge_branchcoverage.svg
+
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: artifacts/coverage-report
 
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: artifacts/pages
+
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: coverage
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -79,17 +134,6 @@ jobs:
     steps:
       - name: Configure Pages
         uses: actions/configure-pages@v6
-
-      - name: Download coverage artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: coverage-report
-          path: artifacts/coverage-report
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: artifacts/coverage-report
 
       - name: Deploy to GitHub Pages
         id: deployment

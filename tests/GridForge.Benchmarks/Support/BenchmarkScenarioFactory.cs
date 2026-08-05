@@ -1,7 +1,7 @@
-﻿using FixedMathSharp;
+using System;
+using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Configuration;
-using System;
 
 namespace GridForge.Benchmarks;
 

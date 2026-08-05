@@ -5,10 +5,10 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System.Collections.Generic;
 using FixedMathSharp;
 using GridForge.Spatial;
 using SwiftCollections;
-using System.Collections.Generic;
 
 namespace GridForge.Grids.Storage;
 

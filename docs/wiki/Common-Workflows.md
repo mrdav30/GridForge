@@ -160,7 +160,7 @@ if (world.TryGetClosestGridAndVoxel(
 using FixedMathSharp;
 using GridForge.Spatial;
 
-Vector3d worldPosition = new Vector3d(1.25, 0, 3.75);
+Vector3d worldPosition = Vector3d.FromDouble(1.25, 0, 3.75);
 
 if (grid.TryGetVoxelIndex(worldPosition, out VoxelIndex index))
 {
@@ -217,7 +217,9 @@ public sealed class UnitOccupant : IVoxelOccupant
         OccupantGroupId = occupantGroupId;
     }
 }
+```
 
+```csharp
 UnitOccupant ally = new UnitOccupant(new Vector2d(1, 1), Fixed64.Zero, 1);
 UnitOccupant enemy = new UnitOccupant(new Vector2d(3, 3), Fixed64.Zero, 2);
 

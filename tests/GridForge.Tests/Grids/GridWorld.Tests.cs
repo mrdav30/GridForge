@@ -1,4 +1,7 @@
-﻿using FixedMathSharp;
+using System;
+using System.Linq;
+using System.Reflection;
+using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
 using GridForge.Configuration;
@@ -7,9 +10,6 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
-using System;
-using System.Linq;
-using System.Reflection;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

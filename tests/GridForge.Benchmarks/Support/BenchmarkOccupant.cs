@@ -1,6 +1,6 @@
-﻿using FixedMathSharp;
-using GridForge.Spatial;
 using System;
+using FixedMathSharp;
+using GridForge.Spatial;
 
 namespace GridForge.Benchmarks;
 

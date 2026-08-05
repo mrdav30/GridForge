@@ -1,4 +1,5 @@
-﻿using BenchmarkDotNet.Attributes;
+using System;
+using BenchmarkDotNet.Attributes;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
@@ -8,7 +9,6 @@ using GridForge.Grids.Storage;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
-using System;
 
 namespace GridForge.Benchmarks;
 

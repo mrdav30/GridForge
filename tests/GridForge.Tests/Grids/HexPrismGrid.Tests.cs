@@ -1,11 +1,11 @@
+using System;
+using System.Linq;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
-using System;
-using System.Linq;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

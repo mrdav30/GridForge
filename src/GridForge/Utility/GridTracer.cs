@@ -1,20 +1,17 @@
-﻿//=======================================================================
+//=======================================================================
 // GridTracer.cs
 //=======================================================================
 // MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System.Collections.Generic;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Grids;
-using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
 using SwiftCollections.Pool;
-using SwiftCollections.Utility;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace GridForge.Utility;
 

@@ -1,7 +1,7 @@
-﻿using BenchmarkDotNet.Attributes;
+using System;
+using BenchmarkDotNet.Attributes;
 using GridForge.Configuration;
 using GridForge.Grids;
-using System;
 
 namespace GridForge.Benchmarks;
 

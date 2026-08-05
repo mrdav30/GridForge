@@ -15,7 +15,7 @@ The core design goal is to make grid-backed spatial systems scalable without
 forcing every consumer to reinvent ownership, snapping, neighbor resolution,
 coverage queries, or occupant indexing.
 
-Current priorities:
+Priorities:
 
 1. Preserve deterministic behavior across supported target frameworks.
 2. Keep runtime APIs anchored to explicit `GridWorld` ownership.
@@ -51,12 +51,12 @@ Read these in order before making non-trivial changes:
    pooling, tracing, scanning, registration, or other performance-sensitive
    behavior.
 
-When sibling repositories are available, also check their AGENTS/README files
-when a change touches shared stack assumptions:
+For coordinated stack changes, also check the guidance in the affected
+repositories:
 
-- `../FixedMathSharp`
-- `../SwiftCollections`
-- `../GridForge-Unity`
+- [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp)
+- [SwiftCollections](https://github.com/mrdav30/SwiftCollections)
+- [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity)
 
 ## Source Of Truth
 
@@ -70,6 +70,8 @@ workflow changes:
 - [`docs/wiki`](docs/wiki), especially pages covering world ownership, tracing,
   scan cells, blockers, occupants, partitions, determinism, testing, and build
   workflow.
+- [`docs/api`](docs/api) for the DocFX landing page, navigation, and API build
+  configuration.
 - [`AGENTS.md`](AGENTS.md)
 - [`src/GridForge/GridForge.csproj`](src/GridForge/GridForge.csproj)
 - [`tests/GridForge.Tests`](tests/GridForge.Tests)
@@ -98,8 +100,9 @@ rewrite.
 | [`src/GridForge/Utility`](src/GridForge/Utility)               | `GridTracer` and `GridForgeLogger`                                                | Tracing changes can affect many systems.                |
 | [`tests/GridForge.Tests`](tests/GridForge.Tests)               | xUnit v3 test project                                                             | Mirrors subsystem boundaries.                           |
 | [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks)     | BenchmarkDotNet project                                                           | Covers allocation and throughput-sensitive scenarios.   |
-| [`docs/wiki`](docs/wiki)                                       | Developer-facing usage and architecture documentation                             | Keep current with public API and workflow changes.      |
-| [`.assets/scripts`](.assets/scripts)                           | Versioned build and release packaging helpers                                     | Used for release archive generation.                    |
+| [`docs/wiki`](docs/wiki)                                       | Developer-facing usage and architecture documentation                             | Keep aligned with public API and workflow changes.      |
+| [`docs/api`](docs/api)                                         | DocFX landing page, navigation, and API build configuration                       | Generated output stays under `docs/api/obj`.            |
+| [`.assets/scripts`](.assets/scripts)                           | PowerShell release packaging helpers                                              | Requires `GitVersion.Tool` for versioned archives.      |
 | [`.github/workflows`](.github/workflows)                       | CI, coverage, wiki sync, release, and publish automation                          | Keep workflow names in sync across triggers.            |
 
 Ignore generated output when reviewing or editing unless the task is explicitly
@@ -127,13 +130,16 @@ about build artifacts:
 - XML documentation: generated for the library project
 - Package generation: `GeneratePackageOnBuild` is enabled
 - Configurations: `Debug`, `Release`, `ReleaseLean`
+- Local prerequisites: the SDK selected by [`global.json`](global.json) and the
+  runtimes targeted by tests and benchmarks
 
 Package variants:
 
 - `Release` builds the standard `GridForge` package with `MemoryPack`,
   `FixedMathSharp`, and `SwiftCollections`.
 - `ReleaseLean` builds `GridForge.Lean` with `GRIDFORGE_DISABLE_MEMORYPACK`,
-  `FixedMathSharp.Lean`, and `SwiftCollections.Lean`.
+  `FixedMathSharp.Lean`, `SwiftCollections.Lean`, and the annotation-only
+  `Chronicler.MemoryPackShim` dependency.
 
 Versioning:
 
@@ -253,8 +259,8 @@ Rules:
 Match the surrounding file style instead of imposing a new one.
 
 - Add explicit `using` directives. `ImplicitUsings` is disabled.
-- The library project has nullable enabled; tests and benchmarks currently have
-  nullable disabled. Follow the local project context.
+- The library project enables nullable analysis; tests and benchmarks disable
+  it. Follow the project being edited.
 - `.editorconfig` disables implicit `new(...)`; prefer explicit construction.
 - Public API surface should have XML documentation.
 - Preserve existing `#region` organization in files that already use it.
@@ -276,8 +282,8 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 CI validates both `Release` and `ReleaseLean` on Ubuntu and Windows:
 
 ```bash
-dotnet test GridForge.slnx --configuration Release --no-build
-dotnet test GridForge.slnx --configuration ReleaseLean --no-build
+dotnet test GridForge.slnx --configuration Release
+dotnet test GridForge.slnx --configuration ReleaseLean
 ```
 
 Run benchmarks when changing pooling, tracing, scan cells, occupant
@@ -362,9 +368,11 @@ GitHub wiki publishing.
 - `.github/workflows/publish-nuget.yml` validates release tag version, builds
   both package variants, checks for exactly four package artifacts, uploads the
   package artifact, and publishes `.nupkg` files to NuGet.
-- `.github/workflows/coverage.yml` and `.github/workflows/sync-wiki.yml` depend
-  on the `build-and-test` workflow name. If the build workflow name changes,
-  update those triggers and README badges together.
+- `.github/workflows/coverage.yml` builds the DocFX site and publishes coverage
+  beneath `/coverage` in the same GitHub Pages artifact.
+- `.github/workflows/sync-wiki.yml` publishes `docs/wiki` to the GitHub Wiki.
+  Both workflows depend on the `build-and-test` workflow name; update their
+  triggers and README badges if that name changes.
 
 ## Pitfalls To Avoid
 
