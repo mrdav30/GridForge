@@ -13,6 +13,7 @@
 		<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
 	</PropertyGroup>
 	<PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
+		<DisableMemoryPack>true</DisableMemoryPack>
 		<DefineConstants>$(DefineConstants);GRIDFORGE_DISABLE_MEMORYPACK</DefineConstants>
 	</PropertyGroup>
 	<ItemGroup>

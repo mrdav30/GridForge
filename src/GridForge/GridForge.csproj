@@ -93,16 +93,16 @@
 	<!-- Dependencies and Package References -->
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
-		<PackageReference Include="FixedMathSharp" Version="6.0.0" />
-		<PackageReference Include="SwiftCollections" Version="6.0.0" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="6.0.0" />
+		<PackageReference Include="FixedMathSharp" Version="7.0.0" />
+		<PackageReference Include="SwiftCollections" Version="7.0.0" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="7.0.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
-		<PackageReference Include="FixedMathSharp.Lean" Version="6.0.0" />
-		<PackageReference Include="SwiftCollections.Lean" Version="6.0.0" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="6.0.0" />
-		<PackageReference Include="Chronicler.MemoryPackShim" Version="0.3.0" PrivateAssets="all" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="7.0.0" />
+		<PackageReference Include="SwiftCollections.Lean" Version="7.0.0" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="7.0.0" />
+		<PackageReference Include="Chronicler.MemoryPackShim" Version="0.4.0" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
