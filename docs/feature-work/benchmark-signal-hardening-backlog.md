@@ -46,13 +46,13 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
-| _None_ | - | - | - |
+| _None_ | -      | -        | -        |
 
 ## Closed Signals
 
-| Signal | Status | Priority | Tracking |
-| ------ | ------ | -------- | -------- |
-| Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+| Signal                                                       | Status | Priority | Tracking                                                                             |
+| ------------------------------------------------------------ | ------ | -------- | ------------------------------------------------------------------------------------ |
+| Top-level grid indexing scales with covered hash-cell volume | Closed | High     | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
 
 ### Signal: Top-Level Grid Indexing Scales With Covered Hash-Cell Volume
 
@@ -73,13 +73,13 @@ automatically classified oversized grids into a fixed-point BVH, and scans
 active grids when a query's empty cell volume would cost more. The internal
 64-cell threshold was selected from measured 64/512/4,096 candidates.
 
-| Workload | Baseline median / allocation | After | Confirmation |
-| --- | ---: | ---: | ---: |
-| Register 64 adjacent grids | 2.073 ms / 1,126,352 B | 1.854 ms / 1,124,144 B | 1.755 ms / 1,124,144 B |
-| Remove 64 adjacent grids | 1.704 ms / 25,824 B | 1.174 ms / 17,384 B | 1.186 ms / 17,672 B |
-| Register one 24-cell-per-axis grid | 2.433 ms / 3,703,864 B | 10.1 us / 96 B | 10.0 us / 1,056 B |
-| Oversized point lookup, 8/64/256 grids | n/a | 93.0 / 127.7 / 163.5 ns, 0 B | 92.6 / 127.9 / 154.8 ns, 0 B |
-| Oversized bounds lookup, 8/64/256 grids | n/a | 197.6 / 225.2 / 239.3 ns, 0 B | 200.2 / 229.2 / 248.2 ns, 0 B |
+| Workload                                | Baseline median / allocation |                         After |                  Confirmation |
+| --------------------------------------- | ---------------------------: | ----------------------------: | ----------------------------: |
+| Register 64 adjacent grids              |       2.073 ms / 1,126,352 B |        1.854 ms / 1,124,144 B |        1.755 ms / 1,124,144 B |
+| Remove 64 adjacent grids                |          1.704 ms / 25,824 B |           1.174 ms / 17,384 B |           1.186 ms / 17,672 B |
+| Register one 24-cell-per-axis grid      |       2.433 ms / 3,703,864 B |                10.1 us / 96 B |             10.0 us / 1,056 B |
+| Oversized point lookup, 8/64/256 grids  |                          n/a |  93.0 / 127.7 / 163.5 ns, 0 B |  92.6 / 127.9 / 154.8 ns, 0 B |
+| Oversized bounds lookup, 8/64/256 grids |                          n/a | 197.6 / 225.2 / 239.3 ns, 0 B | 200.2 / 229.2 / 248.2 ns, 0 B |
 
 Raw matched artifacts are retained under
 `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline`,

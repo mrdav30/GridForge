@@ -23,8 +23,8 @@ That means:
 - treat `WorldVoxelIndex` as the exact transient cross-system runtime identity
 
 `SpatialGridCellSize` is optional tuning for ordinary, similarly sized grids.
-GridForge automatically routes large spatial footprints away from that path,
-so do not size it to the largest grid a streamed world may ever load.
+GridForge automatically routes large spatial footprints away from that path, so
+do not size it to the largest grid a streamed world may ever load.
 
 ## Read This Next
 

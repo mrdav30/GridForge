@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` or `superpowers:executing-plans` to
-> implement this plan phase-by-phase. Use `superpowers:systematic-debugging`
-> for unexpected behavior, `superpowers:test-driven-development` for runtime
+> implement this plan phase-by-phase. Use `superpowers:systematic-debugging` for
+> unexpected behavior, `superpowers:test-driven-development` for runtime
 > changes, `performance-optimization-engineer` for every benchmark decision,
 > `superpowers:requesting-code-review` for independent phase/final review, and
 > `superpowers:verification-before-completion` before claiming a phase is
@@ -42,8 +42,8 @@ Gravitas mixed queries, standard and Lean package variants.
   host-facing tuning knob.
 - Preserve `GridWorld.SpatialGridCellSize` as an optional ordinary-workload
   tuning value, not a requirement that must match the world's largest grid.
-- Large query volumes must not enumerate empty spatial-hash cells merely
-  because ordinary grids exist.
+- Large query volumes must not enumerate empty spatial-hash cells merely because
+  ordinary grids exist.
 - Candidate order is ascending world-local `GridIndex`, independent of hash
   bucket order, BVH tree shape, insertion order, removal history, or pooled
   reuse.
@@ -69,21 +69,21 @@ Gravitas mixed queries, standard and Lean package variants.
 ## Status And Working Agreement
 
 - Planning date: 2026-08-03.
-- Originating signal: Gravitas `Mixed public sweep traversal stalls on extreme
-  sparse-grid spans`.
+- Originating signal: Gravitas
+  `Mixed public sweep traversal stalls on extreme sparse-grid spans`.
 - Release posture: intentional GridForge v8-to-v9 breaking cleanup; v9 is not
   released.
 - Current state: the two-tier index is authoritative for every top-level
   lifecycle, lookup, overlap, traversal, scan, and neighbor caller. Public
-  single-hash implementation APIs and obsolete hash regrouping are removed,
-  and the originating Gravitas public-sweep stall is closed through the local
+  single-hash implementation APIs and obsolete hash regrouping are removed, and
+  the originating Gravitas public-sweep stall is closed through the local
   GridForge project link without downstream production code.
 - Coverage context: GridForge retains 100% reachable line, branch, and method
   coverage. SwiftCollections remains at 97% in its separate owner-led hardening
   workstream; every changed spatial-hash source file is at 100% reachable line
   and branch coverage.
-- Review cadence: stop after each phase for owner review unless explicitly
-  asked to combine phases.
+- Review cadence: stop after each phase for owner review unless explicitly asked
+  to combine phases.
 - Evidence rule: preserve raw before/after/confirmation artifacts under each
   repository's ignored `artifacts/benchmarks` directory and record the command,
   job, median, allocation, and artifact path in this plan.
@@ -114,16 +114,16 @@ scan but regress ordinary uniform-grid lookups.
 
 Directional SwiftCollections evidence captured during RCA supports a split:
 
-| Scenario | Spatial hash | BVH | Directional conclusion |
-| --- | ---: | ---: | --- |
-| Sparse small-object needle queries, 2,048 entries | 343.4 us | 4,207.9 us | Keep the hash fast path |
-| Sparse small-object needle queries, 8,192 entries | 271.3 us | 6,348.4 us | Do not replace the hash globally |
-| Extreme size variance, 2,048 entries | 25.815 ms | 9.065 ms | Route large footprints away from the hash |
-| Extreme size variance, 8,192 entries | 27.947 ms | 11.069 ms | A BVH is materially safer for heterogeneous scale |
+| Scenario                                          | Spatial hash |        BVH | Directional conclusion                            |
+| ------------------------------------------------- | -----------: | ---------: | ------------------------------------------------- |
+| Sparse small-object needle queries, 2,048 entries |     343.4 us | 4,207.9 us | Keep the hash fast path                           |
+| Sparse small-object needle queries, 8,192 entries |     271.3 us | 6,348.4 us | Do not replace the hash globally                  |
+| Extreme size variance, 2,048 entries              |    25.815 ms |   9.065 ms | Route large footprints away from the hash         |
+| Extreme size variance, 8,192 entries              |    27.947 ms |  11.069 ms | A BVH is materially safer for heterogeneous scale |
 
 These are System.Numerics collection-comparison rows, not proof of GridForge's
-final fixed-point implementation. They justify the architecture hypothesis;
-the GridForge-specific before/after matrix below decides whether it ships.
+final fixed-point implementation. They justify the architecture hypothesis; the
+GridForge-specific before/after matrix below decides whether it ships.
 
 ## Locked Design
 
@@ -150,19 +150,19 @@ For each normalized grid bound:
 1. Compute the exact fixed-spatial-hash cell range using the same mathematical
    floor contract as `SwiftFixedSpatialHash`.
 2. Compare the X/Y/Z cell-count product to the internal cell budget with
-   division-before-multiplication checks so neither signed nor unsigned
-   overflow is reachable.
+   division-before-multiplication checks so neither signed nor unsigned overflow
+   is reachable.
 3. Insert the grid into exactly one tier.
 4. Retain that tier until removal. Do not migrate existing grids when other
    grids are added or removed.
 
-The initial benchmark candidates are 64, 512, and 4,096 cells (4x4x4, 8x8x8,
-and 16x16x16 cubic footprints). Eliminate any candidate that causes a repeatable
+The initial benchmark candidates are 64, 512, and 4,096 cells (4x4x4, 8x8x8, and
+16x16x16 cubic footprints). Eliminate any candidate that causes a repeatable
 ordinary-workload regression greater than 5%, a warmed allocation, or unsafe
 registration growth. Among remaining candidates, choose the best mixed-scale
 geometric mean; if candidates differ by less than 5%, choose the larger budget
-to keep more ordinary grids on the hash fast path. Record the selected value
-and evidence in this plan. Only the selected constant remains in production.
+to keep more ordinary grids on the hash fast path. Record the selected value and
+evidence in this plan. Only the selected constant remains in production.
 
 ### Candidate Discovery
 
@@ -181,9 +181,8 @@ sort candidate grid slots ascending
 
 The comparison is overflow-safe and must not multiply a query span after it is
 already known to exceed the active-grid count. Both indexed tiers perform exact
-`FixedBoundVolume` intersection filtering. The active-grid scan must do the
-same rather than returning every active grid and relying on later topology
-work.
+`FixedBoundVolume` intersection filtering. The active-grid scan must do the same
+rather than returning every active grid and relying on later topology work.
 
 Point lookup uses a degenerate point volume and resolves the lowest valid grid
 slot when overlapping grids contain the same position. Top-level neighbor and
@@ -383,8 +382,8 @@ dotnet tests/Gravitas.Benchmarks/bin/Release/net8.0/Gravitas.Benchmarks.dll `
   --artifacts "artifacts/benchmarks/2026-08-03-mixed-sparse-span-two-tier-after"
 ```
 
-Capture the final exact row after adoption and for confirmation by changing
-only the `--artifacts` root between runs:
+Capture the final exact row after adoption and for confirmation by changing only
+the `--artifacts` root between runs:
 
 ```powershell
 dotnet tests/Gravitas.Benchmarks/bin/Release/net8.0/Gravitas.Benchmarks.dll `
@@ -408,14 +407,14 @@ The new GridForge benchmark must isolate top-level indexing from voxel
 materialization by using sparse grids with empty or one-voxel physical storage
 and topology metrics large enough to keep the voxel address space bounded.
 
-| Workload | Inputs | Purpose |
-| --- | --- | --- |
-| Safe footprint scaling | 1, 4, 8, 16, and 24 top-level hash cells per axis | Show the current volume curve without attempting the 64-billion-cell case |
-| Ordinary tiled world | Existing `GridRegistrationBenchmarks`, `Vector2dLookupBenchmarks`, `GridTracerBenchmarks`, and `NeighborLookupBenchmarks` inputs unchanged | Protect the current fast path |
-| Mixed scale | 256 ordinary tiled grids plus 8 spatially separated grids spanning at least 17 hash cells per axis | Exercise both tiers in one world |
-| Many oversized | 8, 64, and 256 spatially separated oversized grids with point and bounded-region queries that intersect one grid | Demonstrate BVH scaling against the rejected linear scan |
-| Exact huge grid | Default 50-unit world hash; bounds `[-100,000, +100,000]`; 100,000-unit rectangular topology cells | Reproduce and close the 64,048,012,001-cell registration failure |
-| Exact Gravitas sweep | Start `(-200,000, 0)`, end `(200,000, 0)`, radius `100,000`, layer Y `0`, half-thickness `1`, through the exact huge grid | Close the originating public mixed-query signal |
+| Workload               | Inputs                                                                                                                                     | Purpose                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Safe footprint scaling | 1, 4, 8, 16, and 24 top-level hash cells per axis                                                                                          | Show the current volume curve without attempting the 64-billion-cell case |
+| Ordinary tiled world   | Existing `GridRegistrationBenchmarks`, `Vector2dLookupBenchmarks`, `GridTracerBenchmarks`, and `NeighborLookupBenchmarks` inputs unchanged | Protect the current fast path                                             |
+| Mixed scale            | 256 ordinary tiled grids plus 8 spatially separated grids spanning at least 17 hash cells per axis                                         | Exercise both tiers in one world                                          |
+| Many oversized         | 8, 64, and 256 spatially separated oversized grids with point and bounded-region queries that intersect one grid                           | Demonstrate BVH scaling against the rejected linear scan                  |
+| Exact huge grid        | Default 50-unit world hash; bounds `[-100,000, +100,000]`; 100,000-unit rectangular topology cells                                         | Reproduce and close the 64,048,012,001-cell registration failure          |
+| Exact Gravitas sweep   | Start `(-200,000, 0)`, end `(200,000, 0)`, radius `100,000`, layer Y `0`, half-thickness `1`, through the exact huge grid                  | Close the originating public mixed-query signal                           |
 
 Use fixed deterministic positions and insertion permutations checked into the
 benchmark/test source. Do not generate benchmark layouts from wall-clock or
@@ -426,9 +425,9 @@ process-random seeds.
 - The exact default-hash huge grid registers, resolves, traverses, and removes
   without work proportional to 64,048,012,001 hash cells.
 - The exact Gravitas public sweep completes and returns the expected hit.
-- No ordinary tiled registration, removal, point lookup, neighbor lookup,
-  bounds coverage, or line-trace row regresses by more than 5% repeatably under
-  matched runs.
+- No ordinary tiled registration, removal, point lookup, neighbor lookup, bounds
+  coverage, or line-trace row regresses by more than 5% repeatably under matched
+  runs.
 - Any apparent 5% regression is rerun in an isolated longer job before code is
   changed to chase noise.
 - Many-oversized-grid queries demonstrate sublinear candidate discovery versus
@@ -438,12 +437,13 @@ process-random seeds.
 - Candidate order and replay-visible results are stable across repeated
   insertion/removal orders; overlapping point lookup uses the newly explicit
   lowest-live-slot contract.
-- GridForge and Gravitas retain 100% reachable line, branch, and method coverage.
+- GridForge and Gravitas retain 100% reachable line, branch, and method
+  coverage.
 
 If the fixed spatial hash wrapper causes a repeatable ordinary regression over
 5%, keep the `GridSpatialIndex` boundary and retain the existing custom hash as
-its normal tier; do not abandon the oversized BVH or expose both structures.
-If the two-tier design itself cannot meet the gates, revert the production
+its normal tier; do not abandon the oversized BVH or expose both structures. If
+the two-tier design itself cannot meet the gates, revert the production
 experiment and record a no-change result rather than shipping complexity on
 hope.
 
@@ -489,11 +489,13 @@ Repository state and build gate:
 
 Bounded RED evidence:
 
-- GridForge `TryAddGrid_WithHugeBounds_ShouldRegisterResolveAndRemoveAtDefaultSpatialCellSize`
+- GridForge
+  `TryAddGrid_WithHugeBounds_ShouldRegisterResolveAndRemoveAtDefaultSpatialCellSize`
   was terminated after 30 seconds inside `RegisterGridSpatialCells`. The run
   retained sequence, Cobertura/OpenCover, and two hang dumps under
   `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/gridforge-red/f35667fe-3719-4996-8287-0af9382175e7/`.
-- Gravitas `SweepCircleAgainst3DAll_WithExtremeSparseGridSpan_ShouldReturnExpectedHit`
+- Gravitas
+  `SweepCircleAgainst3DAll_WithExtremeSparseGridSpan_ShouldReturnExpectedHit`
   was independently terminated after 30 seconds during the same upstream grid
   registration. It retained sequence and two hang dumps under
   `artifacts/benchmarks/2026-08-03-mixed-sparse-span-baseline/gravitas-red/a1401294-fb82-4a97-8090-75fcc73ccb2f/`.
@@ -513,13 +515,13 @@ Authoritative matched benchmark artifact:
 
 Safe registration footprint scaling at the default 50-unit hash:
 
-| Hash cells per axis | Cell visits | Median | Allocated |
-| ---: | ---: | ---: | ---: |
-| 1 | 1 | 14.4 us | 712 B |
-| 4 | 64 | 46.85 us | 17,368 B |
-| 8 | 512 | 175.9 us | 164,872 B |
-| 16 | 4,096 | 913.2 us | 1,049,632 B |
-| 24 | 13,824 | 2.4329 ms | 3,703,864 B |
+| Hash cells per axis | Cell visits |    Median |   Allocated |
+| ------------------: | ----------: | --------: | ----------: |
+|                   1 |           1 |   14.4 us |       712 B |
+|                   4 |          64 |  46.85 us |    17,368 B |
+|                   8 |         512 |  175.9 us |   164,872 B |
+|                  16 |       4,096 |  913.2 us | 1,049,632 B |
+|                  24 |      13,824 | 2.4329 ms | 3,703,864 B |
 
 The curve and allocation growth follow hash-cell volume, not active-grid count.
 The exact 4,001-cells-per-axis case was therefore retained only as the bounded
@@ -527,12 +529,12 @@ RED run.
 
 `SpatialGridCellSize` sensitivity for one fixed 800-unit grid:
 
-| Cell size | Effective cells per axis | Median | Allocated |
-| ---: | ---: | ---: | ---: |
-| 25 | 33 | 8.5778 ms | 10,905,232 B |
-| 50 | 17 | 257.3 us | 1,206,496 B |
-| 100 | 9 | 55.6 us | 206,536 B |
-| 200 | 5 | 20.9 us | 40,432 B |
+| Cell size | Effective cells per axis |    Median |    Allocated |
+| --------: | -----------------------: | --------: | -----------: |
+|        25 |                       33 | 8.5778 ms | 10,905,232 B |
+|        50 |                       17 |  257.3 us |  1,206,496 B |
+|       100 |                        9 |   55.6 us |    206,536 B |
+|       200 |                        5 |   20.9 us |     40,432 B |
 
 Larger global cells materially reduce registration cost for that one scale, but
 no single value preserves fine ordinary lookup resolution while safely handling
@@ -541,13 +543,13 @@ turn it into the correctness mechanism.
 
 Mixed and many-large query baselines:
 
-| Scenario | Median | Allocated |
-| --- | ---: | ---: |
-| Mixed 256 ordinary + 8 large, point | 22.423 ns | 0 B |
-| Mixed 256 ordinary + 8 large, bounds | 274.258 ns | 448 B |
-| 8 large, point / bounds | 24.025 ns / 269.778 ns | 0 B / 448 B |
-| 64 large, point / bounds | 22.576 ns / 270.909 ns | 0 B / 448 B |
-| 256 large, point / bounds | 22.290 ns / 271.527 ns | 0 B / 448 B |
+| Scenario                             |                 Median |   Allocated |
+| ------------------------------------ | ---------------------: | ----------: |
+| Mixed 256 ordinary + 8 large, point  |              22.423 ns |         0 B |
+| Mixed 256 ordinary + 8 large, bounds |             274.258 ns |       448 B |
+| 8 large, point / bounds              | 24.025 ns / 269.778 ns | 0 B / 448 B |
+| 64 large, point / bounds             | 22.576 ns / 270.909 ns | 0 B / 448 B |
+| 256 large, point / bounds            | 22.290 ns / 271.527 ns | 0 B / 448 B |
 
 The current hash keeps one-cell point and bounds probes constant as active-grid
 count grows; the bounds API creates a 448-byte result set. These rows isolate
@@ -558,25 +560,25 @@ grows.
 
 Representative ordinary guard baselines are retained in the same artifact:
 adjacent registration/removal medians were 2.0733 ms / 1.7043 ms; warmed line
-trace was 77.1 us with 1,704 B; warmed bounds coverage was 343.9 us with
-1,760 B; Vector2d/Vector3d voxel lookup medians were 170.2 us / 146.0 us with
-1,296 B. All ordinary rows in the artifact remain comparison gates, including
-neighbor families rather than only these concise representatives.
+trace was 77.1 us with 1,704 B; warmed bounds coverage was 343.9 us with 1,760
+B; Vector2d/Vector3d voxel lookup medians were 170.2 us / 146.0 us with 1,296 B.
+All ordinary rows in the artifact remain comparison gates, including neighbor
+families rather than only these concise representatives.
 
 Tests and coverage:
 
 - GridForge: 504 existing tests passed with the one intentional RED excluded.
-  ReportGenerator recorded 100% line (5,254/5,254), branch
-  (2,367/2,367), and method (845/845) coverage. CRAP analysis found zero
-  methods above 30. Raw coverage is under
+  ReportGenerator recorded 100% line (5,254/5,254), branch (2,367/2,367), and
+  method (845/845) coverage. CRAP analysis found zero methods above 30. Raw
+  coverage is under
   `artifacts/benchmarks/2026-08-03-grid-spatial-index-baseline/gridforge-full/830c4b8a-5968-4fc2-9964-6dd0db1cf7bc/`;
   rendered reports are under
   `TestResults/coverage-analysis/phase0-grid-spatial-index/`.
 - Gravitas: 3,928 existing tests passed with the one intentional RED excluded.
-  ReportGenerator recorded 100% line (55,869/55,869), branch
-  (15,833/15,833), and method (5,321/5,321) coverage. CRAP analysis found
-  27 complexity-only scores above 30, all at 100% coverage and therefore no
-  coverage gap. Raw coverage is under
+  ReportGenerator recorded 100% line (55,869/55,869), branch (15,833/15,833),
+  and method (5,321/5,321) coverage. CRAP analysis found 27 complexity-only
+  scores above 30, all at 100% coverage and therefore no coverage gap. Raw
+  coverage is under
   `artifacts/benchmarks/2026-08-03-mixed-sparse-span-baseline/gravitas-coverage/4b420c8b-e04e-4304-93ae-9204cf23b6af/`;
   rendered reports are under
   `TestResults/coverage-analysis/phase0-grid-spatial-index/`.
@@ -639,16 +641,16 @@ owner row includes construction, first BVH scratch where applicable, insertion,
 and one query.
 
 | Cell budget | Warmed mixed query | Cold maximum candidate | Warmed mixed lifecycle per entry |
-| ---: | ---: | ---: | ---: |
-| 64 | 372.9 ns / 0 B | 1.532 us / 4,560 B | 2.795 us / 3,064 B |
-| 512 | 318.7 ns / 0 B | 1.502 us / 4,560 B | 22.305 us / 24,931 B |
-| 4,096 | 293.4 ns / 0 B | 1.372 ms / 1,096,220 B | 300.317 us / 199,723 B |
+| ----------: | -----------------: | ---------------------: | -------------------------------: |
+|          64 |     372.9 ns / 0 B |     1.532 us / 4,560 B |               2.795 us / 3,064 B |
+|         512 |     318.7 ns / 0 B |     1.502 us / 4,560 B |             22.305 us / 24,931 B |
+|       4,096 |     293.4 ns / 0 B | 1.372 ms / 1,096,220 B |           300.317 us / 199,723 B |
 
 Budget 4,096 is rejected by unsafe hash registration growth. Budget 512 saves
-54.2 ns per warmed scale probe relative to 64, but makes mixed lifecycle
-work about eight times slower. Budget 64 therefore has the strongest mixed
-geometric result and is retained as the sole internal default. The experimental
-values remain only as benchmark parameters.
+54.2 ns per warmed scale probe relative to 64, but makes mixed lifecycle work
+about eight times slower. Budget 64 therefore has the strongest mixed geometric
+result and is retained as the sole internal default. The experimental values
+remain only as benchmark parameters.
 
 The nine-case ShortRun completed in 1 minute 4 seconds. Machine-readable and
 rendered artifacts are under
@@ -724,16 +726,16 @@ Matched ShortRun evidence under
 shows the retained architecture removes the catastrophic footprint curve and
 keeps its new point-index paths allocation-free:
 
-| Workload | Baseline | Phase 2 | Direction |
-| --- | ---: | ---: | ---: |
-| Register 64 adjacent grids | 2.078 ms / 1,099.95 KB | 1.862 ms / 1,106.05 KB | -10.4% time; +0.6% allocation |
-| Remove 64 adjacent grids | 1.708 ms / 25.22 KB | 1.170 ms / 32.93 KB | -31.5% time; +7.71 KB per batch |
-| Mixed-scale point lookup | n/a | 91.67 ns / 0 B | New two-tier row |
-| Point lookup, 8/64/256 oversized grids | n/a | 90.21/129.41/151.98 ns / 0 B | Sublinear BVH growth |
+| Workload                               |               Baseline |                      Phase 2 |                       Direction |
+| -------------------------------------- | ---------------------: | ---------------------------: | ------------------------------: |
+| Register 64 adjacent grids             | 2.078 ms / 1,099.95 KB |       1.862 ms / 1,106.05 KB |   -10.4% time; +0.6% allocation |
+| Remove 64 adjacent grids               |    1.708 ms / 25.22 KB |          1.170 ms / 32.93 KB | -31.5% time; +7.71 KB per batch |
+| Mixed-scale point lookup               |                    n/a |               91.67 ns / 0 B |                New two-tier row |
+| Point lookup, 8/64/256 oversized grids |                    n/a | 90.21/129.41/151.98 ns / 0 B |            Sublinear BVH growth |
 
 The ordinary `TryGetVoxel` ShortRun rows were directionally 7.8% slower for 3D
-and 12.9% slower for 2D, but each benchmark iteration is only about 0.15-0.20
-ms and BenchmarkDotNet reports confidence ranges too broad to establish a
+and 12.9% slower for 2D, but each benchmark iteration is only about 0.15-0.20 ms
+and BenchmarkDotNet reports confidence ranges too broad to establish a
 repeatable regression. The removal allocation increase is also retained as an
 explicit signal. Phase 4 must run isolated longer confirmation before either is
 accepted or optimized; the unchecked performance exit criterion above is
@@ -742,12 +744,11 @@ intentional.
 Verification:
 
 - 537/537 GridForge Release and 537/537 ReleaseLean tests passed.
-- Release and ReleaseLean both report 5,166/5,166 lines and 2,323/2,323
-  branches covered; method coverage remains complete.
-- 1,106/1,106 SwiftCollections Release and 1,078/1,078 ReleaseLean tests
-  passed. Every changed spatial-hash file reports 100% reachable line and
-  branch coverage; its unrelated repository-wide 97% restoration remains
-  owner-led.
+- Release and ReleaseLean both report 5,166/5,166 lines and 2,323/2,323 branches
+  covered; method coverage remains complete.
+- 1,106/1,106 SwiftCollections Release and 1,078/1,078 ReleaseLean tests passed.
+  Every changed spatial-hash file reports 100% reachable line and branch
+  coverage; its unrelated repository-wide 97% restoration remains owner-led.
 - The Release benchmark project builds with zero warnings and errors.
 
 ## Phase 3: Traversal, Coverage, Scan, And Neighbor-Resolver Adoption
@@ -790,8 +791,8 @@ proving the active-grid scan filters exact bounds without enumerating empty hash
 volume.
 
 The independent audit found one remaining deterministic-order defect after the
-index: enumerable line and voxel-coverage APIs inserted sorted candidates into
-a `SwiftDictionary<VoxelGrid, SwiftList<Voxel>>`, then emitted hash-table order.
+index: enumerable line and voxel-coverage APIs inserted sorted candidates into a
+`SwiftDictionary<VoxelGrid, SwiftList<Voxel>>`, then emitted hash-table order.
 The new cross-tier regression went RED with expected slots `0,1,2,3...` but
 actual order `0,7,6,2,5...`. Both enumerable paths now append pooled
 `GridVoxelSet` values directly in candidate order. This deletes the obsolete
@@ -810,8 +811,8 @@ Verification:
 - Warmed caller-owned line, voxel-coverage, scan-cell, and mixed-neighbor paths
   allocate `0 B` in focused guards.
 - 541/541 GridForge Release and 541/541 ReleaseLean tests passed.
-- Both configurations report 5,163/5,163 lines and 2,323/2,323 branches
-  covered; all 847 reachable methods are covered.
+- Both configurations report 5,163/5,163 lines and 2,323/2,323 branches covered;
+  all 847 reachable methods are covered.
 - CRAP analysis reports zero methods above 30; the highest score is 28 at 100%
   coverage. Reports are retained under
   `tests/GridForge.Tests/TestResults/coverage-analysis/phase3/`.
@@ -836,13 +837,14 @@ ship, then document only the retained design.
       APIs and optional cell-size tuning.
 - [x] Update GridForge's benchmark backlog with the measured before/after table
       and retained artifact paths.
-- [x] Run GridForge Debug, Release, ReleaseLean, package, and 100% coverage gates.
+- [x] Run GridForge Debug, Release, ReleaseLean, package, and 100% coverage
+      gates.
 - [x] Pause for owner review before downstream closure.
 
 Exit criteria:
 
-- [x] The two-tier implementation passes every GridForge acceptance and
-      rollback gate.
+- [x] The two-tier implementation passes every GridForge acceptance and rollback
+      gate.
 - [x] Documentation describes behavior and tuning, not internal collection
       trivia that hosts must reproduce.
 - [x] GridForge remains at 100% coverage in its retained source shape.
@@ -855,24 +857,24 @@ adds a caller-owned overlap API, and fixes the measured SwiftCollections
 allocation cause at `QueryKeyIndexMap`: index callbacks are captured once at
 construction rather than recreated during every remove or lookup.
 
-| Workload | Baseline | After | Confirmation |
-| --- | ---: | ---: | ---: |
-| Register 64 adjacent grids | 2.073 ms / 1,126,352 B | 1.854 ms / 1,124,144 B | 1.755 ms / 1,124,144 B |
-| Remove 64 adjacent grids | 1.704 ms / 25,824 B | 1.174 ms / 17,384 B | 1.186 ms / 17,672 B |
-| Register one 24-cell-per-axis grid | 2.433 ms / 3,703,864 B | 10.1 us / 96 B | 10.0 us / 1,056 B |
-| Mixed point lookup | n/a | 93.4 ns / 0 B | 95.4 ns / 0 B |
-| Mixed bounds lookup | n/a | 205.4 ns / 0 B | 206.3 ns / 0 B |
+| Workload                           |               Baseline |                  After |           Confirmation |
+| ---------------------------------- | ---------------------: | ---------------------: | ---------------------: |
+| Register 64 adjacent grids         | 2.073 ms / 1,126,352 B | 1.854 ms / 1,124,144 B | 1.755 ms / 1,124,144 B |
+| Remove 64 adjacent grids           |    1.704 ms / 25,824 B |    1.174 ms / 17,384 B |    1.186 ms / 17,672 B |
+| Register one 24-cell-per-axis grid | 2.433 ms / 3,703,864 B |         10.1 us / 96 B |      10.0 us / 1,056 B |
+| Mixed point lookup                 |                    n/a |          93.4 ns / 0 B |          95.4 ns / 0 B |
+| Mixed bounds lookup                |                    n/a |         205.4 ns / 0 B |         206.3 ns / 0 B |
 
-Many-oversized point lookup grows from 93.0 to 163.5 ns after and 92.6 to
-154.8 ns in confirmation as the grid count grows 32x from 8 to 256. Bounds
-lookup grows from 197.6 to 239.3 ns after and 200.2 to 248.2 ns in confirmation.
-All six point and bounds rows allocate `0 B`, and source inspection confirms
-the fixed BVH remains authoritative rather than a linear oversized-grid list.
+Many-oversized point lookup grows from 93.0 to 163.5 ns after and 92.6 to 154.8
+ns in confirmation as the grid count grows 32x from 8 to 256. Bounds lookup
+grows from 197.6 to 239.3 ns after and 200.2 to 248.2 ns in confirmation. All
+six point and bounds rows allocate `0 B`, and source inspection confirms the
+fixed BVH remains authoritative rather than a linear oversized-grid list.
 
 ShortRun ordinary rows were too brief to interpret: several single-invocation
 samples crossed the 5% gate in only one run or in opposite directions. Longer
-batched isolation after the empty-tier guards produced stable medians of
-130.7 us (2D point), 129.2 us (3D point), 275.7 us (3D coverage), 264.4 us (2D
+batched isolation after the empty-tier guards produced stable medians of 130.7
+us (2D point), 129.2 us (3D point), 275.7 us (3D coverage), 264.4 us (2D
 coverage), 39.9 us (3D line), 38.7 us (2D line), and 2.996 ms (boundary
 neighbors). Each is directionally below its Phase 0 ShortRun baseline, and the
 independent longer rerun retained the same performance class. Allocation tests,
@@ -888,9 +890,9 @@ The matched artifact roots are:
 Focused longer artifacts retain the ordinary vector, tracer, neighbor, and
 registration/removal investigations under sibling `...-isolation-*` roots. An
 independent inlining audit found no evidence for additional
-`AggressiveInlining`: existing annotations already cover the small leaf
-helpers, while forcing branch-heavy collection and traversal methods would risk
-code-size growth without a measured gain.
+`AggressiveInlining`: existing annotations already cover the small leaf helpers,
+while forcing branch-heavy collection and traversal methods would risk code-size
+growth without a measured gain.
 
 Verification:
 
@@ -898,8 +900,8 @@ Verification:
 - Coverage is 100% line (5,172/5,172), branch (2,331/2,331), and method
   (850/850) under
   `tests/GridForge.Tests/TestResults/coverage-analysis/phase4-final-confirmation/`.
-- CRAP analysis found zero methods above 30; `GridSpatialIndex.CollectCandidates`
-  is 14 at complete coverage.
+- CRAP analysis found zero methods above 30;
+  `GridSpatialIndex.CollectCandidates` is 14 at complete coverage.
 - Standard `GridForge` and `GridForge.Lean` `.nupkg` and `.snupkg` artifacts
   were produced successfully.
 - 1,107 SwiftCollections Release and 1,079 ReleaseLean tests passed. The changed
@@ -962,20 +964,19 @@ warmed guard measured `0 B` across 16 measured public-query calls.
 The full pre-review `SweepCircleAgainst3DAll` ShortRun matrix completed in 76
 minutes. Its 64 ordinary rows and two accidentally parameterized exact-row
 copies all allocated `0 B`; the 24 result/candidate-count pairs stayed within
-`7.39%` of one another, and ordinary `ColliderCount=1024` to `64` scaling
-ranged from `14.71x` to `26.81x` with a `16.92x` median. Final review moved the
-exact scenario into a minimal unparameterized benchmark owner, deleting the
-irrelevant `ColliderCount` cases and multi-context setup. Its matched artifacts
-measured:
+`7.39%` of one another, and ordinary `ColliderCount=1024` to `64` scaling ranged
+from `14.71x` to `26.81x` with a `16.92x` median. Final review moved the exact
+scenario into a minimal unparameterized benchmark owner, deleting the irrelevant
+`ColliderCount` cases and multi-context setup. Its matched artifacts measured:
 
 | After median | Confirmation median | Difference | Allocated |
-| ---: | ---: | ---: | ---: |
-| 14.778 us | 15.967 us | +8.0% | 0 B |
+| -----------: | ------------------: | ---------: | --------: |
+|    14.778 us |           15.967 us |      +8.0% |       0 B |
 
 The exact pre-change run remains the retained 30-second termination; it never
-produced a latency sample. A second 76-minute full-matrix confirmation would
-not add proportional signal, so confirmation was limited to the exact row
-while ordinary-path regression evidence remains GridForge's matched
+produced a latency sample. A second 76-minute full-matrix confirmation would not
+add proportional signal, so confirmation was limited to the exact row while
+ordinary-path regression evidence remains GridForge's matched
 baseline/after/confirmation matrix from Phase 4.
 
 Artifacts:
@@ -990,28 +991,27 @@ ordinary matrix.
 
 Verification:
 
-- 1,113 focused GridForge-backed Gravitas partition, 2D, 3D, mixed, query,
-  CCD, replay, and allocation tests passed in Release.
+- 1,113 focused GridForge-backed Gravitas partition, 2D, 3D, mixed, query, CCD,
+  replay, and allocation tests passed in Release.
 - Gravitas passed 3,930 Release and 3,875 ReleaseLean tests. Its Debug build
   passed with zero warnings/errors and all 3,851 non-allocation correctness
   tests passed; raw Debug execution also confirmed the expected limitation that
   28 optimization-sensitive allocation assertions are Release gates.
-- Gravitas coverage is 100% line (`55,869/55,869`), branch
-  (`15,833/15,833`), and method (`5,321/5,321`) under
+- Gravitas coverage is 100% line (`55,869/55,869`), branch (`15,833/15,833`),
+  and method (`5,321/5,321`) under
   `tests/Gravitas.Tests/TestResults/coverage-analysis-grid-spatial-index-phase5-20260804/`.
   The CRAP scan found 27 complexity-only scores above 30, all completely
   covered, and no method coverage gap.
-- Final GridForge coverage is 100% line (`5,172/5,172`), branch
-  (`2,331/2,331`), and method (`850/850`) after 542 Release tests under
+- Final GridForge coverage is 100% line (`5,172/5,172`), branch (`2,331/2,331`),
+  and method (`850/850`) after 542 Release tests under
   `tests/GridForge.Tests/TestResults/coverage-analysis/phase5-final-20260804/`.
   It has no CRAP score above 30 and no method coverage gap.
 - Standard and Lean builds and package/archive creation passed for Gravitas on
   `net8.0` and `netstandard2.1`. Released-package consumption remains the
   explicit post-GridForge-v9 gate; local-link files remain unstaged.
 - Independent GridForge architecture, performance, inlining, and documentation
-  audits found no unresolved production issue. Independent Gravitas review
-  found no unresolved correctness, determinism, allocation, benchmark, or
-  bloat issue.
+  audits found no unresolved production issue. Independent Gravitas review found
+  no unresolved correctness, determinism, allocation, benchmark, or bloat issue.
 
 ## Release And Commit Guidance
 
@@ -1029,12 +1029,12 @@ Release order remains:
 
 ## Progress Log
 
-| Date | Phase | Summary |
-| --- | --- | --- |
-| 2026-08-03 | Planning | Confirmed registration-scale root cause, rejected full-BVH and dynamic-global-hash designs, selected the evidence-gated fixed hash plus fixed BVH architecture, and locked before/after artifact and rollback requirements. |
-| 2026-08-03 | Phase 0 | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed. |
-| 2026-08-03 | Phase 1 | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2. |
-| 2026-08-03 | Phase 2 | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |
-| 2026-08-03 | Phase 3 | Proved large-query active scanning and cross-tier traversal/neighbor order, replaced nondeterministic enumerable hash regrouping with ordered pooled `GridVoxelSet` storage, deleted the resulting mutable `VoxelGrid.GetHashCode()` zombie, added warmed zero-allocation guards, passed 541 GridForge tests in Release and ReleaseLean, retained 100% line/branch/method coverage, and recorded zero CRAP hotspots above 30. |
-| 2026-08-03 | Phase 4 | Confirmed the two-tier index with matched after/confirmation artifacts and longer ordinary isolation; skipped empty tiers, added caller-owned zero-allocation overlap lookup, removed per-removal delegate allocations at SwiftCollections' shared key-index map, closed the GridForge benchmark signal, refreshed public/migration docs, passed Debug/Release/Lean/package gates, and retained 100% GridForge coverage. |
-| 2026-08-04 | Phase 5 | Closed the originating Gravitas stall with ordered public-query and warmed-allocation regressions, measured 14.8-16.0 us at 0 B with a focused unparameterized benchmark, passed focused plus full Release/Lean/package gates, retained 100% Gravitas and GridForge coverage, transferred released-package consumption to the cross-stack release gate, and closed the plan after owner review. |
+| Date       | Phase    | Summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-03 | Planning | Confirmed registration-scale root cause, rejected full-BVH and dynamic-global-hash designs, selected the evidence-gated fixed hash plus fixed BVH architecture, and locked before/after artifact and rollback requirements.                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-08-03 | Phase 0  | Added the two exact RED regressions and bounded hang artifacts, captured the 40-case matched GridForge baseline including cell-size sensitivity, verified 504 GridForge and 3,928 Gravitas existing tests, and recorded fresh 100% line/branch/method coverage plus CRAP summaries. No production behavior changed.                                                                                                                                                                                                                                                                         |
+| 2026-08-03 | Phase 1  | Added the internal exclusive hash/BVH owner, selected a 64-cell default from nine measured threshold cases, corrected SwiftCollections' shared signed-cell loop overflow instead of routing around it downstream, passed 29 focused and 533 full GridForge tests plus all 1,098 SwiftCollections Release and 1,070 ReleaseLean tests, and retained 100% GridForge coverage. Public `GridWorld` behavior remains unchanged pending Phase 2.                                                                                                                                                  |
+| 2026-08-03 | Phase 2  | Made the two-tier owner authoritative for lifecycle, point/overlap lookup, neighbors, and mechanically dependent traversal callers; removed the public single-hash surface plus dead adaptive/deduplication machinery; corrected exact fixed cell flooring and deterministic cell hashes upstream; passed 537 GridForge tests in Release and ReleaseLean plus 1,106 SwiftCollections Release and 1,078 ReleaseLean tests; and retained 100% GridForge and touched-Swift spatial-hash coverage. Longer ordinary-query and removal-allocation confirmation remains the explicit Phase 4 gate. |
+| 2026-08-03 | Phase 3  | Proved large-query active scanning and cross-tier traversal/neighbor order, replaced nondeterministic enumerable hash regrouping with ordered pooled `GridVoxelSet` storage, deleted the resulting mutable `VoxelGrid.GetHashCode()` zombie, added warmed zero-allocation guards, passed 541 GridForge tests in Release and ReleaseLean, retained 100% line/branch/method coverage, and recorded zero CRAP hotspots above 30.                                                                                                                                                               |
+| 2026-08-03 | Phase 4  | Confirmed the two-tier index with matched after/confirmation artifacts and longer ordinary isolation; skipped empty tiers, added caller-owned zero-allocation overlap lookup, removed per-removal delegate allocations at SwiftCollections' shared key-index map, closed the GridForge benchmark signal, refreshed public/migration docs, passed Debug/Release/Lean/package gates, and retained 100% GridForge coverage.                                                                                                                                                                    |
+| 2026-08-04 | Phase 5  | Closed the originating Gravitas stall with ordered public-query and warmed-allocation regressions, measured 14.8-16.0 us at 0 B with a focused unparameterized benchmark, passed focused plus full Release/Lean/package gates, retained 100% Gravitas and GridForge coverage, transferred released-package consumption to the cross-stack release gate, and closed the plan after owner review.                                                                                                                                                                                             |

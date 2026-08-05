@@ -92,12 +92,11 @@ Allocation-sensitive callers can use `GetCoveredVoxelsInto(...)` instead. It
 clears and fills a caller-owned `SwiftList<Voxel>` with the same covered voxels
 as the grouped enumerable path. Pass a reusable `GridTraceScratch` when the
 caller also wants to own the temporary candidate-grid list, processed-grid set,
-and duplicate-voxel set.
-The flat result lets hot paths avoid enumerable and pooled grouped-list lifetime
-costs while still resolving the owning grid from `voxel.GridIndex` while that
-returned voxel is current. `GridIndex` is a recyclable slot; longer-lived
-runtime references should copy `voxel.WorldIndex` and revalidate it through the
-owning world.
+and duplicate-voxel set. The flat result lets hot paths avoid enumerable and
+pooled grouped-list lifetime costs while still resolving the owning grid from
+`voxel.GridIndex` while that returned voxel is current. `GridIndex` is a
+recyclable slot; longer-lived runtime references should copy `voxel.WorldIndex`
+and revalidate it through the owning world.
 
 ## Traversal Padding And Duplicate Suppression
 

@@ -9,9 +9,9 @@ across pooled reuse.
 
 ### FixedMathSharp Geometry Namespace
 
-FixedMathSharp bounds and geometry primitives moved from
-`FixedMathSharp.Bounds` to `FixedMathSharp.Geometry`. Type names are unchanged;
-update the namespace import:
+FixedMathSharp bounds and geometry primitives moved from `FixedMathSharp.Bounds`
+to `FixedMathSharp.Geometry`. Type names are unchanged; update the namespace
+import:
 
 ```csharp
 using FixedMathSharp.Geometry;
@@ -29,8 +29,8 @@ Remove direct use of these v8 implementation APIs:
 
 Use `TryGetGrid(...)`, `TryGetGridAndVoxel(...)`, `GridTracer`, neighbor APIs,
 or `FindOverlappingGridsInto(...)` instead. `SpatialGridCellSize` remains
-optional tuning for ordinary similarly sized grids; it no longer needs to
-match the largest grid a world may stream.
+optional tuning for ordinary similarly sized grids; it no longer needs to match
+the largest grid a world may stream.
 
 ### Runtime Identity And Traversal
 

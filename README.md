@@ -200,7 +200,7 @@ identity remains host-owned through `IVoxelOccupant.GlobalId`.
 
 | Concept           | Role                                                                                                                                                  |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GridWorld`       | Owns adaptive top-level lookup, active grids, lifecycle, and events for one isolated world.                                                          |
+| `GridWorld`       | Owns adaptive top-level lookup, active grids, lifecycle, and events for one isolated world.                                                           |
 | `VoxelGrid`       | Owns one grid's snapped bounds, topology metrics, physical voxel storage, scan cells, neighbor relationships, obstacle summary state, and versioning. |
 | `Voxel`           | Represents one snapped cell with obstacle, occupant, partition, boundary, and neighbor query state.                                                   |
 | `ScanCell`        | Groups voxels into query buckets so radius scans can skip empty regions.                                                                              |
