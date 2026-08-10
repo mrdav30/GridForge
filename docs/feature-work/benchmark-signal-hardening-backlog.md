@@ -15,6 +15,11 @@ this backlog.
 
 ## Intake Rules
 
+- Signal IDs use `GF-Benchmark-NNN`. The next available ID is
+  `GF-Benchmark-002`.
+- Assign an ID at intake and never reuse it, including after a signal closes or
+  moves into a dated plan. Check this file's Git history before advancing or
+  repairing the counter.
 - Add a signal only when it comes from a benchmark, allocation guardrail,
   profiler trace, or repeated validation run.
 - Record the command, date, affected row or test, measured value, why it
@@ -52,9 +57,9 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal                                                       | Status | Priority | Tracking                                                                             |
 | ------------------------------------------------------------ | ------ | -------- | ------------------------------------------------------------------------------------ |
-| Top-level grid indexing scales with covered hash-cell volume | Closed | High     | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+| GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
 
-### Signal: Top-Level Grid Indexing Scales With Covered Hash-Cell Volume
+### GF-Benchmark-001 — Top-Level Grid Indexing Scales With Covered Hash-Cell Volume
 
 **Discovered:** 2026-08-03  
 **Source:** Gravitas mixed public sweep sparse-span investigation  

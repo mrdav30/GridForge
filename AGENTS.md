@@ -330,6 +330,18 @@ Keep README engaging and concise; push deep subsystem detail into the wiki. Keep
 wiki source links repo-relative and let the sync helper adapt copied pages for
 GitHub wiki publishing.
 
+The DocFX site under [`docs/api`](docs/api) is the branded API and discovery
+surface. Keep its GridForge icon, blue/cyan custom template, GitHub header link,
+namespace overviews, Unity adapter links, and landing-page routes intact. Build
+it from the Release `net8.0` assembly with warnings treated as errors; generated
+content under `docs/api/obj` is disposable.
+
+[`docs/feature-work/issue-tracker.md`](docs/feature-work/issue-tracker.md) and
+[`docs/feature-work/benchmark-signal-hardening-backlog.md`](docs/feature-work/benchmark-signal-hardening-backlog.md)
+are evergreen operational trackers, not completed plans. Preserve stable issue
+and signal IDs, verify each next-ID counter against Git history, and never reuse
+an ID after resolution, closure, promotion, or removal.
+
 ## Common Change Patterns
 
 ### Adding Core Grid Behavior

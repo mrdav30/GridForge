@@ -4,9 +4,21 @@ items:
   - name: API Reference
     href: obj/api/
     homepage: obj/api/GridForge.yml
-  - name: Wiki
-    href: https://github.com/mrdav30/GridForge/wiki
-  - name: Migration Guide
-    href: https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md
-  - name: Coverage
-    href: https://mrdav30.github.io/GridForge/coverage/
+  - name: Guides
+    items:
+      - name: Getting Started
+        href: https://github.com/mrdav30/GridForge/wiki/Getting-Started
+      - name: Core Concepts
+        href: https://github.com/mrdav30/GridForge/wiki/Core-Concepts
+      - name: Common Workflows
+        href: https://github.com/mrdav30/GridForge/wiki/Common-Workflows
+      - name: Migration Guide
+        href: https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md
+  - name: Resources
+    items:
+      - name: Unity Packages
+        href: https://github.com/mrdav30/GridForge-Unity
+      - name: Source
+        href: https://github.com/mrdav30/GridForge
+      - name: Core Test Coverage
+        href: https://mrdav30.github.io/GridForge/coverage/

@@ -65,9 +65,56 @@ jobs:
         run: |
           test -f src/GridForge/bin/Release/net8.0/GridForge.dll
           test -f src/GridForge/bin/Release/net8.0/GridForge.xml
-          dotnet tool run docfx docs/api/docfx.json
+          dotnet tool run docfx docs/api/docfx.json --warningsAsErrors
           test -f docs/api/obj/_site/index.html
           test -f docs/api/obj/_site/api/GridForge.html
+          test -f docs/api/obj/_site/api/GridForge.Diagnostics.html
+          test -f docs/api/obj/_site/assets/icon_128x128.png
+          test -f docs/api/obj/_site/public/main.css
+          test -f docs/api/obj/_site/public/main.js
+          grep -Fq 'gf-hero' docs/api/obj/_site/index.html
+          grep -Fq -- '--gf-cyan-rgb' docs/api/obj/_site/public/main.css
+          grep -Fq 'github.com/mrdav30/GridForge' docs/api/obj/_site/public/main.js
+          grep -Fq 'github.com/mrdav30/GridForge-Unity' docs/api/obj/_site/api/GridForge.html
+
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import unquote, urlsplit
+
+          site = Path("docs/api/obj/_site").resolve()
+          broken = []
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.hrefs = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == "a":
+                      href = dict(attrs).get("href")
+                      if href:
+                          self.hrefs.append(href)
+
+          for page in site.rglob("*.html"):
+              parser = Links()
+              parser.feed(page.read_text(encoding="utf-8"))
+              for href in parser.hrefs:
+                  parsed = urlsplit(href)
+                  if parsed.scheme or parsed.netloc or not parsed.path:
+                      continue
+
+                  path = unquote(parsed.path)
+                  target = site / path.lstrip("/") if path.startswith("/") else page.parent / path
+                  target = target.resolve()
+                  if target.is_dir():
+                      target /= "index.html"
+                  if not target.exists():
+                      broken.append(f"{page.relative_to(site)} -> {href}")
+
+          if broken:
+              raise SystemExit("Broken local links:\n" + "\n".join(sorted(broken)))
+          PY
 
       - name: Install ReportGenerator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
@@ -105,6 +152,8 @@ jobs:
           cp -a artifacts/coverage-report/. artifacts/pages/coverage/
           test -f artifacts/pages/index.html
           test -f artifacts/pages/api/GridForge.html
+          test -f artifacts/pages/assets/icon_128x128.png
+          test -f artifacts/pages/public/main.css
           test -f artifacts/pages/coverage/Summary.json
           test -f artifacts/pages/coverage/badge_branchcoverage.svg
 

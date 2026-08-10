@@ -21,7 +21,7 @@ Keep these rules in mind before writing any code:
   runtime model remains the same 3D voxel world.
 - Dispose or reset a world explicitly when you need a clean boundary.
 
-## Install The Package
+## Install a package
 
 ```bash
 dotnet add package GridForge
@@ -30,7 +30,22 @@ dotnet add package GridForge
 GridForge brings in its core math and collection dependencies through NuGet, so
 you do not need to wire those up manually in a normal .NET project.
 
-## Minimal Namespaces
+Choose exactly one package family:
+
+| Package | Use it when |
+| --- | --- |
+| `GridForge` | You want the default package with MemoryPack support. |
+| `GridForge.Lean` | You want the same grid API without the MemoryPack runtime dependency. |
+
+```bash
+dotnet add package GridForge.Lean
+```
+
+Unity projects should install one of the maintained
+[GridForge-Unity packages](https://github.com/mrdav30/GridForge-Unity) instead
+of copying engine adapters into the core library.
+
+## Minimal namespaces
 
 Most first-use examples will start with these imports:
 
@@ -95,7 +110,12 @@ position into both the containing grid and the voxel at that position.
 ```csharp
 Vector3d queryPosition = new Vector3d(2, 0, -3);
 
-if (world.TryGetGridAndVoxel(queryPosition, out VoxelGrid resolvedGrid, out Voxel voxel))
+if (world.TryGetGridAndVoxel(
+        queryPosition,
+        out VoxelGrid? resolvedGrid,
+        out Voxel? voxel)
+    && resolvedGrid is not null
+    && voxel is not null)
 {
     Console.WriteLine($"Grid: {resolvedGrid.GridIndex}");
     Console.WriteLine($"Voxel index: {voxel.Index}");
@@ -118,7 +138,7 @@ parameter selects world Y. If omitted, `layerY` is `0`.
 ```csharp
 Vector2d flatPosition = new Vector2d(2, -3);
 
-if (world.TryGetVoxel(flatPosition, out Voxel flatVoxel))
+if (world.TryGetVoxel(flatPosition, out Voxel? flatVoxel))
 {
     Console.WriteLine($"Flat voxel: {flatVoxel.Index}");
 }
@@ -239,7 +259,7 @@ is simpler and safer.
 - Using `TryGetGrid(...)` when you actually need `TryGetGridAndVoxel(...)`
 - Holding onto pooled query results longer than the immediate operation
 
-## Where To Go Next
+## Where to go next
 
 - [Home](Home.md) for the project-wide mental model
 - [Core Concepts](Core-Concepts.md) for the vocabulary of worlds, grids, voxels,

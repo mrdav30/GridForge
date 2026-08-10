@@ -1,0 +1,113 @@
+:root {
+  --gf-cyan-rgb: 0, 169, 214;
+  --gf-blue-rgb: 64, 102, 177;
+}
+
+body {
+  --bs-primary-rgb: var(--gf-cyan-rgb);
+  --bs-link-color-rgb: 0, 119, 158;
+  --bs-link-hover-color-rgb: 55, 88, 158;
+}
+
+[data-bs-theme="dark"] body {
+  --bs-link-color-rgb: 82, 211, 244;
+  --bs-link-hover-color-rgb: 139, 170, 255;
+}
+
+#logo {
+  width: 2rem;
+  height: 2rem;
+  margin-inline-end: 0.5rem;
+  object-fit: contain;
+}
+
+.gf-hero {
+  margin-block: 1rem 2.5rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  border: 1px solid rgba(var(--gf-cyan-rgb), 0.35);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 91% 10%, rgba(var(--gf-cyan-rgb), 0.2), transparent 34%),
+    radial-gradient(circle at 76% 42%, rgba(var(--gf-blue-rgb), 0.18), transparent 46%),
+    var(--bs-tertiary-bg);
+}
+
+.gf-hero h1 {
+  max-width: 17ch;
+  margin-block: 0.2rem 0.75rem;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.gf-hero > p:not(.gf-kicker) {
+  max-width: 62ch;
+  font-size: 1.08rem;
+}
+
+.gf-kicker {
+  margin: 0;
+  color: rgb(0, 119, 158);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+[data-bs-theme="dark"] .gf-kicker {
+  color: rgb(82, 211, 244);
+}
+
+.gf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.gf-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.4rem;
+  color: var(--bs-body-color);
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.gf-actions a:first-child {
+  border-color: rgb(var(--gf-cyan-rgb));
+  background: rgb(var(--gf-cyan-rgb));
+  color: #07141a;
+}
+
+.gf-actions a:hover,
+.gf-actions a:focus-visible {
+  border-color: rgb(var(--gf-blue-rgb));
+  box-shadow: 0 0 0 0.2rem rgba(var(--gf-cyan-rgb), 0.2);
+}
+
+.gf-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin-block: 1rem 2.5rem;
+}
+
+.gf-card {
+  padding: 1.25rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  background: var(--bs-body-bg);
+  box-shadow: 0 0.35rem 1.1rem rgba(var(--gf-blue-rgb), 0.07);
+}
+
+.gf-card h3 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.gf-card p {
+  margin-bottom: 0;
+}

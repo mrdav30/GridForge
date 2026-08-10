@@ -1,25 +1,63 @@
 # Contributing
 
-When contributing to this repository, please first discuss the change you wish
-to make via issue, email, or any other method with the owners of this repository
-before making a change.
+Focused fixes can proceed through a pull request. Open an issue or discussion
+first when a change affects public API shape, deterministic behavior,
+serialization layout, topology semantics, storage strategy, or several
+subsystems at once.
 
 Please note we have a code of conduct, please follow it in all your interactions
 with the project.
 
+## Development setup
+
+Install the SDK selected by `global.json` and the .NET 8 runtime used by the
+tests and benchmarks. Then restore and run the normal Debug workflow:
+
+```powershell
+dotnet restore GridForge.slnx
+dotnet build GridForge.slnx --configuration Debug --no-restore
+dotnet test GridForge.slnx --configuration Debug --no-build
+```
+
+GridForge targets `netstandard2.1` and `net8.0`. Keep shared runtime code
+compatible with both targets and free of game-engine dependencies.
+
 ## Pull Request Process
 
-1. Ensure any install or build dependencies are removed before the end of the
-   layer when doing a build.
-2. Update the README.md with details of changes to the interface, this includes
-   new environment variables, exposed ports, useful file locations and container
-   parameters.
-3. Increase the version numbers in any examples files and the README.md to the
-   new version that this Pull Request would represent. The versioning scheme we
-   use is [SemVer](http://semver.org/).
-4. You may merge the Pull Request in once you have the sign-off of two other
-   developers, or if you do not have permission to do that, you may request the
-   second reviewer to merge it for you.
+1. Keep the change focused and preserve deterministic, world-scoped behavior.
+2. Add or update the closest tests for behavior changes, especially around
+   snapping, identity, topology, sparse storage, pooling, and query lifetimes.
+3. Update XML documentation, the README, wiki, migration guide, or benchmarks
+   whenever the public contract or evidence changes.
+4. Run the Standard and Lean release suites before requesting review:
+
+   ```powershell
+   dotnet test GridForge.slnx --configuration Release
+   dotnet test GridForge.slnx --configuration ReleaseLean
+   ```
+
+5. Run focused BenchmarkDotNet cases when changing registration, tracing,
+   scanning, pooling, blockers, occupants, diagnostics, or other hot paths.
+6. Keep generated `bin`, `obj`, `TestResults`, DocFX, coverage, and benchmark
+   artifacts out of the pull request.
+
+## Documentation
+
+The root README is the concise product introduction. Deeper usage and
+architecture guidance belongs under `docs/wiki`, which is synchronized to the
+GitHub Wiki. Keep links between those Markdown pages relative and include their
+`.md` extension.
+
+Build the API site from a Release assembly:
+
+```powershell
+dotnet build src/GridForge/GridForge.csproj --configuration Release
+dotnet tool restore
+dotnet tool run docfx docs/api/docfx.json --warningsAsErrors
+```
+
+The generated site is disposable under `docs/api/obj`. Do not edit or commit
+generated API metadata or HTML.
 
 ## Code of Conduct
 

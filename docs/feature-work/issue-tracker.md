@@ -2,6 +2,10 @@
 
 ## Tracker Rules
 
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-006`.
+- Assign an ID when an issue enters this tracker, keep it through resolution,
+  and never reuse an ID even if an entry is later removed. Check this file's Git
+  history before advancing or repairing the counter.
 - Add new items when feature work uncovers a suspected bug, stale doc, test
   smell, performance anomaly, or correctness risk.
 - Keep each item scoped tightly enough to fix and verify independently.
@@ -28,7 +32,7 @@ confirmed runtime defect. Current queue:
 
 ## Resolved Issues
 
-### 2026-07-17: Recycled Occupant Tickets Could Resolve Replacement Occupants
+### GF-Issue-005 — Recycled Occupant Tickets Could Resolve Replacement Occupants
 
 Status: resolved on 2026-07-17.
 
@@ -55,7 +59,7 @@ Verification:
   non-deactivating reset, tracked cleanup, throwing callback, and allocator
   exhaustion coverage pass.
 
-### 2026-07-17: GridForge Reused Grid Spawn Tokens Across Pooled Generations
+### GF-Issue-003 — GridForge Reused Grid Spawn Tokens Across Pooled Generations
 
 Status: resolved on 2026-07-17.
 
@@ -87,7 +91,7 @@ Verification:
 - Independent review found no unresolved code, determinism, performance,
   benchmark, or test-quality blockers.
 
-### 2026-07-17: Identical-Bounds Blockers Shared One Registration Identity
+### GF-Issue-004 — Identical-Bounds Blockers Shared One Registration Identity
 
 Status: resolved on 2026-07-17.
 
@@ -121,7 +125,7 @@ Verification:
 - Full Debug suite: `444/444` passed.
 - Independent re-review reported no findings.
 
-### 2026-06-14: Coverlet Branch Instrumentation Guard-Target Misses
+### GF-Issue-002 — Coverlet Branch Instrumentation Guard-Target Misses
 
 Status: resolved on 2026-06-14.
 
@@ -174,7 +178,7 @@ Evidence:
   branches.
 - CRAP result: `TOTAL_METHODS:695`, `FLAGGED_METHODS:0`.
 
-### 2026-06-14: Direction Utility Arrays Are Public And Mutable
+### GF-Issue-001 — Direction Utility Arrays Are Public And Mutable
 
 Status: resolved on 2026-06-14.
 

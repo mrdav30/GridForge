@@ -1,203 +1,117 @@
 # GridForge Wiki
 
-GridForge is a deterministic, framework-agnostic voxel-grid library for spatial
-partitioning, simulation, and game-development workflows.
+GridForge is a deterministic voxel-world library for games, simulations,
+tooling, and server runtimes. It gives you the grid infrastructure that often
+gets rebuilt project by project: fixed-point snapping, world-scoped lookup,
+conjoined grids, dense and sparse storage, spatial queries, blockers, occupants,
+and diagnostic geometry.
 
-The core runtime unit is an explicit `GridWorld`. A `GridWorld` owns spatial
-hashing, active grids, tracing, blocker reactivity, and world-space lookup for
-one isolated world instance.
+The central idea is simple: a `GridWorld` owns one isolated spatial world. That
+world may contain a single grid, many neighboring grids, or a changing set of
+streamed regions. Higher-level concepts such as sectors, planets, and shards can
+sit above GridForge without changing the voxel layer.
 
-With GridForge as "a world primitive," multiple worlds can exist in the same
-process without leaking grid identity, voxel identity, blockers, occupants, or
-scan queries across boundaries.
+## Start here
 
-## Project Links
+If you are new to GridForge, follow this path:
 
-- [Documentation site](https://mrdav30.github.io/GridForge/)
-- [API reference](https://mrdav30.github.io/GridForge/api/GridForge.html)
-- [Coverage report](https://mrdav30.github.io/GridForge/coverage/)
-- [Migration guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md)
+1. [Getting Started](Getting-Started.md) — install the package and resolve your
+   first voxel.
+2. [Core Concepts](Core-Concepts.md) — learn the world, grid, voxel, identity,
+   and ownership model.
+3. [Common Workflows](Common-Workflows.md) — copy practical patterns for sparse
+   grids, hex grids, occupants, blockers, tracing, and teardown.
+4. [FAQ and Troubleshooting](FAQ-and-Troubleshooting.md) — diagnose the mistakes
+   that are easiest to make early.
 
-## What GridForge Provides
+Already know what you need? Jump straight to the topic map below.
 
-- Deterministic voxel-grid spatial partitioning using `FixedMathSharp`
-- Explicit world-scoped registration and lookup through `GridWorld`
-- Snapped world-space bounds through `GridConfiguration` normalization at
-  registration time
-- Fast proximity and coverage queries via voxels and scan cells
-- 2D-friendly XZ projection helpers for flat simulations without a separate
-  runtime model
-- Rectangular-prism and hex-prism topology behind the same `VoxelGrid` public
-  model
-- Dense and sparse storage behind the same `VoxelGrid` query model
-- Obstacle, blocker, occupant, and partition workflows
-- Diagnostic cell descriptors, topology geometry, and dirty-change tracking for
-  engine adapters
-- Allocation-conscious internals backed by pooling and `SwiftCollections`
-- Cross-target support for `netstandard2.1` and `net8.0`
-- Standard and lean package variants for `MemoryPack` and no-`MemoryPack`
-  dependency profiles
+## Choose a topic
 
-## Who This Wiki Is For
+### Build a world
 
-- Library consumers who need to get a world online quickly and safely
-- Contributors who need a map of the codebase and its invariants
-- Maintainers who need a shared documentation source of truth for future pages
+| Guide | Use it for |
+| --- | --- |
+| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) | Grid construction, physical voxels, lookup, neighbors, and reuse |
+| [Sparse Grid Storage](Sparse-Grid-Storage.md) | Large address spaces where only selected voxels exist |
+| [Architecture Overview](Architecture-Overview.md) | Ownership boundaries and subsystem flow |
+| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Numerical and lifetime rules that keep behavior reproducible |
 
-## Wiki Navigation
+### Query and mutate it
 
-| Page                                                                      | Focus                                                                                           |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [Getting Started](Getting-Started.md)                                     | Installation, first world setup, basic queries, and logging setup                               |
-| [Core Concepts](Core-Concepts.md)                                         | Worlds, grids, voxels, scan cells, occupants, blockers, partitions, and snapped bounds          |
-| [Common Workflows](Common-Workflows.md)                                   | Create a world, register a grid, resolve a voxel, scan nearby space, apply a blocker            |
-| [Architecture Overview](Architecture-Overview.md)                         | How the major subsystems fit together and where responsibilities live                           |
-| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md)                 | Grid generation, voxel state, neighbor relationships, and query behavior                        |
-| [Sparse Grid Storage](Sparse-Grid-Storage.md)                             | Dense versus sparse semantics, configured voxels, runtime mutation, and query behavior          |
-| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md)                 | Scan-cell overlay structure, neighborhood lookups, and query performance                        |
-| [GridTracer and Coverage](GridTracer-and-Coverage.md)                     | Line and bounds tracing, covered voxel sets, and multi-grid implications                        |
-| [Blockers and Obstacles](Blockers-and-Obstacles.md)                       | `Blocker`, `BoundsBlocker`, `AreaBlocker`, obstacle propagation, stacked blockers, and removals |
-| [Occupants and Partitions](Occupants-and-Partitions.md)                   | `IVoxelOccupant`, `IVoxelPartition`, `PartitionProvider`, and lifecycle rules                   |
-| [Diagnostics and Logging](Diagnostics-and-Logging.md)                     | `GridForgeLogger`, verbosity, tracing support, and safe debugging patterns                      |
-| [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md)         | Diagnostic cell queries, sparse-hole descriptors, topology geometry, and dirty sessions         |
-| [Repository Layout and Build](Repository-Layout-and-Build.md)             | Solution structure, package generation, CI expectations, and release notes                      |
-| [Testing and Benchmarking](Testing-and-Benchmarking.md)                   | xUnit layout, explicit-world fixtures, benchmark usage, and validation strategy                 |
-| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Core invariants that must remain true across framework targets                                  |
-| [Recipes](Recipes.md)                                                     | End-to-end usage patterns for gameplay, simulation, and server-side systems                     |
-| [FAQ and Troubleshooting](FAQ-and-Troubleshooting.md)                     | Common mistakes, debugging checklists, and "why is this voxel result odd?" guidance             |
+| Guide | Use it for |
+| --- | --- |
+| [GridTracer and Coverage](GridTracer-and-Coverage.md) | Line, box, and XZ-area coverage across active grids |
+| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Nearby-occupant queries and scan-cell performance |
+| [Blockers and Obstacles](Blockers-and-Obstacles.md) | Stackable blocked regions and direct obstacle state |
+| [Occupants and Partitions](Occupants-and-Partitions.md) | Dynamic entities and typed voxel-local metadata |
 
-## Quick Technical Snapshot
+### Build tools and maintain the library
 
-- Language: C# 11
-- Main library: `src/GridForge`
-- Test suite: `tests/GridForge.Tests`
-- Benchmarks: `tests/GridForge.Benchmarks`
-- Target frameworks: `netstandard2.1`, `net8.0`
-- Test framework: xUnit v3
-- Benchmark framework: BenchmarkDotNet
-- Key packages: `FixedMathSharp`, `SwiftCollections`,
-  `SwiftCollections.FixedMathSharp`, and optional `MemoryPack`
-- Packaging note: `GeneratePackageOnBuild` is enabled, so library builds also
-  emit NuGet packages
+| Guide | Use it for |
+| --- | --- |
+| [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) | Renderer-neutral cells, topology geometry, and dirty changes |
+| [Diagnostics and Logging](Diagnostics-and-Logging.md) | Runtime messages, logging adapters, and debugging patterns |
+| [Recipes](Recipes.md) | End-to-end gameplay, simulation, and server examples |
+| [Repository Layout and Build](Repository-Layout-and-Build.md) | Projects, packages, CI, DocFX, and release tooling |
+| [Testing and Benchmarking](Testing-and-Benchmarking.md) | Test layout, coverage, and benchmark commands |
 
-## The Core Mental Model
+## The mental model
 
-The library is easiest to reason about in this order:
+Most GridForge workflows follow the same shape:
 
-1. Create a `GridWorld`.
-2. Define world-space bounds with `GridConfiguration`.
-3. Register the grid through `GridWorld.TryAddGrid(...)`.
+1. Create an explicit `GridWorld`.
+2. Describe a grid with `GridConfiguration`.
+3. Register it through `GridWorld.TryAddGrid(...)`.
 4. Resolve world positions into a `VoxelGrid` and `Voxel`.
-5. Use scan cells and tracing helpers for broader spatial queries.
-6. Apply blockers, occupants, or partitions to mutate world state.
-7. Reset or dispose the world explicitly when tests or tools need a clean
-   boundary.
+5. Trace, scan, block, occupy, or attach partitions as the simulation runs.
+6. Reset or dispose the world when its lifetime ends.
 
-The most important architectural reality is that GridForge is world-scoped. If
-something feels "global," that is usually either:
+Each grid chooses its own topology and storage:
 
-- state owned by one explicit `GridWorld`
-- a static manager API that still requires a `GridWorld` argument
-- a convenience layer over world-owned grids, voxels, scan cells, blockers, or
-  occupants
+- **Rectangular-prism** grids use local `(x, y, z)` voxel indices.
+- **Hex-prism** grids use axial `(q, layer, r)` values stored in the same
+  `VoxelIndex` shape.
+- **Dense** grids materialize every voxel in the normalized address space.
+- **Sparse** grids materialize only explicitly configured voxels; a missing
+  address is intentional absence, not an empty voxel.
 
-For flat 2D simulations, `Vector2d` APIs are a convenience projection over this
-same 3D runtime. `Vector2d.X` maps to world X, `Vector2d.Y` maps to world Z, and
-`layerY` selects world Y with a default of `0`.
+Flat simulations can use `Vector2d` overloads. `Vector2d.X` maps to world X,
+`Vector2d.Y` maps to world Z, and `layerY` selects world Y. These overloads are a
+convenience over the same 3D runtime, not a separate grid implementation.
 
-For sparse worlds, the registered bounds still identify the grid address space,
-but only configured voxels exist. `TryGetGrid(...)` can resolve an in-bounds
-sparse grid while `TryGetGridAndVoxel(...)` fails when the addressed sparse
-voxel was not configured.
+## Important lifetime rules
 
-For topology choices, `GridConfiguration` selects rectangular-prism or hex-prism
-cells per grid. Rectangular grids use `VoxelIndex(x, y, z)`. Hex grids use axial
-XZ coordinates: `VoxelIndex.x = q`, `VoxelIndex.z = r`, and
-`VoxelIndex.y = layer`. `PointyTop` and `FlatTop` orientations affect only the
-fixed-point world projection; query, blocker, occupant, scan, and trace
-workflows stay world/grid/voxel based.
+- `GridIndex` is a reusable storage slot, not durable identity.
+- Use `WorldVoxelIndex` for exact references within the current runtime.
+- `ObstacleToken` and `OccupantTicket` identify one transient registration
+  lifetime; do not serialize them as content IDs.
+- Consume pooled tracer and grouped query results within the operation that
+  produced them.
+- Keep deterministic runtime math in `Fixed64`, `Vector2d`, and `Vector3d`.
+- Keep engine-specific authoring and rendering in adapters such as
+  [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity).
 
-## Architecture At A Glance
+## Packages and compatibility
 
-| Type                                        | Role                                                                                                                               |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `GridWorld`                                 | Owns one world's adaptive top-level index, active grids, events, and lookups                                                       |
-| `VoxelGrid`                                 | Owns a single grid's dimensions, topology metrics, physical voxel storage, scan cells, neighbor relationships, and versioned state |
-| `Voxel`                                     | Represents one snapped cell and tracks occupants, obstacles, partitions, and neighbor queries                                      |
-| `ScanCell`                                  | Overlay node used to accelerate neighborhood and area queries                                                                      |
-| `GridTracer`                                | Converts lines and bounds into covered voxel sets across one or more grids in a world                                              |
-| `GridDiagnostics`                           | Projects active grids into tool-friendly physical or sparse-address diagnostic cells                                               |
-| `GridObstacleManager`                       | Applies and clears obstacle state on voxels                                                                                        |
-| `GridOccupantManager`                       | Adds, removes, and queries occupant state                                                                                          |
-| `GridScanManager`                           | Performs scan-driven spatial queries                                                                                               |
-| `Blocker` / `BoundsBlocker` / `AreaBlocker` | Turns traced world-space boxes or layer-locked X/Z areas into obstacle mutations                                                   |
-| `WorldVoxelIndex`                           | Exact transient voxel identity with world token, recyclable grid slot, grid generation, and voxel coordinate                       |
+GridForge targets `netstandard2.1` and `net8.0` and is published in two variants:
 
-## Repository Map
+| Package | Profile |
+| --- | --- |
+| `GridForge` | Standard package with MemoryPack support |
+| `GridForge.Lean` | Same grid APIs without the MemoryPack runtime dependency |
 
-| Path                             | Purpose                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `src/GridForge/Configuration`    | Grid configuration and identity types such as `GridConfiguration`                           |
-| `src/GridForge/Grids/Managers`   | World-level orchestration plus mutation and query managers                                  |
-| `src/GridForge/Grids/Nodes`      | `Voxel` and `ScanCell` node types                                                           |
-| `src/GridForge/Grids/Storage`    | Dense and sparse physical voxel storage strategies                                          |
-| `src/GridForge/Grids/Topology`   | Per-grid topology metrics, snapping, dimensions, and world/index projection                 |
-| `src/GridForge/Grids/Support`    | Event info types and pools                                                                  |
-| `src/GridForge/Spatial`          | Shared indices, directions, occupants, partitions, and awareness abstractions               |
-| `src/GridForge/Blockers`         | World-space blocker abstractions built on grid coverage                                     |
-| `src/GridForge/Diagnostics`      | Engine-agnostic diagnostic descriptors, query helpers, geometry helpers, and dirty sessions |
-| `src/GridForge/Utility`          | Tracing and logging helpers                                                                 |
-| `tests/GridForge.Tests/Grids`    | Grid and manager behavior tests                                                             |
-| `tests/GridForge.Tests/Blockers` | Blocker coverage and removal tests                                                          |
-| `tests/GridForge.Tests/Spatial`  | Spatial type and index tests                                                                |
-| `tests/GridForge.Tests/Utility`  | Logger and tracer tests                                                                     |
+Both variants use FixedMathSharp and SwiftCollections. Source builds use the
+matching `Release` and `ReleaseLean` configurations.
 
-## Non-Negotiable Invariants
+## Project links
 
-- Create a `GridWorld` before using world-scoped grid APIs.
-- Reset or dispose a `GridWorld` when tests or tools need isolated state.
-- Keep core spatial logic in fixed-point math. Do not casually introduce `float`
-  or `double`.
-- Expect bounds and incoming positions to be normalized through each grid's
-  topology metrics during registration and lookup.
-- Treat pooled objects and collections as short-lived unless ownership is
-  explicit.
-- Preserve deterministic behavior across both target frameworks.
-- Respect existing synchronization around shared mutable state.
-- Route logging through `GridForgeLogger`, not direct console output.
+- [API reference](https://mrdav30.github.io/GridForge/api/GridForge.html)
+- [Migration guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md)
+- [Coverage report](https://mrdav30.github.io/GridForge/coverage/)
+- [Source repository](https://github.com/mrdav30/GridForge)
+- [Unity packages](https://github.com/mrdav30/GridForge-Unity)
 
-## Build And Validation
-
-Useful commands when working in the repository:
-
-```bash
-dotnet restore GridForge.slnx
-dotnet build GridForge.slnx --configuration Debug
-dotnet test GridForge.slnx --configuration Debug --no-build
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -- list
-```
-
-Benchmarks are most valuable when changing tracing, registration, pooling,
-caching, sparse storage, or other allocation-sensitive paths.
-
-## Recommended Reading Order
-
-If you are new to the project, read in this order:
-
-1. `README.md`
-2. This `Home` page
-3. `src/GridForge/GridForge.csproj`
-4. `src/GridForge/Grids/Managers/GridWorld.cs`
-5. `src/GridForge/Grids/VoxelGrid.cs`
-6. `src/GridForge/Grids/Nodes/Voxel.cs`
-7. `src/GridForge/Utility/GridTracer.cs`
-8. The closest matching test file under `tests/GridForge.Tests`
-
-## Documentation Approach
-
-The wiki is not trying to restate every public API member in prose. Its job is
-to make the library understandable quickly: what the system does, where behavior
-lives, which invariants matter, and where someone should go next.
-
-When the implementation changes, update `Home` first so the rest of the wiki has
-a stable anchor.
+The Markdown files in `docs/wiki` are the source of truth for this wiki. Keep
+links between wiki pages relative and include their `.md` extension; the sync
+workflow rewrites only the routes needed by GitHub Wiki.

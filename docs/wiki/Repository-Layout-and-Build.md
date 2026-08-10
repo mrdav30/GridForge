@@ -71,7 +71,6 @@ The standard package depends on:
 - `SwiftCollections`
 - `SwiftCollections.FixedMathSharp`
 - `MemoryPack`
-- `System.Text.Json` for the `netstandard2.1` target only
 
 The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
 
@@ -82,7 +81,8 @@ The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
   `MemoryPack` runtime dependency
 - the `GRIDFORGE_DISABLE_MEMORYPACK` compilation symbol
 
-Both package variants expose the same core voxel-grid API.
+Both package variants also reference `System.Text.Json` for the
+`netstandard2.1` target only and expose the same core voxel-grid API.
 
 Packaging also includes the root `README.md`, `LICENSE`, `NOTICE`, `COPYRIGHT`,
 and `icon.png`.
@@ -168,14 +168,23 @@ The Release build produces the assembly and XML documentation consumed by DocFX.
 Build the local documentation site with:
 
 ```bash
-dotnet build GridForge.slnx --configuration Release
+dotnet build src/GridForge/GridForge.csproj --configuration Release
 dotnet tool restore
-dotnet tool run docfx docs/api/docfx.json
+dotnet tool run docfx docs/api/docfx.json --warningsAsErrors
 ```
 
+The authored site surface lives under `docs/api`:
+
+- `index.md` is the user-facing landing page
+- `overrides` adds namespace-level orientation and Unity adapter links
+- `templates/gridforge` supplies the blue/cyan theme and GitHub header icon
+- `.assets/icon_128x128.png` is copied as the site logo and favicon
+- `obj` contains generated metadata and HTML and should not be edited
+
 The generated site is written to `docs/api/obj/_site`. On successful pushes to
-`main`, `.github/workflows/coverage.yml` publishes that site to GitHub Pages and
-places the coverage report beneath `/coverage`.
+`main`, `.github/workflows/coverage.yml` validates the landing page, API roots,
+theme, icon, and repository links before publishing the site to GitHub Pages.
+The coverage report is placed beneath `/coverage`.
 
 ## CI Expectations
 
