@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -562,25 +561,47 @@ public class ManagerCoverageTests : IDisposable
     }
 
     [Fact]
-    public void GridObstacleManager_ShouldNotOverflowObstacleCountDuringConcurrentAdds()
+    public void GridObstacleManager_ShouldRecheckCapacityAfterWaitingForObstacleLock()
     {
         Assert.True(_world.TryAddGrid(
             new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
             out ushort gridIndex));
         VoxelGrid grid = _world.ActiveGrids[gridIndex];
         Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
-        ObstacleToken[] tokens = new ObstacleToken[GridObstacleManager.MaxObstacleCount + 64];
-        for (int i = 0; i < tokens.Length; i++)
-            tokens[i] = _world.AllocateObstacleToken();
 
-        int addedCount = 0;
-        Parallel.For(0, tokens.Length, i =>
+        for (int i = 0; i < GridObstacleManager.MaxObstacleCount - 1; i++)
+            Assert.True(grid.TryAddObstacle(voxel, _world.AllocateObstacleToken()));
+
+        ObstacleToken finalToken = _world.AllocateObstacleToken();
+        ObstacleToken racingToken = _world.AllocateObstacleToken();
+        bool racingAddResult = true;
+        Thread racingThread = new(() =>
         {
-            if (grid.TryAddObstacle(voxel, tokens[i]))
-                Interlocked.Increment(ref addedCount);
+            racingAddResult = grid.TryAddObstacle(voxel, racingToken);
         });
 
-        Assert.Equal(GridObstacleManager.MaxObstacleCount, addedCount);
+        bool waitingForLock;
+        bool finalAddResult = false;
+        Monitor.Enter(grid.ObstacleSyncRoot);
+        try
+        {
+            racingThread.Start();
+            waitingForLock = SpinWait.SpinUntil(
+                () => (racingThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5));
+
+            if (waitingForLock)
+                finalAddResult = grid.TryAddObstacle(voxel, finalToken);
+        }
+        finally
+        {
+            Monitor.Exit(grid.ObstacleSyncRoot);
+        }
+
+        Assert.True(racingThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.True(waitingForLock);
+        Assert.True(finalAddResult);
+        Assert.False(racingAddResult);
         Assert.Equal(GridObstacleManager.MaxObstacleCount, voxel.ObstacleCount);
         Assert.Equal(GridObstacleManager.MaxObstacleCount, grid.ObstacleCount);
     }
