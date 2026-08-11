@@ -16,6 +16,8 @@ items:
         href: https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md
   - name: Resources
     items:
+      - name: Wiki
+        href: https://github.com/mrdav30/GridForge/wiki
       - name: Unity Packages
         href: https://github.com/mrdav30/GridForge-Unity
       - name: Source

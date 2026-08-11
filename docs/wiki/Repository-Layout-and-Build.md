@@ -81,8 +81,8 @@ The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
   `MemoryPack` runtime dependency
 - the `GRIDFORGE_DISABLE_MEMORYPACK` compilation symbol
 
-Both package variants also reference `System.Text.Json` for the
-`netstandard2.1` target only and expose the same core voxel-grid API.
+Both package variants also reference `System.Text.Json` for the `netstandard2.1`
+target only and expose the same core voxel-grid API.
 
 Packaging also includes the root `README.md`, `LICENSE`, `NOTICE`, `COPYRIGHT`,
 and `icon.png`.

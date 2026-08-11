@@ -32,9 +32,9 @@ you do not need to wire those up manually in a normal .NET project.
 
 Choose exactly one package family:
 
-| Package | Use it when |
-| --- | --- |
-| `GridForge` | You want the default package with MemoryPack support. |
+| Package          | Use it when                                                           |
+| ---------------- | --------------------------------------------------------------------- |
+| `GridForge`      | You want the default package with MemoryPack support.                 |
 | `GridForge.Lean` | You want the same grid API without the MemoryPack runtime dependency. |
 
 ```bash

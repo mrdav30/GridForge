@@ -55,9 +55,9 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ## Closed Signals
 
-| Signal                                                       | Status | Priority | Tracking                                                                             |
-| ------------------------------------------------------------ | ------ | -------- | ------------------------------------------------------------------------------------ |
-| GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+| Signal                                                                          | Status | Priority | Tracking                                                                             |
+| ------------------------------------------------------------------------------- | ------ | -------- | ------------------------------------------------------------------------------------ |
+| GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High     | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
 
 ### GF-Benchmark-001 — Top-Level Grid Indexing Scales With Covered Hash-Cell Volume
 

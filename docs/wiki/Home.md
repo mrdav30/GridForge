@@ -30,31 +30,31 @@ Already know what you need? Jump straight to the topic map below.
 
 ### Build a world
 
-| Guide | Use it for |
-| --- | --- |
-| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md) | Grid construction, physical voxels, lookup, neighbors, and reuse |
-| [Sparse Grid Storage](Sparse-Grid-Storage.md) | Large address spaces where only selected voxels exist |
-| [Architecture Overview](Architecture-Overview.md) | Ownership boundaries and subsystem flow |
-| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Numerical and lifetime rules that keep behavior reproducible |
+| Guide                                                                     | Use it for                                                       |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [VoxelGrid and Voxel Model](VoxelGrid-and-Voxel-Model.md)                 | Grid construction, physical voxels, lookup, neighbors, and reuse |
+| [Sparse Grid Storage](Sparse-Grid-Storage.md)                             | Large address spaces where only selected voxels exist            |
+| [Architecture Overview](Architecture-Overview.md)                         | Ownership boundaries and subsystem flow                          |
+| [Determinism, Snapping, and Pooling](Determinism-Snapping-and-Pooling.md) | Numerical and lifetime rules that keep behavior reproducible     |
 
 ### Query and mutate it
 
-| Guide | Use it for |
-| --- | --- |
-| [GridTracer and Coverage](GridTracer-and-Coverage.md) | Line, box, and XZ-area coverage across active grids |
-| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Nearby-occupant queries and scan-cell performance |
-| [Blockers and Obstacles](Blockers-and-Obstacles.md) | Stackable blocked regions and direct obstacle state |
-| [Occupants and Partitions](Occupants-and-Partitions.md) | Dynamic entities and typed voxel-local metadata |
+| Guide                                                     | Use it for                                          |
+| --------------------------------------------------------- | --------------------------------------------------- |
+| [GridTracer and Coverage](GridTracer-and-Coverage.md)     | Line, box, and XZ-area coverage across active grids |
+| [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Nearby-occupant queries and scan-cell performance   |
+| [Blockers and Obstacles](Blockers-and-Obstacles.md)       | Stackable blocked regions and direct obstacle state |
+| [Occupants and Partitions](Occupants-and-Partitions.md)   | Dynamic entities and typed voxel-local metadata     |
 
 ### Build tools and maintain the library
 
-| Guide | Use it for |
-| --- | --- |
+| Guide                                                             | Use it for                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ |
 | [Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) | Renderer-neutral cells, topology geometry, and dirty changes |
-| [Diagnostics and Logging](Diagnostics-and-Logging.md) | Runtime messages, logging adapters, and debugging patterns |
-| [Recipes](Recipes.md) | End-to-end gameplay, simulation, and server examples |
-| [Repository Layout and Build](Repository-Layout-and-Build.md) | Projects, packages, CI, DocFX, and release tooling |
-| [Testing and Benchmarking](Testing-and-Benchmarking.md) | Test layout, coverage, and benchmark commands |
+| [Diagnostics and Logging](Diagnostics-and-Logging.md)             | Runtime messages, logging adapters, and debugging patterns   |
+| [Recipes](Recipes.md)                                             | End-to-end gameplay, simulation, and server examples         |
+| [Repository Layout and Build](Repository-Layout-and-Build.md)     | Projects, packages, CI, DocFX, and release tooling           |
+| [Testing and Benchmarking](Testing-and-Benchmarking.md)           | Test layout, coverage, and benchmark commands                |
 
 ## The mental model
 
@@ -77,8 +77,8 @@ Each grid chooses its own topology and storage:
   address is intentional absence, not an empty voxel.
 
 Flat simulations can use `Vector2d` overloads. `Vector2d.X` maps to world X,
-`Vector2d.Y` maps to world Z, and `layerY` selects world Y. These overloads are a
-convenience over the same 3D runtime, not a separate grid implementation.
+`Vector2d.Y` maps to world Z, and `layerY` selects world Y. These overloads are
+a convenience over the same 3D runtime, not a separate grid implementation.
 
 ## Important lifetime rules
 
@@ -94,11 +94,12 @@ convenience over the same 3D runtime, not a separate grid implementation.
 
 ## Packages and compatibility
 
-GridForge targets `netstandard2.1` and `net8.0` and is published in two variants:
+GridForge targets `netstandard2.1` and `net8.0` and is published in two
+variants:
 
-| Package | Profile |
-| --- | --- |
-| `GridForge` | Standard package with MemoryPack support |
+| Package          | Profile                                                  |
+| ---------------- | -------------------------------------------------------- |
+| `GridForge`      | Standard package with MemoryPack support                 |
 | `GridForge.Lean` | Same grid APIs without the MemoryPack runtime dependency |
 
 Both variants use FixedMathSharp and SwiftCollections. Source builds use the

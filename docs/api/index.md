@@ -57,9 +57,9 @@ description: API reference and guides for deterministic rectangular and hex-pris
 
 ## Package family
 
-| Package | Serialization profile |
-| --- | --- |
-| `GridForge` | Standard package with MemoryPack support |
+| Package          | Serialization profile                                    |
+| ---------------- | -------------------------------------------------------- |
+| `GridForge`      | Standard package with MemoryPack support                 |
 | `GridForge.Lean` | Same grid APIs without the MemoryPack runtime dependency |
 
 Unity projects can use the maintained
@@ -68,7 +68,7 @@ authoring, inspectors, gizmos, logging, and samples.
 
 ## Resources
 
-- [Human-readable wiki](https://github.com/mrdav30/GridForge/wiki)
+- [Wiki](https://github.com/mrdav30/GridForge/wiki)
 - [Migration guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md)
 - [Source, issues, and releases](https://github.com/mrdav30/GridForge)
 - [Unity packages and adapter API](https://mrdav30.github.io/GridForge-Unity/)
