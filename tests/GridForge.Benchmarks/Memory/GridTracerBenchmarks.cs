@@ -23,6 +23,8 @@ public class GridTracerBenchmarks
     private Vector2d _lineEnd2d;
     private SwiftList<Voxel> _largeCoverageResults;
     private GridTraceScratch _largeCoverageScratch;
+    private SwiftList<GridTraceInterval> _intervalResults;
+    private GridTraceIntervalScratch _intervalScratch;
 
     [IterationSetup(Target = nameof(GetCoveredVoxels_ColdPools))]
     public void SetupCoverageColdIteration()
@@ -79,6 +81,15 @@ public class GridTracerBenchmarks
         _largeCoverageResults = new SwiftList<Voxel>();
         _largeCoverageScratch = new GridTraceScratch();
         ExecuteLargeDomainCoverage();
+    }
+
+    [IterationSetup(Target = nameof(TraceIntervalsInto_ExactOrdered))]
+    public void SetupExactIntervalTraceIteration()
+    {
+        InitializeScenario(clearAllPools: false);
+        _intervalResults = new SwiftList<GridTraceInterval>(1024);
+        _intervalScratch = new GridTraceIntervalScratch(8, 1024);
+        ExecuteExactIntervalTrace();
     }
 
     [IterationCleanup]
@@ -150,6 +161,10 @@ public class GridTracerBenchmarks
         return ExecuteLargeDomainCoverage();
     }
 
+    [Benchmark(Description = "TraceIntervalsInto exact ordered dense-grid trace")]
+    [BenchmarkCategory("Memory", "GridTracerLine", "Exact", "Interval")]
+    public int TraceIntervalsInto_ExactOrdered() => ExecuteExactIntervalTrace();
+
     private int ExecuteLargeDomainCoverage()
     {
         GridTracer.GetCoveredVoxelsInto(
@@ -159,6 +174,19 @@ public class GridTracerBenchmarks
             _largeCoverageResults,
             _largeCoverageScratch);
         return _largeCoverageResults.Count;
+    }
+
+    private int ExecuteExactIntervalTrace()
+    {
+        GridTraceIntervalReport report = GridTracer.TraceIntervalsInto(
+            _world,
+            _lineStart,
+            _lineEnd,
+            _intervalResults,
+            _intervalScratch,
+            candidateBudget: 8192,
+            outputLimit: 4096);
+        return report.IntervalCount;
     }
 
     private void InitializeScenario(bool clearAllPools)

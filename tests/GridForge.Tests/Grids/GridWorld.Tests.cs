@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
@@ -208,10 +207,12 @@ public class GridWorldTests
             Vector3d.Zero,
             topologyKind: (GridTopologyKind)int.MaxValue);
 
-        Assert.False(GridWorld.TryNormalizeConfiguration(invalidRectangularMetrics, out _, out _, out _));
-        Assert.False(GridWorld.TryNormalizeConfiguration(invalidHexMetrics, out _, out _, out _));
-        Assert.False(GridWorld.TryNormalizeConfiguration(invalidTopology, out _, out _, out _));
-        Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(int.MaxValue, 2, 2)));
+        Assert.False(invalidRectangularMetrics.TryNormalize(out _));
+        Assert.False(invalidHexMetrics.TryNormalize(out _));
+        Assert.False(invalidTopology.TryNormalize(out _));
+        Assert.False(new GridConfiguration(
+            Vector3d.Zero,
+            new Vector3d(50_000, 50_000, 0)).TryNormalize(out _));
 
         GridConfiguration sparseConfiguration = new(
             new Vector3d(0, 0, 0),
@@ -352,30 +353,16 @@ public class GridWorldTests
             Vector3d.Zero,
             topologyKind: (GridTopologyKind)int.MaxValue);
 
-        Assert.False(GridWorld.TryNormalizeConfiguration(
-            invalidRectangularMetrics,
-            out _,
-            out _,
-            out _));
+        Assert.False(invalidRectangularMetrics.TryNormalize(out _));
         Assert.False(world.TryAddGrid(invalidRectangularMetrics, out ushort invalidRectangularIndex));
         Assert.Equal(ushort.MaxValue, invalidRectangularIndex);
 
-        Assert.False(GridWorld.TryNormalizeConfiguration(
-            invalidHexMetrics,
-            out _,
-            out _,
-            out _));
+        Assert.False(invalidHexMetrics.TryNormalize(out _));
         Assert.False(world.TryAddGrid(invalidHexMetrics, out ushort invalidHexIndex));
         Assert.Equal(ushort.MaxValue, invalidHexIndex);
 
-        Assert.False(GridWorld.TryNormalizeConfiguration(
-            invalidTopology,
-            out GridConfiguration normalized,
-            out IGridTopology topology,
-            out GridDimensions dimensions));
-        Assert.Equal(default, normalized);
-        Assert.Null(topology);
-        Assert.Equal(default, dimensions);
+        Assert.False(invalidTopology.TryNormalize(out NormalizedGridConfiguration descriptor));
+        Assert.False(descriptor.IsValid);
 
         Assert.False(world.TryAddGrid(invalidTopology, out ushort allocatedIndex));
         Assert.Equal(ushort.MaxValue, allocatedIndex);
@@ -432,9 +419,10 @@ public class GridWorldTests
             out ushort validIndex));
         Assert.NotEqual(ushort.MaxValue, validIndex);
 
-        Assert.True(InvokeTryValidateGridDimensions(new GridDimensions(1, 1, 1)));
-        Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(int.MaxValue, 2, 2)));
-        Assert.False(InvokeTryValidateGridDimensions(new GridDimensions(46340, 46340, 2)));
+        Assert.True(new GridConfiguration(Vector3d.Zero, Vector3d.Zero).TryNormalize(out _));
+        Assert.False(new GridConfiguration(
+            Vector3d.Zero,
+            new Vector3d(50_000, 50_000, 0)).TryNormalize(out _));
     }
 
     [Fact]
@@ -1056,16 +1044,6 @@ public class GridWorldTests
         Assert.Throws<InvalidOperationException>(
             () => RuntimeIdentityAllocator.Allocate(ref negativeCounter));
         Assert.Equal(-1, negativeCounter);
-    }
-
-    private static bool InvokeTryValidateGridDimensions(GridDimensions dimensions)
-    {
-        MethodInfo method = typeof(GridWorld).GetMethod(
-            "TryValidateGridDimensions",
-            BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find GridWorld.TryValidateGridDimensions.");
-
-        return (bool)method.Invoke(null, new object[] { dimensions });
     }
 
     private sealed class SharedIdOccupant : IVoxelOccupant

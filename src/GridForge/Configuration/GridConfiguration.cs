@@ -142,6 +142,50 @@ public readonly partial struct GridConfiguration
     public readonly GridConfigurationKey ToGridKey() =>
         new(BoundsMin, BoundsMax, TopologyKind, TopologyMetrics);
 
+    /// <summary>
+    /// Validates and normalizes this configuration without registering a live grid.
+    /// </summary>
+    /// <param name="descriptor">
+    /// The normalized configuration, exact binding key, dimensions, and local-index validator.
+    /// </param>
+    /// <returns>
+    /// True when the topology and dimensions are supported; otherwise false and
+    /// <paramref name="descriptor"/> is default.
+    /// </returns>
+    public readonly bool TryNormalize(out NormalizedGridConfiguration descriptor)
+    {
+        descriptor = default;
+        if (!GridTopologyFactory.TryCreate(this, out IGridTopology? topology))
+            return false;
+
+        (Vector3d boundsMin, Vector3d boundsMax) =
+            topology!.NormalizeBounds(BoundsMin, BoundsMax);
+        GridConfiguration normalizedConfiguration = new(
+            boundsMin,
+            boundsMax,
+            ScanCellSize,
+            TopologyKind,
+            TopologyMetrics,
+            StorageKind);
+        GridDimensions dimensions = topology.CalculateDimensions(boundsMin, boundsMax);
+
+        if (dimensions.Width <= 0 || dimensions.Height <= 0 || dimensions.Length <= 0)
+        {
+            GridForgeLogger.Channel.Warn($"Grid dimensions must define a positive voxel address space.");
+            return false;
+        }
+
+        long layerSize = (long)dimensions.Width * dimensions.Height;
+        if (layerSize > int.MaxValue || layerSize * dimensions.Length > int.MaxValue)
+        {
+            GridForgeLogger.Channel.Warn($"Grid dimensions exceed the supported int voxel address space.");
+            return false;
+        }
+
+        descriptor = new NormalizedGridConfiguration(normalizedConfiguration, topology, dimensions);
+        return true;
+    }
+
     /// <inheritdoc/>
     public override readonly int GetHashCode()
     {

@@ -15,6 +15,11 @@ namespace GridForge.Grids;
 public readonly struct ObstacleClearEventInfo
 {
     /// <summary>
+    /// The world-owned ordering and cause identity for this committed mutation.
+    /// </summary>
+    public readonly GridChangeStamp ChangeStamp;
+
+    /// <summary>
     /// The voxel that had its obstacles cleared.
     /// </summary>
     public readonly WorldVoxelIndex VoxelIndex;
@@ -30,6 +35,16 @@ public readonly struct ObstacleClearEventInfo
     public readonly uint GridVersion;
 
     /// <summary>
+    /// The world-local commit order of this event.
+    /// </summary>
+    public ulong ChangeSequence => ChangeStamp.Sequence;
+
+    /// <summary>
+    /// The logical cause shared with the corresponding grid notification.
+    /// </summary>
+    public ulong CauseId => ChangeStamp.CauseId;
+
+    /// <summary>
     /// The grid index containing <see cref="VoxelIndex"/>.
     /// </summary>
     public readonly ushort GridIndex => VoxelIndex.GridIndex;
@@ -40,8 +55,10 @@ public readonly struct ObstacleClearEventInfo
     public ObstacleClearEventInfo(
         WorldVoxelIndex voxelIndex,
         byte clearedObstacleCount,
-        uint gridVersion)
+        uint gridVersion,
+        GridChangeStamp changeStamp = default)
     {
+        ChangeStamp = changeStamp;
         VoxelIndex = voxelIndex;
         ClearedObstacleCount = clearedObstacleCount;
         GridVersion = gridVersion;

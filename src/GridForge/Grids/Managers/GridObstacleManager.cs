@@ -126,23 +126,51 @@ public static class GridObstacleManager
 
         byte obstacleCount;
         uint gridVersion;
+        bool drainCommittedChanges;
+        GridWorld? world = grid.World;
+        if (world == null)
+            return false;
 
-        lock (grid.ObstacleSyncRoot)
+        world.EnterReadLock();
+        try
         {
-            if (targetVoxel.ObstacleCount >= MaxObstacleCount)
-                return false;
+            lock (grid.ObstacleSyncRoot)
+            {
+                lock (world.ChangeSyncRoot)
+                {
+                    if (targetVoxel.ObstacleCount >= MaxObstacleCount)
+                        return false;
 
-            targetVoxel.ObstacleTracker ??= SwiftHashSetPool<ObstacleToken>.Shared.Rent();
-            if (!targetVoxel.ObstacleTracker.Add(obstacleToken))
-                return false;
-            targetVoxel.ObstacleCount++;
+                    targetVoxel.ObstacleTracker ??= SwiftHashSetPool<ObstacleToken>.Shared.Rent();
+                    if (!targetVoxel.ObstacleTracker.Add(obstacleToken))
+                        return false;
+                    targetVoxel.ObstacleCount++;
 
-            grid.ObstacleCount++;
-            gridVersion = grid.IncrementVersion();
-            obstacleCount = targetVoxel.ObstacleCount;
+                    grid.ObstacleCount++;
+                    gridVersion = grid.IncrementVersion();
+                    obstacleCount = targetVoxel.ObstacleCount;
+
+                    CreateObstacleCommittedChange(
+                        world,
+                        grid,
+                        targetVoxel,
+                        GridEventKind.ObstacleAdded,
+                        GridExactChangeKind.ObstacleAdded,
+                        obstacleToken,
+                        obstacleCount,
+                        gridVersion,
+                        out _,
+                        out drainCommittedChanges);
+                }
+            }
+        }
+        finally
+        {
+            world.ExitReadLock();
         }
 
-        NotifyObstacleAdded(grid, targetVoxel, obstacleToken, obstacleCount, gridVersion);
+        if (drainCommittedChanges)
+            world.DrainCommittedChanges();
 
         return true;
     }
@@ -210,25 +238,53 @@ public static class GridObstacleManager
 
         byte obstacleCount;
         uint gridVersion;
+        bool drainCommittedChanges;
+        GridWorld? world = grid.World;
+        if (world == null)
+            return false;
 
-        lock (grid.ObstacleSyncRoot)
+        world.EnterReadLock();
+        try
         {
-            if (!targetVoxel.ObstacleTracker!.Remove(obstacleToken))
-                return false;
-
-            if (--targetVoxel.ObstacleCount <= 0)
+            lock (grid.ObstacleSyncRoot)
             {
-                SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
-                targetVoxel.ObstacleTracker = null;
-                targetVoxel.ObstacleCount = 0;
-            }
+                lock (world.ChangeSyncRoot)
+                {
+                    if (!targetVoxel.ObstacleTracker!.Remove(obstacleToken))
+                        return false;
 
-            grid.ObstacleCount--;
-            gridVersion = grid.IncrementVersion();
-            obstacleCount = targetVoxel.ObstacleCount;
+                    if (--targetVoxel.ObstacleCount <= 0)
+                    {
+                        SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
+                        targetVoxel.ObstacleTracker = null;
+                        targetVoxel.ObstacleCount = 0;
+                    }
+
+                    grid.ObstacleCount--;
+                    gridVersion = grid.IncrementVersion();
+                    obstacleCount = targetVoxel.ObstacleCount;
+
+                    CreateObstacleCommittedChange(
+                        world,
+                        grid,
+                        targetVoxel,
+                        GridEventKind.ObstacleRemoved,
+                        GridExactChangeKind.ObstacleRemoved,
+                        obstacleToken,
+                        obstacleCount,
+                        gridVersion,
+                        out _,
+                        out drainCommittedChanges);
+                }
+            }
+        }
+        finally
+        {
+            world.ExitReadLock();
         }
 
-        NotifyObstacleRemoved(grid, targetVoxel, obstacleToken, obstacleCount, gridVersion);
+        if (drainCommittedChanges)
+            world.DrainCommittedChanges();
 
         return true;
     }
@@ -245,39 +301,129 @@ public static class GridObstacleManager
 
         byte clearedObstacleCount;
         uint gridVersion;
+        bool drainCommittedChanges;
+        GridWorld? world = grid.World;
+        if (world == null)
+            return;
 
-        lock (grid.ObstacleSyncRoot)
+        bool enteredReadLock = !world.IsWriteLockHeld;
+        if (enteredReadLock)
+            world.EnterReadLock();
+        try
         {
-            clearedObstacleCount = targetVoxel.ObstacleCount;
-            if (targetVoxel.ObstacleTracker != null)
+            lock (grid.ObstacleSyncRoot)
             {
-                SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
-                targetVoxel.ObstacleTracker = null;
-            }
+                lock (world.ChangeSyncRoot)
+                {
+                    clearedObstacleCount = targetVoxel.ObstacleCount;
+                    if (targetVoxel.ObstacleTracker != null)
+                    {
+                        SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
+                        targetVoxel.ObstacleTracker = null;
+                    }
 
-            grid.ObstacleCount -= targetVoxel.ObstacleCount;
-            targetVoxel.ObstacleCount = 0;
-            gridVersion = grid.IncrementVersion();
+                    grid.ObstacleCount -= targetVoxel.ObstacleCount;
+                    targetVoxel.ObstacleCount = 0;
+                    gridVersion = grid.IncrementVersion();
+
+                    CreateObstacleClearCommittedChange(
+                        world,
+                        grid,
+                        targetVoxel,
+                        clearedObstacleCount,
+                        gridVersion,
+                        out _,
+                        out drainCommittedChanges);
+                }
+            }
+        }
+        finally
+        {
+            if (enteredReadLock)
+                world.ExitReadLock();
         }
 
-        NotifyObstaclesCleared(grid, targetVoxel, clearedObstacleCount, gridVersion);
+        if (drainCommittedChanges && enteredReadLock)
+            world.DrainCommittedChanges();
     }
 
     #endregion
 
     #region Private Methods
 
+    private static void CreateObstacleCommittedChange(
+        GridWorld world,
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        GridEventKind gridEventKind,
+        GridExactChangeKind exactChangeKind,
+        ObstacleToken obstacleToken,
+        byte obstacleCount,
+        uint gridVersion,
+        out GridCommittedChange committedChange,
+        out bool drainCommittedChanges)
+    {
+        GridChangeStamp changeStamp = world.AllocateChangeStamp();
+        ObstacleEventInfo obstacleEvent = new ObstacleEventInfo(
+            targetVoxel.WorldIndex,
+            obstacleToken,
+            obstacleCount,
+            gridVersion,
+            changeStamp);
+        GridEventInfo gridEvent = world.CreateGridEventInfo(
+            grid,
+            gridEventKind,
+            targetVoxel.Index,
+            targetVoxel.WorldPosition,
+            targetVoxel.WorldPosition,
+            changeStamp,
+            hasVoxelState: true,
+            isVoxelPresent: true,
+            obstacleCount);
+        committedChange = new GridCommittedChange(
+            gridEvent,
+            exactChangeKind,
+            obstacleEvent,
+            targetVoxel);
+        targetVoxel.CachedGridVersion = gridVersion;
+        drainCommittedChanges = world.EnqueueCommittedChange(committedChange);
+    }
+
+    private static void CreateObstacleClearCommittedChange(
+        GridWorld world,
+        VoxelGrid grid,
+        Voxel targetVoxel,
+        byte clearedObstacleCount,
+        uint gridVersion,
+        out GridCommittedChange committedChange,
+        out bool drainCommittedChanges)
+    {
+        GridChangeStamp changeStamp = world.AllocateChangeStamp();
+        ObstacleClearEventInfo clearEvent = new ObstacleClearEventInfo(
+            targetVoxel.WorldIndex,
+            clearedObstacleCount,
+            gridVersion,
+            changeStamp);
+        GridEventInfo gridEvent = world.CreateGridEventInfo(
+            grid,
+            GridEventKind.ObstaclesCleared,
+            targetVoxel.Index,
+            targetVoxel.WorldPosition,
+            targetVoxel.WorldPosition,
+            changeStamp,
+            hasVoxelState: true,
+            isVoxelPresent: true,
+            obstacleCount: 0);
+        committedChange = new GridCommittedChange(gridEvent, clearEvent, targetVoxel);
+        targetVoxel.CachedGridVersion = gridVersion;
+        drainCommittedChanges = world.EnqueueCommittedChange(committedChange);
+    }
+
     /// <summary>
     /// Notifies listeners that an obstacle was added.
     /// </summary>
-    private static void NotifyObstacleAdded(
-        VoxelGrid grid,
-        Voxel targetVoxel,
-        ObstacleToken obstacleToken,
-        byte obstacleCount,
-        uint gridVersion)
+    private static void NotifyObstacleAdded(ObstacleEventInfo eventInfo)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
         if (handlers != null)
         {
@@ -290,28 +436,19 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle add error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle add error: {ex.Message}");
                 }
             }
         }
 
-        targetVoxel.NotifyObstacleAdded(eventInfo);
-
-        targetVoxel.CachedGridVersion = gridVersion;
-        grid.World!.NotifyActiveGridChange(grid);
+        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
 
     /// <summary>
     /// Notifies listeners that an obstacle was removed.
     /// </summary>
-    private static void NotifyObstacleRemoved(
-        VoxelGrid grid,
-        Voxel targetVoxel,
-        ObstacleToken obstacleToken,
-        byte obstacleCount,
-        uint gridVersion)
+    private static void NotifyObstacleRemoved(ObstacleEventInfo eventInfo)
     {
-        ObstacleEventInfo eventInfo = new(targetVoxel.WorldIndex, obstacleToken, obstacleCount, gridVersion);
         Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
         if (handlers != null)
         {
@@ -324,27 +461,19 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle remove error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle remove error: {ex.Message}");
                 }
             }
         }
 
-        targetVoxel.NotifyObstacleRemoved(eventInfo);
-
-        targetVoxel.CachedGridVersion = gridVersion;
-        grid.World!.NotifyActiveGridChange(grid);
+        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
 
     /// <summary>
     /// Notifies listeners that all obstacles on a voxel were cleared.
     /// </summary>
-    private static void NotifyObstaclesCleared(
-        VoxelGrid grid,
-        Voxel targetVoxel,
-        byte clearedObstacleCount,
-        uint gridVersion)
+    private static void NotifyObstaclesCleared(ObstacleClearEventInfo eventInfo)
     {
-        ObstacleClearEventInfo eventInfo = new(targetVoxel.WorldIndex, clearedObstacleCount, gridVersion);
         Action<ObstacleClearEventInfo>? handlers = _onObstaclesCleared;
         if (handlers != null)
         {
@@ -357,16 +486,38 @@ public static class GridObstacleManager
                 }
                 catch (Exception ex)
                 {
-                    GridForgeLogger.Channel.Error($"[Voxel {targetVoxel.WorldIndex}] Obstacle clear error: {ex.Message}");
+                    GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle clear error: {ex.Message}");
                 }
             }
         }
 
-        targetVoxel.NotifyObstaclesCleared(eventInfo);
-
-        targetVoxel.CachedGridVersion = gridVersion;
-        grid.World!.NotifyActiveGridChange(grid);
+        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
+
+    internal static void NotifyCommittedExact(GridCommittedChange change)
+    {
+        switch (change.ExactKind)
+        {
+            case GridExactChangeKind.ObstacleAdded:
+                NotifyObstacleAdded(change.ObstacleEvent);
+                if (IsSameVoxel(change.TargetVoxel, change.ObstacleEvent.VoxelIndex))
+                    change.TargetVoxel!.NotifyObstacleAdded(change.ObstacleEvent);
+                break;
+            case GridExactChangeKind.ObstacleRemoved:
+                NotifyObstacleRemoved(change.ObstacleEvent);
+                if (IsSameVoxel(change.TargetVoxel, change.ObstacleEvent.VoxelIndex))
+                    change.TargetVoxel!.NotifyObstacleRemoved(change.ObstacleEvent);
+                break;
+            case GridExactChangeKind.ObstaclesCleared:
+                NotifyObstaclesCleared(change.ObstacleClearEvent);
+                if (IsSameVoxel(change.TargetVoxel, change.ObstacleClearEvent.VoxelIndex))
+                    change.TargetVoxel!.NotifyObstaclesCleared(change.ObstacleClearEvent);
+                break;
+        }
+    }
+
+    private static bool IsSameVoxel(Voxel? voxel, WorldVoxelIndex index) =>
+        voxel != null && voxel.IsAllocated && voxel.WorldIndex == index;
 
     #endregion
 }

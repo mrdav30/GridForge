@@ -1002,12 +1002,8 @@ public class VoxelGridTests : IDisposable
             null);
 
         Assert.NotNull(initializeMethod);
-        Assert.True(GridWorld.TryNormalizeConfiguration(
-            configuration,
-            out GridConfiguration normalizedConfiguration,
-            out IGridTopology topology,
-            out _));
-        initializeMethod.Invoke(grid, new object[] { world, globalIndex, 1L, normalizedConfiguration, topology, Array.Empty<VoxelIndex>() });
+        Assert.True(configuration.TryNormalize(out NormalizedGridConfiguration descriptor));
+        initializeMethod.Invoke(grid, new object[] { world, globalIndex, 1L, descriptor.Configuration, descriptor.Topology, Array.Empty<VoxelIndex>() });
     }
 
     private static void InvokeGridReset(VoxelGrid grid)

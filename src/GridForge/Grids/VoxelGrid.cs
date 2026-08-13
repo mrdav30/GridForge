@@ -656,15 +656,44 @@ public class VoxelGrid
     public bool TryAddVoxel(VoxelIndex voxelIndex, out Voxel? voxel)
     {
         voxel = null;
-        if (!CanMutateSparseVoxel(voxelIndex))
+        bool drainCommittedChanges;
+        GridWorld? world = World;
+        if (world == null)
             return false;
 
-        if (!_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
-            return false;
+        world.EnterReadLock();
+        try
+        {
+            lock (world.ChangeSyncRoot)
+            {
+                if (!CanMutateSparseVoxel(voxelIndex)
+                    || !_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
+                {
+                    return false;
+                }
 
-        uint gridVersion = IncrementVersion();
-        voxel!.CachedGridVersion = gridVersion;
-        World!.NotifyActiveGridChange(this, GridEventKind.SparseVoxelAdded, voxelIndex, voxel.WorldPosition);
+                uint gridVersion = IncrementVersion();
+                voxel!.CachedGridVersion = gridVersion;
+                GridEventInfo eventInfo = world.CreateGridEventInfo(
+                    this,
+                    GridEventKind.SparseVoxelAdded,
+                    voxelIndex,
+                    voxel.WorldPosition,
+                    voxel.WorldPosition,
+                    world.AllocateChangeStamp(),
+                    hasVoxelState: true,
+                    isVoxelPresent: true,
+                    obstacleCount: 0);
+                drainCommittedChanges = world.EnqueueCommittedChange(new GridCommittedChange(eventInfo));
+            }
+        }
+        finally
+        {
+            world.ExitReadLock();
+        }
+
+        if (drainCommittedChanges)
+            world.DrainCommittedChanges();
         return true;
     }
 
@@ -677,18 +706,47 @@ public class VoxelGrid
     /// <returns>True when the sparse voxel was removed; otherwise false.</returns>
     public bool TryRemoveVoxel(VoxelIndex voxelIndex)
     {
-        if (!CanMutateSparseVoxel(voxelIndex)
-            || !TryGetVoxel(voxelIndex, out Voxel? voxel)
-            || !CanRemoveSparseVoxel(voxel!))
-        {
+        bool drainCommittedChanges;
+        GridWorld? world = World;
+        if (world == null)
             return false;
+
+        world.EnterReadLock();
+        try
+        {
+            lock (world.ChangeSyncRoot)
+            {
+                if (!CanMutateSparseVoxel(voxelIndex)
+                    || !TryGetVoxel(voxelIndex, out Voxel? voxel)
+                    || !CanRemoveSparseVoxel(voxel!))
+                {
+                    return false;
+                }
+
+                Vector3d affectedPosition = voxel!.WorldPosition;
+                _sparseStorage.TryRemoveVoxel(this, voxelIndex, out _);
+
+                IncrementVersion();
+                GridEventInfo eventInfo = world.CreateGridEventInfo(
+                    this,
+                    GridEventKind.SparseVoxelRemoved,
+                    voxelIndex,
+                    affectedPosition,
+                    affectedPosition,
+                    world.AllocateChangeStamp(),
+                    hasVoxelState: true,
+                    isVoxelPresent: false,
+                    obstacleCount: 0);
+                drainCommittedChanges = world.EnqueueCommittedChange(new GridCommittedChange(eventInfo));
+            }
+        }
+        finally
+        {
+            world.ExitReadLock();
         }
 
-        Vector3d affectedPosition = voxel!.WorldPosition;
-        _sparseStorage.TryRemoveVoxel(this, voxelIndex, out _);
-
-        IncrementVersion();
-        World!.NotifyActiveGridChange(this, GridEventKind.SparseVoxelRemoved, voxelIndex, affectedPosition);
+        if (drainCommittedChanges)
+            world.DrainCommittedChanges();
         return true;
     }
 

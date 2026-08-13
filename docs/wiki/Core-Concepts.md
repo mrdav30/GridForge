@@ -98,6 +98,17 @@ Important details:
   voxels
 - `ToBoundsKey()` creates an exact bounds geometry key
 - `ToGridKey()` creates an exact snapped-bounds-and-topology configuration key
+- `TryNormalize(...)` validates and snaps an offline configuration through the
+  same topology rules used by grid registration, returning a
+  `NormalizedGridConfiguration` with the exact binding key, dimensions, address
+  count, and topology-local `VoxelIndex` validation
+
+The normalized descriptor does not require a live `GridWorld`, so authoring and
+baking tools can validate dormant grid content. `IsValidIndex(...)` validates
+the topology address space only; for sparse grids it does not claim that a
+physical voxel currently exists, and the `IsAllocated` sentinel does not affect
+address validity. `VoxelIndex.CompareTo(...)` defines the stable lexicographic
+address order: X/Q, then Y/layer, then Z/R.
 
 ## `VoxelGrid`
 
@@ -129,6 +140,37 @@ grid, or all contact neighbors. Directed lookup stays topology-specific through
 directions use axial labels such as `QPositive`, `QPositiveRNegative`, and
 `RNegative` so the same directed API reads correctly for both `PointyTop` and
 `FlatTop` grids.
+
+`GetNeighborsInto(...)` is deliberately a broad-phase candidate query: inclusive
+cell AABBs can admit contacts that only touch at a point, an edge, or an AABB
+corner outside a hex footprint. Consumers that require portal or clearance
+geometry use `GridCellGeometry` instead. `GridCellPrism` exposes the exact
+boundary-ordered XZ footprint, vertical interval, and planar inradius for a
+physical cell. `VoxelContactManifold` classifies exact prism contact as
+`Separated`, `Point`, `Edge`, `Face`, or `VolumeOverlap`; only a representable
+positive-area `Face` is an automatic-portal candidate before agent-specific
+clearance checks. `GetExactBoundaryContactsInto(...)` combines the existing
+range broad phase with exact fixed-point narrow phase and accepts caller-owned
+result and scratch containers for zero-allocation warmed composition work.
+Prism construction fails closed when a normalized cell metric cannot be
+bisected exactly in the fixed-point scalar domain; this prevents a rounded half
+extent from turning a native shared face into a gap or volume overlap.
+
+`GridTracer.TraceIntervalsInto(...)` is the exact navigation-facing segment
+query. It reports normalized grid binding plus exact runtime generation and
+address identity, physical presence for sparse addresses, closed `tEnter` and
+`tExit` prism intervals, and deterministic simultaneous-coverage groups. A tie
+group describes overlapping interval coverage only; its peer cells are not
+implicitly adjacent. The report separately proves continuous address and
+physical coverage, and fails closed when caller-supplied candidate or output
+ceilings are exhausted. Caller-owned results and `GridTraceIntervalScratch`
+retain capacity for zero-allocation warmed traces. The complete trace holds one
+world read lease, so grid removal and slot reuse cannot change identity. It
+enumerates the topology candidate range under the caller's explicit budget,
+then snapshots sparse physical-presence bits under a short change gate before
+running exact prism clipping and sorting outside that gate. Dense traces and
+the expensive narrow phase therefore do not serialize through the world change
+gate.
 
 ## `Voxel`
 

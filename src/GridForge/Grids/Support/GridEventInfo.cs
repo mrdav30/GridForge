@@ -17,6 +17,11 @@ namespace GridForge.Grids;
 public readonly struct GridEventInfo
 {
     /// <summary>
+    /// The world-owned ordering and cause identity for this committed mutation.
+    /// </summary>
+    public readonly GridChangeStamp ChangeStamp;
+
+    /// <summary>
     /// The process-unique 64-bit runtime allocation token of the owning <see cref="GridWorld"/> instance.
     /// </summary>
     public readonly long WorldSpawnToken;
@@ -62,6 +67,31 @@ public readonly struct GridEventInfo
     public readonly Vector3d AffectedBoundsMax;
 
     /// <summary>
+    /// Whether this event contains an exact post-mutation voxel state.
+    /// </summary>
+    public readonly bool HasVoxelState;
+
+    /// <summary>
+    /// Whether the addressed physical voxel exists after the mutation.
+    /// </summary>
+    public readonly bool IsVoxelPresent;
+
+    /// <summary>
+    /// The addressed voxel's obstacle count after the mutation.
+    /// </summary>
+    public readonly byte ObstacleCount;
+
+    /// <summary>
+    /// The world-local commit order of this event.
+    /// </summary>
+    public ulong ChangeSequence => ChangeStamp.Sequence;
+
+    /// <summary>
+    /// The logical cause shared with exact notifications for the same mutation.
+    /// </summary>
+    public ulong CauseId => ChangeStamp.CauseId;
+
+    /// <summary>
     /// The minimum snapped bounds of the grid.
     /// </summary>
     public readonly Vector3d BoundsMin => Configuration.BoundsMin;
@@ -83,8 +113,13 @@ public readonly struct GridEventInfo
         GridEventKind changeKind = GridEventKind.Unspecified,
         VoxelIndex voxelIndex = default,
         Vector3d affectedBoundsMin = default,
-        Vector3d affectedBoundsMax = default)
+        Vector3d affectedBoundsMax = default,
+        GridChangeStamp changeStamp = default,
+        bool hasVoxelState = false,
+        bool isVoxelPresent = false,
+        byte obstacleCount = 0)
     {
+        ChangeStamp = changeStamp;
         WorldSpawnToken = worldSpawnToken;
         GridIndex = gridIndex;
         GridSpawnToken = gridSpawnToken;
@@ -98,6 +133,9 @@ public readonly struct GridEventInfo
         AffectedBoundsMax = !voxelIndex.IsAllocated && affectedBoundsMin == default && affectedBoundsMax == default
             ? configuration.BoundsMax
             : affectedBoundsMax;
+        HasVoxelState = hasVoxelState;
+        IsVoxelPresent = isVoxelPresent;
+        ObstacleCount = obstacleCount;
     }
 
     /// <summary>

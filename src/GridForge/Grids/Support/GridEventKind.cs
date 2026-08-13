@@ -41,4 +41,24 @@ public enum GridEventKind
     /// A sparse voxel was removed at runtime.
     /// </summary>
     SparseVoxelRemoved = 5,
+
+    /// <summary>
+    /// An obstacle token was added to a voxel.
+    /// </summary>
+    ObstacleAdded = 6,
+
+    /// <summary>
+    /// An obstacle token was removed from a voxel.
+    /// </summary>
+    ObstacleRemoved = 7,
+
+    /// <summary>
+    /// All obstacle tokens were cleared from a voxel.
+    /// </summary>
+    ObstaclesCleared = 8,
+
+    /// <summary>
+    /// The owning world cleared every active grid.
+    /// </summary>
+    WorldReset = 9,
 }

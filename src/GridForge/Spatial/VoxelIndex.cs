@@ -107,6 +107,10 @@ public struct VoxelIndex : IEquatable<VoxelIndex>, IComparable<VoxelIndex>
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Ordering is a stable lexicographic comparison of X/Q, then Y/layer,
+    /// then Z/R. <see cref="IsAllocated"/> does not participate in value order.
+    /// </remarks>
     public readonly int CompareTo(VoxelIndex other)
     {
         int result = x.CompareTo(other.x);

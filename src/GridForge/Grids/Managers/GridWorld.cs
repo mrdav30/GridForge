@@ -78,19 +78,41 @@ public sealed class GridWorld : IDisposable
     public uint Version { get; private set; }
 
     /// <summary>
+    /// The most recent world-local committed change sequence.
+    /// </summary>
+    public ulong ChangeSequence
+    {
+        get
+        {
+            lock (ChangeSyncRoot)
+                return _changeSequence;
+        }
+    }
+
+    /// <summary>
     /// Indicates whether this world is currently active.
     /// </summary>
     public bool IsActive { get; private set; }
 
     internal Fixed64 MaxTopologyCellEdge { get; private set; }
 
+    internal void EnterReadLock() => _gridLock.EnterReadLock();
+
+    internal void ExitReadLock() => _gridLock.ExitReadLock();
+
+    internal bool IsWriteLockHeld => _gridLock.IsWriteLockHeld;
+
     private static long s_worldAllocationCounter;
     private static long s_obstacleRegistrationCounter;
 
     private readonly ReaderWriterLockSlim _gridLock = new();
+    internal object ChangeSyncRoot { get; } = new object();
+    private readonly SwiftQueue<GridCommittedChange> _committedChanges = new SwiftQueue<GridCommittedChange>();
     private readonly SwiftList<ushort> _gridCandidates = new();
     private readonly GridSpatialIndex _spatialIndex;
     private long _gridGenerationCounter;
+    private ulong _changeSequence;
+    private bool _isPublishingCommittedChanges;
 
     #endregion
 
@@ -99,6 +121,7 @@ public sealed class GridWorld : IDisposable
     private Action<GridEventInfo>? _onActiveGridAdded;
     private Action<GridEventInfo>? _onActiveGridRemoved;
     private Action<GridEventInfo>? _onActiveGridChange;
+    private Action<GridEventInfo>? _onChangeCommitted;
     private Action? _onReset;
 
     /// <summary>
@@ -126,6 +149,24 @@ public sealed class GridWorld : IDisposable
     {
         add => _onActiveGridChange += value;
         remove => _onActiveGridChange -= value;
+    }
+
+    /// <summary>
+    /// Receives every committed grid lifecycle, sparse-presence, and obstacle mutation in
+    /// ascending <see cref="GridEventInfo.ChangeSequence"/> order.
+    /// </summary>
+    public event Action<GridEventInfo> OnChangeCommitted
+    {
+        add
+        {
+            lock (ChangeSyncRoot)
+                _onChangeCommitted += value;
+        }
+        remove
+        {
+            lock (ChangeSyncRoot)
+                _onChangeCommitted -= value;
+        }
     }
 
     /// <summary>
@@ -170,19 +211,55 @@ public sealed class GridWorld : IDisposable
         }
 
         NotifyResetHandlers();
-        ReleaseActiveGrids();
-        GridOccupantManager.ClearTrackedOccupancies(this);
+        bool drainCommittedChanges;
+        _gridLock.EnterWriteLock();
+        try
+        {
+            lock (ChangeSyncRoot)
+            {
+                bool wasPublishingCommittedChanges = _isPublishingCommittedChanges;
+                ReleaseActiveGrids();
+                GridOccupantManager.ClearTrackedOccupancies(this);
+                Version++;
+
+                GridEventInfo resetEvent = new GridEventInfo(
+                    SpawnToken,
+                    ushort.MaxValue,
+                    0,
+                    default,
+                    0,
+                    GridEventKind.WorldReset,
+                    changeStamp: AllocateChangeStamp());
+                EnqueueCommittedChange(new GridCommittedChange(resetEvent));
+                drainCommittedChanges = !wasPublishingCommittedChanges;
+
+                if (deactivate)
+                {
+                    GridOccupantManager.ReleaseTrackedOccupancies(this);
+                    IsActive = false;
+                }
+            }
+        }
+        finally
+        {
+            _gridLock.ExitWriteLock();
+        }
+
+        if (drainCommittedChanges)
+            DrainCommittedChanges();
 
         if (!deactivate)
             return;
 
-        GridOccupantManager.ReleaseTrackedOccupancies(this);
-        IsActive = false;
-        SpawnToken = 0;
-        _onActiveGridAdded = null;
-        _onActiveGridRemoved = null;
-        _onActiveGridChange = null;
-        _onReset = null;
+        lock (ChangeSyncRoot)
+        {
+            SpawnToken = 0;
+            _onActiveGridAdded = null;
+            _onActiveGridRemoved = null;
+            _onActiveGridChange = null;
+            _onChangeCommitted = null;
+            _onReset = null;
+        }
     }
 
     private void NotifyResetHandlers()
@@ -243,6 +320,141 @@ public sealed class GridWorld : IDisposable
     }
 
     /// <summary>
+    /// Captures presence and obstacle state for a sorted requested address span without
+    /// enumerating unrelated grids or unrequested physical voxels.
+    /// </summary>
+    /// <param name="configurationKey">The exact normalized configuration identity to resolve.</param>
+    /// <param name="requestedVoxels">Strictly ascending, unique, in-bounds topology-local addresses.</param>
+    /// <param name="baseline">The atomic baseline on success.</param>
+    /// <returns>True when the requested active grid generation was captured; otherwise false.</returns>
+    public bool TryCaptureNavigationBaseline(
+        GridConfigurationKey configurationKey,
+        ReadOnlySpan<VoxelIndex> requestedVoxels,
+        out GridNavigationBaseline? baseline)
+    {
+        baseline = null;
+        if (!IsActive)
+            return false;
+
+        _gridLock.EnterReadLock();
+        try
+        {
+            lock (ChangeSyncRoot)
+                return TryCaptureNavigationBaselineCore(configurationKey, requestedVoxels, out baseline);
+        }
+        finally
+        {
+            _gridLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>
+    /// Atomically attaches a committed-change listener and captures a requested-address baseline.
+    /// Events with a sequence greater than the baseline high-water mark are the only events the
+    /// caller applies after initialization.
+    /// </summary>
+    /// <param name="configurationKey">The exact normalized configuration identity to resolve.</param>
+    /// <param name="requestedVoxels">Strictly ascending, unique, in-bounds topology-local addresses.</param>
+    /// <param name="onChangeCommitted">The committed-change listener to attach.</param>
+    /// <param name="subscription">The owned subscription and atomic baseline on success.</param>
+    /// <returns>True when attachment and capture both succeeded; otherwise false.</returns>
+    public bool TrySubscribeNavigationChanges(
+        GridConfigurationKey configurationKey,
+        ReadOnlySpan<VoxelIndex> requestedVoxels,
+        Action<GridEventInfo> onChangeCommitted,
+        out GridNavigationChangeSubscription? subscription)
+    {
+        SwiftThrowHelper.ThrowIfNull(onChangeCommitted, nameof(onChangeCommitted));
+
+        subscription = null;
+        if (!IsActive)
+            return false;
+
+        _gridLock.EnterReadLock();
+        try
+        {
+            lock (ChangeSyncRoot)
+            {
+                _onChangeCommitted += onChangeCommitted;
+                if (TryCaptureNavigationBaselineCore(configurationKey, requestedVoxels, out GridNavigationBaseline? baseline))
+                {
+                    subscription = new GridNavigationChangeSubscription(this, onChangeCommitted, baseline!);
+                    return true;
+                }
+
+                _onChangeCommitted -= onChangeCommitted;
+                return false;
+            }
+        }
+        finally
+        {
+            _gridLock.ExitReadLock();
+        }
+    }
+
+    private bool TryCaptureNavigationBaselineCore(
+        GridConfigurationKey configurationKey,
+        ReadOnlySpan<VoxelIndex> requestedVoxels,
+        out GridNavigationBaseline? baseline)
+    {
+        Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
+        baseline = null;
+        if (!IsActive
+            || !BoundsTracker.TryGetValue(configurationKey, out ushort gridIndex)
+            || !ActiveGrids.IsAllocated(gridIndex))
+        {
+            return false;
+        }
+
+        if (!ActiveGrids.IsAllocated(gridIndex))
+            return false;
+
+        VoxelGrid grid = ActiveGrids[gridIndex];
+        if (grid.Configuration.ToGridKey() != configurationKey
+            || !AreNavigationBaselineAddressesValid(grid, requestedVoxels))
+        {
+            return false;
+        }
+
+        NavigationBaselineVoxelState[] states = new NavigationBaselineVoxelState[requestedVoxels.Length];
+        for (int i = 0; i < requestedVoxels.Length; i++)
+        {
+            VoxelIndex requestedVoxel = requestedVoxels[i];
+            bool isPresent = grid.TryGetVoxel(requestedVoxel, out Voxel? voxel);
+            states[i] = new NavigationBaselineVoxelState(
+                requestedVoxel,
+                isPresent,
+                isPresent ? voxel!.ObstacleCount : (byte)0);
+        }
+
+        baseline = new GridNavigationBaseline(
+            _changeSequence,
+            SpawnToken,
+            grid.SpawnToken,
+            grid.GridIndex,
+            configurationKey,
+            states);
+        return true;
+    }
+
+    private static bool AreNavigationBaselineAddressesValid(
+        VoxelGrid grid,
+        ReadOnlySpan<VoxelIndex> requestedVoxels)
+    {
+        for (int i = 0; i < requestedVoxels.Length; i++)
+        {
+            VoxelIndex requestedVoxel = requestedVoxels[i];
+            if (!grid.IsValidVoxelIndex(requestedVoxel.x, requestedVoxel.y, requestedVoxel.z)
+                || (i > 0 && requestedVoxels[i - 1].CompareTo(requestedVoxel) >= 0))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Adds a new grid to this world and registers it in the spatial index.
     /// </summary>
     /// <param name="configuration">The grid configuration to normalize and register.</param>
@@ -290,18 +502,12 @@ public sealed class GridWorld : IDisposable
     {
         allocatedIndex = ushort.MaxValue;
 
-        if (!CanAddGrid())
+        if (!configuration.TryNormalize(out NormalizedGridConfiguration descriptor))
             return false;
 
-        if (!TryNormalizeConfiguration(
-                configuration,
-                out GridConfiguration normalizedConfiguration,
-                out IGridTopology topology,
-                out GridDimensions dimensions)
-            || !TryValidateGridDimensions(dimensions))
-        {
-            return false;
-        }
+        GridConfiguration normalizedConfiguration = descriptor.Configuration;
+        IGridTopology topology = descriptor.Topology!;
+        GridDimensions dimensions = descriptor.Dimensions;
 
         if (!TryPrepareConfiguredVoxels(
             normalizedConfiguration,
@@ -313,34 +519,50 @@ public sealed class GridWorld : IDisposable
             return false;
         }
 
-        GridConfigurationKey boundsKey = normalizedConfiguration.ToGridKey();
-
-        if (TryFindExistingGrid(boundsKey, out allocatedIndex))
+        if (!IsActive)
+        {
+            GridForgeLogger.Channel.Error($"Grid world not active. Cannot add grids to an inactive world.");
             return false;
+        }
 
-        long gridGeneration = RuntimeIdentityAllocator.Allocate(ref _gridGenerationCounter);
-        VoxelGrid newGrid = Pools.GridPool.Rent();
+        GridConfigurationKey boundsKey = descriptor.Key;
+        VoxelGrid? newGrid = null;
         GridEventInfo addedGridInfo = default;
+        bool drainCommittedChanges;
 
         _gridLock.EnterWriteLock();
         try
         {
-            allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
-            BoundsTracker.Add(boundsKey, allocatedIndex);
+            lock (ChangeSyncRoot)
+            {
+                if (!CanAddGrid() || TryFindExistingGridUnsafe(boundsKey, out allocatedIndex))
+                    return false;
 
-            newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
-            UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
-            RegisterGrid(newGrid, allocatedIndex);
+                long gridGeneration = RuntimeIdentityAllocator.Allocate(ref _gridGenerationCounter);
+                newGrid = Pools.GridPool.Rent();
 
-            Version++;
-            addedGridInfo = CreateGridEventInfo(newGrid, GridEventKind.GridAdded);
+                allocatedIndex = (ushort)ActiveGrids.Add(newGrid);
+                BoundsTracker.Add(boundsKey, allocatedIndex);
+
+                newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
+                UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
+                RegisterGrid(newGrid, allocatedIndex);
+
+                Version++;
+                addedGridInfo = CreateGridEventInfo(
+                    newGrid,
+                    GridEventKind.GridAdded,
+                    AllocateChangeStamp());
+                drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(addedGridInfo));
+            }
         }
         finally
         {
             _gridLock.ExitWriteLock();
         }
 
-        NotifyActiveGridAdded(addedGridInfo);
+        if (drainCommittedChanges)
+            DrainCommittedChanges();
         return true;
     }
 
@@ -351,32 +573,44 @@ public sealed class GridWorld : IDisposable
     /// <returns>True if the grid was removed; otherwise false.</returns>
     public bool TryRemoveGrid(ushort removeIndex)
     {
-        if (!IsActive || !ActiveGrids.IsAllocated(removeIndex))
+        if (!IsActive)
             return false;
 
-        VoxelGrid gridToRemove;
+        VoxelGrid? gridToRemove = null;
         GridEventInfo removedGridInfo = default;
+        bool drainCommittedChanges;
 
         _gridLock.EnterWriteLock();
         try
         {
-            gridToRemove = ActiveGrids[removeIndex];
-            Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
-            UnregisterGrid(gridToRemove, removeIndex);
-            BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
-            ActiveGrids.RemoveAt(removeIndex);
-            RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
+            lock (ChangeSyncRoot)
+            {
+                if (!IsActive || !ActiveGrids.IsAllocated(removeIndex))
+                    return false;
 
-            Version++;
-            removedGridInfo = CreateGridEventInfo(gridToRemove, GridEventKind.GridRemoved);
+                gridToRemove = ActiveGrids[removeIndex];
+                Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
+                UnregisterGrid(gridToRemove, removeIndex);
+                BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
+                ActiveGrids.RemoveAt(removeIndex);
+                RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
+
+                Version++;
+                removedGridInfo = CreateGridEventInfo(
+                    gridToRemove,
+                    GridEventKind.GridRemoved,
+                    AllocateChangeStamp());
+                drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(removedGridInfo));
+            }
         }
         finally
         {
             _gridLock.ExitWriteLock();
         }
 
-        Pools.GridPool.Release(gridToRemove);
-        NotifyActiveGridRemoved(removedGridInfo);
+        Pools.GridPool.Release(gridToRemove!);
+        if (drainCommittedChanges)
+            DrainCommittedChanges();
 
         if (ActiveGrids.Count == 0)
             ActiveGrids.TrimExcessCapacity();
@@ -418,18 +652,6 @@ public sealed class GridWorld : IDisposable
             return TryPrepareConfiguredVoxelMask(configuredVoxelMask, dimensions, out preparedVoxels);
 
         return TryPrepareConfiguredVoxelIndices(configuredVoxels, dimensions, out preparedVoxels);
-    }
-
-    private static bool TryValidateGridDimensions(GridDimensions dimensions)
-    {
-        long layerSize = (long)dimensions.Width * dimensions.Height;
-        if (layerSize > int.MaxValue || layerSize * dimensions.Length > int.MaxValue)
-        {
-            GridForgeLogger.Channel.Warn($"Grid dimensions exceed the supported int voxel address space.");
-            return false;
-        }
-
-        return true;
     }
 
     private static bool TryPrepareConfiguredVoxelMask(
@@ -562,20 +784,12 @@ public sealed class GridWorld : IDisposable
         MaxTopologyCellEdge = maxCellEdge;
     }
 
-    private bool TryFindExistingGrid(GridConfigurationKey boundsKey, out ushort allocatedIndex)
+    private bool TryFindExistingGridUnsafe(GridConfigurationKey boundsKey, out ushort allocatedIndex)
     {
-        _gridLock.EnterReadLock();
-        try
+        if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
         {
-            if (BoundsTracker.TryGetValue(boundsKey, out allocatedIndex))
-            {
-                GridForgeLogger.Channel.Warn($"A grid with these bounds has already been allocated.");
-                return true;
-            }
-        }
-        finally
-        {
-            _gridLock.ExitReadLock();
+            GridForgeLogger.Channel.Warn($"A grid with these bounds has already been allocated.");
+            return true;
         }
 
         allocatedIndex = ushort.MaxValue;
@@ -831,7 +1045,7 @@ public sealed class GridWorld : IDisposable
     /// <param name="layerY">The world Y layer to resolve. Defaults to zero when omitted by paired overloads.</param>
     /// <param name="outGrid">The resolved grid, if found.</param>
     /// <param name="outVoxel">The resolved voxel, if found.</param>
-    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>  
+    /// <returns>True if both the grid and voxel were resolved; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetGridAndVoxel(
         Vector2d position,
@@ -1078,33 +1292,6 @@ public sealed class GridWorld : IDisposable
 
     #region Internal Helpers
 
-    internal static bool TryNormalizeConfiguration(
-        GridConfiguration configuration,
-        out GridConfiguration normalizedConfiguration,
-        out IGridTopology topology,
-        out GridDimensions dimensions)
-    {
-        normalizedConfiguration = default;
-        topology = null!;
-        dimensions = default;
-        if (!GridTopologyFactory.TryCreate(configuration, out IGridTopology? createdTopology))
-            return false;
-
-        (Vector3d boundsMin, Vector3d boundsMax) =
-            createdTopology!.NormalizeBounds(configuration.BoundsMin, configuration.BoundsMax);
-
-        normalizedConfiguration = new GridConfiguration(
-            boundsMin,
-            boundsMax,
-            configuration.ScanCellSize,
-            configuration.TopologyKind,
-            configuration.TopologyMetrics,
-            configuration.StorageKind);
-        topology = createdTopology;
-        dimensions = topology.CalculateDimensions(boundsMin, boundsMax);
-        return true;
-    }
-
     /// <summary>
     /// Increments the version of the specified grid and optionally the world version.
     /// </summary>
@@ -1293,7 +1480,18 @@ public sealed class GridWorld : IDisposable
         if (grid == null || !grid.IsActive)
             return;
 
-        NotifyActiveGridChange(CreateGridEventInfo(grid, GridEventKind.GridChanged));
+        bool drainCommittedChanges;
+        lock (ChangeSyncRoot)
+        {
+            GridEventInfo eventInfo = CreateGridEventInfo(
+                grid,
+                GridEventKind.GridChanged,
+                AllocateChangeStamp());
+            drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(eventInfo));
+        }
+
+        if (drainCommittedChanges)
+            DrainCommittedChanges();
     }
 
     internal void NotifyActiveGridChange(
@@ -1305,7 +1503,24 @@ public sealed class GridWorld : IDisposable
         if (grid == null || !grid.IsActive)
             return;
 
-        NotifyActiveGridChange(CreateGridEventInfo(grid, changeKind, voxelIndex, affectedPosition, affectedPosition));
+        bool drainCommittedChanges;
+        lock (ChangeSyncRoot)
+        {
+            GridEventInfo eventInfo = CreateGridEventInfo(
+                grid,
+                changeKind,
+                voxelIndex,
+                affectedPosition,
+                affectedPosition,
+                AllocateChangeStamp(),
+                hasVoxelState: true,
+                isVoxelPresent: changeKind != GridEventKind.SparseVoxelRemoved,
+                obstacleCount: 0);
+            drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(eventInfo));
+        }
+
+        if (drainCommittedChanges)
+            DrainCommittedChanges();
     }
 
     #endregion
@@ -1325,7 +1540,10 @@ public sealed class GridWorld : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private GridEventInfo CreateGridEventInfo(VoxelGrid grid, GridEventKind changeKind) =>
+    private GridEventInfo CreateGridEventInfo(
+        VoxelGrid grid,
+        GridEventKind changeKind,
+        GridChangeStamp changeStamp) =>
         new(
             SpawnToken,
             grid.GridIndex,
@@ -1335,14 +1553,19 @@ public sealed class GridWorld : IDisposable
             changeKind,
             default,
             grid.BoundsMin,
-            grid.BoundsMax);
+            grid.BoundsMax,
+            changeStamp);
 
-    private GridEventInfo CreateGridEventInfo(
+    internal GridEventInfo CreateGridEventInfo(
         VoxelGrid grid,
         GridEventKind changeKind,
         VoxelIndex voxelIndex,
         Vector3d affectedBoundsMin,
-        Vector3d affectedBoundsMax) =>
+        Vector3d affectedBoundsMax,
+        GridChangeStamp changeStamp,
+        bool hasVoxelState,
+        bool isVoxelPresent,
+        byte obstacleCount) =>
         new(
             SpawnToken,
             grid.GridIndex,
@@ -1352,7 +1575,67 @@ public sealed class GridWorld : IDisposable
             changeKind,
             voxelIndex,
             affectedBoundsMin,
-            affectedBoundsMax);
+            affectedBoundsMax,
+            changeStamp,
+            hasVoxelState,
+            isVoxelPresent,
+            obstacleCount);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal GridChangeStamp AllocateChangeStamp()
+    {
+        Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
+        if (_changeSequence == ulong.MaxValue)
+            throw new InvalidOperationException("The GridWorld change sequence is exhausted.");
+
+        _changeSequence++;
+        return new GridChangeStamp(_changeSequence, _changeSequence);
+    }
+
+    internal bool EnqueueCommittedChange(GridCommittedChange change)
+    {
+        Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
+        _committedChanges.Enqueue(change);
+        if (_isPublishingCommittedChanges)
+            return false;
+
+        _isPublishingCommittedChanges = true;
+        return true;
+    }
+
+    internal void DrainCommittedChanges()
+    {
+        while (true)
+        {
+            GridCommittedChange change;
+            lock (ChangeSyncRoot)
+            {
+                if (!_committedChanges.TryDequeue(out change))
+                {
+                    _isPublishingCommittedChanges = false;
+                    return;
+                }
+            }
+
+            GridObstacleManager.NotifyCommittedExact(change);
+            switch (change.GridEvent.ChangeKind)
+            {
+                case GridEventKind.GridAdded:
+                    NotifyActiveGridAdded(change.GridEvent);
+                    break;
+                case GridEventKind.GridRemoved:
+                    NotifyActiveGridRemoved(change.GridEvent);
+                    break;
+                case GridEventKind.WorldReset:
+                    break;
+                default:
+                    NotifyActiveGridChange(change.GridEvent);
+                    break;
+            }
+
+            NotifyChangeCommitted(change.GridEvent);
+        }
+    }
 
     private void NotifyActiveGridAdded(GridEventInfo eventInfo)
     {
@@ -1394,7 +1677,7 @@ public sealed class GridWorld : IDisposable
         }
     }
 
-    private void NotifyActiveGridChange(GridEventInfo eventInfo)
+    internal void NotifyActiveGridChange(GridEventInfo eventInfo)
     {
         Action<GridEventInfo>? handlers = _onActiveGridChange;
         if (handlers == null)
@@ -1410,6 +1693,26 @@ public sealed class GridWorld : IDisposable
             catch (Exception ex)
             {
                 GridForgeLogger.Channel.Error($"[Grid {eventInfo.GridIndex}] change notification error: {ex.Message}");
+            }
+        }
+    }
+
+    private void NotifyChangeCommitted(GridEventInfo eventInfo)
+    {
+        Action<GridEventInfo>? handlers = _onChangeCommitted;
+        if (handlers == null)
+            return;
+
+        var handlerDelegates = handlers.GetInvocationList();
+        for (int i = 0; i < handlerDelegates.Length; i++)
+        {
+            try
+            {
+                ((Action<GridEventInfo>)handlerDelegates[i])(eventInfo);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Channel.Error($"[Change {eventInfo.ChangeSequence}] committed notification error: {ex.Message}");
             }
         }
     }
