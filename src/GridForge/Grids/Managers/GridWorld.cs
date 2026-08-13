@@ -129,8 +129,16 @@ public sealed class GridWorld : IDisposable
     /// </summary>
     public event Action<GridEventInfo> OnActiveGridAdded
     {
-        add => _onActiveGridAdded += value;
-        remove => _onActiveGridAdded -= value;
+        add
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridAdded += value;
+        }
+        remove
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridAdded -= value;
+        }
     }
 
     /// <summary>
@@ -138,8 +146,16 @@ public sealed class GridWorld : IDisposable
     /// </summary>
     public event Action<GridEventInfo> OnActiveGridRemoved
     {
-        add => _onActiveGridRemoved += value;
-        remove => _onActiveGridRemoved -= value;
+        add
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridRemoved += value;
+        }
+        remove
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridRemoved -= value;
+        }
     }
 
     /// <summary>
@@ -147,8 +163,16 @@ public sealed class GridWorld : IDisposable
     /// </summary>
     public event Action<GridEventInfo> OnActiveGridChange
     {
-        add => _onActiveGridChange += value;
-        remove => _onActiveGridChange -= value;
+        add
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridChange += value;
+        }
+        remove
+        {
+            lock (ChangeSyncRoot)
+                _onActiveGridChange -= value;
+        }
     }
 
     /// <summary>
@@ -174,8 +198,16 @@ public sealed class GridWorld : IDisposable
     /// </summary>
     public event Action OnReset
     {
-        add => _onReset += value;
-        remove => _onReset -= value;
+        add
+        {
+            lock (ChangeSyncRoot)
+                _onReset += value;
+        }
+        remove
+        {
+            lock (ChangeSyncRoot)
+                _onReset -= value;
+        }
     }
 
     #endregion

@@ -12,6 +12,10 @@ namespace GridForge.Grids;
 /// <summary>
 /// Immutable snapshot describing an occupant mutation on a voxel.
 /// </summary>
+/// <remarks>
+/// Occupant notifications are not part of the world's committed navigation-change stream and
+/// therefore do not carry a <see cref="GridChangeStamp"/>.
+/// </remarks>
 public readonly struct OccupantEventInfo
 {
     /// <summary>

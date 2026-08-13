@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
@@ -703,6 +704,25 @@ public class GridWorldTests
     }
 
     [Fact]
+    public void GridWorldEventAccessors_ShouldUseChangeSyncRoot()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Action<GridEventInfo> gridHandler = _ => { };
+        Action resetHandler = () => { };
+
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridAdded += gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridAdded -= gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridRemoved += gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridRemoved -= gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridChange += gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnActiveGridChange -= gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnChangeCommitted += gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnChangeCommitted -= gridHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnReset += resetHandler);
+        AssertEventAccessorUsesChangeSyncRoot(world, () => world.OnReset -= resetHandler);
+    }
+
+    [Fact]
     public void TraceLine_ShouldOnlyReturnGridsFromSpecifiedWorld()
     {
         using GridWorld firstWorld = GridWorldTestFactory.CreateWorld();
@@ -1044,6 +1064,33 @@ public class GridWorldTests
         Assert.Throws<InvalidOperationException>(
             () => RuntimeIdentityAllocator.Allocate(ref negativeCounter));
         Assert.Equal(-1, negativeCounter);
+    }
+
+    private static void AssertEventAccessorUsesChangeSyncRoot(GridWorld world, ThreadStart accessor)
+    {
+        using ManualResetEventSlim started = new();
+        Thread accessorThread = new(() =>
+        {
+            started.Set();
+            accessor();
+        });
+
+        Monitor.Enter(world.ChangeSyncRoot);
+        try
+        {
+            accessorThread.Start();
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(SpinWait.SpinUntil(
+                () => (accessorThread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.Equal(ThreadState.WaitSleepJoin, accessorThread.ThreadState & ThreadState.WaitSleepJoin);
+        }
+        finally
+        {
+            Monitor.Exit(world.ChangeSyncRoot);
+        }
+
+        Assert.True(accessorThread.Join(TimeSpan.FromSeconds(5)));
     }
 
     private sealed class SharedIdOccupant : IVoxelOccupant
