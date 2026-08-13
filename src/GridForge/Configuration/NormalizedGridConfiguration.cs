@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System.Runtime.CompilerServices;
+using FixedMathSharp;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 
@@ -89,4 +90,31 @@ public readonly struct NormalizedGridConfiguration
         (uint)index.x < (uint)Width
         && (uint)index.y < (uint)Height
         && (uint)index.z < (uint)Length;
+
+    /// <summary>
+    /// Attempts to derive the exact offline prism for a topology-local address.
+    /// </summary>
+    /// <remarks>
+    /// The returned prism has no runtime world/grid identity. It is suitable for
+    /// authoring validation before a matching physical grid exists.
+    /// </remarks>
+    /// <param name="index">The topology-local address.</param>
+    /// <param name="prism">The exact cell prism when the address and metrics are representable.</param>
+    /// <returns>True when the address is valid and its prism is exactly representable.</returns>
+    public bool TryGetCellPrism(VoxelIndex index, out GridCellPrism prism)
+    {
+        if (!IsValidIndex(index) || Topology == null)
+        {
+            prism = default;
+            return false;
+        }
+
+        Vector3d center = Topology.GetWorldPosition(Configuration.BoundsMin, index);
+        return GridCellGeometry.TryCreatePrism(
+            Configuration.TopologyKind,
+            Configuration.TopologyMetrics,
+            center,
+            default,
+            out prism);
+    }
 }

@@ -18,7 +18,7 @@ namespace GridForge.Grids.Topology;
 /// <summary>
 /// Builds exact topology-owned cell prisms and contact manifolds without floating-point conversion.
 /// </summary>
-public static class GridCellGeometry
+public static partial class GridCellGeometry
 {
     private const int MaximumIntersectionCandidateCount = 48;
 

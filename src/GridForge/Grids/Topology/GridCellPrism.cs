@@ -8,6 +8,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using FixedMathSharp;
+using FixedMathSharp.Geometry;
 using GridForge.Spatial;
 
 namespace GridForge.Grids.Topology;
@@ -114,6 +115,28 @@ public readonly struct GridCellPrism
 
         for (int i = 0; i < FootprintVertexCount; i++)
             destination[i] = GetFootprintVertex(i);
+    }
+
+    /// <summary>
+    /// Determines whether a world-space point lies inside or on this closed prism.
+    /// </summary>
+    public bool Contains(Vector3d point)
+    {
+        if (FootprintVertexCount is not 4 and not 6
+            || VerticalMax < VerticalMin
+            || point.Y < VerticalMin
+            || point.Y > VerticalMax)
+            return false;
+
+        Span<Vector2d> offsets = stackalloc Vector2d[6];
+        Vector2d origin = new(Center.X, Center.Z);
+        for (int i = 0; i < FootprintVertexCount; i++)
+            offsets[i] = GetFootprintVertex(i) - origin;
+
+        return FixedConvex2dRelations.ContainsPoint(
+            new Vector2d(point.X, point.Z),
+            origin,
+            offsets[..FootprintVertexCount]);
     }
 
     internal TopologyVoxelAabb GetAabb()

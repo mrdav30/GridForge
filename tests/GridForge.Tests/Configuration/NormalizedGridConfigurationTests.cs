@@ -77,6 +77,138 @@ public class NormalizedGridConfigurationTests
         Assert.False(descriptor.IsValidIndex(new VoxelIndex(3, 1, 3)));
     }
 
+    [Theory]
+    [InlineData(GridTopologyKind.RectangularPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.FlatTop)]
+    public void TryGetCellPrism_UsesNormalizedTopologyProjection(
+        GridTopologyKind topologyKind,
+        HexOrientation orientation)
+    {
+        GridTopologyMetrics metrics = topologyKind == GridTopologyKind.RectangularPrism
+            ? GridTopologyMetrics.Rectangular(new Fixed64(2), new Fixed64(4), new Fixed64(6))
+            : GridTopologyMetrics.Hex(new Fixed64(2), new Fixed64(4), orientation);
+        VoxelIndex maxIndex = new(2, 1, 3);
+        Vector3d max = topologyKind == GridTopologyKind.RectangularPrism
+            ? new Vector3d(4, 4, 18)
+            : HexCoordinateUtility.AxialToWorldOffset(maxIndex, metrics);
+        GridConfiguration input = new(
+            Vector3d.Zero,
+            max,
+            topologyKind: topologyKind,
+            topologyMetrics: metrics);
+
+        Assert.True(input.TryNormalize(out NormalizedGridConfiguration descriptor));
+        VoxelIndex index = new(1, 1, 1);
+        Assert.True(descriptor.TryGetCellPrism(index, out GridCellPrism prism));
+
+        using GridWorld world = new();
+        Assert.True(world.TryAddGrid(input, out ushort gridIndex));
+        VoxelGrid grid = world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(index, out Voxel voxel));
+        Assert.Equal(voxel.WorldPosition, prism.Center);
+        Assert.Equal(topologyKind, prism.TopologyKind);
+        Assert.Equal(Fixed64.FromRaw(metrics.LayerHeight.m_rawValue >> 1), prism.Center.Y - prism.VerticalMin);
+        Assert.Equal(default, prism.Cell);
+        Assert.True(prism.Contains(prism.Center));
+        Assert.True(prism.Contains(new Vector3d(prism.Center.X, prism.VerticalMin, prism.Center.Z)));
+        Assert.False(prism.Contains(new Vector3d(prism.Center.X, prism.VerticalMax + Fixed64.One, prism.Center.Z)));
+        Assert.False(prism.Contains(new Vector3d(
+            prism.Center.X + new Fixed64(100),
+            prism.Center.Y,
+            prism.Center.Z)));
+
+        Assert.False(descriptor.TryGetCellPrism(new VoxelIndex(-1, 0, 0), out _));
+        Assert.False(descriptor.TryGetCellPrism(new VoxelIndex(descriptor.Width, 0, 0), out _));
+    }
+
+    [Theory]
+    [InlineData(GridTopologyKind.RectangularPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.FlatTop)]
+    public void TryValidateNavigationCorridor_ValidatesCanonicalPrimaryFaceChain(
+        GridTopologyKind topologyKind,
+        HexOrientation orientation)
+    {
+        GridTopologyMetrics metrics = topologyKind == GridTopologyKind.RectangularPrism
+            ? GridTopologyMetrics.Rectangular(new Fixed64(2), new Fixed64(2), new Fixed64(2))
+            : GridTopologyMetrics.Hex(new Fixed64(2), new Fixed64(2), orientation);
+        VoxelIndex finalIndex = new(2, 0, 0);
+        Vector3d max = topologyKind == GridTopologyKind.RectangularPrism
+            ? new Vector3d(4, 0, 0)
+            : HexCoordinateUtility.AxialToWorldOffset(finalIndex, metrics);
+        GridConfiguration configuration = new(
+            Vector3d.Zero,
+            max,
+            topologyKind: topologyKind,
+            topologyMetrics: metrics);
+
+        Assert.True(configuration.TryNormalize(out NormalizedGridConfiguration descriptor));
+        var prisms = new GridCellPrism[3];
+        for (int i = 0; i < prisms.Length; i++)
+            Assert.True(descriptor.TryGetCellPrism(new VoxelIndex(i, 0, 0), out prisms[i]));
+
+        var waypoints = new Vector3d[4];
+        Assert.True(GridCellGeometry.TryValidateNavigationCorridor(
+            prisms,
+            prisms[0].Center,
+            prisms[2].Center,
+            Fixed64.Zero,
+            Fixed64.One,
+            waypoints,
+            out int waypointCount,
+            out Fixed64 geometricCost));
+
+        Assert.Equal(2, waypointCount);
+        Assert.True(geometricCost > Fixed64.Zero);
+        Assert.False(GridCellGeometry.TryValidateNavigationCorridor(
+            new[] { prisms[0], prisms[2] },
+            prisms[0].Center,
+            prisms[2].Center,
+            Fixed64.Zero,
+            Fixed64.One,
+            waypoints,
+            out _,
+            out _));
+        Assert.False(GridCellGeometry.TryValidateNavigationCorridor(
+            prisms,
+            prisms[0].Center,
+            prisms[2].Center,
+            new Fixed64(3),
+            Fixed64.One,
+            waypoints,
+            out _,
+            out _));
+        Assert.False(GridCellGeometry.TryValidateNavigationCorridor(
+            prisms,
+            new Vector3d(100, 0, 0),
+            prisms[2].Center,
+            Fixed64.Zero,
+            Fixed64.One,
+            waypoints,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationGeometry_DefaultOrIncompletePrismsFailClosed()
+    {
+        GridCellPrism invalid = default;
+
+        Assert.False(invalid.Contains(Vector3d.Zero));
+        Assert.False(GridCellGeometry.TryValidateNavigationCorridor(
+            new[] { invalid },
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.Zero,
+            Fixed64.One,
+            new Vector3d[2],
+            out int waypointCount,
+            out Fixed64 geometricCost));
+        Assert.Equal(0, waypointCount);
+        Assert.Equal(Fixed64.Zero, geometricCost);
+    }
+
     [Fact]
     public void TryNormalize_InvalidOrOversizedConfiguration_ReturnsDefaultDescriptor()
     {
