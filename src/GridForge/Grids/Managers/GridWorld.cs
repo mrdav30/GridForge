@@ -112,7 +112,10 @@ public sealed class GridWorld : IDisposable
     private readonly GridSpatialIndex _spatialIndex;
     private long _gridGenerationCounter;
     private ulong _changeSequence;
+    private ulong _publishedChangeSequence;
     private bool _isPublishingCommittedChanges;
+    private int _committedPublicationOwnerThreadId;
+    private int _navigationMaintenanceOwnerThreadId;
 
     #endregion
 
@@ -368,6 +371,12 @@ public sealed class GridWorld : IDisposable
         if (!IsActive)
             return false;
 
+        if (Volatile.Read(ref _navigationMaintenanceOwnerThreadId)
+            == Environment.CurrentManagedThreadId)
+        {
+            return TryCaptureNavigationBaselineCore(configurationKey, requestedVoxels, out baseline);
+        }
+
         _gridLock.EnterReadLock();
         try
         {
@@ -377,6 +386,69 @@ public sealed class GridWorld : IDisposable
         finally
         {
             _gridLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>
+    /// Executes one short navigation maintenance snapshot while grid mutations are frozen.
+    /// Committed-change prefix detachment and all required navigation baseline captures can
+    /// therefore observe one deterministic world state.
+    /// </summary>
+    /// <param name="maintenance">The non-mutating maintenance callback to execute.</param>
+    /// <remarks>
+    /// The callback may call <see cref="TryCaptureNavigationBaseline"/> without lock recursion.
+    /// It must not mutate this world, wait for code that may mutate this world, or retain live
+    /// grid/voxel references beyond the callback. This method must not be called from a committed-
+    /// change notification handler. Those handlers remain outside the mutation lock and may enqueue
+    /// represented events after this snapshot completes.
+    /// </remarks>
+    public void ExecuteNavigationMaintenanceSnapshot(Action maintenance)
+    {
+        SwiftThrowHelper.ThrowIfNull(maintenance, nameof(maintenance));
+        SwiftThrowHelper.ThrowIfTrue(
+            !IsActive,
+            message: "Cannot capture navigation maintenance state from an inactive world.");
+        SwiftThrowHelper.ThrowIfTrue(
+            Volatile.Read(ref _committedPublicationOwnerThreadId)
+                == Environment.CurrentManagedThreadId,
+            message: "Cannot enter navigation maintenance from a committed-change notification handler.");
+
+        while (true)
+        {
+            bool retryAfterCommittedPrefix;
+            _gridLock.EnterReadLock();
+            try
+            {
+                lock (ChangeSyncRoot)
+                {
+                    retryAfterCommittedPrefix = _publishedChangeSequence != _changeSequence;
+                    if (!retryAfterCommittedPrefix)
+                    {
+                        _navigationMaintenanceOwnerThreadId = Environment.CurrentManagedThreadId;
+                        try
+                        {
+                            maintenance();
+                            return;
+                        }
+                        finally
+                        {
+                            _navigationMaintenanceOwnerThreadId = 0;
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _gridLock.ExitReadLock();
+            }
+
+            // A committed handler may legally perform a reentrant structural mutation. Never
+            // wait for that handler while holding the read lock it needs to promote past.
+            lock (ChangeSyncRoot)
+            {
+                while (_publishedChangeSequence != _changeSequence)
+                    Monitor.Wait(ChangeSyncRoot);
+            }
         }
     }
 
@@ -463,6 +535,7 @@ public sealed class GridWorld : IDisposable
             _changeSequence,
             SpawnToken,
             grid.SpawnToken,
+            grid.ChangeHighWaterSequence,
             grid.GridIndex,
             configurationKey,
             states);
@@ -1575,8 +1648,10 @@ public sealed class GridWorld : IDisposable
     private GridEventInfo CreateGridEventInfo(
         VoxelGrid grid,
         GridEventKind changeKind,
-        GridChangeStamp changeStamp) =>
-        new(
+        GridChangeStamp changeStamp)
+    {
+        grid.ChangeHighWaterSequence = changeStamp.Sequence;
+        return new GridEventInfo(
             SpawnToken,
             grid.GridIndex,
             grid.SpawnToken,
@@ -1587,6 +1662,7 @@ public sealed class GridWorld : IDisposable
             grid.BoundsMin,
             grid.BoundsMax,
             changeStamp);
+    }
 
     internal GridEventInfo CreateGridEventInfo(
         VoxelGrid grid,
@@ -1597,8 +1673,10 @@ public sealed class GridWorld : IDisposable
         GridChangeStamp changeStamp,
         bool hasVoxelState,
         bool isVoxelPresent,
-        byte obstacleCount) =>
-        new(
+        byte obstacleCount)
+    {
+        grid.ChangeHighWaterSequence = changeStamp.Sequence;
+        return new GridEventInfo(
             SpawnToken,
             grid.GridIndex,
             grid.SpawnToken,
@@ -1612,6 +1690,7 @@ public sealed class GridWorld : IDisposable
             hasVoxelState,
             isVoxelPresent,
             obstacleCount);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal GridChangeStamp AllocateChangeStamp()
@@ -1637,35 +1716,48 @@ public sealed class GridWorld : IDisposable
 
     internal void DrainCommittedChanges()
     {
-        while (true)
+        Volatile.Write(ref _committedPublicationOwnerThreadId, Environment.CurrentManagedThreadId);
+        try
         {
-            GridCommittedChange change;
-            lock (ChangeSyncRoot)
+            while (true)
             {
-                if (!_committedChanges.TryDequeue(out change))
+                GridCommittedChange change;
+                lock (ChangeSyncRoot)
                 {
-                    _isPublishingCommittedChanges = false;
-                    return;
+                    if (!_committedChanges.TryDequeue(out change))
+                    {
+                        _isPublishingCommittedChanges = false;
+                        return;
+                    }
+                }
+
+                GridObstacleManager.NotifyCommittedExact(change);
+                switch (change.GridEvent.ChangeKind)
+                {
+                    case GridEventKind.GridAdded:
+                        NotifyActiveGridAdded(change.GridEvent);
+                        break;
+                    case GridEventKind.GridRemoved:
+                        NotifyActiveGridRemoved(change.GridEvent);
+                        break;
+                    case GridEventKind.WorldReset:
+                        break;
+                    default:
+                        NotifyActiveGridChange(change.GridEvent);
+                        break;
+                }
+
+                NotifyChangeCommitted(change.GridEvent);
+                lock (ChangeSyncRoot)
+                {
+                    _publishedChangeSequence = change.GridEvent.ChangeSequence;
+                    Monitor.PulseAll(ChangeSyncRoot);
                 }
             }
-
-            GridObstacleManager.NotifyCommittedExact(change);
-            switch (change.GridEvent.ChangeKind)
-            {
-                case GridEventKind.GridAdded:
-                    NotifyActiveGridAdded(change.GridEvent);
-                    break;
-                case GridEventKind.GridRemoved:
-                    NotifyActiveGridRemoved(change.GridEvent);
-                    break;
-                case GridEventKind.WorldReset:
-                    break;
-                default:
-                    NotifyActiveGridChange(change.GridEvent);
-                    break;
-            }
-
-            NotifyChangeCommitted(change.GridEvent);
+        }
+        finally
+        {
+            Volatile.Write(ref _committedPublicationOwnerThreadId, 0);
         }
     }
 

@@ -186,6 +186,8 @@ public class VoxelGrid
     /// </summary>
     public uint Version { get; private set; }
 
+    internal ulong ChangeHighWaterSequence { get; set; }
+
     private int _scanWidth;
     private int _scanHeight;
     private int _scanLength;
@@ -292,6 +294,7 @@ public class VoxelGrid
 
         SpawnToken = 0;
         Version = 0;
+        ChangeHighWaterSequence = 0;
 
         GridIndex = ushort.MaxValue;
 

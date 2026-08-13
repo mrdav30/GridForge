@@ -33,6 +33,12 @@ public sealed class GridNavigationBaseline
     public long GridSpawnToken { get; }
 
     /// <summary>
+    /// The last world-local change sequence applied to this exact grid generation.
+    /// Unrelated grids do not advance this value.
+    /// </summary>
+    public ulong GridHighWaterSequence { get; }
+
+    /// <summary>
     /// The active grid's recyclable world-local slot.
     /// </summary>
     public ushort GridIndex { get; }
@@ -51,6 +57,7 @@ public sealed class GridNavigationBaseline
         ulong highWaterSequence,
         long worldSpawnToken,
         long gridSpawnToken,
+        ulong gridHighWaterSequence,
         ushort gridIndex,
         GridConfigurationKey configurationKey,
         NavigationBaselineVoxelState[] voxelStates)
@@ -58,6 +65,7 @@ public sealed class GridNavigationBaseline
         HighWaterSequence = highWaterSequence;
         WorldSpawnToken = worldSpawnToken;
         GridSpawnToken = gridSpawnToken;
+        GridHighWaterSequence = gridHighWaterSequence;
         GridIndex = gridIndex;
         ConfigurationKey = configurationKey;
         _voxelStates = voxelStates;

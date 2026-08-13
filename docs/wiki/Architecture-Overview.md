@@ -204,7 +204,9 @@ Consumers that install addressed metadata can call
 exact normalized `GridConfigurationKey` and a strictly ascending, unique span
 of topology-local `VoxelIndex` values. The baseline returns only those
 addresses, the exact active grid generation, sparse presence, obstacle count,
-and the same high-water sequence used by the feed. Apply baseline state first,
+the grid-local `GridHighWaterSequence`, and the same high-water sequence used by the feed.
+The grid-local high-water changes only with that grid and lets a chunked consumer
+detect target-grid mutation without restarting for unrelated world churn. Apply baseline state first,
 then only committed events whose sequence is greater than that high-water mark.
 
 Use `TryCaptureNavigationBaseline(...)` only when the caller already owns an
@@ -212,6 +214,14 @@ equivalent subscription protocol. Neither baseline API enumerates unrelated
 grids or unrequested physical voxels. `GridIndex` is included for diagnostics;
 the world token, grid generation, and normalized configuration key are the
 identity boundary.
+
+Consumers that already own one committed-change subscription and reconcile at
+a deterministic maintenance boundary can use
+`ExecuteNavigationMaintenanceSnapshot(...)` to detach their fixed event prefix
+and capture all required address baselines against one frozen world state. Keep
+the callback short and non-mutating; it runs while GridForge excludes grid and
+voxel mutations. `TryCaptureNavigationBaseline(...)` is safe inside that
+callback and does not recurse through the world locks.
 
 ## Neighbor Architecture
 

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -32,6 +34,7 @@ public sealed class GridNavigationBaselineTests
             out GridNavigationBaseline baseline));
 
         Assert.Equal(highWater, baseline.HighWaterSequence);
+        Assert.Equal(highWater, baseline.GridHighWaterSequence);
         Assert.Equal(world.SpawnToken, baseline.WorldSpawnToken);
         Assert.Equal(grid.SpawnToken, baseline.GridSpawnToken);
         Assert.Equal(grid.GridIndex, baseline.GridIndex);
@@ -120,6 +123,135 @@ public sealed class GridNavigationBaselineTests
 
         Assert.True(grid.TryAddVoxel(address, out _));
         Assert.Equal(2, events.Count);
+    }
+
+    [Fact]
+    public async Task MaintenanceSnapshot_ShouldFreezeMutationsAcrossPrefixDetachAndBaselineCapture()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        VoxelIndex address = new VoxelIndex(0, 0, 0);
+        Assert.True(grid.TryGetVoxel(address, out Voxel voxel));
+        int mutationStarted = 0;
+        GridNavigationBaseline baseline = null;
+        Task mutation = null;
+
+        world.ExecuteNavigationMaintenanceSnapshot(() =>
+        {
+            mutation = Task.Run(() =>
+            {
+                Volatile.Write(ref mutationStarted, 1);
+                Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+            });
+
+            Assert.True(SpinWait.SpinUntil(
+                () => Volatile.Read(ref mutationStarted) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.False(mutation.IsCompleted);
+            Assert.True(world.TryCaptureNavigationBaseline(
+                grid.Configuration.ToGridKey(),
+                new[] { address },
+                out baseline));
+            Assert.Equal(0, baseline.VoxelStates[0].ObstacleCount);
+        });
+
+        await mutation.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.True(world.TryCaptureNavigationBaseline(
+            grid.Configuration.ToGridKey(),
+            new[] { address },
+            out GridNavigationBaseline after));
+        Assert.Equal(1, after.VoxelStates[0].ObstacleCount);
+        Assert.True(after.HighWaterSequence > baseline.HighWaterSequence);
+        Assert.True(after.GridHighWaterSequence > baseline.GridHighWaterSequence);
+    }
+
+    [Fact]
+    public void Capture_ShouldKeepGridHighWaterStableAcrossUnrelatedGridMutation()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid observed = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        VoxelGrid unrelated = GridWorldTestFactory.AddGrid(
+            world,
+            new Vector3d(2, 0, 0),
+            new Vector3d(2, 0, 0));
+        VoxelIndex address = default;
+        Assert.True(world.TryCaptureNavigationBaseline(
+            observed.Configuration.ToGridKey(),
+            new[] { address },
+            out GridNavigationBaseline before));
+        Assert.True(unrelated.TryGetVoxel(address, out Voxel voxel));
+        Assert.True(unrelated.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+
+        Assert.True(world.TryCaptureNavigationBaseline(
+            observed.Configuration.ToGridKey(),
+            new[] { address },
+            out GridNavigationBaseline after));
+
+        Assert.True(after.HighWaterSequence > before.HighWaterSequence);
+        Assert.Equal(before.GridHighWaterSequence, after.GridHighWaterSequence);
+    }
+
+    [Fact]
+    public async Task MaintenanceSnapshot_ShouldWaitForCommittedCallbackPrefix()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
+        GridConfiguration reentrantConfiguration = new(
+            new Vector3d(2, 0, 0),
+            new Vector3d(2, 0, 0));
+        using ManualResetEventSlim callbackEntered = new ManualResetEventSlim();
+        using ManualResetEventSlim releaseCallback = new ManualResetEventSlim();
+        int snapshotEntered = 0;
+        int reentrantMutationCompleted = 0;
+        world.OnChangeCommitted += eventInfo =>
+        {
+            if (eventInfo.ChangeKind != GridEventKind.ObstacleAdded)
+                return;
+
+            callbackEntered.Set();
+            releaseCallback.Wait(TestContext.Current.CancellationToken);
+            Assert.True(world.TryAddGrid(reentrantConfiguration, out _));
+            Volatile.Write(ref reentrantMutationCompleted, 1);
+        };
+
+        Task mutation = Task.Run(
+            () => Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken())),
+            TestContext.Current.CancellationToken);
+        Assert.True(callbackEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Task snapshot = Task.Run(
+            () => world.ExecuteNavigationMaintenanceSnapshot(
+                () => Volatile.Write(ref snapshotEntered, 1)),
+            TestContext.Current.CancellationToken);
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal(0, Volatile.Read(ref snapshotEntered));
+
+        releaseCallback.Set();
+        await Task.WhenAll(mutation, snapshot)
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(1, Volatile.Read(ref snapshotEntered));
+        Assert.Equal(1, Volatile.Read(ref reentrantMutationCompleted));
+    }
+
+    [Fact]
+    public void MaintenanceSnapshot_ShouldRejectReentrantCommittedCallback()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
+        Exception reentrantFailure = null;
+        world.OnChangeCommitted += eventInfo =>
+        {
+            if (eventInfo.ChangeKind != GridEventKind.ObstacleAdded)
+                return;
+            reentrantFailure = Record.Exception(
+                () => world.ExecuteNavigationMaintenanceSnapshot(() => { }));
+        };
+
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+
+        Assert.IsType<InvalidOperationException>(reentrantFailure);
     }
 
     [Fact]
