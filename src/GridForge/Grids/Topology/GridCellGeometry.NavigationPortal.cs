@@ -53,10 +53,9 @@ public static partial class GridCellGeometry
                 return false;
             }
 
-            Vector2d center = Vector2d.Lerp(
+            Vector2d center = GetTranslationInvariantMidpoint(
                 contact.HorizontalSegmentStart,
-                contact.HorizontalSegmentEnd,
-                Fixed64.Half);
+                contact.HorizontalSegmentEnd);
             portal = new GridNavigationPortal(
                 VoxelContactFaceKind.Vertical,
                 sourceToTarget,
@@ -315,4 +314,14 @@ public static partial class GridCellGeometry
 
         return true;
     }
+
+    // A floor tie is symmetric and commutes with raw-coordinate translation;
+    // half-to-even changes by one quantum when an odd translation flips parity.
+    private static Vector2d GetTranslationInvariantMidpoint(Vector2d start, Vector2d end) => new(
+        Fixed64.FromRaw(
+            (start.X.m_rawValue & end.X.m_rawValue)
+            + ((start.X.m_rawValue ^ end.X.m_rawValue) >> 1)),
+        Fixed64.FromRaw(
+            (start.Y.m_rawValue & end.Y.m_rawValue)
+            + ((start.Y.m_rawValue ^ end.Y.m_rawValue) >> 1)));
 }

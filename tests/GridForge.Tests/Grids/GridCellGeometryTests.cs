@@ -405,6 +405,37 @@ public sealed class GridCellGeometryTests : IDisposable
     }
 
     [Fact]
+    public void NavigationPortal_HexCompilation_ShouldBeTranslationEquivariantAtRawRadius()
+    {
+        Fixed64 radius = Fixed64.FromRaw(4_294_967_302L);
+        var configuration = new GridConfiguration(
+            new Vector3d(-8, 3, -20),
+            new Vector3d(8, 5, -4),
+            topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: GridTopologyMetrics.Hex(radius, (Fixed64)2, HexOrientation.PointyTop));
+        Assert.True(configuration.TryNormalize(out NormalizedGridConfiguration binding));
+        var templateSourceIndex = new VoxelIndex(1, 0, 0);
+        var templateTargetIndex = new VoxelIndex(0, 0, 1);
+        var sourceIndex = new VoxelIndex(1, 0, 1);
+        var targetIndex = new VoxelIndex(0, 0, 2);
+        Assert.True(binding.TryGetCellPrism(templateSourceIndex, out GridCellPrism templateSource));
+        Assert.True(binding.TryGetCellPrism(templateTargetIndex, out GridCellPrism templateTarget));
+        Assert.True(binding.TryGetCellPrism(sourceIndex, out GridCellPrism source));
+        Assert.True(binding.TryGetCellPrism(targetIndex, out GridCellPrism target));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            templateSource,
+            templateTarget,
+            out GridNavigationPortal template));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(source, target, out GridNavigationPortal direct));
+        Assert.True(Vector3d.TrySubtract(Vector3d.Zero, templateSource.Center, out Vector3d toOrigin));
+        Assert.True(template.TryTranslate(toOrigin, out GridNavigationPortal originRelative));
+        Assert.True(originRelative.TryTranslate(source.Center, out GridNavigationPortal translated));
+
+        Assert.Equal(-76_235_669_491L, direct.CanonicalFacePoint.Z.m_rawValue);
+        Assert.Equal(direct, translated);
+    }
+
+    [Fact]
     public void NavigationPortal_TryTranslate_ShouldFailClosedForInvalidAndOverflowingValues()
     {
         Assert.False(default(GridNavigationPortal).TryTranslate(new Vector3d(1, 1, 1), out GridNavigationPortal invalid));
