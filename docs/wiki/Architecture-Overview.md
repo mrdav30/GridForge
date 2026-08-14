@@ -233,6 +233,12 @@ grid source scans. Upper/lower directory visits, pair selection, source
 addresses, and exact target probes are all charged to the caller's candidate
 budget. The cursor retains only scalar/value state between chunks and rejects
 mixed committed generations as `Stale`.
+The key-filtered begin path reads only the selected grid's reciprocal incident
+rows, merging incoming then outgoing pairs in canonical order; row and pair
+fetches remain separately probe-debited, independent of unrelated pair count.
+Its value-only `GridBoundaryContact` output captures both canonical
+configuration keys, and `GridBoundaryContactRunStamp` identifies the committed
+world revision shared by a multi-cursor batch.
 
 ## Neighbor Architecture
 

@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using GridForge.Configuration;
 using GridForge.Spatial;
 
 namespace GridForge.Grids.Topology;
@@ -29,7 +30,7 @@ public enum GridBoundaryContactCursorStatus : byte
 /// </summary>
 /// <remarks>
 /// Create and reuse one instance, begin it through <see cref="GridWorld.BeginBoundaryContacts"/>,
-/// and advance it through <see cref="GridWorld.AdvanceBoundaryContacts"/>. The cursor retains no
+/// and advance it through a <c>GridWorld.AdvanceBoundaryContacts(...)</c> overload. The cursor retains no
 /// live grid or voxel reference. If it becomes <see cref="GridBoundaryContactCursorStatus.Stale"/>,
 /// discard every contact returned since the last begin and restart the cursor.
 /// </remarks>
@@ -57,6 +58,8 @@ public sealed class GridBoundaryContactCursor
     internal long TargetGridSpawnToken;
     internal ulong SourceGridHighWaterSequence;
     internal ulong TargetGridHighWaterSequence;
+    internal GridConfigurationKey SourceConfigurationKey;
+    internal GridConfigurationKey TargetConfigurationKey;
     internal GridCellPrism SourcePrism;
     internal VoxelIndex SourceMinimum;
     internal VoxelIndex SourceMaximum;
@@ -65,9 +68,19 @@ public sealed class GridBoundaryContactCursor
     internal VoxelIndex TargetMaximum;
     internal VoxelIndex TargetAddress;
     internal VoxelContactManifold PendingContact;
+    internal ushort FilterGridIndex;
+    internal long FilterGridSpawnToken;
+    internal ulong FilterGridHighWaterSequence;
+    internal int FilteredPairPhase;
+    internal int FilteredPairRowCount;
+    internal int FilteredPairRowOrdinal;
+    internal ushort PendingFilteredGridIndex;
     internal bool HasPairSource;
     internal bool HasSourceRange;
     internal bool HasPendingContact;
+    internal bool IsFiltered;
+    internal bool HasFilteredPairRow;
+    internal bool HasPendingFilteredPair;
     internal TraversalStage Stage;
     internal GridBoundaryContactCursorStatus CurrentStatus;
 
@@ -76,6 +89,15 @@ public sealed class GridBoundaryContactCursor
 
     /// <summary>The cumulative number of canonical pair, source-address, and target probes.</summary>
     public ulong CandidateOrdinal { get; internal set; }
+
+    /// <summary>The exact committed world revision bound by this cursor.</summary>
+    public GridBoundaryContactRunStamp RunStamp =>
+        CurrentStatus == GridBoundaryContactCursorStatus.Stale
+            ? default
+            : new GridBoundaryContactRunStamp(
+                WorldSpawnToken,
+                WorldVersion,
+                WorldChangeSequence);
 
     internal void Begin(long worldSpawnToken, uint worldVersion, ulong worldChangeSequence)
     {
@@ -93,7 +115,23 @@ public sealed class GridBoundaryContactCursor
         HasPendingContact = false;
         Stage = TraversalStage.Pair;
         CurrentStatus = GridBoundaryContactCursorStatus.More;
+        ClearFilterBinding();
         ClearParticipantBinding();
+    }
+
+    internal void BeginFiltered(
+        long worldSpawnToken,
+        uint worldVersion,
+        ulong worldChangeSequence,
+        ushort gridIndex,
+        long gridSpawnToken,
+        ulong gridHighWaterSequence)
+    {
+        Begin(worldSpawnToken, worldVersion, worldChangeSequence);
+        FilterGridIndex = gridIndex;
+        FilterGridSpawnToken = gridSpawnToken;
+        FilterGridHighWaterSequence = gridHighWaterSequence;
+        IsFiltered = true;
     }
 
     internal GridBoundaryContactCursorStatus MarkStale()
@@ -112,6 +150,7 @@ public sealed class GridBoundaryContactCursor
         HasPendingContact = false;
         Stage = TraversalStage.Pair;
         CurrentStatus = GridBoundaryContactCursorStatus.Stale;
+        ClearFilterBinding();
         ClearParticipantBinding();
         return CurrentStatus;
     }
@@ -136,6 +175,8 @@ public sealed class GridBoundaryContactCursor
         TargetGridSpawnToken = 0;
         SourceGridHighWaterSequence = 0;
         TargetGridHighWaterSequence = 0;
+        SourceConfigurationKey = default;
+        TargetConfigurationKey = default;
         SourcePrism = default;
         SourceMinimum = default;
         SourceMaximum = default;
@@ -144,5 +185,19 @@ public sealed class GridBoundaryContactCursor
         TargetMaximum = default;
         TargetAddress = default;
         PendingContact = default;
+    }
+
+    private void ClearFilterBinding()
+    {
+        FilterGridIndex = 0;
+        FilterGridSpawnToken = 0;
+        FilterGridHighWaterSequence = 0;
+        FilteredPairPhase = 0;
+        FilteredPairRowCount = 0;
+        FilteredPairRowOrdinal = 0;
+        PendingFilteredGridIndex = 0;
+        IsFiltered = false;
+        HasFilteredPairRow = false;
+        HasPendingFilteredPair = false;
     }
 }

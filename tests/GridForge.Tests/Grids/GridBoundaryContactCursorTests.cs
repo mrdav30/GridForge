@@ -418,6 +418,324 @@ public sealed class GridBoundaryContactCursorTests
     }
 
     [Fact]
+    public void FilteredAdvance_ShouldIgnoreUnrelatedPairsAfterTwoIncidentRowProbes()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(
+            new Vector3d(1_000, 0, 0),
+            new Vector3d(1_000, 0, 0));
+        Assert.True(world.TryAddGrid(selected, out _));
+        for (int i = 0; i < 16; i++)
+        {
+            Vector3d center = new Vector3d(i, 0, 0);
+            Assert.True(world.TryAddGrid(new GridConfiguration(center, center), out _));
+        }
+
+        var cursor = new GridBoundaryContactCursor();
+
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), cursor));
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 2,
+                outputLimit: 0,
+                out int probes,
+                out int outputCount));
+        Assert.Equal(2, probes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(2UL, cursor.CandidateOrdinal);
+    }
+
+    [Fact]
+    public void FilteredAdvance_ShouldMergeIncomingThenOutgoingPairsInCanonicalOrder()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var firstLowerConfiguration = new GridConfiguration(
+            new Vector3d(-1, 0, 0),
+            new Vector3d(-1, 0, 0));
+        var secondLowerConfiguration = new GridConfiguration(
+            new Vector3d(0, -1, 0),
+            new Vector3d(0, -1, 0));
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        var firstHigherConfiguration = new GridConfiguration(
+            new Vector3d(0, 0, -1),
+            new Vector3d(0, 0, -1));
+        var secondHigherConfiguration = new GridConfiguration(
+            new Vector3d(1, 0, 0),
+            new Vector3d(1, 0, 0));
+        Assert.True(world.TryAddGrid(firstLowerConfiguration, out ushort firstLower));
+        Assert.True(world.TryAddGrid(secondLowerConfiguration, out ushort secondLower));
+        Assert.True(world.TryAddGrid(selected, out ushort selectedIndex));
+        Assert.True(world.TryAddGrid(firstHigherConfiguration, out ushort firstHigher));
+        Assert.True(world.TryAddGrid(secondHigherConfiguration, out ushort secondHigher));
+        var cursor = new GridBoundaryContactCursor();
+        GridBoundaryContact[] output = new GridBoundaryContact[5];
+
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), cursor));
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 32,
+                outputLimit: output.Length,
+                out int probes,
+                out int outputCount));
+
+        Assert.Equal(4, outputCount);
+        Assert.Equal(16, probes);
+        Assert.Equal(firstLowerConfiguration.ToGridKey(), output[0].SourceConfigurationKey);
+        Assert.Equal(selected.ToGridKey(), output[0].TargetConfigurationKey);
+        Assert.Equal(firstLower, output[0].Contact.Source.GridIndex);
+        Assert.Equal(selectedIndex, output[0].Contact.Target.GridIndex);
+        Assert.Equal(secondLowerConfiguration.ToGridKey(), output[1].SourceConfigurationKey);
+        Assert.Equal(selected.ToGridKey(), output[1].TargetConfigurationKey);
+        Assert.Equal(secondLower, output[1].Contact.Source.GridIndex);
+        Assert.Equal(selectedIndex, output[1].Contact.Target.GridIndex);
+        Assert.Equal(selected.ToGridKey(), output[2].SourceConfigurationKey);
+        Assert.Equal(firstHigherConfiguration.ToGridKey(), output[2].TargetConfigurationKey);
+        Assert.Equal(selectedIndex, output[2].Contact.Source.GridIndex);
+        Assert.Equal(firstHigher, output[2].Contact.Target.GridIndex);
+        Assert.Equal(selected.ToGridKey(), output[3].SourceConfigurationKey);
+        Assert.Equal(secondHigherConfiguration.ToGridKey(), output[3].TargetConfigurationKey);
+        Assert.Equal(selectedIndex, output[3].Contact.Source.GridIndex);
+        Assert.Equal(secondHigher, output[3].Contact.Target.GridIndex);
+    }
+
+    [Fact]
+    public void FilteredBegins_ShouldShareRunStampAndCanonicalIdentityForBothParticipants()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var first = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        var second = new GridConfiguration(
+            new Vector3d(1, 0, 0),
+            new Vector3d(1, 0, 0));
+        Assert.True(world.TryAddGrid(first, out ushort firstIndex));
+        Assert.True(world.TryAddGrid(second, out ushort secondIndex));
+        var firstCursor = new GridBoundaryContactCursor();
+        var secondCursor = new GridBoundaryContactCursor();
+        var firstOutput = new GridBoundaryContact[2];
+        var secondOutput = new GridBoundaryContact[2];
+
+        Assert.True(world.TryBeginBoundaryContacts(first.ToGridKey(), firstCursor));
+        Assert.True(world.TryBeginBoundaryContacts(second.ToGridKey(), secondCursor));
+        Assert.NotEqual(default, firstCursor.RunStamp);
+        Assert.Equal(firstCursor.RunStamp, secondCursor.RunStamp);
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            world.AdvanceBoundaryContacts(firstCursor, firstOutput, 16, 2, out _, out int firstCount));
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            world.AdvanceBoundaryContacts(secondCursor, secondOutput, 16, 2, out _, out int secondCount));
+
+        Assert.Equal(1, firstCount);
+        Assert.Equal(1, secondCount);
+        Assert.Equal(first.ToGridKey(), firstOutput[0].SourceConfigurationKey);
+        Assert.Equal(second.ToGridKey(), firstOutput[0].TargetConfigurationKey);
+        Assert.Equal(firstIndex, firstOutput[0].Contact.Source.GridIndex);
+        Assert.Equal(secondIndex, firstOutput[0].Contact.Target.GridIndex);
+        Assert.Equal(firstOutput[0].SourceConfigurationKey, secondOutput[0].SourceConfigurationKey);
+        Assert.Equal(firstOutput[0].TargetConfigurationKey, secondOutput[0].TargetConfigurationKey);
+        Assert.Equal(firstOutput[0].Contact.Source, secondOutput[0].Contact.Source);
+        Assert.Equal(firstOutput[0].Contact.Target, secondOutput[0].Contact.Target);
+    }
+
+    [Fact]
+    public void FilteredBegins_ShouldExposeDifferentRunStampsAcrossInterveningChange()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out _));
+        var firstCursor = new GridBoundaryContactCursor();
+        var secondCursor = new GridBoundaryContactCursor();
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), firstCursor));
+        GridBoundaryContactRunStamp firstStamp = firstCursor.RunStamp;
+
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(100, 0, 0),
+                new Vector3d(100, 0, 0)),
+            out _));
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), secondCursor));
+
+        Assert.NotEqual(firstStamp, secondCursor.RunStamp);
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Stale,
+            world.AdvanceBoundaryContacts(
+                firstCursor,
+                Span<GridBoundaryContact>.Empty,
+                0,
+                0,
+                out _,
+                out _));
+        Assert.Equal(default, firstCursor.RunStamp);
+    }
+
+    [Fact]
+    public void FilteredAdvance_ShouldDebitIncomingRowOutgoingRowAndPairSeparately()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), cursor));
+
+        for (ulong expectedOrdinal = 1; expectedOrdinal <= 3; expectedOrdinal++)
+        {
+            Assert.Equal(
+                GridBoundaryContactCursorStatus.More,
+                world.AdvanceBoundaryContacts(
+                    cursor,
+                    Span<VoxelContactManifold>.Empty,
+                    candidateProbeLimit: 1,
+                    outputLimit: 0,
+                    out int probes,
+                    out int outputCount));
+            Assert.Equal(1, probes);
+            Assert.Equal(0, outputCount);
+            Assert.Equal(expectedOrdinal, cursor.CandidateOrdinal);
+        }
+    }
+
+    [Fact]
+    public void TryBeginFiltered_ShouldFailStaleWithoutPartialStateForMissingKey()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        var cursor = new GridBoundaryContactCursor();
+        world.BeginBoundaryContacts(cursor);
+
+        Assert.False(world.TryBeginBoundaryContacts(
+            new GridConfiguration(
+                new Vector3d(100, 0, 0),
+                new Vector3d(100, 0, 0)).ToGridKey(),
+            cursor));
+        Assert.Equal(GridBoundaryContactCursorStatus.Stale, cursor.Status);
+        Assert.Equal(0UL, cursor.CandidateOrdinal);
+        Assert.Equal(default, cursor.RunStamp);
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Stale,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int probes,
+                out int outputCount));
+        Assert.Equal(0, probes);
+        Assert.Equal(0, outputCount);
+    }
+
+    [Fact]
+    public void FilteredComplete_ShouldStaleAfterSelectedGridSlotReuse()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out ushort selectedIndex));
+        var cursor = new GridBoundaryContactCursor();
+        VoxelContactManifold[] output = new VoxelContactManifold[1];
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            DrainFiltered(world, selected.ToGridKey(), cursor, output));
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out _,
+                out _));
+
+        Assert.True(world.TryRemoveGrid(selectedIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(100, 0, 0),
+                new Vector3d(100, 0, 0)),
+            out ushort reusedIndex));
+        Assert.Equal(selectedIndex, reusedIndex);
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Stale,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int probes,
+                out int outputCount));
+        Assert.Equal(0, probes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(0UL, cursor.CandidateOrdinal);
+        Assert.Equal(default, cursor.RunStamp);
+    }
+
+    [Fact]
+    public void FilteredComplete_ShouldStaleOnSelectedGridHighWaterMismatch()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out ushort selectedIndex));
+        var cursor = new GridBoundaryContactCursor();
+        VoxelContactManifold[] output = new VoxelContactManifold[1];
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            DrainFiltered(world, selected.ToGridKey(), cursor, output));
+
+        world.ActiveGrids[selectedIndex].ChangeHighWaterSequence++;
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Stale,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int probes,
+                out int outputCount));
+        Assert.Equal(0, probes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(default, cursor.RunStamp);
+    }
+
+    [Fact]
+    public void FilteredAdvance_ShouldAllocateNothingAfterWarmup()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        GridBoundaryContact[] output = new GridBoundaryContact[1];
+        GridConfigurationKey selectedKey = selected.ToGridKey();
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Complete,
+            DrainFilteredBindings(world, selectedKey, cursor, output));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        GridBoundaryContactCursorStatus status = DrainFilteredBindings(
+            world,
+            selectedKey,
+            cursor,
+            output);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(GridBoundaryContactCursorStatus.Complete, status);
+        Assert.Equal(0, allocated);
+        Assert.All(
+            typeof(GridBoundaryContact).GetFields(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+            field => Assert.True(field.FieldType.IsValueType));
+    }
+
+    [Fact]
     public void PairDirectory_ShouldUseIncidentAdjacencyInsteadOfGlobalPairArray()
     {
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -489,6 +807,56 @@ public sealed class GridBoundaryContactCursorTests
         VoxelContactManifold[] output)
     {
         world.BeginBoundaryContacts(cursor);
+        GridBoundaryContactCursorStatus status;
+        do
+        {
+            status = world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 8,
+                outputLimit: 1,
+                out _,
+                out _);
+        }
+        while (status == GridBoundaryContactCursorStatus.More);
+
+        return status;
+    }
+
+    private static GridBoundaryContactCursorStatus DrainFiltered(
+        GridWorld world,
+        GridConfigurationKey configurationKey,
+        GridBoundaryContactCursor cursor,
+        VoxelContactManifold[] output)
+    {
+        if (!world.TryBeginBoundaryContacts(configurationKey, cursor))
+            return cursor.Status;
+
+        GridBoundaryContactCursorStatus status;
+        do
+        {
+            status = world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 8,
+                outputLimit: 1,
+                out _,
+                out _);
+        }
+        while (status == GridBoundaryContactCursorStatus.More);
+
+        return status;
+    }
+
+    private static GridBoundaryContactCursorStatus DrainFilteredBindings(
+        GridWorld world,
+        GridConfigurationKey configurationKey,
+        GridBoundaryContactCursor cursor,
+        GridBoundaryContact[] output)
+    {
+        if (!world.TryBeginBoundaryContacts(configurationKey, cursor))
+            return cursor.Status;
+
         GridBoundaryContactCursorStatus status;
         do
         {

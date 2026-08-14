@@ -171,6 +171,12 @@ separate runtime state, not missing seam geometry. `Stale` means a bound world,
 grid generation, or committed high-water changed: discard all output from that
 run and begin again. `Complete` remains bound and is revalidated by later
 advances, including zero-budget calls.
+When only one active grid changed, `TryBeginBoundaryContacts(...)` resolves its
+exact `GridConfigurationKey` and restricts the same cursor to that grid's
+incoming-lower and outgoing-higher incident pairs. A missing key returns false
+and leaves the cursor `Stale`. The `GridBoundaryContact` output overload carries
+both normalized grid keys, while `cursor.RunStamp` lets callers reject contacts
+captured across different committed world revisions.
 Prism construction fails closed when a normalized cell metric cannot be
 bisected exactly in the fixed-point scalar domain; this prevents a rounded half
 extent from turning a native shared face into a gap or volume overlap.
