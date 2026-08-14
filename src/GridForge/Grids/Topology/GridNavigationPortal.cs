@@ -55,6 +55,34 @@ public readonly struct GridNavigationPortal
     }
 
     /// <summary>
+    /// Attempts to rigidly translate the canonical face point without fixed-point saturation.
+    /// </summary>
+    /// <param name="offset">The exact translation applied to the canonical face point.</param>
+    /// <param name="translated">The translated portal, or <see langword="default"/> on failure.</param>
+    /// <returns>
+    /// <see langword="true"/> when this portal is valid and the translated face point is representable;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryTranslate(Vector3d offset, out GridNavigationPortal translated)
+    {
+        translated = default;
+        if (!IsValid
+            || !Vector3d.TryAdd(CanonicalFacePoint, offset, out Vector3d translatedFacePoint))
+        {
+            return false;
+        }
+
+        translated = new GridNavigationPortal(
+            FaceKind,
+            SourceToTarget,
+            translatedFacePoint,
+            MaximumHorizontalRadius,
+            MaximumBodyHeight);
+        return true;
+    }
+
+    /// <summary>
     /// Attempts to fit a fixed-point body profile and resolve its directed source and target foot anchors.
     /// </summary>
     /// <param name="horizontalRadius">The required nonnegative horizontal body radius.</param>
