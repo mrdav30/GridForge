@@ -1,0 +1,292 @@
+using System;
+using FixedMathSharp;
+using GridForge.Grids.Topology;
+using GridForge.Spatial;
+using Xunit;
+
+namespace GridForge.Grids.Tests;
+
+[Collection("GridForgeCollection")]
+public sealed class GridNavigationCorridorValidationCursorTests
+{
+    [Fact]
+    public void Advance_WithOneWorkUnit_CompletesOnlyAfterEveryCellAndPortalIsValidated()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(3);
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.One,
+            Fixed64.One);
+
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.Equal(
+                GridNavigationCorridorValidationStatus.InProgress,
+                cursor.Advance(cells, waypoints, 1));
+        }
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, 1));
+        Assert.Equal(2, cursor.PortalWaypointCount);
+        Assert.Equal(new Vector3d(1, -1, 0), waypoints[0]);
+        Assert.Equal(new Vector3d(3, -1, 0), waypoints[1]);
+        Assert.True(Vector3d.TryGetDistance(cells[0].Center, waypoints[0], out Fixed64 first));
+        Assert.True(Vector3d.TryGetDistance(waypoints[0], waypoints[1], out Fixed64 second));
+        Assert.True(Vector3d.TryGetDistance(waypoints[1], cells[2].Center, out Fixed64 third));
+        Assert.True(Fixed64.TryAdd(first, second, out Fixed64 prefix));
+        Assert.True(Fixed64.TryAdd(prefix, third, out Fixed64 expectedCost));
+        Assert.Equal(expectedCost, cursor.GeometricCost);
+    }
+
+    [Fact]
+    public void Advance_HorizontalPortalRetainsBothCanonicalWaypoints()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(
+            new Fixed64(2),
+            new Fixed64(2),
+            new Fixed64(2));
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(0, 2, 0),
+            default,
+            out cells[1]));
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[1].Center,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, 5));
+        Assert.Equal(2, cursor.PortalWaypointCount);
+        Assert.Equal(Vector3d.Zero, waypoints[0]);
+        Assert.Equal(new Vector3d(0, 1, 0), waypoints[1]);
+        Assert.Equal(new Fixed64(2), cursor.GeometricCost);
+    }
+
+    [Fact]
+    public void Advance_PointyHexPortalRetainsExactRawCertificate()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            HexOrientation.PointyTop);
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        var targetCenter = new Vector3d(Fixed64.FromRaw(14_878_203_148L), Fixed64.Zero, Fixed64.Zero);
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            targetCenter,
+            default,
+            out cells[1]));
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[1].Center,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, 5));
+        var expectedWaypoint = new Vector3d(
+            Fixed64.FromRaw(7_439_101_574L),
+            -Fixed64.One,
+            Fixed64.Zero);
+        Assert.Equal(1, cursor.PortalWaypointCount);
+        Assert.Equal(expectedWaypoint, waypoints[0]);
+        Assert.True(Vector3d.TryGetDistance(cells[0].Center, expectedWaypoint, out Fixed64 first));
+        Assert.True(Vector3d.TryGetDistance(expectedWaypoint, cells[1].Center, out Fixed64 second));
+        Assert.True(Fixed64.TryAdd(first, second, out Fixed64 expectedCost));
+        Assert.Equal(expectedCost, cursor.GeometricCost);
+    }
+
+    [Fact]
+    public void Advance_CarryoverAndOneShotProduceTheSameCertificate()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(3);
+        Vector3d[] expectedWaypoints = new Vector3d[4];
+        Assert.True(GridCellGeometry.TryValidateNavigationCorridor(
+            cells,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One,
+            expectedWaypoints,
+            out int expectedCount,
+            out Fixed64 expectedCost));
+
+        Vector3d[] actualWaypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+        while (cursor.Status == GridNavigationCorridorValidationStatus.InProgress)
+            cursor.Advance(cells, actualWaypoints, 1);
+
+        Assert.Equal(GridNavigationCorridorValidationStatus.Complete, cursor.Status);
+        Assert.Equal(expectedCount, cursor.PortalWaypointCount);
+        Assert.Equal(expectedCost, cursor.GeometricCost);
+        Assert.Equal(expectedWaypoints.AsSpan(0, expectedCount).ToArray(), actualWaypoints.AsSpan(0, expectedCount).ToArray());
+    }
+
+    [Fact]
+    public void Advance_MalformedCarryoverFailsClosedAndStaysTerminal()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(3);
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.InProgress,
+            cursor.Advance(cells, waypoints, 1));
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells.AsSpan(0, 2), waypoints, 1));
+        Assert.Equal(0, cursor.PortalWaypointCount);
+        Assert.Equal(Fixed64.Zero, cursor.GeometricCost);
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Fact]
+    public void Advance_DisconnectedPortalFailsOnItsOwnWorkUnit()
+    {
+        GridCellPrism[] chain = CreateRectangularChain(4);
+        GridCellPrism[] cells = { chain[0], chain[1], chain[3] };
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.InProgress,
+            cursor.Advance(cells, waypoints, 5));
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, 1));
+    }
+
+    [Fact]
+    public void Advance_CostOverflowIsDistinctAndResetsTheCertificate()
+    {
+        Fixed64 width = new Fixed64(1_500_000_000);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(
+            width,
+            new Fixed64(2),
+            new Fixed64(2));
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(-750_000_000, 0, 0),
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(750_000_000, 0, 0),
+            default,
+            out cells[1]));
+        var entry = new Vector3d(-1_500_000_000, -1, 0);
+        var exit = new Vector3d(1_500_000_000, -1, 0);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            entry,
+            exit,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.CostOverflow,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+        Assert.Equal(0, cursor.PortalWaypointCount);
+        Assert.Equal(Fixed64.Zero, cursor.GeometricCost);
+    }
+
+    [Fact]
+    public void Advance_WarmedCallerOwnedValidationAllocatesZero()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(3);
+        Vector3d[] waypoints = new Vector3d[4];
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            Validate(cells, waypoints));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        GridNavigationCorridorValidationStatus status = default;
+        for (int i = 0; i < 1_000; i++)
+            status = Validate(cells, waypoints);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(GridNavigationCorridorValidationStatus.Complete, status);
+        Assert.Equal(0, allocated);
+    }
+
+    private static GridNavigationCorridorValidationStatus Validate(
+        GridCellPrism[] cells,
+        Vector3d[] waypoints)
+    {
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+        return cursor.Advance(cells, waypoints, int.MaxValue);
+    }
+
+    private static GridCellPrism[] CreateRectangularChain(int cellCount)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(
+            new Fixed64(2),
+            new Fixed64(2),
+            new Fixed64(2));
+        var cells = new GridCellPrism[cellCount];
+        for (int i = 0; i < cells.Length; i++)
+        {
+            Assert.True(GridCellGeometry.TryCreatePrism(
+                GridTopologyKind.RectangularPrism,
+                metrics,
+                new Vector3d(i * 2, 0, 0),
+                default,
+                out cells[i]));
+        }
+
+        return cells;
+    }
+}

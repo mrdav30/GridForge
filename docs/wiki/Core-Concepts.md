@@ -152,7 +152,12 @@ positive-area `Face` is an automatic-portal candidate before agent-specific
 clearance checks. `TryCreateNavigationPortal(...)` compiles that face into an
 agent-independent `GridNavigationPortal` with conservative fixed-point radius
 and height capacity; its constant-time profile resolution returns directed foot
-anchors without retaining or querying live grid state.
+anchors without retaining or querying live grid state. For longer authored
+corridors, `GridNavigationCorridorValidationCursor` advances the same canonical
+portal, clearance, and checked-cost certificate used by
+`TryValidateNavigationCorridor(...)` in caller-budgeted, allocation-free work
+units. Callers retain the ordered prism and waypoint spans unchanged until the
+cursor reaches `Complete`, `Invalid`, or `CostOverflow`.
 `GetExactBoundaryContactsInto(...)` combines the existing
 range broad phase with exact fixed-point narrow phase and accepts caller-owned
 result and scratch containers for zero-allocation warmed composition work.
