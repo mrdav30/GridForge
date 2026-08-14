@@ -161,6 +161,16 @@ cursor reaches `Complete`, `Invalid`, or `CostOverflow`.
 `GetExactBoundaryContactsInto(...)` combines the existing
 range broad phase with exact fixed-point narrow phase and accepts caller-owned
 result and scratch containers for zero-allocation warmed composition work.
+World-wide composition can instead reuse a caller-owned
+`GridBoundaryContactCursor`. Begin and advance it through `GridWorld`; every
+chunk runs under the short navigation-maintenance gate and independently caps
+candidate probes and emitted contacts. The cursor walks a maintained exact
+contact-envelope index, canonical grid pairs, and topology-configured addresses
+without retaining live grids or voxels. Sparse physical absence is therefore a
+separate runtime state, not missing seam geometry. `Stale` means a bound world,
+grid generation, or committed high-water changed: discard all output from that
+run and begin again. `Complete` remains bound and is revalidated by later
+advances, including zero-budget calls.
 Prism construction fails closed when a normalized cell metric cannot be
 bisected exactly in the fixed-point scalar domain; this prevents a rounded half
 extent from turning a native shared face into a gap or volume overlap.

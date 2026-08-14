@@ -58,6 +58,24 @@ public sealed class GridSpatialIndexTests
     }
 
     [Fact]
+    public void ContactEnvelopeQuery_ShouldNotTraverseHugeSpatialHashVolume()
+    {
+        var index = new GridSpatialIndex(1);
+        var contactEnvelope = new FixedBoundVolume(
+            new Vector3d(-1_000_000, -1_000_000, -1_000_000),
+            new Vector3d(1_000_000, 1_000_000, 1_000_000));
+        Assert.True(index.Insert(
+            7,
+            new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero),
+            contactEnvelope));
+        SwiftList<ushort> candidates = new SwiftList<ushort>(1);
+
+        index.CollectContactCandidates(contactEnvelope, candidates);
+
+        Assert.Equal(new ushort[] { 7 }, candidates);
+    }
+
+    [Fact]
     public void Clear_ShouldReleaseBothTiersForReuse()
     {
         var index = new GridSpatialIndex(50, 64UL);

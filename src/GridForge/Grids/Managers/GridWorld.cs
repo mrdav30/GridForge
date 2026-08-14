@@ -16,6 +16,7 @@ using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Pool;
 using SwiftCollections.Query;
 
 namespace GridForge.Grids;
@@ -42,6 +43,10 @@ public sealed class GridWorld : IDisposable
     /// Oversized grids are indexed automatically outside this tier.
     /// </summary>
     public const int DefaultSpatialGridCellSize = 50;
+
+    private const int BoundaryContactSourceWordCount = (MaxGrids + 63) / 64;
+    private const int BoundaryContactSourceSummaryWordCount =
+        (BoundaryContactSourceWordCount + 63) / 64;
 
     #endregion
 
@@ -109,7 +114,12 @@ public sealed class GridWorld : IDisposable
     internal object ChangeSyncRoot { get; } = new object();
     private readonly SwiftQueue<GridCommittedChange> _committedChanges = new SwiftQueue<GridCommittedChange>();
     private readonly SwiftList<ushort> _gridCandidates = new();
+    private readonly SwiftDictionary<ushort, SwiftList<ushort>> _boundaryContactTargetsBySource = new();
+    private readonly SwiftDictionary<ushort, SwiftList<ushort>> _boundaryContactSourcesByTarget = new();
     private readonly GridSpatialIndex _spatialIndex;
+    private ulong[]? _boundaryContactSourceWords;
+    private ulong[]? _boundaryContactSourceSummaryWords;
+    private int _boundaryContactSourceSummaryLength;
     private long _gridGenerationCounter;
     private ulong _changeSequence;
     private ulong _publishedChangeSequence;
@@ -320,6 +330,7 @@ public sealed class GridWorld : IDisposable
     private void ReleaseActiveGrids()
     {
         _spatialIndex.Clear();
+        ReleaseBoundaryContactPairs();
 
         foreach (VoxelGrid grid in ActiveGrids)
             Pools.GridPool.Release(grid);
@@ -405,6 +416,408 @@ public sealed class GridWorld : IDisposable
     public void ExecuteNavigationMaintenanceSnapshot(Action maintenance)
     {
         SwiftThrowHelper.ThrowIfNull(maintenance, nameof(maintenance));
+        ThrowIfNavigationMaintenanceUnavailable();
+
+        while (true)
+        {
+            if (TryEnterNavigationMaintenanceSnapshot())
+            {
+                try
+                {
+                    maintenance();
+                    return;
+                }
+                finally
+                {
+                    ExitNavigationMaintenanceSnapshot();
+                }
+            }
+
+            WaitForPublishedChangePrefix();
+        }
+    }
+
+    /// <summary>
+    /// Begins or restarts a bounded exact boundary-contact query against the current committed world state.
+    /// </summary>
+    /// <param name="cursor">The caller-owned cursor to reset and bind.</param>
+    public void BeginBoundaryContacts(GridBoundaryContactCursor cursor)
+    {
+        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
+        ThrowIfNavigationMaintenanceUnavailable();
+
+        while (true)
+        {
+            if (TryEnterNavigationMaintenanceSnapshot())
+            {
+                try
+                {
+                    cursor.Begin(SpawnToken, Version, _changeSequence);
+                    return;
+                }
+                finally
+                {
+                    ExitNavigationMaintenanceSnapshot();
+                }
+            }
+
+            WaitForPublishedChangePrefix();
+        }
+    }
+
+    /// <summary>
+    /// Advances a bounded exact boundary-contact query under one short navigation-maintenance snapshot.
+    /// </summary>
+    /// <param name="cursor">The caller-owned cursor previously begun through this world.</param>
+    /// <param name="results">Caller-owned storage for contacts emitted by this chunk.</param>
+    /// <param name="candidateProbeLimit">The maximum pair, source-address, and target probes for this chunk.</param>
+    /// <param name="outputLimit">The maximum contacts to write during this chunk.</param>
+    /// <param name="candidateProbesConsumed">The exact number of candidate probes consumed by this chunk.</param>
+    /// <param name="outputCount">The number of contacts written to <paramref name="results"/>.</param>
+    /// <returns>The resulting cursor state.</returns>
+    /// <remarks>
+    /// A <see cref="GridBoundaryContactCursorStatus.Stale"/> result writes no contacts and resets the
+    /// cursor ordinal. The caller must discard every contact returned since the preceding begin.
+    /// Completed cursors remain bound and are revalidated on every later call, including zero-budget calls.
+    /// </remarks>
+    public GridBoundaryContactCursorStatus AdvanceBoundaryContacts(
+        GridBoundaryContactCursor cursor,
+        Span<VoxelContactManifold> results,
+        int candidateProbeLimit,
+        int outputLimit,
+        out int candidateProbesConsumed,
+        out int outputCount)
+    {
+        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
+        SwiftThrowHelper.ThrowIfNegative(candidateProbeLimit, nameof(candidateProbeLimit));
+        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        if (outputLimit > results.Length)
+            throw new ArgumentOutOfRangeException(nameof(outputLimit));
+
+        ThrowIfNavigationMaintenanceUnavailable();
+        candidateProbesConsumed = 0;
+        outputCount = 0;
+        while (true)
+        {
+            if (TryEnterNavigationMaintenanceSnapshot())
+            {
+                try
+                {
+                    return AdvanceBoundaryContactsCore(
+                        cursor,
+                        results,
+                        candidateProbeLimit,
+                        outputLimit,
+                        out candidateProbesConsumed,
+                        out outputCount);
+                }
+                finally
+                {
+                    ExitNavigationMaintenanceSnapshot();
+                }
+            }
+
+            WaitForPublishedChangePrefix();
+        }
+    }
+
+    private GridBoundaryContactCursorStatus AdvanceBoundaryContactsCore(
+        GridBoundaryContactCursor cursor,
+        Span<VoxelContactManifold> results,
+        int candidateProbeLimit,
+        int outputLimit,
+        out int candidateProbesConsumed,
+        out int outputCount)
+    {
+        candidateProbesConsumed = 0;
+        outputCount = 0;
+        if (!IsBoundaryContactCursorCurrent(cursor))
+            return cursor.MarkStale();
+
+        if (cursor.CurrentStatus == GridBoundaryContactCursorStatus.Complete)
+            return cursor.CurrentStatus;
+
+        while (true)
+        {
+            if (cursor.HasPendingContact)
+            {
+                if (outputCount == outputLimit)
+                    return GridBoundaryContactCursorStatus.More;
+
+                results[outputCount++] = cursor.PendingContact;
+                cursor.PendingContact = default;
+                cursor.HasPendingContact = false;
+                if (outputCount == outputLimit)
+                    return GridBoundaryContactCursorStatus.More;
+            }
+
+            switch (cursor.Stage)
+            {
+                case GridBoundaryContactCursor.TraversalStage.Pair:
+                    if (!cursor.HasPairSource)
+                    {
+                        if (cursor.PairSourceWord != 0)
+                        {
+                            int sourceBit = GetTrailingZeroCount(cursor.PairSourceWord);
+                            cursor.PairSourceWord &= cursor.PairSourceWord - 1UL;
+                            cursor.PairSourceGridIndex = (ushort)(
+                                (cursor.PairSourceWordIndex << 6) + sourceBit);
+                            cursor.PairTargetOrdinal = 0;
+                            cursor.HasPairSource = true;
+                            continue;
+                        }
+
+                        if (cursor.PairSourceSummaryWord != 0)
+                        {
+                            if (candidateProbesConsumed == candidateProbeLimit)
+                                return GridBoundaryContactCursorStatus.More;
+
+                            int wordBit = GetTrailingZeroCount(cursor.PairSourceSummaryWord);
+                            cursor.PairSourceSummaryWord &= cursor.PairSourceSummaryWord - 1UL;
+                            cursor.PairSourceWordIndex =
+                                ((cursor.PairSourceSummaryWordIndex - 1) << 6) + wordBit;
+                            cursor.PairSourceWord = _boundaryContactSourceWords![cursor.PairSourceWordIndex];
+                            ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
+                            continue;
+                        }
+
+                        if (_boundaryContactSourceSummaryWords == null
+                            || cursor.PairSourceSummaryWordIndex
+                                >= _boundaryContactSourceSummaryLength)
+                        {
+                            cursor.CurrentStatus = GridBoundaryContactCursorStatus.Complete;
+                            return cursor.CurrentStatus;
+                        }
+
+                        if (candidateProbesConsumed == candidateProbeLimit)
+                            return GridBoundaryContactCursorStatus.More;
+
+                        cursor.PairSourceSummaryWord = _boundaryContactSourceSummaryWords[
+                            cursor.PairSourceSummaryWordIndex++];
+                        ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
+                        continue;
+                    }
+
+                    if (!_boundaryContactTargetsBySource.TryGetValue(
+                            cursor.PairSourceGridIndex,
+                            out SwiftList<ushort>? pairTargets)
+                        || cursor.PairTargetOrdinal >= pairTargets.Count)
+                    {
+                        cursor.HasPairSource = false;
+                        continue;
+                    }
+
+                    if (candidateProbesConsumed == candidateProbeLimit)
+                        return GridBoundaryContactCursorStatus.More;
+
+                    ushort pairTarget = pairTargets[cursor.PairTargetOrdinal++];
+                    ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
+                    if (!TryBindBoundaryContactPair(
+                            cursor,
+                            cursor.PairSourceGridIndex,
+                            pairTarget))
+                    {
+                        return cursor.MarkStale();
+                    }
+                    cursor.Stage = GridBoundaryContactCursor.TraversalStage.Source;
+                    continue;
+
+                case GridBoundaryContactCursor.TraversalStage.Source:
+                    VoxelGrid sourceGrid = ActiveGrids[cursor.SourceGridIndex];
+                    VoxelGrid targetGrid = ActiveGrids[cursor.TargetGridIndex];
+                    if (!cursor.HasSourceRange)
+                    {
+                        cursor.ClearPairProgress();
+                        continue;
+                    }
+
+                    if (candidateProbesConsumed == candidateProbeLimit)
+                        return GridBoundaryContactCursorStatus.More;
+
+                    VoxelIndex sourceIndex = cursor.SourceAddress;
+                    cursor.HasSourceRange = AdvanceBoundaryContactAddress(
+                        ref cursor.SourceAddress,
+                        cursor.SourceMinimum,
+                        cursor.SourceMaximum);
+                    ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
+                    if (!TryCreateTopologyPrism(sourceGrid, sourceIndex, out cursor.SourcePrism)
+                        || !TopologyVoxelRangeUtility.TryGetCandidateRange(
+                            targetGrid,
+                            cursor.SourcePrism.GetAabb().Expand(targetGrid.Topology.MaxCellEdge),
+                            out cursor.TargetMinimum,
+                            out cursor.TargetMaximum))
+                    {
+                        continue;
+                    }
+
+                    cursor.TargetAddress = cursor.TargetMinimum;
+                    cursor.Stage = GridBoundaryContactCursor.TraversalStage.Target;
+                    continue;
+
+                default:
+                    if (candidateProbesConsumed == candidateProbeLimit)
+                        return GridBoundaryContactCursorStatus.More;
+
+                    ProbeBoundaryContactTarget(cursor, ref candidateProbesConsumed);
+                    continue;
+            }
+        }
+    }
+
+    private bool IsBoundaryContactCursorCurrent(GridBoundaryContactCursor cursor)
+    {
+        if (cursor.CurrentStatus == GridBoundaryContactCursorStatus.Stale
+            || cursor.WorldSpawnToken != SpawnToken
+            || cursor.WorldVersion != Version
+            || cursor.WorldChangeSequence != _changeSequence)
+        {
+            return false;
+        }
+
+        if (cursor.SourceGridSpawnToken == 0)
+            return true;
+
+        return ActiveGrids.IsAllocated(cursor.SourceGridIndex)
+            && ActiveGrids.IsAllocated(cursor.TargetGridIndex)
+            && ActiveGrids[cursor.SourceGridIndex].SpawnToken == cursor.SourceGridSpawnToken
+            && ActiveGrids[cursor.TargetGridIndex].SpawnToken == cursor.TargetGridSpawnToken
+            && ActiveGrids[cursor.SourceGridIndex].ChangeHighWaterSequence
+                == cursor.SourceGridHighWaterSequence
+            && ActiveGrids[cursor.TargetGridIndex].ChangeHighWaterSequence
+                == cursor.TargetGridHighWaterSequence;
+    }
+
+    private bool TryBindBoundaryContactPair(
+        GridBoundaryContactCursor cursor,
+        ushort sourceGridIndex,
+        ushort targetGridIndex)
+    {
+        if (!ActiveGrids.IsAllocated(sourceGridIndex)
+            || !ActiveGrids.IsAllocated(targetGridIndex))
+        {
+            return false;
+        }
+
+        VoxelGrid sourceGrid = ActiveGrids[sourceGridIndex];
+        VoxelGrid targetGrid = ActiveGrids[targetGridIndex];
+        cursor.SourceGridIndex = sourceGridIndex;
+        cursor.TargetGridIndex = targetGridIndex;
+        cursor.SourceGridSpawnToken = sourceGrid.SpawnToken;
+        cursor.TargetGridSpawnToken = targetGrid.SpawnToken;
+        cursor.SourceGridHighWaterSequence = sourceGrid.ChangeHighWaterSequence;
+        cursor.TargetGridHighWaterSequence = targetGrid.ChangeHighWaterSequence;
+
+        if (!TryCreateBoundaryContactEnvelope(targetGrid, out FixedBoundVolume targetEnvelope)
+            || !TryCreateTopologyPrism(sourceGrid, default, out GridCellPrism firstSourcePrism))
+        {
+            return false;
+        }
+
+        TopologyVoxelAabb firstSourceBounds = firstSourcePrism.GetAabb();
+        Vector3d lowerExtent = sourceGrid.BoundsMin - firstSourceBounds.Min;
+        Vector3d upperExtent = firstSourceBounds.Max - sourceGrid.BoundsMin;
+        var sourceCandidateBounds = new TopologyVoxelAabb(
+            targetEnvelope.Min - upperExtent,
+            targetEnvelope.Max + lowerExtent);
+        cursor.HasSourceRange = TopologyVoxelRangeUtility.TryGetCandidateRange(
+            sourceGrid,
+            sourceCandidateBounds,
+            out cursor.SourceMinimum,
+            out cursor.SourceMaximum);
+        cursor.SourceAddress = cursor.SourceMinimum;
+        return true;
+    }
+
+    private void ProbeBoundaryContactTarget(
+        GridBoundaryContactCursor cursor,
+        ref int candidateProbesConsumed)
+    {
+        VoxelGrid targetGrid = ActiveGrids[cursor.TargetGridIndex];
+        VoxelIndex targetIndex = cursor.TargetAddress;
+        if (!AdvanceBoundaryContactAddress(
+                ref cursor.TargetAddress,
+                cursor.TargetMinimum,
+                cursor.TargetMaximum))
+        {
+            cursor.Stage = GridBoundaryContactCursor.TraversalStage.Source;
+        }
+        ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
+
+        if (!TryCreateTopologyPrism(targetGrid, targetIndex, out GridCellPrism targetPrism))
+            return;
+
+        VoxelContactManifold contact = GridCellGeometry.GetContact(cursor.SourcePrism, targetPrism);
+        if (contact.Kind != VoxelContactKind.Separated)
+        {
+            cursor.PendingContact = contact;
+            cursor.HasPendingContact = true;
+        }
+    }
+
+    private static bool AdvanceBoundaryContactAddress(
+        ref VoxelIndex address,
+        VoxelIndex minimum,
+        VoxelIndex maximum)
+    {
+        if (address.z < maximum.z)
+        {
+            address.z++;
+            return true;
+        }
+
+        address.z = minimum.z;
+        if (address.y < maximum.y)
+        {
+            address.y++;
+            return true;
+        }
+
+        address.y = minimum.y;
+        if (address.x < maximum.x)
+        {
+            address.x++;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryCreateTopologyPrism(
+        VoxelGrid grid,
+        VoxelIndex index,
+        out GridCellPrism prism)
+    {
+        return GridCellGeometry.TryCreatePrism(
+            grid.Configuration.TopologyKind,
+            grid.Configuration.TopologyMetrics,
+            grid.GetWorldPosition(index),
+            new WorldVoxelIndex(SpawnToken, grid.GridIndex, grid.SpawnToken, index),
+            out prism);
+    }
+
+    private static int GetTrailingZeroCount(ulong value)
+    {
+        int count = 0;
+        while ((value & 1UL) == 0)
+        {
+            value >>= 1;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static void ConsumeBoundaryContactProbe(
+        GridBoundaryContactCursor cursor,
+        ref int candidateProbesConsumed)
+    {
+        candidateProbesConsumed++;
+        if (cursor.CandidateOrdinal != ulong.MaxValue)
+            cursor.CandidateOrdinal++;
+    }
+
+    private void ThrowIfNavigationMaintenanceUnavailable()
+    {
         SwiftThrowHelper.ThrowIfTrue(
             !IsActive,
             message: "Cannot capture navigation maintenance state from an inactive world.");
@@ -412,43 +825,38 @@ public sealed class GridWorld : IDisposable
             Volatile.Read(ref _committedPublicationOwnerThreadId)
                 == Environment.CurrentManagedThreadId,
             message: "Cannot enter navigation maintenance from a committed-change notification handler.");
+    }
 
-        while (true)
+    private bool TryEnterNavigationMaintenanceSnapshot()
+    {
+        _gridLock.EnterReadLock();
+        Monitor.Enter(ChangeSyncRoot);
+        if (_publishedChangeSequence != _changeSequence)
         {
-            bool retryAfterCommittedPrefix;
-            _gridLock.EnterReadLock();
-            try
-            {
-                lock (ChangeSyncRoot)
-                {
-                    retryAfterCommittedPrefix = _publishedChangeSequence != _changeSequence;
-                    if (!retryAfterCommittedPrefix)
-                    {
-                        _navigationMaintenanceOwnerThreadId = Environment.CurrentManagedThreadId;
-                        try
-                        {
-                            maintenance();
-                            return;
-                        }
-                        finally
-                        {
-                            _navigationMaintenanceOwnerThreadId = 0;
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                _gridLock.ExitReadLock();
-            }
+            Monitor.Exit(ChangeSyncRoot);
+            _gridLock.ExitReadLock();
+            return false;
+        }
 
-            // A committed handler may legally perform a reentrant structural mutation. Never
-            // wait for that handler while holding the read lock it needs to promote past.
-            lock (ChangeSyncRoot)
-            {
-                while (_publishedChangeSequence != _changeSequence)
-                    Monitor.Wait(ChangeSyncRoot);
-            }
+        _navigationMaintenanceOwnerThreadId = Environment.CurrentManagedThreadId;
+        return true;
+    }
+
+    private void ExitNavigationMaintenanceSnapshot()
+    {
+        _navigationMaintenanceOwnerThreadId = 0;
+        Monitor.Exit(ChangeSyncRoot);
+        _gridLock.ExitReadLock();
+    }
+
+    private void WaitForPublishedChangePrefix()
+    {
+        // A committed handler may legally perform a reentrant structural mutation. Never
+        // wait for that handler while holding the read lock it needs to promote past.
+        lock (ChangeSyncRoot)
+        {
+            while (_publishedChangeSequence != _changeSequence)
+                Monitor.Wait(ChangeSyncRoot);
         }
     }
 
@@ -903,9 +1311,25 @@ public sealed class GridWorld : IDisposable
 
     private void RegisterGrid(VoxelGrid newGrid, ushort allocatedIndex)
     {
+        bool hasContactEnvelope = TryCreateBoundaryContactEnvelope(
+            newGrid,
+            out FixedBoundVolume contactEnvelope);
         _spatialIndex.Insert(
             allocatedIndex,
-            new FixedBoundVolume(newGrid.BoundsMin, newGrid.BoundsMax));
+            new FixedBoundVolume(newGrid.BoundsMin, newGrid.BoundsMax),
+            hasContactEnvelope ? contactEnvelope : null);
+
+        if (hasContactEnvelope)
+        {
+            _spatialIndex.CollectContactCandidates(contactEnvelope, _gridCandidates);
+            for (int i = 0; i < _gridCandidates.Count; i++)
+            {
+                ushort candidateIndex = _gridCandidates[i];
+                if (candidateIndex != allocatedIndex)
+                    InsertBoundaryContactPair(allocatedIndex, candidateIndex);
+            }
+        }
+
         _spatialIndex.CollectCandidates(
             CreateExpandedBounds(
                 newGrid.BoundsMin,
@@ -929,7 +1353,215 @@ public sealed class GridWorld : IDisposable
     private void UnregisterGrid(VoxelGrid gridToRemove, ushort removeIndex)
     {
         _spatialIndex.Remove(removeIndex);
+        RemoveBoundaryContactPairs(removeIndex);
         UnlinkGridNeighbors(gridToRemove);
+    }
+
+    private static bool TryCreateBoundaryContactEnvelope(
+        VoxelGrid grid,
+        out FixedBoundVolume envelope)
+    {
+        envelope = default;
+        if (!GridCellGeometry.TryCreatePrism(
+                grid.Configuration.TopologyKind,
+                grid.Configuration.TopologyMetrics,
+                grid.BoundsMin,
+                default,
+                out GridCellPrism minimumPrism)
+            || !GridCellGeometry.TryCreatePrism(
+                grid.Configuration.TopologyKind,
+                grid.Configuration.TopologyMetrics,
+                grid.BoundsMax,
+                default,
+                out GridCellPrism maximumPrism))
+        {
+            return false;
+        }
+
+        TopologyVoxelAabb minimum = minimumPrism.GetAabb();
+        TopologyVoxelAabb maximum = maximumPrism.GetAabb();
+        envelope = new FixedBoundVolume(
+            new Vector3d(
+                FixedMath.Min(minimum.Min.X, maximum.Min.X),
+                FixedMath.Min(minimum.Min.Y, maximum.Min.Y),
+                FixedMath.Min(minimum.Min.Z, maximum.Min.Z)),
+            new Vector3d(
+                FixedMath.Max(minimum.Max.X, maximum.Max.X),
+                FixedMath.Max(minimum.Max.Y, maximum.Max.Y),
+                FixedMath.Max(minimum.Max.Z, maximum.Max.Z)));
+        return true;
+    }
+
+    private void InsertBoundaryContactPair(ushort firstGridIndex, ushort secondGridIndex)
+    {
+        ushort source = firstGridIndex < secondGridIndex ? firstGridIndex : secondGridIndex;
+        ushort target = firstGridIndex < secondGridIndex ? secondGridIndex : firstGridIndex;
+        SwiftList<ushort> targets = GetOrCreateBoundaryContactRow(
+            _boundaryContactTargetsBySource,
+            source,
+            out bool addedSourceRow);
+        if (!InsertSortedUnique(targets, target))
+            return;
+
+        InsertSortedUnique(
+            GetOrCreateBoundaryContactRow(_boundaryContactSourcesByTarget, target, out _),
+            source);
+        if (addedSourceRow)
+            SetBoundaryContactSource(source);
+    }
+
+    private void RemoveBoundaryContactPairs(ushort gridIndex)
+    {
+        if (_boundaryContactTargetsBySource.TryGetValue(
+                gridIndex,
+                out SwiftList<ushort>? targets))
+        {
+            for (int i = 0; i < targets.Count; i++)
+            {
+                RemoveBoundaryContactIncident(
+                    _boundaryContactSourcesByTarget,
+                    targets[i],
+                    gridIndex,
+                    clearSourceBit: false);
+            }
+
+            _boundaryContactTargetsBySource.Remove(gridIndex);
+            SwiftListPool<ushort>.Shared.Release(targets);
+            ClearBoundaryContactSource(gridIndex);
+        }
+
+        if (_boundaryContactSourcesByTarget.TryGetValue(
+                gridIndex,
+                out SwiftList<ushort>? sources))
+        {
+            for (int i = 0; i < sources.Count; i++)
+            {
+                RemoveBoundaryContactIncident(
+                    _boundaryContactTargetsBySource,
+                    sources[i],
+                    gridIndex,
+                    clearSourceBit: true);
+            }
+
+            _boundaryContactSourcesByTarget.Remove(gridIndex);
+            SwiftListPool<ushort>.Shared.Release(sources);
+        }
+    }
+
+    private void RemoveBoundaryContactIncident(
+        SwiftDictionary<ushort, SwiftList<ushort>> rows,
+        ushort rowIndex,
+        ushort incidentIndex,
+        bool clearSourceBit)
+    {
+        if (!rows.TryGetValue(rowIndex, out SwiftList<ushort>? row)
+            || !RemoveSorted(row, incidentIndex)
+            || row.Count != 0)
+        {
+            return;
+        }
+
+        rows.Remove(rowIndex);
+        SwiftListPool<ushort>.Shared.Release(row);
+        if (clearSourceBit)
+            ClearBoundaryContactSource(rowIndex);
+    }
+
+    private static SwiftList<ushort> GetOrCreateBoundaryContactRow(
+        SwiftDictionary<ushort, SwiftList<ushort>> rows,
+        ushort rowIndex,
+        out bool added)
+    {
+        if (rows.TryGetValue(rowIndex, out SwiftList<ushort>? row))
+        {
+            added = false;
+            return row;
+        }
+
+        row = SwiftListPool<ushort>.Shared.Rent();
+        rows.Add(rowIndex, row);
+        added = true;
+        return row;
+    }
+
+    private static bool InsertSortedUnique(SwiftList<ushort> row, ushort value)
+    {
+        int index = FindSortedIndex(row, value);
+        if (index < row.Count && row[index] == value)
+            return false;
+
+        row.Insert(index, value);
+        return true;
+    }
+
+    private static bool RemoveSorted(SwiftList<ushort> row, ushort value)
+    {
+        int index = FindSortedIndex(row, value);
+        if (index >= row.Count || row[index] != value)
+            return false;
+
+        row.RemoveAt(index);
+        return true;
+    }
+
+    private static int FindSortedIndex(SwiftList<ushort> row, ushort value)
+    {
+        int minimum = 0;
+        int maximum = row.Count;
+        while (minimum < maximum)
+        {
+            int middle = minimum + ((maximum - minimum) >> 1);
+            if (row[middle] < value)
+                minimum = middle + 1;
+            else
+                maximum = middle;
+        }
+
+        return minimum;
+    }
+
+    private void SetBoundaryContactSource(ushort source)
+    {
+        _boundaryContactSourceWords ??= new ulong[BoundaryContactSourceWordCount];
+        _boundaryContactSourceSummaryWords ??= new ulong[BoundaryContactSourceSummaryWordCount];
+        int wordIndex = source >> 6;
+        _boundaryContactSourceWords[wordIndex] |= 1UL << (source & 63);
+        _boundaryContactSourceSummaryWords[wordIndex >> 6] |= 1UL << (wordIndex & 63);
+        _boundaryContactSourceSummaryLength = Math.Max(
+            _boundaryContactSourceSummaryLength,
+            (wordIndex >> 6) + 1);
+    }
+
+    private void ClearBoundaryContactSource(ushort source)
+    {
+        if (_boundaryContactSourceWords == null || _boundaryContactSourceSummaryWords == null)
+            return;
+
+        int wordIndex = source >> 6;
+        _boundaryContactSourceWords[wordIndex] &= ~(1UL << (source & 63));
+        if (_boundaryContactSourceWords[wordIndex] == 0)
+            _boundaryContactSourceSummaryWords[wordIndex >> 6] &= ~(1UL << (wordIndex & 63));
+
+        while (_boundaryContactSourceSummaryLength > 0
+            && _boundaryContactSourceSummaryWords[_boundaryContactSourceSummaryLength - 1] == 0)
+        {
+            _boundaryContactSourceSummaryLength--;
+        }
+
+    }
+
+    private void ReleaseBoundaryContactPairs()
+    {
+        foreach (SwiftList<ushort> row in _boundaryContactTargetsBySource.Values)
+            SwiftListPool<ushort>.Shared.Release(row);
+        foreach (SwiftList<ushort> row in _boundaryContactSourcesByTarget.Values)
+            SwiftListPool<ushort>.Shared.Release(row);
+
+        _boundaryContactTargetsBySource.Clear();
+        _boundaryContactSourcesByTarget.Clear();
+        _boundaryContactSourceWords = null;
+        _boundaryContactSourceSummaryWords = null;
+        _boundaryContactSourceSummaryLength = 0;
     }
 
     private void UnlinkGridNeighbors(VoxelGrid gridToRemove)

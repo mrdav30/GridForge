@@ -223,6 +223,17 @@ the callback short and non-mutating; it runs while GridForge excludes grid and
 voxel mutations. `TryCaptureNavigationBaseline(...)` is safe inside that
 callback and does not recurse through the world locks.
 
+Exact cross-grid composition uses the same gate through
+`GridWorld.BeginBoundaryContacts(...)` and
+`GridWorld.AdvanceBoundaryContacts(...)`. Grid registration maintains an exact
+cell-prism-envelope BVH plus reciprocal sorted incident pair rows. A two-level
+source bitset gives the cursor canonical pair discovery without scanning
+recyclable grid slots, and target-envelope-derived address ranges avoid whole-
+grid source scans. Upper/lower directory visits, pair selection, source
+addresses, and exact target probes are all charged to the caller's candidate
+budget. The cursor retains only scalar/value state between chunks and rejects
+mixed committed generations as `Stale`.
+
 ## Neighbor Architecture
 
 Neighbor handling is split into two related but distinct problems:

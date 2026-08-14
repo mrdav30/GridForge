@@ -23,6 +23,8 @@ internal sealed class GridSpatialIndex
     private readonly SwiftFixedSpatialHash<ushort> _ordinaryGrids;
     private readonly SwiftFixedBVH<ushort> _oversizedGrids;
     private readonly SwiftHashSet<ushort> _oversizedSlots;
+    private readonly SwiftFixedBVH<ushort> _contactEnvelopes;
+    private readonly SwiftHashSet<ushort> _contactEnvelopeSlots;
 
     internal GridSpatialIndex(int cellSize)
         : this(cellSize, DefaultHashCellBudget)
@@ -35,6 +37,8 @@ internal sealed class GridSpatialIndex
         _ordinaryGrids = new SwiftFixedSpatialHash<ushort>(InitialCapacity, (Fixed64)cellSize);
         _oversizedGrids = new SwiftFixedBVH<ushort>(InitialCapacity);
         _oversizedSlots = new SwiftHashSet<ushort>();
+        _contactEnvelopes = new SwiftFixedBVH<ushort>(InitialCapacity);
+        _contactEnvelopeSlots = new SwiftHashSet<ushort>();
     }
 
     internal int Count => OrdinaryCount + OversizedCount;
@@ -43,27 +47,51 @@ internal sealed class GridSpatialIndex
 
     internal int OversizedCount => _oversizedGrids.Count;
 
-    internal bool Insert(ushort gridIndex, FixedBoundVolume bounds)
+    internal bool Insert(ushort gridIndex, FixedBoundVolume bounds) =>
+        Insert(gridIndex, bounds, bounds);
+
+    internal bool Insert(
+        ushort gridIndex,
+        FixedBoundVolume bounds,
+        FixedBoundVolume? contactEnvelope)
     {
         if (_ordinaryGrids.Contains(gridIndex) || _oversizedSlots.Contains(gridIndex))
             return false;
 
+        bool inserted;
         if (FitsHashCellBudget(bounds))
-            return _ordinaryGrids.Insert(gridIndex, bounds);
+            inserted = _ordinaryGrids.Insert(gridIndex, bounds);
+        else
+        {
+            _oversizedGrids.Insert(gridIndex, bounds);
+            inserted = _oversizedSlots.Add(gridIndex);
+        }
 
-        _oversizedGrids.Insert(gridIndex, bounds);
-        _oversizedSlots.Add(gridIndex);
-        return true;
+        if (inserted && contactEnvelope.HasValue)
+        {
+            _contactEnvelopes.Insert(gridIndex, contactEnvelope.Value);
+            _contactEnvelopeSlots.Add(gridIndex);
+        }
+
+        return inserted;
     }
 
     internal bool Remove(ushort gridIndex)
     {
+        bool removed;
         if (!_oversizedSlots.Contains(gridIndex))
-            return _ordinaryGrids.Remove(gridIndex);
+            removed = _ordinaryGrids.Remove(gridIndex);
+        else
+        {
+            _oversizedGrids.Remove(gridIndex);
+            _oversizedSlots.Remove(gridIndex);
+            removed = true;
+        }
 
-        _oversizedGrids.Remove(gridIndex);
-        _oversizedSlots.Remove(gridIndex);
-        return true;
+        if (removed && _contactEnvelopeSlots.Remove(gridIndex))
+            _contactEnvelopes.Remove(gridIndex);
+
+        return removed;
     }
 
     internal void Clear()
@@ -71,6 +99,8 @@ internal sealed class GridSpatialIndex
         _ordinaryGrids.Clear();
         _oversizedGrids.Clear();
         _oversizedSlots.Clear();
+        _contactEnvelopes.Clear();
+        _contactEnvelopeSlots.Clear();
     }
 
     internal void CollectCandidates(
@@ -99,6 +129,18 @@ internal sealed class GridSpatialIndex
             if (_oversizedGrids.Count > 0)
                 _oversizedGrids.Query(queryBounds, candidates);
         }
+
+        if (candidates.Count > 1)
+            candidates.SortInPlace();
+    }
+
+    internal void CollectContactCandidates(
+        FixedBoundVolume queryBounds,
+        SwiftList<ushort> candidates)
+    {
+        candidates.Clear();
+        if (_contactEnvelopes.Count > 0)
+            _contactEnvelopes.Query(queryBounds, candidates);
 
         if (candidates.Count > 1)
             candidates.SortInPlace();
