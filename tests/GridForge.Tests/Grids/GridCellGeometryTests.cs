@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Numerics;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -257,6 +258,31 @@ public sealed class GridCellGeometryTests : IDisposable
             new Fixed64(6) + Fixed64.MinIncrement,
             out _,
             out _));
+    }
+
+    [Fact]
+    public void NavigationPortal_ObliqueHorizontalFace_ShouldNotExceedWideEdgeClearance()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(20_000),
+            new Fixed64(2),
+            HexOrientation.PointyTop);
+        GridCellPrism source = CreateOfflinePrism(GridTopologyKind.HexPrism, metrics, Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            new Vector3d(1_000, 2, 15_000));
+        Span<Vector2d> polygon = stackalloc Vector2d[GridConvexPolygon2d.MaxVertexCount];
+
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(source, target, out GridNavigationPortal portal));
+        VoxelContactManifold contact = GridCellGeometry.GetContact(source, target);
+        contact.HorizontalPolygon.CopyTo(polygon);
+        ReadOnlySpan<Vector2d> footprint = polygon[..contact.HorizontalPolygon.VertexCount];
+        Fixed64 exactClearance = GetExactConservativeClearance(
+            new Vector2d(portal.CanonicalFacePoint.X, portal.CanonicalFacePoint.Z),
+            footprint);
+
+        Assert.Equal(exactClearance, portal.MaximumHorizontalRadius);
     }
 
     [Fact]
@@ -672,6 +698,41 @@ public sealed class GridCellGeometryTests : IDisposable
     {
         Assert.True(GridCellGeometry.TryCreatePrism(kind, metrics, center, default, out GridCellPrism prism));
         return prism;
+    }
+
+    private static Fixed64 GetExactConservativeClearance(
+        Vector2d point,
+        ReadOnlySpan<Vector2d> polygon)
+    {
+        long minimumRaw = long.MaxValue;
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            Vector2d start = polygon[i];
+            Vector2d end = polygon[(i + 1) % polygon.Length];
+            BigInteger edgeX = (BigInteger)end.X.m_rawValue - start.X.m_rawValue;
+            BigInteger edgeY = (BigInteger)end.Y.m_rawValue - start.Y.m_rawValue;
+            BigInteger pointX = (BigInteger)point.X.m_rawValue - start.X.m_rawValue;
+            BigInteger pointY = (BigInteger)point.Y.m_rawValue - start.Y.m_rawValue;
+            BigInteger cross = BigInteger.Abs((edgeX * pointY) - (edgeY * pointX));
+            BigInteger edgeSquared = (edgeX * edgeX) + (edgeY * edgeY);
+            BigInteger crossSquared = cross * cross;
+            long low = 0;
+            long high = minimumRaw;
+            while (low < high)
+            {
+                long difference = high - low;
+                long middle = low + (difference >> 1) + (difference & 1L);
+                BigInteger scaledEdgeSquared = (BigInteger)middle * middle * edgeSquared;
+                if (scaledEdgeSquared <= crossSquared)
+                    low = middle;
+                else
+                    high = middle - 1L;
+            }
+
+            minimumRaw = low;
+        }
+
+        return Fixed64.FromRaw(minimumRaw);
     }
 
     private static Vector2d[] GetFootprint(GridCellPrism prism) =>

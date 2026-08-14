@@ -113,23 +113,188 @@ public static partial class GridCellGeometry
         Vector2d point,
         out Fixed64 clearance)
     {
-        clearance = Fixed64.MaxValue;
+        long minimumRaw = long.MaxValue;
+        bool foundEdge = false;
+        Span<ulong> firstProduct = stackalloc ulong[2];
+        Span<ulong> secondProduct = stackalloc ulong[2];
+        Span<ulong> cross = stackalloc ulong[3];
+        Span<ulong> edgeSquared = stackalloc ulong[3];
+        Span<ulong> crossSquared = stackalloc ulong[6];
+        Span<ulong> radiusSquared = stackalloc ulong[2];
+        Span<ulong> scaledEdgeSquared = stackalloc ulong[6];
         for (int i = 0; i < polygon.Length; i++)
         {
-            Vector2d closest = Vector2d.ClosestPointOnLineSegment(
-                point,
-                polygon[i],
-                polygon[(i + 1) % polygon.Length]);
-            if (!TryGetConservativeDistance(point, closest, out Fixed64 distance))
+            // A convex polygon is the intersection of its edge half-planes. Compare
+            // radius^2 * edgeLength^2 <= cross^2 in raw integer space so neither a
+            // projected point nor a normalized edge direction can round outward.
+            Vector2d start = polygon[i];
+            Vector2d end = polygon[(i + 1) % polygon.Length];
+            GetSignedDifference(end.X.m_rawValue, start.X.m_rawValue, out bool edgeXNegative, out ulong edgeX);
+            GetSignedDifference(end.Y.m_rawValue, start.Y.m_rawValue, out bool edgeYNegative, out ulong edgeY);
+            GetSignedDifference(point.X.m_rawValue, start.X.m_rawValue, out bool pointXNegative, out ulong pointX);
+            GetSignedDifference(point.Y.m_rawValue, start.Y.m_rawValue, out bool pointYNegative, out ulong pointY);
+
+            Multiply64(edgeX, pointY, firstProduct);
+            Multiply64(edgeY, pointX, secondProduct);
+            GetSignedDifferenceMagnitude(
+                firstProduct,
+                edgeXNegative ^ pointYNegative,
+                secondProduct,
+                !(edgeYNegative ^ pointXNegative),
+                cross);
+
+            Multiply64(edgeX, edgeX, firstProduct);
+            Multiply64(edgeY, edgeY, secondProduct);
+            Add128(firstProduct, secondProduct, edgeSquared);
+            if ((edgeSquared[0] | edgeSquared[1] | edgeSquared[2]) == 0UL)
             {
                 clearance = default;
                 return false;
             }
 
-            clearance = FixedMath.Min(clearance, distance);
+            MultiplyWords(cross, cross, crossSquared);
+            long low = 0L;
+            long high = minimumRaw;
+            while (low < high)
+            {
+                long difference = high - low;
+                long middle = low + (difference >> 1) + (difference & 1L);
+                Multiply64((ulong)middle, (ulong)middle, radiusSquared);
+                MultiplyWords(radiusSquared, edgeSquared, scaledEdgeSquared);
+                if (CompareWords(scaledEdgeSquared, crossSquared) <= 0)
+                    low = middle;
+                else
+                    high = middle - 1L;
+            }
+
+            minimumRaw = low;
+            foundEdge = true;
         }
 
-        return clearance != Fixed64.MaxValue;
+        clearance = Fixed64.FromRaw(minimumRaw);
+        return foundEdge;
+    }
+
+    private static void GetSignedDifference(
+        long end,
+        long start,
+        out bool negative,
+        out ulong magnitude)
+    {
+        negative = end < start;
+        magnitude = negative
+            ? unchecked((ulong)start - (ulong)end)
+            : unchecked((ulong)end - (ulong)start);
+    }
+
+    private static void GetSignedDifferenceMagnitude(
+        ReadOnlySpan<ulong> first,
+        bool firstNegative,
+        ReadOnlySpan<ulong> second,
+        bool secondNegative,
+        Span<ulong> magnitude)
+    {
+        magnitude.Clear();
+        if (firstNegative == secondNegative)
+        {
+            Add128(first, second, magnitude);
+            return;
+        }
+
+        int comparison = CompareWords(first, second);
+        if (comparison >= 0)
+            Subtract128(first, second, magnitude);
+        else
+            Subtract128(second, first, magnitude);
+    }
+
+    private static void Add128(
+        ReadOnlySpan<ulong> first,
+        ReadOnlySpan<ulong> second,
+        Span<ulong> result)
+    {
+        result.Clear();
+        result[0] = unchecked(first[0] + second[0]);
+        ulong carry = result[0] < first[0] ? 1UL : 0UL;
+        result[1] = unchecked(first[1] + second[1]);
+        ulong highCarry = result[1] < first[1] ? 1UL : 0UL;
+        ulong high = result[1];
+        result[1] = unchecked(high + carry);
+        if (result[1] < high)
+            highCarry = 1UL;
+        result[2] = highCarry;
+    }
+
+    private static void Subtract128(
+        ReadOnlySpan<ulong> minuend,
+        ReadOnlySpan<ulong> subtrahend,
+        Span<ulong> result)
+    {
+        result.Clear();
+        result[0] = unchecked(minuend[0] - subtrahend[0]);
+        ulong borrow = minuend[0] < subtrahend[0] ? 1UL : 0UL;
+        result[1] = unchecked(minuend[1] - subtrahend[1] - borrow);
+    }
+
+    private static void Multiply64(ulong first, ulong second, Span<ulong> result)
+    {
+        ulong firstLow = (uint)first;
+        ulong firstHigh = first >> 32;
+        ulong secondLow = (uint)second;
+        ulong secondHigh = second >> 32;
+        ulong lowProduct = firstLow * secondLow;
+        ulong firstCross = firstHigh * secondLow;
+        ulong secondCross = firstLow * secondHigh;
+        ulong carry = (lowProduct >> 32) + (uint)firstCross + (uint)secondCross;
+        result[0] = (lowProduct & uint.MaxValue) | (carry << 32);
+        result[1] = (firstHigh * secondHigh)
+            + (firstCross >> 32)
+            + (secondCross >> 32)
+            + (carry >> 32);
+    }
+
+    private static void MultiplyWords(
+        ReadOnlySpan<ulong> first,
+        ReadOnlySpan<ulong> second,
+        Span<ulong> result)
+    {
+        result.Clear();
+        Span<ulong> product = stackalloc ulong[2];
+        for (int firstIndex = 0; firstIndex < first.Length; firstIndex++)
+        {
+            for (int secondIndex = 0; secondIndex < second.Length; secondIndex++)
+            {
+                Multiply64(first[firstIndex], second[secondIndex], product);
+                AddWord(result, firstIndex + secondIndex, product[0]);
+                AddWord(result, firstIndex + secondIndex + 1, product[1]);
+            }
+        }
+    }
+
+    private static void AddWord(Span<ulong> value, int index, ulong addend)
+    {
+        while (addend != 0UL && index < value.Length)
+        {
+            ulong current = value[index];
+            value[index] = unchecked(current + addend);
+            addend = value[index] < current ? 1UL : 0UL;
+            index++;
+        }
+    }
+
+    private static int CompareWords(ReadOnlySpan<ulong> first, ReadOnlySpan<ulong> second)
+    {
+        int index = Math.Max(first.Length, second.Length) - 1;
+        while (index >= 0)
+        {
+            ulong firstWord = index < first.Length ? first[index] : 0UL;
+            ulong secondWord = index < second.Length ? second[index] : 0UL;
+            if (firstWord != secondWord)
+                return firstWord < secondWord ? -1 : 1;
+            index--;
+        }
+
+        return 0;
     }
 
     private static bool TryGetConservativeDistance(
