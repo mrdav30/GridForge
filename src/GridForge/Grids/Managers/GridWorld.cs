@@ -24,7 +24,7 @@ namespace GridForge.Grids;
 /// <summary>
 /// Owns the mutable runtime state for one GridForge world.
 /// </summary>
-public sealed class GridWorld : IDisposable
+public sealed partial class GridWorld : IDisposable
 {
     #region Constants
 

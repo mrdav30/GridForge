@@ -240,6 +240,17 @@ Its value-only `GridBoundaryContact` output captures both canonical
 configuration keys, and `GridBoundaryContactRunStamp` identifies the committed
 world revision shared by a multi-cursor batch.
 
+Bounded address-space coverage uses `GridWorld.TryBeginCoveredAddresses(...)`
+and `GridWorld.AdvanceCoveredAddresses(...)`. The caller supplies a canonical
+list of exact grid generations and independent lookup, address, and output
+ceilings. The cursor validates and copies that list before producing results,
+then enumerates topology-configured addresses in deterministic X/Y/Z order.
+This deliberately includes physically absent sparse addresses so higher layers
+can apply their own semantic or materialization rules. Any world or grid
+generation mismatch makes the entire run `Stale`; the cursor retains only
+value state and supports allocation-free reuse after its fixed capacity is
+constructed.
+
 ## Neighbor Architecture
 
 Neighbor handling is split into two related but distinct problems:
