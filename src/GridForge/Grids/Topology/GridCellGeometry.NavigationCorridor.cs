@@ -7,7 +7,6 @@
 
 using System;
 using FixedMathSharp;
-using FixedMathSharp.Geometry;
 
 namespace GridForge.Grids.Topology;
 
@@ -175,62 +174,13 @@ public static partial class GridCellGeometry
         sourcePoint = default;
         targetPoint = default;
         pointCount = 0;
-        VoxelContactManifold contact = GetContact(source, target);
-        if (!contact.IsPositiveAreaFace)
-            return false;
-
-        if (contact.FaceKind == VoxelContactFaceKind.Vertical)
-        {
-            if (!Fixed64.TryAdd(radius, radius, out Fixed64 diameter)
-                || contact.VerticalFaceWidth < diameter
-                || contact.VerticalFaceHeight < height)
-            {
-                return false;
-            }
-
-            Vector2d center = Vector2d.Lerp(
-                contact.HorizontalSegmentStart,
-                contact.HorizontalSegmentEnd,
-                Fixed64.Half);
-            sourcePoint = new Vector3d(center.X, contact.VerticalMin, center.Y);
-            targetPoint = sourcePoint;
-            pointCount = 1;
-            return true;
-        }
-
-        if (contact.FaceKind != VoxelContactFaceKind.Horizontal
-            || source.VerticalMax - source.VerticalMin < height
-            || target.VerticalMax - target.VerticalMin < height)
+        if (!TryCreateNavigationPortal(source, target, out GridNavigationPortal portal)
+            || !portal.TryResolveProfile(radius, height, out sourcePoint, out targetPoint))
         {
             return false;
         }
 
-        Span<Vector2d> polygon = stackalloc Vector2d[GridConvexPolygon2d.MaxVertexCount];
-        contact.HorizontalPolygon.CopyTo(polygon);
-        ReadOnlySpan<Vector2d> footprint = polygon[..contact.HorizontalPolygon.VertexCount];
-        if (!FixedConvex2dRelations.TryGetAreaAndCentroid(footprint, out _, out Vector2d centerPoint)
-            || !HasPolygonClearance(footprint, centerPoint, radius))
-        {
-            return false;
-        }
-
-        Fixed64 faceY = contact.VerticalMin;
-        if (target.Center.Y > source.Center.Y)
-        {
-            if (!Fixed64.TrySubtract(faceY, height, out Fixed64 sourceFootY))
-                return false;
-            sourcePoint = new Vector3d(centerPoint.X, sourceFootY, centerPoint.Y);
-            targetPoint = new Vector3d(centerPoint.X, faceY, centerPoint.Y);
-        }
-        else
-        {
-            if (!Fixed64.TrySubtract(faceY, height, out Fixed64 targetFootY))
-                return false;
-            sourcePoint = new Vector3d(centerPoint.X, faceY, centerPoint.Y);
-            targetPoint = new Vector3d(centerPoint.X, targetFootY, centerPoint.Y);
-        }
-
-        pointCount = 2;
+        pointCount = portal.FaceKind == VoxelContactFaceKind.Vertical ? 1 : 2;
         return true;
     }
 
@@ -277,23 +227,6 @@ public static partial class GridCellGeometry
     private static bool IsPointOnSegment(Vector2d point, Vector2d start, Vector2d end)
     {
         return Vector2d.ClosestPointOnLineSegment(point, start, end) == point;
-    }
-
-    private static bool HasPolygonClearance(
-        ReadOnlySpan<Vector2d> polygon,
-        Vector2d point,
-        Fixed64 radius)
-    {
-        for (int i = 0; i < polygon.Length; i++)
-        {
-            Vector2d start = polygon[i];
-            Vector2d end = polygon[(i + 1) % polygon.Length];
-            Vector2d closest = Vector2d.ClosestPointOnLineSegment(point, start, end);
-            if (!Vector2d.TryGetDistance(point, closest, out Fixed64 distance) || distance < radius)
-                return false;
-        }
-
-        return true;
     }
 
     private static bool TryAccumulateDistance(Vector3d start, Vector3d end, ref Fixed64 total)
