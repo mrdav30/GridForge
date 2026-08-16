@@ -9,6 +9,150 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public sealed class GridNavigationCorridorValidationCursorTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_PositiveRadiusEntryApproachingFirstVerticalPortal_Completes(bool reverse)
+    {
+        GridCellPrism[] cells = CreateRectangularChain(2);
+        if (reverse)
+            Array.Reverse(cells);
+
+        Fixed64 direction = reverse ? -Fixed64.One : Fixed64.One;
+        var entry = new Vector3d(
+            cells[0].Center.X + (direction / new Fixed64(2)),
+            cells[0].VerticalMin,
+            cells[0].Center.Z);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            entry,
+            cells[1].Center,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_PositiveRadiusExitApproachingLastVerticalPortal_Completes(bool reverse)
+    {
+        GridCellPrism[] cells = CreateRectangularChain(2);
+        if (reverse)
+            Array.Reverse(cells);
+
+        Fixed64 direction = reverse ? -Fixed64.One : Fixed64.One;
+        var exit = new Vector3d(
+            cells[1].Center.X - (direction / new Fixed64(2)),
+            cells[1].VerticalMin,
+            cells[1].Center.Z);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            exit,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Fact]
+    public void Advance_PositiveRadiusAnchorsOnFirstAndLastVerticalPortals_Complete()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(3);
+        var entry = new Vector3d(1, -1, 0);
+        var exit = new Vector3d(3, -1, 0);
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            entry,
+            exit,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop, false)]
+    [InlineData(HexOrientation.PointyTop, true)]
+    [InlineData(HexOrientation.FlatTop, false)]
+    [InlineData(HexOrientation.FlatTop, true)]
+    public void Advance_PositiveRadiusHexAnchorsOnSelectedVerticalPortal_Complete(
+        HexOrientation orientation,
+        bool reverse)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            orientation);
+        Vector3d targetCenter = HexCoordinateUtility.AxialToWorldOffset(
+            new VoxelIndex(1, 0, 0),
+            metrics);
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            targetCenter,
+            default,
+            out cells[1]));
+        if (reverse)
+            Array.Reverse(cells);
+
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            cells[0],
+            cells[1],
+            out GridNavigationPortal portal));
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            portal.CanonicalFacePoint,
+            portal.CanonicalFacePoint,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_PositiveRadiusEndpointNearOtherWall_RemainsInvalid(bool exitIsInvalid)
+    {
+        GridCellPrism[] cells = CreateRectangularChain(2);
+        Vector3d invalidAnchor = exitIsInvalid
+            ? new Vector3d(2, -1, 1)
+            : new Vector3d(0, -1, 1);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            exitIsInvalid ? cells[0].Center : invalidAnchor,
+            exitIsInvalid ? invalidAnchor : cells[1].Center,
+            Fixed64.One,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
     [Fact]
     public void Advance_WithOneWorkUnit_CompletesOnlyAfterEveryCellAndPortalIsValidated()
     {
@@ -263,9 +407,9 @@ public sealed class GridNavigationCorridorValidationCursorTests
     {
         var cursor = new GridNavigationCorridorValidationCursor(
             cells.Length,
-            cells[0].Center,
-            cells[2].Center,
-            Fixed64.Zero,
+            new Vector3d(1, -1, 0),
+            new Vector3d(3, -1, 0),
+            Fixed64.One,
             Fixed64.One);
         return cursor.Advance(cells, waypoints, int.MaxValue);
     }

@@ -57,6 +57,7 @@ public struct GridNavigationCorridorValidationCursor
     private int _portalWaypointCount;
     private Vector3d _previousPoint;
     private Fixed64 _geometricCost;
+    private GridNavigationPortal _selectedPortal;
 
     /// <summary>The current validation state.</summary>
     public readonly GridNavigationCorridorValidationStatus Status => _status;
@@ -98,6 +99,7 @@ public struct GridNavigationCorridorValidationCursor
         _portalWaypointCount = 0;
         _previousPoint = entryAnchor;
         _geometricCost = default;
+        _selectedPortal = default;
     }
 
     /// <summary>
@@ -147,12 +149,18 @@ public struct GridNavigationCorridorValidationCursor
                 return;
 
             case ValidationStage.EntryAnchor:
+                GridCellGeometry.TryCreateNavigationPortal(
+                    orderedCells[0],
+                    orderedCells[1],
+                    out _selectedPortal);
                 if (!IsBodyAnchorValid(
                         orderedCells[0],
                         _entryAnchor,
                         _radiusClearance,
                         _heightClearance,
-                        default))
+                        CanUsePortalExemption(_selectedPortal)
+                            ? _selectedPortal
+                            : default))
                 {
                     Fail(GridNavigationCorridorValidationStatus.Invalid);
                     return;
@@ -177,8 +185,10 @@ public struct GridNavigationCorridorValidationCursor
     {
         GridCellPrism source = orderedCells[_portalIndex];
         GridCellPrism target = orderedCells[_portalIndex + 1];
-        if (!GridCellGeometry.TryCreateNavigationPortal(source, target, out GridNavigationPortal portal)
-            || !portal.TryResolveProfile(
+        if ((_portalIndex > 0
+                && !GridCellGeometry.TryCreateNavigationPortal(source, target, out _selectedPortal))
+            || !_selectedPortal.IsValid
+            || !_selectedPortal.TryResolveProfile(
                 _radiusClearance,
                 _heightClearance,
                 out Vector3d sourcePoint,
@@ -196,7 +206,7 @@ public struct GridNavigationCorridorValidationCursor
         }
 
         _previousPoint = sourcePoint;
-        if (portal.FaceKind == VoxelContactFaceKind.Horizontal)
+        if (_selectedPortal.FaceKind == VoxelContactFaceKind.Horizontal)
         {
             portalWaypoints[_portalWaypointCount++] = targetPoint;
             if (!TryAccumulateDistance(_previousPoint, targetPoint))
@@ -208,22 +218,18 @@ public struct GridNavigationCorridorValidationCursor
             _previousPoint = targetPoint;
         }
 
-        VoxelContactManifold contact = GridCellGeometry.GetContact(source, target);
-        VoxelContactManifold exemptPortal = portal.FaceKind == VoxelContactFaceKind.Vertical
-            ? contact
-            : default;
         if (!IsBodyAnchorValid(
                 source,
                 sourcePoint,
                 _radiusClearance,
                 _heightClearance,
-                exemptPortal)
+                _selectedPortal)
             || !IsBodyAnchorValid(
                 target,
                 targetPoint,
                 _radiusClearance,
                 _heightClearance,
-                exemptPortal))
+                _selectedPortal))
         {
             Fail(GridNavigationCorridorValidationStatus.Invalid);
             return;
@@ -247,7 +253,7 @@ public struct GridNavigationCorridorValidationCursor
                 _exitAnchor,
                 _radiusClearance,
                 _heightClearance,
-                default))
+                _selectedPortal))
         {
             Fail(GridNavigationCorridorValidationStatus.Invalid);
             return;
@@ -276,7 +282,7 @@ public struct GridNavigationCorridorValidationCursor
         Vector3d foot,
         Fixed64 radius,
         Fixed64 height,
-        in VoxelContactManifold exemptPortal)
+        in GridNavigationPortal exemptPortal)
     {
         if (!prism.Contains(foot)
             || !Fixed64.TryAdd(foot.Y, height, out Fixed64 top)
@@ -304,12 +310,19 @@ public struct GridNavigationCorridorValidationCursor
     private static bool IsExemptPortalEdge(
         Vector2d edgeStart,
         Vector2d edgeEnd,
-        in VoxelContactManifold portal)
+        in GridNavigationPortal portal)
     {
         return portal.FaceKind == VoxelContactFaceKind.Vertical
-            && IsPointOnSegment(portal.HorizontalSegmentStart, edgeStart, edgeEnd)
-            && IsPointOnSegment(portal.HorizontalSegmentEnd, edgeStart, edgeEnd);
+            && IsPointOnSegment(
+                new Vector2d(portal.CanonicalFacePoint.X, portal.CanonicalFacePoint.Z),
+                edgeStart,
+                edgeEnd);
     }
+
+    private readonly bool CanUsePortalExemption(in GridNavigationPortal portal) =>
+        portal.FaceKind == VoxelContactFaceKind.Vertical
+        && _radiusClearance <= portal.MaximumHorizontalRadius
+        && _heightClearance <= portal.MaximumBodyHeight;
 
     private static bool IsPointOnSegment(Vector2d point, Vector2d start, Vector2d end)
     {
