@@ -161,8 +161,11 @@ bounded raw-integer domain without rounded projection intermediates. For longer 
 `GridNavigationCorridorValidationCursor` advances the same canonical
 portal, clearance, and checked-cost certificate used by
 `TryValidateNavigationCorridor(...)` in caller-budgeted, allocation-free work
-units. Callers retain the ordered prism and waypoint spans unchanged until the
-cursor reaches `Complete`, `Invalid`, or `CostOverflow`.
+units. After each one-unit advance, `TryGetCurrentPortal(...)` exposes the
+portal certificate produced by that unit so callers can persist validated
+adjacencies without recompiling them. Callers retain the ordered prism and
+waypoint spans unchanged until the cursor reaches `Complete`, `Invalid`, or
+`CostOverflow`.
 `GetExactBoundaryContactsInto(...)` combines the existing
 range broad phase with exact fixed-point narrow phase and accepts caller-owned
 result and scratch containers for zero-allocation warmed composition work.

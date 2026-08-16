@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using FixedMathSharp;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
@@ -9,6 +10,217 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public sealed class GridNavigationCorridorValidationCursorTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_CurrentPortalEmitsEachRectangularCertificateInOrder(bool reverse)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(2));
+        var cells = new GridCellPrism[3];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(2, 0, 0),
+            default,
+            out cells[1]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(2, 2, 0),
+            default,
+            out cells[2]));
+        if (reverse)
+            Array.Reverse(cells);
+
+        var expected = new GridNavigationPortal[cells.Length - 1];
+        for (int i = 0; i < expected.Length; i++)
+        {
+            Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+                cells[i],
+                cells[i + 1],
+                out expected[i]));
+        }
+
+        var actual = new GridNavigationPortal[expected.Length];
+        int actualCount = 0;
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[cells.Length - 1].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+        while (cursor.Status == GridNavigationCorridorValidationStatus.InProgress)
+        {
+            cursor.Advance(cells, waypoints, maxWork: 1);
+            if (cursor.TryGetCurrentPortal(out GridNavigationPortal portal))
+                actual[actualCount++] = portal;
+        }
+
+        Assert.Equal(GridNavigationCorridorValidationStatus.Complete, cursor.Status);
+        Assert.False(cursor.TryGetCurrentPortal(out GridNavigationPortal none));
+        Assert.Equal(default, none);
+        Assert.Equal(expected.Length, actualCount);
+        Assert.Equal(expected, actual);
+        Assert.Equal(VoxelContactFaceKind.Vertical, actual[reverse ? 1 : 0].FaceKind);
+        Assert.Equal(VoxelContactFaceKind.Horizontal, actual[reverse ? 0 : 1].FaceKind);
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop, false)]
+    [InlineData(HexOrientation.PointyTop, true)]
+    [InlineData(HexOrientation.FlatTop, false)]
+    [InlineData(HexOrientation.FlatTop, true)]
+    public void Advance_CurrentPortalPreservesHexCertificateAndDirection(
+        HexOrientation orientation,
+        bool reverse)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            orientation);
+        Vector3d targetCenter = HexCoordinateUtility.AxialToWorldOffset(
+            new VoxelIndex(1, 0, 0),
+            metrics);
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            targetCenter,
+            default,
+            out cells[1]));
+        if (reverse)
+            Array.Reverse(cells);
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            cells[0],
+            cells[1],
+            out GridNavigationPortal expected));
+
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[1].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+        GridNavigationPortal actual = default;
+        int producedCount = 0;
+        while (cursor.Status == GridNavigationCorridorValidationStatus.InProgress)
+        {
+            cursor.Advance(cells, waypoints, maxWork: 1);
+            if (cursor.TryGetCurrentPortal(out GridNavigationPortal produced))
+            {
+                actual = produced;
+                producedCount++;
+            }
+        }
+
+        Assert.Equal(1, producedCount);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Advance_CurrentPortalIsSynchronizedWithItsPortalWorkUnit()
+    {
+        Assert.Equal(224, Unsafe.SizeOf<GridNavigationCorridorValidationCursor>());
+        GridCellPrism[] cells = CreateRectangularChain(2);
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            cells[0],
+            cells[1],
+            out GridNavigationPortal expected));
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[1].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(
+                GridNavigationCorridorValidationStatus.InProgress,
+                cursor.Advance(cells, waypoints, maxWork: 1));
+            Assert.False(cursor.TryGetCurrentPortal(out GridNavigationPortal none));
+            Assert.Equal(default, none);
+        }
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.InProgress,
+            cursor.Advance(cells, waypoints, maxWork: 1));
+        Assert.True(cursor.TryGetCurrentPortal(out GridNavigationPortal current));
+        Assert.Equal(expected, current);
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, maxWork: 1));
+        Assert.False(cursor.TryGetCurrentPortal(out GridNavigationPortal completed));
+        Assert.Equal(default, completed);
+    }
+
+    [Fact]
+    public void Advance_BatchedExitWorkDoesNotExposeEarlierPortalUnit()
+    {
+        GridCellPrism[] cells = CreateRectangularChain(2);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[1].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Complete,
+            cursor.Advance(cells, waypoints, maxWork: 5));
+        Assert.False(cursor.TryGetCurrentPortal(out GridNavigationPortal portal));
+        Assert.Equal(default, portal);
+    }
+
+    [Fact]
+    public void Advance_InvalidPortalClearsPreviouslyProducedCertificate()
+    {
+        GridCellPrism[] chain = CreateRectangularChain(4);
+        GridCellPrism[] cells = { chain[0], chain[1], chain[3] };
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            cells[0].Center,
+            cells[2].Center,
+            Fixed64.Zero,
+            Fixed64.One);
+
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(
+                GridNavigationCorridorValidationStatus.InProgress,
+                cursor.Advance(cells, waypoints, maxWork: 1));
+            Assert.False(cursor.TryGetCurrentPortal(out _));
+        }
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.InProgress,
+            cursor.Advance(cells, waypoints, maxWork: 1));
+        Assert.True(cursor.TryGetCurrentPortal(out GridNavigationPortal first));
+        Assert.True(first.IsValid);
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, maxWork: 1));
+        Assert.False(cursor.TryGetCurrentPortal(out GridNavigationPortal stale));
+        Assert.Equal(default, stale);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -478,7 +690,13 @@ public sealed class GridNavigationCorridorValidationCursorTests
             new Vector3d(3, -1, 0),
             Fixed64.One,
             Fixed64.One);
-        return cursor.Advance(cells, waypoints, int.MaxValue);
+        while (cursor.Status == GridNavigationCorridorValidationStatus.InProgress)
+        {
+            cursor.Advance(cells, waypoints, maxWork: 1);
+            cursor.TryGetCurrentPortal(out _);
+        }
+
+        return cursor.Status;
     }
 
     private static GridCellPrism[] CreateRectangularChain(int cellCount)

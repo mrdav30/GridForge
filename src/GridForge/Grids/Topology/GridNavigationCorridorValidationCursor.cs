@@ -34,6 +34,8 @@ public enum GridNavigationCorridorValidationStatus : byte
 /// <remarks>
 /// The ordered cell and waypoint spans are not retained. Their lengths and contents must remain
 /// stable between calls. A successful corridor of N cells consumes exactly 2N+1 work units.
+/// Advance one work unit at a time and call <see cref="TryGetCurrentPortal"/> after each call to
+/// consume every portal certificate in order.
 /// </remarks>
 public struct GridNavigationCorridorValidationCursor
 {
@@ -52,6 +54,7 @@ public struct GridNavigationCorridorValidationCursor
     private readonly Fixed64 _heightClearance;
     private GridNavigationCorridorValidationStatus _status;
     private ValidationStage _stage;
+    private bool _hasCurrentPortal;
     private int _cellIndex;
     private int _portalIndex;
     private int _portalWaypointCount;
@@ -67,6 +70,21 @@ public struct GridNavigationCorridorValidationCursor
 
     /// <summary>The checked canonical polyline length accumulated so far.</summary>
     public readonly Fixed64 GeometricCost => _geometricCost;
+
+    /// <summary>
+    /// Attempts to get the portal certificate produced by the last completed work unit.
+    /// </summary>
+    /// <remarks>
+    /// The value is available only when the final work unit completed by the most recent advance
+    /// was successful portal work. Use a one-unit budget to consume every certificate in order.
+    /// </remarks>
+    /// <param name="portal">The produced portal, or <see langword="default"/> when unavailable.</param>
+    /// <returns><see langword="true"/> when a portal certificate is available.</returns>
+    public readonly bool TryGetCurrentPortal(out GridNavigationPortal portal)
+    {
+        portal = _hasCurrentPortal ? _selectedPortal : default;
+        return _hasCurrentPortal;
+    }
 
     /// <summary>
     /// Creates a cursor for one ordered source, witness, and destination cell chain.
@@ -100,6 +118,7 @@ public struct GridNavigationCorridorValidationCursor
         _previousPoint = entryAnchor;
         _geometricCost = default;
         _selectedPortal = default;
+        _hasCurrentPortal = false;
     }
 
     /// <summary>
@@ -114,6 +133,7 @@ public struct GridNavigationCorridorValidationCursor
         Span<Vector3d> portalWaypoints,
         int maxWork)
     {
+        _hasCurrentPortal = false;
         if (_status != GridNavigationCorridorValidationStatus.InProgress)
             return _status;
 
@@ -133,6 +153,7 @@ public struct GridNavigationCorridorValidationCursor
         ReadOnlySpan<GridCellPrism> orderedCells,
         Span<Vector3d> portalWaypoints)
     {
+        _hasCurrentPortal = false;
         switch (_stage)
         {
             case ValidationStage.Cells:
@@ -233,6 +254,7 @@ public struct GridNavigationCorridorValidationCursor
             return;
         }
 
+        _hasCurrentPortal = true;
         _portalIndex++;
         if (_portalIndex == _cellCount - 1)
             _stage = ValidationStage.ExitAnchor;
@@ -265,6 +287,7 @@ public struct GridNavigationCorridorValidationCursor
     {
         _portalWaypointCount = 0;
         _geometricCost = default;
+        _hasCurrentPortal = false;
         _status = status;
         return status;
     }
