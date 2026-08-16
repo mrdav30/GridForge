@@ -205,8 +205,12 @@ address identity, physical presence for sparse addresses, closed `tEnter` and
 `tExit` prism intervals, and deterministic simultaneous-coverage groups. A tie
 group describes overlapping interval coverage only; its peer cells are not
 implicitly adjacent. The report separately proves continuous address and
-physical coverage, and fails closed when caller-supplied candidate or output
-ceilings are exhausted. Caller-owned results and `GridTraceIntervalScratch`
+physical coverage, and reports separate candidate-grid, candidate-address, and
+output counts and ceilings. A grid-ceiling failure stops before address
+enumeration. `GridCandidateCount` and `AddressCandidateCount` preserve the exact
+completed work, while `GridCandidateLimitExceeded` and
+`AddressCandidateLimitExceeded` identify which ceiling stopped the query.
+Caller-owned results and `GridTraceIntervalScratch`
 retain capacity for zero-allocation warmed traces. The complete trace holds one
 world read lease, so grid removal and slot reuse cannot change identity. It
 enumerates the topology candidate range under the caller's explicit budget,

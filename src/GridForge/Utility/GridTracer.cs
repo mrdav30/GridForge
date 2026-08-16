@@ -696,7 +696,11 @@ public static partial class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
+        _ = world.CollectGridCandidates(
+            candidateMin,
+            candidateMax,
+            candidateGrids,
+            GridWorld.MaxGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredGridVoxels(
@@ -721,7 +725,11 @@ public static partial class GridTracer
             CreatePaddedOrderedBounds(boundsMin, boundsMax, padding);
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
-        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
+        _ = world.CollectGridCandidates(
+            candidateMin,
+            candidateMax,
+            candidateGrids,
+            GridWorld.MaxGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredScanCellsForGrid(
@@ -779,7 +787,11 @@ public static partial class GridTracer
         (Vector3d candidateMin, Vector3d candidateMax) =
             ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
 
-        world.CollectGridCandidates(candidateMin, candidateMax, candidateGrids);
+        _ = world.CollectGridCandidates(
+            candidateMin,
+            candidateMax,
+            candidateGrids,
+            GridWorld.MaxGrids);
         foreach (ushort gridIndex in candidateGrids)
         {
             AddCoveredVoxelsForGrid(

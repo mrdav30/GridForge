@@ -18,12 +18,14 @@ public enum GridTraceIntervalStatus : byte
 {
     /// <summary>The complete trace was written.</summary>
     Complete,
-    /// <summary>The candidate-address budget was exhausted.</summary>
-    CandidateBudgetExceeded,
+    /// <summary>The candidate-address ceiling was exhausted.</summary>
+    AddressCandidateLimitExceeded,
     /// <summary>The output interval ceiling was exceeded.</summary>
     OutputLimitExceeded,
     /// <summary>A candidate grid cell could not be represented exactly.</summary>
-    UnrepresentableGeometry
+    UnrepresentableGeometry,
+    /// <summary>The candidate-grid ceiling was exhausted.</summary>
+    GridCandidateLimitExceeded
 }
 
 /// <summary>
@@ -95,8 +97,11 @@ public readonly struct GridTraceIntervalReport
     /// <summary>The completion status.</summary>
     public GridTraceIntervalStatus Status { get; }
 
-    /// <summary>The number of unique candidate addresses narrow-phase tested.</summary>
-    public int CandidateCount { get; }
+    /// <summary>The number of candidate grids discovered.</summary>
+    public int GridCandidateCount { get; }
+
+    /// <summary>The number of unique candidate addresses enumerated.</summary>
+    public int AddressCandidateCount { get; }
 
     /// <summary>The number of intervals written.</summary>
     public int IntervalCount { get; }
@@ -115,6 +120,7 @@ public readonly struct GridTraceIntervalReport
 
     internal GridTraceIntervalReport(
         GridTraceIntervalStatus status,
+        int gridCandidateCount,
         int candidateCount,
         int intervalCount,
         int tieGroupCount,
@@ -122,7 +128,8 @@ public readonly struct GridTraceIntervalReport
         bool hasContinuousPhysicalCoverage)
     {
         Status = status;
-        CandidateCount = candidateCount;
+        GridCandidateCount = gridCandidateCount;
+        AddressCandidateCount = candidateCount;
         IntervalCount = intervalCount;
         TieGroupCount = tieGroupCount;
         HasContinuousAddressCoverage = hasContinuousAddressCoverage;

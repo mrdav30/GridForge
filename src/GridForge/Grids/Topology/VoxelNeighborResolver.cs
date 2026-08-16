@@ -166,7 +166,11 @@ internal static class VoxelNeighborResolver
         SwiftList<ushort> candidateGridIds)
     {
         TopologyVoxelAabb spatialBounds = queryBounds.Expand(world.MaxTopologyCellEdge);
-        world.CollectGridCandidates(spatialBounds.Min, spatialBounds.Max, candidateGridIds);
+        _ = world.CollectGridCandidates(
+            spatialBounds.Min,
+            spatialBounds.Max,
+            candidateGridIds,
+            GridWorld.MaxGrids);
     }
 
     private static bool TryGetCandidateGrid(

@@ -37,29 +37,43 @@ public static partial class GridTracer
         Vector3d end,
         SwiftList<GridTraceInterval> results,
         GridTraceIntervalScratch scratch,
-        int candidateBudget,
+        int gridCandidateLimit,
+        int addressCandidateLimit,
         int outputLimit)
     {
         SwiftThrowHelper.ThrowIfNull(results, nameof(results));
         SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
-        SwiftThrowHelper.ThrowIfNegative(candidateBudget, nameof(candidateBudget));
+        SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
+        SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
 
         results.Clear();
         scratch.Clear();
         if (world == null || !world.IsActive)
-            return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, results);
+            return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, 0, results);
 
         world.EnterReadLock();
         try
         {
             if (!world.IsActive)
-                return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, results);
+                return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, 0, results);
 
             (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding: null);
             (Vector3d candidateMin, Vector3d candidateMax) =
                 ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
-            world.CollectGridCandidates(candidateMin, candidateMax, scratch.CandidateGrids);
+            if (!world.CollectGridCandidates(
+                    candidateMin,
+                    candidateMax,
+                    scratch.CandidateGrids,
+                    gridCandidateLimit))
+            {
+                return FailTrace(
+                    results,
+                    GridTraceIntervalStatus.GridCandidateLimitExceeded,
+                    scratch.CandidateGrids.Count,
+                    0);
+            }
+
             SortGridIndices(world, scratch.CandidateGrids);
 
             bool hasSparseGrid = false;
@@ -72,11 +86,12 @@ public static partial class GridTracer
                         queryMin,
                         queryMax,
                         scratch,
-                        candidateBudget))
+                        addressCandidateLimit))
                 {
                     return FailTrace(
                         results,
-                        GridTraceIntervalStatus.CandidateBudgetExceeded,
+                        GridTraceIntervalStatus.AddressCandidateLimitExceeded,
+                        scratch.CandidateGrids.Count,
                         scratch.AddressCandidates.Count);
                 }
 
@@ -106,6 +121,7 @@ public static partial class GridTracer
                     return FailTrace(
                         results,
                         GridTraceIntervalStatus.UnrepresentableGeometry,
+                        scratch.CandidateGrids.Count,
                         scratch.AddressCandidates.Count);
                 }
 
@@ -117,6 +133,7 @@ public static partial class GridTracer
                     return FailTrace(
                         results,
                         GridTraceIntervalStatus.OutputLimitExceeded,
+                        scratch.CandidateGrids.Count,
                         scratch.AddressCandidates.Count);
                 }
 
@@ -131,6 +148,7 @@ public static partial class GridTracer
             SortIntervals(results);
             return CreateTraceReport(
                 GridTraceIntervalStatus.Complete,
+                scratch.CandidateGrids.Count,
                 scratch.AddressCandidates.Count,
                 results);
         }
@@ -146,7 +164,7 @@ public static partial class GridTracer
         Vector3d queryMin,
         Vector3d queryMax,
         GridTraceIntervalScratch scratch,
-        int candidateBudget)
+        int addressCandidateLimit)
     {
         GridTopologyMetrics metrics = grid.Configuration.TopologyMetrics;
         Vector3d rangeMin;
@@ -184,7 +202,7 @@ public static partial class GridTracer
             {
                 for (int z = minIndex.z; z <= maxIndex.z; z++)
                 {
-                    if (scratch.AddressCandidates.Count >= candidateBudget)
+                    if (scratch.AddressCandidates.Count >= addressCandidateLimit)
                         return false;
 
                     scratch.AddressCandidates.Add(new GridTraceAddressCandidate(
@@ -358,12 +376,14 @@ public static partial class GridTracer
 
     private static GridTraceIntervalReport CreateTraceReport(
         GridTraceIntervalStatus status,
+        int gridCandidateCount,
         int candidateCount,
         SwiftList<GridTraceInterval> results)
     {
         int tieGroupCount = AssignTieGroups(results);
         return new GridTraceIntervalReport(
             status,
+            gridCandidateCount,
             candidateCount,
             results.Count,
             tieGroupCount,
@@ -374,10 +394,11 @@ public static partial class GridTracer
     private static GridTraceIntervalReport FailTrace(
         SwiftList<GridTraceInterval> results,
         GridTraceIntervalStatus status,
+        int gridCandidateCount,
         int candidateCount)
     {
         results.Clear();
-        return new GridTraceIntervalReport(status, candidateCount, 0, 0, false, false);
+        return new GridTraceIntervalReport(status, gridCandidateCount, candidateCount, 0, 0, false, false);
     }
 
     private static int AssignTieGroups(SwiftList<GridTraceInterval> results)
@@ -532,7 +553,7 @@ public static partial class GridTracer
         comparison = CompareVectors(first.BoundsMax, second.BoundsMax);
         if (comparison != 0)
             return comparison;
-        comparison = first.TopologyKind.CompareTo(second.TopologyKind);
+        comparison = ((int)first.TopologyKind).CompareTo((int)second.TopologyKind);
         if (comparison != 0)
             return comparison;
 
@@ -550,7 +571,7 @@ public static partial class GridTracer
         comparison = firstMetrics.CellLength.CompareTo(secondMetrics.CellLength);
         return comparison != 0
             ? comparison
-            : firstMetrics.HexOrientation.CompareTo(secondMetrics.HexOrientation);
+            : ((int)firstMetrics.HexOrientation).CompareTo((int)secondMetrics.HexOrientation);
     }
 
     private static int CompareVectors(Vector3d first, Vector3d second)

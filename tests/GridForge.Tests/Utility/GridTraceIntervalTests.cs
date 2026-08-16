@@ -85,7 +85,14 @@ public sealed class GridTraceIntervalTests : IDisposable
                     HexCoordinateUtility.Sqrt3 - Fixed64.FromFraction(1, 100));
             _results.Clear();
             GridTraceIntervalReport miss = GridTracer.TraceIntervalsInto(
-                outsideWorld, aabbOnly, aabbOnly, _results, _scratch, 64, 64);
+                outsideWorld,
+                aabbOnly,
+                aabbOnly,
+                _results,
+                _scratch,
+                gridCandidateLimit: 4,
+                addressCandidateLimit: 64,
+                outputLimit: 64);
 
             Assert.Equal(GridTraceIntervalStatus.Complete, miss.Status);
             Assert.Empty(_results);
@@ -213,7 +220,8 @@ public sealed class GridTraceIntervalTests : IDisposable
                 new Vector3d(1, 0, 0),
                 results,
                 scratch,
-                candidateBudget: 64,
+                gridCandidateLimit: 4,
+                addressCandidateLimit: 64,
                 outputLimit: 32);
             Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
             return results.Select(value => (
@@ -254,13 +262,31 @@ public sealed class GridTraceIntervalTests : IDisposable
         Vector3d end = new Vector3d(Fixed64.FromFraction(9, 2), Fixed64.Zero, Fixed64.Zero);
 
         GridTraceIntervalReport candidateLimited = GridTracer.TraceIntervalsInto(
-            _world, start, end, _results, _scratch, candidateBudget: 1, outputLimit: 32);
-        Assert.Equal(GridTraceIntervalStatus.CandidateBudgetExceeded, candidateLimited.Status);
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 8,
+            addressCandidateLimit: 1,
+            outputLimit: 32);
+        Assert.Equal(GridTraceIntervalStatus.AddressCandidateLimitExceeded, candidateLimited.Status);
+        Assert.Equal(1, candidateLimited.GridCandidateCount);
+        Assert.Equal(1, candidateLimited.AddressCandidateCount);
         Assert.Empty(_results);
 
         GridTraceIntervalReport outputLimited = GridTracer.TraceIntervalsInto(
-            _world, start, end, _results, _scratch, candidateBudget: 64, outputLimit: 1);
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 8,
+            addressCandidateLimit: 64,
+            outputLimit: 1);
         Assert.Equal(GridTraceIntervalStatus.OutputLimitExceeded, outputLimited.Status);
+        Assert.Equal(1, outputLimited.GridCandidateCount);
+        Assert.Equal(5, outputLimited.AddressCandidateCount);
         Assert.Empty(_results);
 
         Trace(start, end);
@@ -269,6 +295,125 @@ public sealed class GridTraceIntervalTests : IDisposable
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(GridTraceIntervalStatus.Complete, warmed.Status);
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void GridCandidateCeiling_ShouldFailBeforeAddressWorkAndAcceptExactTopologyCount()
+    {
+        GridTopologyMetrics pointyMetrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            HexOrientation.PointyTop);
+        GridTopologyMetrics flatMetrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            HexOrientation.FlatTop);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out _));
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(pointyMetrics, default),
+            out _));
+        Assert.True(_world.TryAddGrid(
+            CreateHexConfiguration(flatMetrics, default),
+            out _));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(100, 0, 0), new Vector3d(100, 0, 0)),
+            out _));
+
+        Vector3d start = new Vector3d(Fixed64.FromFraction(-1, 4), Fixed64.Zero, Fixed64.Zero);
+        Vector3d end = new Vector3d(Fixed64.FromFraction(1, 4), Fixed64.Zero, Fixed64.Zero);
+        GridTraceIntervalReport oneBelow = GridTracer.TraceIntervalsInto(
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 2,
+            addressCandidateLimit: 0,
+            outputLimit: 0);
+
+        Assert.Equal(GridTraceIntervalStatus.GridCandidateLimitExceeded, oneBelow.Status);
+        Assert.Equal(2, oneBelow.GridCandidateCount);
+        Assert.Equal(0, oneBelow.AddressCandidateCount);
+        Assert.Equal(0, oneBelow.IntervalCount);
+        Assert.Empty(_results);
+
+        long failureBefore = GC.GetAllocatedBytesForCurrentThread();
+        oneBelow = GridTracer.TraceIntervalsInto(
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 2,
+            addressCandidateLimit: 0,
+            outputLimit: 0);
+        long failureAllocated = GC.GetAllocatedBytesForCurrentThread() - failureBefore;
+
+        Assert.Equal(GridTraceIntervalStatus.GridCandidateLimitExceeded, oneBelow.Status);
+        Assert.Equal(2, oneBelow.GridCandidateCount);
+        Assert.Equal(0, oneBelow.AddressCandidateCount);
+        Assert.Empty(_results);
+        Assert.Equal(0, failureAllocated);
+
+        GridTraceIntervalReport exact = GridTracer.TraceIntervalsInto(
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 3,
+            addressCandidateLimit: 16,
+            outputLimit: 8);
+        GridConfigurationKey[] firstOrder = _results
+            .Select(value => value.ConfigurationKey)
+            .ToArray();
+
+        Assert.Equal(GridTraceIntervalStatus.Complete, exact.Status);
+        Assert.Equal(3, exact.GridCandidateCount);
+        Assert.Equal(3, exact.AddressCandidateCount);
+        Assert.Equal(3, exact.IntervalCount);
+        Assert.Equal(3, firstOrder.Distinct().Count());
+        Assert.Equal(
+            new[]
+            {
+                GridTopologyKind.RectangularPrism,
+                GridTopologyKind.HexPrism,
+                GridTopologyKind.HexPrism
+            },
+            firstOrder.Select(value => value.TopologyKind));
+        Assert.Equal(HexOrientation.FlatTop, firstOrder[1].TopologyMetrics.HexOrientation);
+        Assert.Equal(HexOrientation.PointyTop, firstOrder[2].TopologyMetrics.HexOrientation);
+
+        GridTraceIntervalReport warmed = default;
+        for (int i = 0; i < 16; i++)
+        {
+            warmed = GridTracer.TraceIntervalsInto(
+                _world,
+                start,
+                end,
+                _results,
+                _scratch,
+                gridCandidateLimit: 3,
+                addressCandidateLimit: 16,
+                outputLimit: 8);
+        }
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        warmed = GridTracer.TraceIntervalsInto(
+            _world,
+            start,
+            end,
+            _results,
+            _scratch,
+            gridCandidateLimit: 3,
+            addressCandidateLimit: 16,
+            outputLimit: 8);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(GridTraceIntervalStatus.Complete, warmed.Status);
+        Assert.Equal(firstOrder, _results.Select(value => value.ConfigurationKey));
         Assert.Equal(0, allocated);
     }
 
@@ -316,7 +461,14 @@ public sealed class GridTraceIntervalTests : IDisposable
             GridTraceIntervalScratch scratch = new GridTraceIntervalScratch(2, 128);
 
             GridTraceIntervalReport report = GridTracer.TraceIntervalsInto(
-                world, start, end, results, scratch, candidateBudget: 4096, outputLimit: 1024);
+                world,
+                start,
+                end,
+                results,
+                scratch,
+                gridCandidateLimit: 2,
+                addressCandidateLimit: 4096,
+                outputLimit: 1024);
             Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
 
             HashSet<VoxelIndex> expected = new HashSet<VoxelIndex>();
@@ -434,7 +586,8 @@ public sealed class GridTraceIntervalTests : IDisposable
                     new Vector3d(Fixed64.FromFraction(9, 2), Fixed64.Zero, Fixed64.Zero),
                     results,
                     scratch,
-                    candidateBudget: 64,
+                    gridCandidateLimit: 2,
+                    addressCandidateLimit: 64,
                     outputLimit: 16);
             }
             catch (Exception exception)
@@ -469,7 +622,8 @@ public sealed class GridTraceIntervalTests : IDisposable
             end,
             _results,
             _scratch,
-            candidateBudget: 4096,
+            gridCandidateLimit: 8,
+            addressCandidateLimit: 4096,
             outputLimit: 1024);
 
     private static GridConfiguration CreateHexConfiguration(

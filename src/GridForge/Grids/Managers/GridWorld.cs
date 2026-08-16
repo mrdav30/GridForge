@@ -1822,14 +1822,39 @@ public sealed partial class GridWorld : IDisposable
         }
     }
 
-    internal void CollectGridCandidates(
+    internal bool CollectGridCandidates(
         Vector3d boundsMin,
         Vector3d boundsMax,
-        SwiftList<ushort> candidates) =>
-        _spatialIndex.CollectCandidates(
-            new FixedBoundVolume(boundsMin, boundsMax),
-            ActiveGrids,
-            candidates);
+        SwiftList<ushort> candidates,
+        int candidateLimit)
+    {
+        SwiftThrowHelper.ThrowIfNegative(candidateLimit, nameof(candidateLimit));
+        candidates.Clear();
+        if (ActiveGrids.Count == 0)
+            return true;
+
+        FixedBoundVolume queryBounds = new(boundsMin, boundsMax);
+        if (ActiveGrids.Count <= candidateLimit)
+        {
+            _spatialIndex.CollectCandidates(queryBounds, ActiveGrids, candidates);
+            return true;
+        }
+
+        foreach (VoxelGrid grid in ActiveGrids)
+        {
+            FixedBoundVolume gridBounds = new(grid.BoundsMin, grid.BoundsMax);
+            if (!gridBounds.Intersects(queryBounds))
+                continue;
+            if (candidates.Count >= candidateLimit)
+                return false;
+
+            candidates.Add(grid.GridIndex);
+        }
+
+        if (candidates.Count > 1)
+            candidates.SortInPlace();
+        return true;
+    }
 
     private static FixedBoundVolume CreateExpandedBounds(
         Vector3d boundsMin,
