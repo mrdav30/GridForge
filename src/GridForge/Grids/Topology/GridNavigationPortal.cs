@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using FixedMathSharp;
 
 namespace GridForge.Grids.Topology;
@@ -17,8 +18,12 @@ namespace GridForge.Grids.Topology;
 /// The value retains no live grid state. Profile resolution uses only the stored face geometry,
 /// direction, and conservative fixed-point capacities.
 /// </remarks>
+[StructLayout(LayoutKind.Sequential)]
 public readonly struct GridNavigationPortal
 {
+    /// <summary>The stable retained value size used by exact byte-accounted storage.</summary>
+    public const int SizeInBytes = 104;
+
     /// <summary>The orientation of the shared positive-area face.</summary>
     public VoxelContactFaceKind FaceKind { get; }
 
@@ -34,9 +39,17 @@ public readonly struct GridNavigationPortal
     /// <summary>The greatest body height supported by both directed sides of the crossing.</summary>
     public Fixed64 MaximumBodyHeight { get; }
 
+    /// <summary>The first exact XZ endpoint certifying a compiled vertical face.</summary>
+    public Vector2d VerticalFaceSegmentStart { get; }
+
+    /// <summary>The second exact XZ endpoint certifying a compiled vertical face.</summary>
+    public Vector2d VerticalFaceSegmentEnd { get; }
+
     /// <summary>Whether this value contains a compiled positive-area navigation face.</summary>
     public bool IsValid =>
-        FaceKind is VoxelContactFaceKind.Vertical or VoxelContactFaceKind.Horizontal
+        ((FaceKind == VoxelContactFaceKind.Vertical
+                && VerticalFaceSegmentStart != VerticalFaceSegmentEnd)
+            || FaceKind == VoxelContactFaceKind.Horizontal)
         && MaximumHorizontalRadius >= Fixed64.Zero
         && MaximumBodyHeight > Fixed64.Zero;
 
@@ -45,13 +58,17 @@ public readonly struct GridNavigationPortal
         Vector3d sourceToTarget,
         Vector3d canonicalFacePoint,
         Fixed64 maximumHorizontalRadius,
-        Fixed64 maximumBodyHeight)
+        Fixed64 maximumBodyHeight,
+        Vector2d verticalFaceSegmentStart,
+        Vector2d verticalFaceSegmentEnd)
     {
         FaceKind = faceKind;
         SourceToTarget = sourceToTarget;
         CanonicalFacePoint = canonicalFacePoint;
         MaximumHorizontalRadius = maximumHorizontalRadius;
         MaximumBodyHeight = maximumBodyHeight;
+        VerticalFaceSegmentStart = verticalFaceSegmentStart;
+        VerticalFaceSegmentEnd = verticalFaceSegmentEnd;
     }
 
     /// <summary>
@@ -73,12 +90,32 @@ public readonly struct GridNavigationPortal
             return false;
         }
 
+        Vector2d translatedSegmentStart = default;
+        Vector2d translatedSegmentEnd = default;
+        if (FaceKind == VoxelContactFaceKind.Vertical)
+        {
+            var horizontalOffset = new Vector2d(offset.X, offset.Z);
+            if (!Vector2d.TryAdd(
+                    VerticalFaceSegmentStart,
+                    horizontalOffset,
+                    out translatedSegmentStart)
+                || !Vector2d.TryAdd(
+                    VerticalFaceSegmentEnd,
+                    horizontalOffset,
+                    out translatedSegmentEnd))
+            {
+                return false;
+            }
+        }
+
         translated = new GridNavigationPortal(
             FaceKind,
             SourceToTarget,
             translatedFacePoint,
             MaximumHorizontalRadius,
-            MaximumBodyHeight);
+            MaximumBodyHeight,
+            translatedSegmentStart,
+            translatedSegmentEnd);
         return true;
     }
 

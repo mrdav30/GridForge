@@ -12,6 +12,73 @@ public sealed class GridNavigationCorridorValidationCursorTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public void Advance_PartialVerticalPortalRejectsEndpointBesideHorizontalOpening(
+        bool exitIsInvalid)
+    {
+        GridCellPrism[] cells = CreateOffsetPartialFaceCells(out GridNavigationPortal portal);
+        Vector3d invalidAnchor = exitIsInvalid
+            ? new Vector3d(2, 0, 3)
+            : new Vector3d(2, 0, -1);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            exitIsInvalid ? portal.CanonicalFacePoint : invalidAnchor,
+            exitIsInvalid ? invalidAnchor : portal.CanonicalFacePoint,
+            Fixed64.One / new Fixed64(2),
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_PartialVerticalPortalRejectsEndpointOutsideVerticalOpening(
+        bool exitIsInvalid)
+    {
+        GridCellPrism[] cells = CreateOffsetPartialFaceCells(out GridNavigationPortal portal);
+        Vector3d invalidAnchor = exitIsInvalid
+            ? new Vector3d(2, 2, 1)
+            : new Vector3d(2, -1, 1);
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            exitIsInvalid ? portal.CanonicalFacePoint : invalidAnchor,
+            exitIsInvalid ? invalidAnchor : portal.CanonicalFacePoint,
+            Fixed64.One / new Fixed64(2),
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Fact]
+    public void Advance_PartialVerticalPortalRejectsBodyClippingOpeningEnd()
+    {
+        GridCellPrism[] cells = CreateOffsetPartialFaceCells(out GridNavigationPortal portal);
+        var entry = new Vector3d(
+            new Fixed64(7) / new Fixed64(4),
+            Fixed64.Zero,
+            Fixed64.One / new Fixed64(4));
+        Vector3d[] waypoints = new Vector3d[2];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            entry,
+            portal.CanonicalFacePoint,
+            Fixed64.One / new Fixed64(2),
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void Advance_PositiveRadiusEntryApproachingFirstVerticalPortal_Completes(bool reverse)
     {
         GridCellPrism[] cells = CreateRectangularChain(2);
@@ -431,6 +498,36 @@ public sealed class GridNavigationCorridorValidationCursorTests
                 out cells[i]));
         }
 
+        return cells;
+    }
+
+    private static GridCellPrism[] CreateOffsetPartialFaceCells(
+        out GridNavigationPortal portal)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(
+            new Fixed64(4),
+            new Fixed64(4),
+            new Fixed64(4));
+        var cells = new GridCellPrism[2];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(4, 2, 2),
+            default,
+            out cells[1]));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            cells[0],
+            cells[1],
+            out portal));
+        Assert.Equal(new Vector3d(2, 0, 1), portal.CanonicalFacePoint);
+        Assert.Equal(Fixed64.One, portal.MaximumHorizontalRadius);
+        Assert.Equal(new Fixed64(2), portal.MaximumBodyHeight);
         return cells;
     }
 }

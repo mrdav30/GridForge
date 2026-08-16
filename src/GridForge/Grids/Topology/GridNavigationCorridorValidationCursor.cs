@@ -153,14 +153,12 @@ public struct GridNavigationCorridorValidationCursor
                     orderedCells[0],
                     orderedCells[1],
                     out _selectedPortal);
-                if (!IsBodyAnchorValid(
+                if (!GridCellGeometry.IsNavigationBodyAnchorValid(
                         orderedCells[0],
                         _entryAnchor,
                         _radiusClearance,
                         _heightClearance,
-                        CanUsePortalExemption(_selectedPortal)
-                            ? _selectedPortal
-                            : default))
+                        _selectedPortal))
                 {
                     Fail(GridNavigationCorridorValidationStatus.Invalid);
                     return;
@@ -218,13 +216,13 @@ public struct GridNavigationCorridorValidationCursor
             _previousPoint = targetPoint;
         }
 
-        if (!IsBodyAnchorValid(
+        if (!GridCellGeometry.IsNavigationBodyAnchorValid(
                 source,
                 sourcePoint,
                 _radiusClearance,
                 _heightClearance,
                 _selectedPortal)
-            || !IsBodyAnchorValid(
+            || !GridCellGeometry.IsNavigationBodyAnchorValid(
                 target,
                 targetPoint,
                 _radiusClearance,
@@ -248,7 +246,7 @@ public struct GridNavigationCorridorValidationCursor
             return;
         }
 
-        if (!IsBodyAnchorValid(
+        if (!GridCellGeometry.IsNavigationBodyAnchorValid(
                 orderedCells[_cellCount - 1],
                 _exitAnchor,
                 _radiusClearance,
@@ -277,55 +275,4 @@ public struct GridNavigationCorridorValidationCursor
             && Fixed64.TryAdd(_geometricCost, distance, out _geometricCost);
     }
 
-    private static bool IsBodyAnchorValid(
-        in GridCellPrism prism,
-        Vector3d foot,
-        Fixed64 radius,
-        Fixed64 height,
-        in GridNavigationPortal exemptPortal)
-    {
-        if (!prism.Contains(foot)
-            || !Fixed64.TryAdd(foot.Y, height, out Fixed64 top)
-            || top > prism.VerticalMax)
-        {
-            return false;
-        }
-
-        Vector2d point = new Vector2d(foot.X, foot.Z);
-        for (int i = 0; i < prism.FootprintVertexCount; i++)
-        {
-            Vector2d start = prism.GetFootprintVertex(i);
-            Vector2d end = prism.GetFootprintVertex((i + 1) % prism.FootprintVertexCount);
-            if (IsExemptPortalEdge(start, end, exemptPortal))
-                continue;
-
-            Vector2d closest = Vector2d.ClosestPointOnLineSegment(point, start, end);
-            if (!Vector2d.TryGetDistance(point, closest, out Fixed64 distance) || distance < radius)
-                return false;
-        }
-
-        return true;
-    }
-
-    private static bool IsExemptPortalEdge(
-        Vector2d edgeStart,
-        Vector2d edgeEnd,
-        in GridNavigationPortal portal)
-    {
-        return portal.FaceKind == VoxelContactFaceKind.Vertical
-            && IsPointOnSegment(
-                new Vector2d(portal.CanonicalFacePoint.X, portal.CanonicalFacePoint.Z),
-                edgeStart,
-                edgeEnd);
-    }
-
-    private readonly bool CanUsePortalExemption(in GridNavigationPortal portal) =>
-        portal.FaceKind == VoxelContactFaceKind.Vertical
-        && _radiusClearance <= portal.MaximumHorizontalRadius
-        && _heightClearance <= portal.MaximumBodyHeight;
-
-    private static bool IsPointOnSegment(Vector2d point, Vector2d start, Vector2d end)
-    {
-        return Vector2d.ClosestPointOnLineSegment(point, start, end) == point;
-    }
 }

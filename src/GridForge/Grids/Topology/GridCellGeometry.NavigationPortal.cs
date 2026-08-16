@@ -76,7 +76,9 @@ public static partial class GridCellGeometry
                 sourceToTarget,
                 canonicalFacePoint,
                 FixedMath.Min(startClearance, endClearance),
-                faceHeight);
+                faceHeight,
+                contact.HorizontalSegmentStart,
+                contact.HorizontalSegmentEnd);
             return true;
         }
 
@@ -116,7 +118,9 @@ public static partial class GridCellGeometry
             sourceToTarget,
             new Vector3d(centroid.X, contact.VerticalMin, centroid.Y),
             maximumRadius,
-            FixedMath.Min(sourceHeight, targetHeight));
+            FixedMath.Min(sourceHeight, targetHeight),
+            default,
+            default);
         return true;
     }
 

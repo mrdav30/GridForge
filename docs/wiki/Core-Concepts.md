@@ -152,8 +152,13 @@ positive-area `Face` is an automatic-portal candidate before agent-specific
 clearance checks. `TryCreateNavigationPortal(...)` compiles that face into an
 agent-independent `GridNavigationPortal` with conservative fixed-point radius
 and height capacity; its constant-time profile resolution returns directed foot
-anchors without retaining or querying live grid state. For longer authored
-corridors, `GridNavigationCorridorValidationCursor` advances the same canonical
+anchors without retaining or querying live grid state.
+`IsNavigationBodyAnchorValid(...)` is the allocation-free body-clearance
+authority: ordinary prism walls remain solid, and only the conservative
+symmetric horizontal and vertical opening of the selected vertical portal can
+exempt its exact compiled face. Its wall and opening comparisons stay in a
+bounded raw-integer domain without rounded projection intermediates. For longer authored corridors,
+`GridNavigationCorridorValidationCursor` advances the same canonical
 portal, clearance, and checked-cost certificate used by
 `TryValidateNavigationCorridor(...)` in caller-budgeted, allocation-free work
 units. Callers retain the ordered prism and waypoint spans unchanged until the
