@@ -680,6 +680,45 @@ public sealed class GridNavigationCorridorValidationCursorTests
         Assert.Equal(0, allocated);
     }
 
+    [Fact]
+    public void Advance_RejectsBodySegmentThatClipsCornerBetweenSelectedPortals()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        var cells = new GridCellPrism[3];
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(-4, 0, 0),
+            default,
+            out cells[0]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero,
+            default,
+            out cells[1]));
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(0, 0, 4),
+            default,
+            out cells[2]));
+
+        Vector3d[] waypoints = new Vector3d[4];
+        var cursor = new GridNavigationCorridorValidationCursor(
+            cells.Length,
+            new Vector3d(-4, -2, 0),
+            new Vector3d(0, -2, 4),
+            new Fixed64(3) / new Fixed64(2),
+            Fixed64.One);
+
+        Assert.Equal(
+            GridNavigationCorridorValidationStatus.Invalid,
+            cursor.Advance(cells, waypoints, int.MaxValue));
+        Assert.Equal(0, cursor.PortalWaypointCount);
+        Assert.Equal(Fixed64.Zero, cursor.GeometricCost);
+    }
+
     private static GridNavigationCorridorValidationStatus Validate(
         GridCellPrism[] cells,
         Vector3d[] waypoints)

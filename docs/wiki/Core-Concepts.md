@@ -153,13 +153,23 @@ clearance checks. `TryCreateNavigationPortal(...)` compiles that face into an
 agent-independent `GridNavigationPortal` with conservative fixed-point radius
 and height capacity; its constant-time profile resolution returns directed foot
 anchors without retaining or querying live grid state.
-`IsNavigationBodyAnchorValid(...)` is the allocation-free body-clearance
-authority: ordinary prism walls remain solid, and only the conservative
-symmetric horizontal and vertical opening of the selected vertical portal can
-exempt its exact compiled face. Its wall and opening comparisons stay in a
-bounded raw-integer domain without rounded projection intermediates. For longer authored corridors,
-`GridNavigationCorridorValidationCursor` advances the same canonical
-portal, clearance, and checked-cost certificate used by
+`IsNavigationBodySegmentValid(...)` is the allocation-free swept-body
+clearance authority. It compares the exact XZ capsule against every blocked
+wall span, uses the full retained contact segment as the physical aperture,
+and applies each selected portal's vertical band only while the sweep overlaps
+that aperture. Tangency is accepted; one-raw penetration is rejected.
+`IsNavigationBodyAnchorValid(...)` is its degenerate-segment form.
+`TryGetNavigationPortalTraversalParameters(...)` additionally revalidates a
+directed portal against both authored prisms. Vertical crossings return a
+source/target parameter enclosure whose reconstructed endpoints are certified
+in the corresponding prisms. Horizontal crossings return ordered parameters;
+the exact profile anchors resolved from the portal remain the geometric
+authority rather than points reconstructed from rounded parameters. Two
+selected openings on one wall retain independent height bands. One segment is
+conservatively rejected when it would need to switch vertical authority between
+those openings; callers preserve an intermediate anchor instead. For longer
+authored corridors, `GridNavigationCorridorValidationCursor` advances the same canonical
+portal, swept-clearance, and checked-cost certificate used by
 `TryValidateNavigationCorridor(...)` in caller-budgeted, allocation-free work
 units. After each one-unit advance, `TryGetCurrentPortal(...)` exposes the
 portal certificate produced by that unit so callers can persist validated

@@ -1,0 +1,506 @@
+//=======================================================================
+// GridCellGeometry.NavigationBodySegment.cs
+//=======================================================================
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
+// See LICENSE file in the project root for full license information.
+//=======================================================================
+
+using FixedMathSharp;
+using FixedMathSharp.Geometry;
+
+namespace GridForge.Grids.Topology;
+
+public static partial class GridCellGeometry
+{
+    /// <summary>
+    /// Attempts to certify where one straight body-foot segment traverses an exact directed portal.
+    /// </summary>
+    /// <remarks>
+    /// Vertical portals return a directed source/target enclosure around the exact crossing.
+    /// Horizontal portals return the ordered parameters of the exact profile anchors. Both forms
+    /// certify the body against the authored source/target prism pair.
+    /// </remarks>
+    public static bool TryGetNavigationPortalTraversalParameters(
+        in GridCellPrism sourcePrism,
+        in GridCellPrism targetPrism,
+        in GridNavigationPortal portal,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        out Fixed64 sourceParameter,
+        out Fixed64 targetParameter)
+    {
+        SwiftThrowHelper.ThrowIfArgument(
+            horizontalRadius < Fixed64.Zero,
+            nameof(horizontalRadius),
+            "Horizontal radius must be nonnegative.");
+        SwiftThrowHelper.ThrowIfArgument(
+            bodyHeight <= Fixed64.Zero,
+            nameof(bodyHeight),
+            "Body height must be positive.");
+
+        if (!TryCreateNavigationPortal(
+                sourcePrism,
+                targetPrism,
+                out GridNavigationPortal expectedPortal)
+            || !AreSamePortal(portal, expectedPortal)
+            || !portal.TryResolveProfile(
+                horizontalRadius,
+                bodyHeight,
+                out Vector3d sourceAnchor,
+                out Vector3d targetAnchor))
+        {
+            sourceParameter = default;
+            targetParameter = default;
+            return false;
+        }
+
+        return TryGetCompiledNavigationPortalTraversalParameters(
+            sourcePrism,
+            targetPrism,
+            portal,
+            sourceAnchor,
+            targetAnchor,
+            footStart,
+            footEnd,
+            horizontalRadius,
+            bodyHeight,
+            out sourceParameter,
+            out targetParameter);
+    }
+
+    internal static bool TryGetCompiledNavigationPortalTraversalParameters(
+        in GridCellPrism sourcePrism,
+        in GridCellPrism targetPrism,
+        in GridNavigationPortal portal,
+        Vector3d sourceAnchor,
+        Vector3d targetAnchor,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        out Fixed64 sourceParameter,
+        out Fixed64 targetParameter)
+    {
+        sourceParameter = default;
+        targetParameter = default;
+        if (portal.FaceKind == VoxelContactFaceKind.Vertical)
+        {
+            FixedSegment2d path = new(
+                new Vector2d(footStart.X, footStart.Z),
+                new Vector2d(footEnd.X, footEnd.Z));
+            FixedSegment2d opening = new(
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd);
+            if (!IsDirectedPortalCrossing(sourcePrism, targetPrism, path, opening)
+                || !path.TryGetUniqueIntersectionParameterEnclosure(
+                    opening,
+                    out _,
+                    out sourceParameter,
+                    out targetParameter))
+            {
+                sourceParameter = default;
+                targetParameter = default;
+                return false;
+            }
+
+            Vector3d sourcePoint = Vector3d.Lerp(footStart, footEnd, sourceParameter);
+            Vector3d targetPoint = Vector3d.Lerp(footStart, footEnd, targetParameter);
+            FixedSegment2d traversalGap = new(
+                new Vector2d(sourcePoint.X, sourcePoint.Z),
+                new Vector2d(targetPoint.X, targetPoint.Z));
+            if (!sourcePrism.Contains(sourcePoint)
+                || !targetPrism.Contains(targetPoint)
+                || !IsPortalTraversalGapPlanarValid(
+                    sourcePrism,
+                    traversalGap,
+                    horizontalRadius,
+                    portal)
+                || !IsPortalTraversalGapPlanarValid(
+                    targetPrism,
+                    traversalGap,
+                    horizontalRadius,
+                    portal)
+                || !path.TryGetCapsuleIntersectionParameterEnclosure(
+                    opening,
+                    horizontalRadius,
+                    out Fixed64 overlapEntry,
+                    out Fixed64 overlapExit)
+                || !IsPortalHeightValidOverInterval(
+                    footStart.Y,
+                    footEnd.Y,
+                    overlapEntry,
+                    overlapExit,
+                    bodyHeight,
+                    portal))
+            {
+                sourceParameter = default;
+                targetParameter = default;
+                return false;
+            }
+
+            return true;
+        }
+
+        if (portal.FaceKind != VoxelContactFaceKind.Horizontal
+            || !TryGetPointParameter(footStart, footEnd, sourceAnchor, out sourceParameter)
+            || !TryGetPointParameter(footStart, footEnd, targetAnchor, out targetParameter)
+            || sourceParameter >= targetParameter
+            || !IsNavigationBodyAnchorValid(
+                sourcePrism,
+                sourceAnchor,
+                horizontalRadius,
+                bodyHeight,
+                portal)
+            || !IsNavigationBodyAnchorValid(
+                targetPrism,
+                targetAnchor,
+                horizontalRadius,
+                bodyHeight,
+                portal))
+        {
+            sourceParameter = default;
+            targetParameter = default;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a cylindrical body can sweep one straight foot segment through an exact
+    /// cell prism, optionally approaching an incoming and outgoing vertical portal.
+    /// </summary>
+    /// <remarks>
+    /// The horizontal capsule is compared exactly with every blocked wall span. Selected portal
+    /// openings retain their own vertical authority and apply only while the sweep overlaps that
+    /// opening. Each selected portal must cover its complete possible overlap; a segment that would
+    /// need to switch height authority between two same-wall openings is rejected. The method
+    /// retains no state and allocates nothing.
+    /// </remarks>
+    public static bool IsNavigationBodySegmentValid(
+        in GridCellPrism prism,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        in GridNavigationPortal incomingPortal,
+        in GridNavigationPortal outgoingPortal)
+    {
+        SwiftThrowHelper.ThrowIfArgument(
+            horizontalRadius < Fixed64.Zero,
+            nameof(horizontalRadius),
+            "Horizontal radius must be nonnegative.");
+        SwiftThrowHelper.ThrowIfArgument(
+            bodyHeight <= Fixed64.Zero,
+            nameof(bodyHeight),
+            "Body height must be positive.");
+
+        if (!IsNavigationPrismValid(prism)
+            || !prism.Contains(footStart)
+            || !prism.Contains(footEnd)
+            || !Fixed64.TryAdd(footStart.Y, bodyHeight, out Fixed64 startTop)
+            || !Fixed64.TryAdd(footEnd.Y, bodyHeight, out Fixed64 endTop)
+            || startTop > prism.VerticalMax
+            || endTop > prism.VerticalMax)
+        {
+            return false;
+        }
+
+        FixedSegment2d path = new(
+            new Vector2d(footStart.X, footStart.Z),
+            new Vector2d(footEnd.X, footEnd.Z));
+        for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
+        {
+            Vector2d edgeStart = prism.GetFootprintVertex(edgeIndex);
+            Vector2d edgeEnd = prism.GetFootprintVertex(
+                (edgeIndex + 1) % prism.FootprintVertexCount);
+            FixedSegment2d edge = new(edgeStart, edgeEnd);
+            if (path.IsDistanceAtLeast(edge, horizontalRadius))
+                continue;
+
+            bool hasFirst = TryGetActiveOpening(
+                edge,
+                path,
+                footStart.Y,
+                footEnd.Y,
+                horizontalRadius,
+                bodyHeight,
+                incomingPortal,
+                edgeStart,
+                out Vector2d firstStart,
+                out Vector2d firstEnd);
+            bool hasSecond = TryGetActiveOpening(
+                edge,
+                path,
+                footStart.Y,
+                footEnd.Y,
+                horizontalRadius,
+                bodyHeight,
+                outgoingPortal,
+                edgeStart,
+                out Vector2d secondStart,
+                out Vector2d secondEnd);
+            if (!hasFirst && !hasSecond)
+                return false;
+            if (!hasFirst)
+            {
+                firstStart = secondStart;
+                firstEnd = secondEnd;
+                hasSecond = false;
+            }
+            else if (hasSecond
+                && CompareDistanceFrom(edgeStart, secondStart, firstStart) < 0)
+            {
+                Swap(ref firstStart, ref secondStart);
+                Swap(ref firstEnd, ref secondEnd);
+            }
+
+            if (!path.IsDistanceAtLeast(
+                    new FixedSegment2d(edgeStart, firstStart),
+                    horizontalRadius))
+            {
+                return false;
+            }
+
+            if (!hasSecond
+                || CompareDistanceFrom(edgeStart, secondStart, firstEnd) <= 0)
+            {
+                if (hasSecond
+                    && CompareDistanceFrom(edgeStart, secondEnd, firstEnd) > 0)
+                {
+                    firstEnd = secondEnd;
+                }
+
+                if (!path.IsDistanceAtLeast(
+                        new FixedSegment2d(firstEnd, edgeEnd),
+                        horizontalRadius))
+                {
+                    return false;
+                }
+            }
+            else if (!path.IsDistanceAtLeast(
+                    new FixedSegment2d(firstEnd, secondStart),
+                    horizontalRadius)
+                || !path.IsDistanceAtLeast(
+                    new FixedSegment2d(secondEnd, edgeEnd),
+                    horizontalRadius))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryGetActiveOpening(
+        FixedSegment2d edge,
+        FixedSegment2d path,
+        Fixed64 footStartY,
+        Fixed64 footEndY,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        in GridNavigationPortal portal,
+        Vector2d edgeStart,
+        out Vector2d openingStart,
+        out Vector2d openingEnd)
+    {
+        openingStart = default;
+        openingEnd = default;
+        if (!portal.IsValid
+            || portal.FaceKind != VoxelContactFaceKind.Vertical
+            || horizontalRadius > portal.MaximumHorizontalRadius
+            || bodyHeight > portal.MaximumBodyHeight
+            || !IsPortalCertifiedOnEdge(edge, portal))
+        {
+            return false;
+        }
+
+        openingStart = portal.VerticalFaceSegmentStart;
+        openingEnd = portal.VerticalFaceSegmentEnd;
+        if (CompareDistanceFrom(edgeStart, openingEnd, openingStart) < 0)
+            Swap(ref openingStart, ref openingEnd);
+
+        FixedSegment2d opening = new(openingStart, openingEnd);
+        if (!path.TryGetCapsuleIntersectionParameterEnclosure(
+                opening,
+                horizontalRadius,
+                out Fixed64 entry,
+                out Fixed64 exit))
+        {
+            return false;
+        }
+
+        return IsPortalHeightValidOverInterval(
+            footStartY,
+            footEndY,
+            entry,
+            exit,
+            bodyHeight,
+            portal);
+    }
+
+    private static bool IsDirectedPortalCrossing(
+        in GridCellPrism sourcePrism,
+        in GridCellPrism targetPrism,
+        FixedSegment2d path,
+        FixedSegment2d opening)
+    {
+        if (path.Start == path.End)
+            return false;
+
+        Vector2d sourceCenter = new(sourcePrism.Center.X, sourcePrism.Center.Z);
+        Vector2d targetCenter = new(targetPrism.Center.X, targetPrism.Center.Z);
+        int sourceSide = Vector2d.OrientationSign(opening.Start, opening.End, sourceCenter);
+        int targetSide = Vector2d.OrientationSign(opening.Start, opening.End, targetCenter);
+        if (sourceSide == 0 || targetSide != -sourceSide)
+            return false;
+
+        int startSide = Vector2d.OrientationSign(opening.Start, opening.End, path.Start);
+        int endSide = Vector2d.OrientationSign(opening.Start, opening.End, path.End);
+        return (startSide == 0 || startSide == sourceSide)
+            && (endSide == 0 || endSide == targetSide)
+            && (startSide != 0 || endSide != 0);
+    }
+
+    private static bool IsPortalTraversalGapPlanarValid(
+        in GridCellPrism prism,
+        FixedSegment2d traversalGap,
+        Fixed64 horizontalRadius,
+        in GridNavigationPortal portal)
+    {
+        if (!TryGetCertifiedPortalEdge(prism, portal, out int selectedEdgeIndex))
+            return false;
+
+        for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
+        {
+            Vector2d edgeStart = prism.GetFootprintVertex(edgeIndex);
+            Vector2d edgeEnd = prism.GetFootprintVertex(
+                (edgeIndex + 1) % prism.FootprintVertexCount);
+            if (edgeIndex != selectedEdgeIndex)
+            {
+                if (!traversalGap.IsDistanceAtLeast(
+                        new FixedSegment2d(edgeStart, edgeEnd),
+                        horizontalRadius))
+                {
+                    return false;
+                }
+                continue;
+            }
+
+            Vector2d openingStart = portal.VerticalFaceSegmentStart;
+            Vector2d openingEnd = portal.VerticalFaceSegmentEnd;
+            if (CompareDistanceFrom(edgeStart, openingEnd, openingStart) < 0)
+                Swap(ref openingStart, ref openingEnd);
+            if (!traversalGap.IsDistanceAtLeast(
+                    new FixedSegment2d(edgeStart, openingStart),
+                    horizontalRadius)
+                || !traversalGap.IsDistanceAtLeast(
+                    new FixedSegment2d(openingEnd, edgeEnd),
+                    horizontalRadius))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsPortalHeightValidOverInterval(
+        Fixed64 footStartY,
+        Fixed64 footEndY,
+        Fixed64 entryParameter,
+        Fixed64 exitParameter,
+        Fixed64 bodyHeight,
+        in GridNavigationPortal portal)
+    {
+        GetConservativeLerpBounds(
+            footStartY,
+            footEndY,
+            entryParameter,
+            out Fixed64 lowerStartY,
+            out Fixed64 upperStartY);
+        GetConservativeLerpBounds(
+            footStartY,
+            footEndY,
+            exitParameter,
+            out Fixed64 lowerEndY,
+            out Fixed64 upperEndY);
+        Fixed64 minimumFootY = FixedMath.Min(lowerStartY, lowerEndY);
+        Fixed64 maximumFootY = FixedMath.Max(upperStartY, upperEndY);
+
+        return Fixed64.TryAdd(
+                portal.CanonicalFacePoint.Y,
+                portal.MaximumBodyHeight,
+                out Fixed64 portalTop)
+            && Fixed64.TrySubtract(portalTop, bodyHeight, out Fixed64 maximumPortalFootY)
+            && minimumFootY >= portal.CanonicalFacePoint.Y
+            && maximumFootY <= maximumPortalFootY;
+    }
+
+    private static void GetConservativeLerpBounds(
+        Fixed64 start,
+        Fixed64 end,
+        Fixed64 parameter,
+        out Fixed64 lower,
+        out Fixed64 upper)
+    {
+        lower = FixedMath.Lerp(start, end, parameter);
+        upper = lower;
+        if (start == end || parameter == Fixed64.Zero || parameter == Fixed64.One)
+            return;
+        if (lower > Fixed64.MinValue)
+            lower = Fixed64.FromRaw(lower.m_rawValue - 1L);
+        if (upper < Fixed64.MaxValue)
+            upper = Fixed64.FromRaw(upper.m_rawValue + 1L);
+    }
+
+    private static bool TryGetPointParameter(
+        Vector3d segmentStart,
+        Vector3d segmentEnd,
+        Vector3d point,
+        out Fixed64 parameter)
+    {
+        parameter = default;
+        FixedSegment segment = new(segmentStart, segmentEnd);
+        if (!segment.Contains(point) || segmentStart.Y == segmentEnd.Y)
+            return false;
+
+        FixedSegment2d vertical = new(
+            new Vector2d(segmentStart.Y, Fixed64.Zero),
+            new Vector2d(segmentEnd.Y, Fixed64.Zero));
+        FixedSegment2d verticalPoint = new(
+            new Vector2d(point.Y, Fixed64.Zero),
+            new Vector2d(point.Y, Fixed64.Zero));
+        return vertical.TryGetUniqueIntersection(verticalPoint, out parameter);
+    }
+
+    private static bool AreSamePortal(
+        in GridNavigationPortal first,
+        in GridNavigationPortal second)
+    {
+        return first.FaceKind == second.FaceKind
+            && first.SourceToTarget == second.SourceToTarget
+            && first.CanonicalFacePoint == second.CanonicalFacePoint
+            && first.MaximumHorizontalRadius == second.MaximumHorizontalRadius
+            && first.MaximumBodyHeight == second.MaximumBodyHeight
+            && first.VerticalFaceSegmentStart == second.VerticalFaceSegmentStart
+            && first.VerticalFaceSegmentEnd == second.VerticalFaceSegmentEnd;
+    }
+
+    private static int CompareDistanceFrom(
+        Vector2d origin,
+        Vector2d first,
+        Vector2d second)
+    {
+        return Vector2d.CompareDistanceSquared(origin, first, origin, second);
+    }
+
+    private static void Swap(ref Vector2d first, ref Vector2d second)
+    {
+        Vector2d value = first;
+        first = second;
+        second = value;
+    }
+}
