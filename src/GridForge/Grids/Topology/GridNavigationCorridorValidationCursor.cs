@@ -223,7 +223,8 @@ public struct GridNavigationCorridorValidationCursor
                 _radiusClearance,
                 _heightClearance,
                 incomingPortal,
-                outgoingPortal)
+                outgoingPortal,
+                GridNavigationBodySegmentEndpointAllowance.None)
             || (outgoingPortal.FaceKind == VoxelContactFaceKind.Horizontal
                 && (!GridCellGeometry.TryGetCompiledNavigationPortalTraversalParameters(
                         source,
@@ -286,7 +287,8 @@ public struct GridNavigationCorridorValidationCursor
                 _radiusClearance,
                 _heightClearance,
                 _selectedPortal,
-                default))
+                default,
+                GridNavigationBodySegmentEndpointAllowance.None))
         {
             Fail(GridNavigationCorridorValidationStatus.Invalid);
             return;

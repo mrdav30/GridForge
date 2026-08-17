@@ -157,7 +157,12 @@ anchors without retaining or querying live grid state.
 clearance authority. It compares the exact XZ capsule against every blocked
 wall span, uses the full retained contact segment as the physical aperture,
 and applies each selected portal's vertical band only while the sweep overlaps
-that aperture. Tangency is accepted; one-raw penetration is rejected.
+that aperture. Its required endpoint allowance may admit one exact, directed
+entry or exit through a vertical footprint edge. GridForge derives and clips
+that boundary from the original segment; callers never reconstruct a rounded
+contact or supply an epsilon. Vertices, collinear travel, horizontal top/bottom
+crossings, and degenerate boundary segments fail closed. Tangency is accepted;
+one-raw penetration is rejected.
 `IsNavigationBodyAnchorValid(...)` is its degenerate-segment form.
 `TryGetNavigationPortalTraversalParameters(...)` additionally revalidates a
 directed portal against both authored prisms. Vertical crossings return a
@@ -210,6 +215,10 @@ output counts and ceilings. A grid-ceiling failure stops before address
 enumeration. `GridCandidateCount` and `AddressCandidateCount` preserve the exact
 completed work, while `GridCandidateLimitExceeded` and
 `AddressCandidateLimitExceeded` identify which ceiling stopped the query.
+The required combined candidate-work ceiling independently bounds the sum of
+accepted grids and addresses; `CandidateWorkLimitExceeded` stops before the
+next unit while preserving the two exact completed counts. Individual ceilings
+win when they coincide with the combined limit.
 Caller-owned results and `GridTraceIntervalScratch`
 retain capacity for zero-allocation warmed traces. The complete trace holds one
 world read lease, so grid removal and slot reuse cannot change identity. It

@@ -176,8 +176,9 @@ public static partial class GridCellGeometry
     /// The horizontal capsule is compared exactly with every blocked wall span. Selected portal
     /// openings retain their own vertical authority and apply only while the sweep overlaps that
     /// opening. Each selected portal must cover its complete possible overlap; a segment that would
-    /// need to switch height authority between two same-wall openings is rejected. The method
-    /// retains no state and allocates nothing.
+    /// need to switch height authority between two same-wall openings is rejected. A non-default
+    /// endpoint allowance clips one exact directed footprint-edge crossing inside GridForge before
+    /// validating the retained in-prism segment. The method retains no state and allocates nothing.
     /// </remarks>
     public static bool IsNavigationBodySegmentValid(
         in GridCellPrism prism,
@@ -186,7 +187,8 @@ public static partial class GridCellGeometry
         Fixed64 horizontalRadius,
         Fixed64 bodyHeight,
         in GridNavigationPortal incomingPortal,
-        in GridNavigationPortal outgoingPortal)
+        in GridNavigationPortal outgoingPortal,
+        GridNavigationBodySegmentEndpointAllowance endpointAllowance)
     {
         SwiftThrowHelper.ThrowIfArgument(
             horizontalRadius < Fixed64.Zero,
@@ -197,8 +199,70 @@ public static partial class GridCellGeometry
             nameof(bodyHeight),
             "Body height must be positive.");
 
-        if (!IsNavigationPrismValid(prism)
-            || !prism.Contains(footStart)
+        if (endpointAllowance != GridNavigationBodySegmentEndpointAllowance.None
+            && endpointAllowance != GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge
+            && endpointAllowance != GridNavigationBodySegmentEndpointAllowance.EndFootprintEdge)
+        {
+            throw new System.ArgumentOutOfRangeException(nameof(endpointAllowance));
+        }
+
+        if (!IsNavigationPrismValid(prism))
+            return false;
+
+        int allowedEdgeIndex = -1;
+        if (endpointAllowance == GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge)
+        {
+            if (incomingPortal.IsValid
+                || !TryClipNavigationBodySegmentEndpoint(
+                    prism,
+                    footStart,
+                    footEnd,
+                    bodyHeight,
+                    clipStart: true,
+                    out footStart,
+                    out allowedEdgeIndex))
+            {
+                return false;
+            }
+        }
+        else if (endpointAllowance == GridNavigationBodySegmentEndpointAllowance.EndFootprintEdge)
+        {
+            if (outgoingPortal.IsValid
+                || !TryClipNavigationBodySegmentEndpoint(
+                    prism,
+                    footStart,
+                    footEnd,
+                    bodyHeight,
+                    clipStart: false,
+                    out footEnd,
+                    out allowedEdgeIndex))
+            {
+                return false;
+            }
+        }
+
+        return IsNavigationBodySegmentValidCore(
+            prism,
+            footStart,
+            footEnd,
+            horizontalRadius,
+            bodyHeight,
+            incomingPortal,
+            outgoingPortal,
+            allowedEdgeIndex);
+    }
+
+    private static bool IsNavigationBodySegmentValidCore(
+        in GridCellPrism prism,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        in GridNavigationPortal incomingPortal,
+        in GridNavigationPortal outgoingPortal,
+        int allowedEdgeIndex)
+    {
+        if (!prism.Contains(footStart)
             || !prism.Contains(footEnd)
             || !Fixed64.TryAdd(footStart.Y, bodyHeight, out Fixed64 startTop)
             || !Fixed64.TryAdd(footEnd.Y, bodyHeight, out Fixed64 endTop)
@@ -213,6 +277,8 @@ public static partial class GridCellGeometry
             new Vector2d(footEnd.X, footEnd.Z));
         for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
         {
+            if (edgeIndex == allowedEdgeIndex)
+                continue;
             Vector2d edgeStart = prism.GetFootprintVertex(edgeIndex);
             Vector2d edgeEnd = prism.GetFootprintVertex(
                 (edgeIndex + 1) % prism.FootprintVertexCount);
@@ -292,6 +358,78 @@ public static partial class GridCellGeometry
         }
 
         return true;
+    }
+
+    private static bool TryClipNavigationBodySegmentEndpoint(
+        in GridCellPrism prism,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 bodyHeight,
+        bool clipStart,
+        out Vector3d clippedEndpoint,
+        out int allowedEdgeIndex)
+    {
+        clippedEndpoint = default;
+        allowedEdgeIndex = -1;
+        FixedSegment2d path = new(
+            new Vector2d(footStart.X, footStart.Z),
+            new Vector2d(footEnd.X, footEnd.Z));
+        if (path.Start == path.End)
+            return false;
+
+        Vector2d center = new(prism.Center.X, prism.Center.Z);
+        Fixed64 lowerParameter = default;
+        Fixed64 upperParameter = default;
+        for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
+        {
+            Vector2d edgeStart = prism.GetFootprintVertex(edgeIndex);
+            Vector2d edgeEnd = prism.GetFootprintVertex(
+                (edgeIndex + 1) % prism.FootprintVertexCount);
+            FixedSegment2d edge = new(edgeStart, edgeEnd);
+            int centerSide = Vector2d.OrientationSign(edgeStart, edgeEnd, center);
+            int startSide = Vector2d.OrientationSign(edgeStart, edgeEnd, path.Start);
+            int endSide = Vector2d.OrientationSign(edgeStart, edgeEnd, path.End);
+            bool directed = clipStart
+                ? endSide == centerSide && startSide != centerSide
+                : startSide == centerSide && endSide != centerSide;
+            if (centerSide == 0
+                || !directed
+                || !path.TryGetUniqueIntersectionParameterEnclosure(
+                    edge,
+                    out _,
+                    out Fixed64 candidateLower,
+                    out Fixed64 candidateUpper))
+            {
+                continue;
+            }
+            if (new FixedSegment2d(edgeStart, edgeStart).TryGetUniqueIntersection(path, out _)
+                || new FixedSegment2d(edgeEnd, edgeEnd).TryGetUniqueIntersection(path, out _))
+            {
+                return false;
+            }
+            if (allowedEdgeIndex >= 0)
+                return false;
+            allowedEdgeIndex = edgeIndex;
+            lowerParameter = candidateLower;
+            upperParameter = candidateUpper;
+        }
+
+        if (allowedEdgeIndex < 0
+            || !IsBodyHeightValidOverInterval(
+                footStart.Y,
+                footEnd.Y,
+                lowerParameter,
+                upperParameter,
+                bodyHeight,
+                prism.VerticalMin,
+                prism.VerticalMax))
+        {
+            return false;
+        }
+
+        Fixed64 containedParameter = clipStart ? upperParameter : lowerParameter;
+        clippedEndpoint = Vector3d.Lerp(footStart, footEnd, containedParameter);
+        return prism.Contains(clippedEndpoint);
     }
 
     private static bool TryGetActiveOpening(
@@ -415,6 +553,29 @@ public static partial class GridCellGeometry
         Fixed64 bodyHeight,
         in GridNavigationPortal portal)
     {
+        return Fixed64.TryAdd(
+                portal.CanonicalFacePoint.Y,
+                portal.MaximumBodyHeight,
+                out Fixed64 portalTop)
+            && IsBodyHeightValidOverInterval(
+                footStartY,
+                footEndY,
+                entryParameter,
+                exitParameter,
+                bodyHeight,
+                portal.CanonicalFacePoint.Y,
+                portalTop);
+    }
+
+    private static bool IsBodyHeightValidOverInterval(
+        Fixed64 footStartY,
+        Fixed64 footEndY,
+        Fixed64 entryParameter,
+        Fixed64 exitParameter,
+        Fixed64 bodyHeight,
+        Fixed64 verticalMin,
+        Fixed64 verticalMax)
+    {
         GetConservativeLerpBounds(
             footStartY,
             footEndY,
@@ -429,14 +590,9 @@ public static partial class GridCellGeometry
             out Fixed64 upperEndY);
         Fixed64 minimumFootY = FixedMath.Min(lowerStartY, lowerEndY);
         Fixed64 maximumFootY = FixedMath.Max(upperStartY, upperEndY);
-
-        return Fixed64.TryAdd(
-                portal.CanonicalFacePoint.Y,
-                portal.MaximumBodyHeight,
-                out Fixed64 portalTop)
-            && Fixed64.TrySubtract(portalTop, bodyHeight, out Fixed64 maximumPortalFootY)
-            && minimumFootY >= portal.CanonicalFacePoint.Y
-            && maximumFootY <= maximumPortalFootY;
+        return Fixed64.TryAdd(maximumFootY, bodyHeight, out Fixed64 maximumTop)
+            && minimumFootY >= verticalMin
+            && maximumTop <= verticalMax;
     }
 
     private static void GetConservativeLerpBounds(

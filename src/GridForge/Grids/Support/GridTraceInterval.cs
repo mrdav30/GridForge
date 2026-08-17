@@ -25,7 +25,9 @@ public enum GridTraceIntervalStatus : byte
     /// <summary>A candidate grid cell could not be represented exactly.</summary>
     UnrepresentableGeometry,
     /// <summary>The candidate-grid ceiling was exhausted.</summary>
-    GridCandidateLimitExceeded
+    GridCandidateLimitExceeded,
+    /// <summary>The combined candidate-grid and candidate-address work ceiling was exhausted.</summary>
+    CandidateWorkLimitExceeded
 }
 
 /// <summary>

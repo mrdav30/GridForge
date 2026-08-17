@@ -34,7 +34,8 @@ public static partial class GridCellGeometry
             horizontalRadius,
             bodyHeight,
             selectedPortal,
-            default);
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None);
     }
 
     private static bool TryGetCertifiedPortalEdge(

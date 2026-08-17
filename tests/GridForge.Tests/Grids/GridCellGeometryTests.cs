@@ -608,7 +608,8 @@ public sealed class GridCellGeometryTests : IDisposable
             radius,
             Fixed64.One,
             eastPortal,
-            northPortal));
+            northPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Theory]
@@ -662,7 +663,8 @@ public sealed class GridCellGeometryTests : IDisposable
             radius,
             Fixed64.One,
             firstPortal,
-            secondPortal));
+            secondPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Fact]
@@ -713,7 +715,8 @@ public sealed class GridCellGeometryTests : IDisposable
             radius,
             Fixed64.One,
             southPortal,
-            northPortal));
+            northPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Fact]
@@ -751,7 +754,8 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.Half,
             Fixed64.One,
             lowPortal,
-            highPortal));
+            highPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Fact]
@@ -797,7 +801,8 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.Half,
             Fixed64.One,
             lowPortal,
-            highPortal));
+            highPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Fact]
@@ -825,7 +830,8 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.One,
             Fixed64.One,
             default,
-            default));
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
         Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
             prism,
             penetratedStart,
@@ -833,7 +839,74 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.One,
             Fixed64.One,
             default,
-            default));
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_EndpointAllowanceCertifiesOnlyDirectedFootprintCrossing()
+    {
+        GridCellPrism prism = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)),
+            Vector3d.Zero);
+        Vector3d outside = new(-3, -2, 0);
+        Vector3d inside = new(0, -2, 0);
+
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            outside,
+            inside,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            inside,
+            outside,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.EndFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            inside,
+            outside,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            new Vector3d(-3, -2, -3),
+            inside,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            new Vector3d(-3, -2, -2),
+            new Vector3d(0, -2, -2),
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            new Vector3d(-2, -2, 0),
+            new Vector3d(-2, -2, 0),
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
     }
 
     [Fact]
@@ -905,7 +978,8 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.Half,
             Fixed64.One,
             default,
-            portal));
+            portal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Theory]
@@ -1232,7 +1306,8 @@ public sealed class GridCellGeometryTests : IDisposable
             Fixed64.One,
             Fixed64.One,
             default,
-            portal));
+            portal,
+            GridNavigationBodySegmentEndpointAllowance.None));
         Assert.True(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
             source,
             target,
@@ -1255,7 +1330,8 @@ public sealed class GridCellGeometryTests : IDisposable
                 Fixed64.One,
                 Fixed64.One,
                 default,
-                portal);
+                portal,
+                GridNavigationBodySegmentEndpointAllowance.None);
             valid &= GridCellGeometry.TryGetNavigationPortalTraversalParameters(
                 source,
                 target,

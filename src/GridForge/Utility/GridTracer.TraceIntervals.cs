@@ -39,13 +39,16 @@ public static partial class GridTracer
         GridTraceIntervalScratch scratch,
         int gridCandidateLimit,
         int addressCandidateLimit,
-        int outputLimit)
+        int outputLimit,
+        long candidateWorkLimit)
     {
         SwiftThrowHelper.ThrowIfNull(results, nameof(results));
         SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
         SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        if (candidateWorkLimit < 0L)
+            throw new ArgumentOutOfRangeException(nameof(candidateWorkLimit));
 
         results.Clear();
         scratch.Clear();
@@ -61,21 +64,32 @@ public static partial class GridTracer
             (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding: null);
             (Vector3d candidateMin, Vector3d candidateMax) =
                 ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);
+            bool candidateGridLimitIsTighter = candidateWorkLimit < gridCandidateLimit;
+            int effectiveGridLimit = candidateGridLimitIsTighter
+                ? (int)candidateWorkLimit
+                : gridCandidateLimit;
             if (!world.CollectGridCandidates(
                     candidateMin,
                     candidateMax,
                     scratch.CandidateGrids,
-                    gridCandidateLimit))
+                    effectiveGridLimit))
             {
                 return FailTrace(
                     results,
-                    GridTraceIntervalStatus.GridCandidateLimitExceeded,
+                    candidateGridLimitIsTighter
+                        ? GridTraceIntervalStatus.CandidateWorkLimitExceeded
+                        : GridTraceIntervalStatus.GridCandidateLimitExceeded,
                     scratch.CandidateGrids.Count,
                     0);
             }
 
             SortGridIndices(world, scratch.CandidateGrids);
 
+            long remainingCandidateWork = candidateWorkLimit - scratch.CandidateGrids.Count;
+            bool candidateAddressLimitIsTighter = remainingCandidateWork < addressCandidateLimit;
+            int effectiveAddressLimit = candidateAddressLimitIsTighter
+                ? (int)remainingCandidateWork
+                : addressCandidateLimit;
             bool hasSparseGrid = false;
             for (int gridCandidateIndex = 0; gridCandidateIndex < scratch.CandidateGrids.Count; gridCandidateIndex++)
             {
@@ -86,11 +100,13 @@ public static partial class GridTracer
                         queryMin,
                         queryMax,
                         scratch,
-                        addressCandidateLimit))
+                        effectiveAddressLimit))
                 {
                     return FailTrace(
                         results,
-                        GridTraceIntervalStatus.AddressCandidateLimitExceeded,
+                        candidateAddressLimitIsTighter
+                            ? GridTraceIntervalStatus.CandidateWorkLimitExceeded
+                            : GridTraceIntervalStatus.AddressCandidateLimitExceeded,
                         scratch.CandidateGrids.Count,
                         scratch.AddressCandidates.Count);
                 }

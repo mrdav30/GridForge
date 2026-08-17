@@ -186,7 +186,8 @@ public class GridTracerBenchmarks
             _intervalScratch,
             gridCandidateLimit: 8,
             addressCandidateLimit: 8192,
-            outputLimit: 4096);
+            outputLimit: 4096,
+            candidateWorkLimit: 8200L);
         return report.IntervalCount;
     }
 
