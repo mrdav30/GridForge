@@ -157,6 +157,7 @@ public static partial class GridTracer
                     cell,
                     grid.Configuration.ToGridKey(),
                     candidate.IsPhysicallyPresent,
+                    grid.ChangeHighWaterSequence,
                     tEnter,
                     tExit));
             }

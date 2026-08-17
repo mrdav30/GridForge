@@ -49,6 +49,9 @@ public sealed class GridTraceIntervalTests : IDisposable
             Assert.Equal(_world.SpawnToken, value.Cell.WorldSpawnToken);
             Assert.Equal(gridIndex, value.Cell.GridIndex);
             Assert.Equal(_world.ActiveGrids[gridIndex].SpawnToken, value.Cell.GridSpawnToken);
+            Assert.Equal(
+                _world.ActiveGrids[gridIndex].ChangeHighWaterSequence,
+                value.GridHighWaterSequence);
             Assert.True(value.IsPhysicallyPresent);
         });
     }

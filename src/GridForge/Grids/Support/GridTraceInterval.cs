@@ -44,6 +44,9 @@ public readonly struct GridTraceInterval
     /// <summary>Whether physical storage currently contains the addressed voxel.</summary>
     public bool IsPhysicallyPresent { get; }
 
+    /// <summary>The last committed sequence applied to the traced grid generation.</summary>
+    public ulong GridHighWaterSequence { get; }
+
     /// <summary>The first inclusive segment parameter in the cell prism.</summary>
     public Fixed64 TEnter { get; }
 
@@ -66,6 +69,7 @@ public readonly struct GridTraceInterval
         WorldVoxelIndex cell,
         GridConfigurationKey configurationKey,
         bool isPhysicallyPresent,
+        ulong gridHighWaterSequence,
         Fixed64 tEnter,
         Fixed64 tExit,
         int tieGroupId = -1,
@@ -74,6 +78,7 @@ public readonly struct GridTraceInterval
         Cell = cell;
         ConfigurationKey = configurationKey;
         IsPhysicallyPresent = isPhysicallyPresent;
+        GridHighWaterSequence = gridHighWaterSequence;
         TEnter = tEnter;
         TExit = tExit;
         TieGroupId = tieGroupId;
@@ -85,6 +90,7 @@ public readonly struct GridTraceInterval
             Cell,
             ConfigurationKey,
             IsPhysicallyPresent,
+            GridHighWaterSequence,
             TEnter,
             TExit,
             tieGroupId,

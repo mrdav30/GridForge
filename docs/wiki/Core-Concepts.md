@@ -206,8 +206,9 @@ extent from turning a native shared face into a gap or volume overlap.
 
 `GridTracer.TraceIntervalsInto(...)` is the exact navigation-facing segment
 query. It reports normalized grid binding plus exact runtime generation and
-address identity, physical presence for sparse addresses, closed `tEnter` and
-`tExit` prism intervals, and deterministic simultaneous-coverage groups. A tie
+address identity, the traced grid generation's committed high-water sequence,
+physical presence for sparse addresses, closed `tEnter` and `tExit` prism
+intervals, and deterministic simultaneous-coverage groups. A tie
 group describes overlapping interval coverage only; its peer cells are not
 implicitly adjacent. The report separately proves continuous address and
 physical coverage, and reports separate candidate-grid, candidate-address, and
