@@ -111,12 +111,17 @@ gives callers a reusable negative proof whose complete per-grid evidence stales
 when any satisfying alternative changes without staling a trace that depends
 only on an unrelated grid.
 
-Address, output, and combined candidate-work ceilings are exact. Raw
-alternatives consume address/work budget. `outputLimit` is preflighted against
-the full required plus dependency-evidence result, so a one-below failure does
-not publish a partial proof. Capacity, budget, invalid-input, and
-unrepresentable-geometry failures clear the result; complete and
-incomplete-physical results retain their full canonical evidence.
+Grid, address, output, and combined candidate-work ceilings are exact and
+independent. `GridCandidateLimitExceeded` identifies the grid ceiling;
+`CandidateWorkLimitExceeded` identifies the combined ceiling only when it is
+strictly tighter. Raw alternatives consume address/work budget. `outputLimit`
+is preflighted against the full required plus dependency-evidence result, so a
+one-below failure does not publish a partial proof. Checked body-top and query
+bounds failures report `ArithmeticOverflow`; invalid or unrepresentable
+topology and union geometry remain `InvalidOrUnrepresentableGeometry`.
+Capacity, budget, invalid-input, and unrepresentable-geometry failures clear
+the result; complete and incomplete-physical results retain their full
+canonical evidence.
 
 ## 2D XZ Projection
 

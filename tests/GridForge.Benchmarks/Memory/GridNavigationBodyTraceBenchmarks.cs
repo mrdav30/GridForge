@@ -79,6 +79,7 @@ public class GridNavigationBodyTraceBenchmarks
             Fixed64.One,
             _results,
             _scratch,
+            gridCandidateLimit: _scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9,
             outputLimit: 4,
             candidateWorkLimit: 10L);
@@ -99,6 +100,7 @@ public class GridNavigationBodyTraceBenchmarks
             Fixed64.One,
             _results,
             _scratch,
+            gridCandidateLimit: _scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 8,
             outputLimit: 8,
             candidateWorkLimit: 10L);
@@ -121,6 +123,7 @@ public class GridNavigationBodyTraceBenchmarks
             Fixed64.One,
             _results,
             _scratch,
+            gridCandidateLimit: _scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9,
             outputLimit: 9,
             candidateWorkLimit: 10L);

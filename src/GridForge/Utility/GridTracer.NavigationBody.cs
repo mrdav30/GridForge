@@ -26,6 +26,7 @@ public static partial class GridTracer
     /// prisms respectively; exact endpoint tangency is admitted for that identity check.
     /// A prism is claimed only when its planar and vertical interiors overlap the swept body at
     /// one shared continuous parameter. Boundary-only coincidence and tangency are excluded.
+    /// Grid, address, output, and combined candidate-work ceilings are independent.
     /// </remarks>
     public static GridNavigationBodyTraceReport TraceNavigationBodyInto(
         GridWorld world,
@@ -37,12 +38,14 @@ public static partial class GridTracer
         Fixed64 bodyHeight,
         SwiftList<GridNavigationBodyTraceCell> results,
         GridNavigationBodyTraceScratch scratch,
+        int gridCandidateLimit,
         int addressCandidateLimit,
         int outputLimit,
         long candidateWorkLimit)
     {
         SwiftThrowHelper.ThrowIfNull(results, nameof(results));
         SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
         if (candidateWorkLimit < 0L)
@@ -53,8 +56,17 @@ public static partial class GridTracer
         if (world == null
             || !world.IsActive
             || horizontalRadius < Fixed64.Zero
-            || bodyHeight <= Fixed64.Zero
-            || !Fixed64.TryAdd(startFoot.Y, bodyHeight, out Fixed64 startTop)
+            || bodyHeight <= Fixed64.Zero)
+        {
+            return CreateNavigationBodyTraceReport(
+                GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry,
+                0,
+                0,
+                results,
+                default);
+        }
+
+        if (!Fixed64.TryAdd(startFoot.Y, bodyHeight, out Fixed64 startTop)
             || !Fixed64.TryAdd(endFoot.Y, bodyHeight, out Fixed64 endTop)
             || !TryCreateNavigationBodyBounds(
                 startFoot,
@@ -66,7 +78,7 @@ public static partial class GridTracer
                 out Vector3d queryMax))
         {
             return CreateNavigationBodyTraceReport(
-                GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry,
+                GridNavigationBodyTraceStatus.ArithmeticOverflow,
                 0,
                 0,
                 results,
@@ -155,15 +167,16 @@ public static partial class GridTracer
             {
                 return FailNavigationBodyTrace(
                     results,
-                    GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry,
+                    GridNavigationBodyTraceStatus.ArithmeticOverflow,
                     0,
                     0,
                     default);
             }
 
-            int effectiveGridLimit = candidateWorkLimit > int.MaxValue
-                ? int.MaxValue
-                : (int)candidateWorkLimit;
+            bool gridWorkLimitIsTighter = candidateWorkLimit < gridCandidateLimit;
+            int effectiveGridLimit = gridWorkLimitIsTighter
+                ? (int)candidateWorkLimit
+                : gridCandidateLimit;
             if (!world.CollectGridCandidates(
                     candidateMin,
                     candidateMax,
@@ -172,7 +185,9 @@ public static partial class GridTracer
             {
                 return FailNavigationBodyTrace(
                     results,
-                    GridNavigationBodyTraceStatus.CandidateWorkLimitExceeded,
+                    gridWorkLimitIsTighter
+                        ? GridNavigationBodyTraceStatus.CandidateWorkLimitExceeded
+                        : GridNavigationBodyTraceStatus.GridCandidateLimitExceeded,
                     scratch.CandidateGrids.Count,
                     0,
                     default);

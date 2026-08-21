@@ -25,7 +25,11 @@ public enum GridNavigationBodyTraceStatus : byte
     /// <summary>The complete required and dependency-evidence output ceiling was exhausted.</summary>
     OutputLimitExceeded,
     /// <summary>The combined grid and address work ceiling was exhausted.</summary>
-    CandidateWorkLimitExceeded
+    CandidateWorkLimitExceeded,
+    /// <summary>The candidate-grid ceiling was exhausted.</summary>
+    GridCandidateLimitExceeded,
+    /// <summary>Checked body-top or query-bounds arithmetic overflowed.</summary>
+    ArithmeticOverflow
 }
 
 /// <summary>Describes how one published trace cell participates in coverage validation.</summary>

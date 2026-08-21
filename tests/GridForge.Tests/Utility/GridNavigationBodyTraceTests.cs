@@ -64,6 +64,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             Fixed64.One,
             results,
             scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4,
             outputLimit: 4,
             candidateWorkLimit: 5L);
@@ -113,6 +114,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(Fixed64.Zero, Fixed64.FromFraction(-1, 2), Fixed64.Zero),
             new Vector3d(Fixed64.One, Fixed64.FromFraction(1, 2), Fixed64.One),
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 8, outputLimit: 8, candidateWorkLimit: 9L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, report.Status);
@@ -164,6 +166,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             Fixed64.One,
             results,
             scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4,
             outputLimit: 4,
             candidateWorkLimit: 5L);
@@ -200,6 +203,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.FromFraction(3, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 9, candidateWorkLimit: 10L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, large.Status);
@@ -218,6 +222,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.Half, Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 9, candidateWorkLimit: 10L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, tangent.Status);
@@ -227,6 +232,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.FromRaw(Fixed64.Half.m_rawValue + 1L), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 9, candidateWorkLimit: 10L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, oneRawOverlap.Status);
@@ -264,6 +270,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             Fixed64.One,
             results,
             scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 48,
             outputLimit: 48,
             candidateWorkLimit: 49L);
@@ -295,6 +302,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             reverse ? end : start,
             reverse ? start : end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 121, outputLimit: 121, candidateWorkLimit: 122L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, report.Status);
@@ -321,6 +329,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.Half, Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, tangent.Status);
@@ -330,6 +339,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.FromRaw(Fixed64.Half.m_rawValue + 1L), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(
@@ -341,6 +351,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.Zero, Fixed64.FromRaw(Fixed64.One.m_rawValue + 1L),
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(
@@ -353,6 +364,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, boundaryFoot, boundaryFoot,
             Fixed64.Zero, Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, zeroRadiusBoundary.Status);
@@ -366,6 +378,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, oneRawOutside, oneRawOutside,
             Fixed64.Zero, Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(
@@ -392,6 +405,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 2, outputLimit: 2, candidateWorkLimit: 3L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, boundary.Status);
@@ -408,6 +422,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             Fixed64.One,
             results,
             scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 2,
             outputLimit: 2,
             candidateWorkLimit: 3L);
@@ -448,6 +463,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, source, target, start, end,
             Fixed64.FromFraction(1, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4, outputLimit: 2, candidateWorkLimit: 6L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, missing.Status);
@@ -465,6 +481,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, source, target, start, end,
             Fixed64.FromFraction(1, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4, outputLimit: 2, candidateWorkLimit: 6L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, complete.Status);
@@ -494,6 +511,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, source, target, foot, foot,
             Fixed64.FromFraction(3, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 6, outputLimit: 6, candidateWorkLimit: 8L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, report.Status);
@@ -536,6 +554,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             Fixed64.One,
             results,
             scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4,
             outputLimit: 4,
             candidateWorkLimit: 8L);
@@ -571,6 +590,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, center, center, foot, foot,
             Fixed64.FromFraction(1, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4, outputLimit: 1, candidateWorkLimit: 6L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, report.Status);
@@ -608,6 +628,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, source, target, foot, foot,
             Fixed64.FromFraction(1, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4, outputLimit: 2, candidateWorkLimit: 6L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, forward.Status);
@@ -619,6 +640,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             _world, target, source, foot, foot,
             Fixed64.FromFraction(1, 4), Fixed64.One,
             results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 4, outputLimit: 2, candidateWorkLimit: 6L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, reverse.Status);
@@ -672,6 +694,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero),
             Fixed64.FromFraction(3, 4), Fixed64.One,
             routeEvidence, routeScratch,
+            gridCandidateLimit: routeScratch.CandidateGrids.Capacity,
             addressCandidateLimit: 10, outputLimit: 9, candidateWorkLimit: 12L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.OutputLimitExceeded, oneBelow.Status);
@@ -687,6 +710,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero),
             Fixed64.FromFraction(3, 4), Fixed64.One,
             routeEvidence, routeScratch,
+            gridCandidateLimit: routeScratch.CandidateGrids.Capacity,
             addressCandidateLimit: 10, outputLimit: 10, candidateWorkLimit: 12L);
         WorldVoxelIndex unrelated = Address(unrelatedGrid, default);
         GridNavigationBodyTraceReport unrelatedReport = GridTracer.TraceNavigationBodyInto(
@@ -695,6 +719,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(new Fixed64(10), -Fixed64.Half, Fixed64.Zero),
             Fixed64.FromFraction(1, 4), Fixed64.One,
             unrelatedEvidence, unrelatedScratch,
+            gridCandidateLimit: unrelatedScratch.CandidateGrids.Capacity,
             addressCandidateLimit: 1, outputLimit: 1, candidateWorkLimit: 2L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, missing.Status);
@@ -721,12 +746,137 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero),
             Fixed64.FromFraction(3, 4), Fixed64.One,
             routeEvidence, routeScratch,
+            gridCandidateLimit: routeScratch.CandidateGrids.Capacity,
             addressCandidateLimit: 10, outputLimit: 9, candidateWorkLimit: 12L);
 
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, complete.Status);
         Assert.Equal(9, complete.CellCount);
         Assert.All(routeEvidence, value =>
             Assert.Equal(GridNavigationBodyTraceCellRole.RequiredCoverage, value.Role));
+    }
+
+    [Fact]
+    public void GridCandidateLimit_ShouldStopBeforeSecondGridAndRemainIndependentFromCombinedWork()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort sourceGridIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        VoxelGrid sourceGrid = _world.ActiveGrids[sourceGridIndex];
+        WorldVoxelIndex source = Address(sourceGrid, default);
+        Vector3d foot = new(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero);
+        SwiftList<GridNavigationBodyTraceCell> results = new(1);
+        GridNavigationBodyTraceScratch exactScratch = new(gridCapacity: 2, addressCapacity: 2);
+
+        GridNavigationBodyTraceReport exact = GridTracer.TraceNavigationBodyInto(
+            _world, source, source, foot, foot,
+            Fixed64.Zero, Fixed64.One, results, exactScratch,
+            gridCandidateLimit: 2,
+            addressCandidateLimit: 2,
+            outputLimit: 1,
+            candidateWorkLimit: 4L);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, exact.Status);
+        Assert.Equal(2, exact.GridCandidateCount);
+        Assert.Equal(2, exact.AddressCandidateCount);
+        Assert.Equal(4L, exact.CandidateWorkCount);
+        Assert.Single(results);
+
+        GridNavigationBodyTraceScratch boundedScratch = new(gridCapacity: 1, addressCapacity: 1);
+
+        GridNavigationBodyTraceReport oneBelow = GridTracer.TraceNavigationBodyInto(
+            _world, source, source, foot, foot,
+            Fixed64.Zero, Fixed64.One, results, boundedScratch,
+            gridCandidateLimit: 1,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 2L);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.GridCandidateLimitExceeded, oneBelow.Status);
+        Assert.Equal(1, oneBelow.GridCandidateCount);
+        Assert.Equal(0, oneBelow.AddressCandidateCount);
+        Assert.Equal(1L, oneBelow.CandidateWorkCount);
+        Assert.Empty(results);
+
+        GridNavigationBodyTraceReport combinedTighter = GridTracer.TraceNavigationBodyInto(
+            _world, source, source, foot, foot,
+            Fixed64.Zero, Fixed64.One, results, boundedScratch,
+            gridCandidateLimit: 2,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 1L);
+        Assert.Equal(
+            GridNavigationBodyTraceStatus.CandidateWorkLimitExceeded,
+            combinedTighter.Status);
+        Assert.Equal(1L, combinedTighter.CandidateWorkCount);
+
+        GridNavigationBodyTraceReport equalTie = GridTracer.TraceNavigationBodyInto(
+            _world, source, source, foot, foot,
+            Fixed64.Zero, Fixed64.One, results, boundedScratch,
+            gridCandidateLimit: 1,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 1L);
+        Assert.Equal(GridNavigationBodyTraceStatus.GridCandidateLimitExceeded, equalTie.Status);
+        Assert.Equal(1L, equalTie.CandidateWorkCount);
+    }
+
+    [Fact]
+    public void CheckedBodyBoundsArithmetic_ShouldBeDistinctFromInvalidGeometry()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        WorldVoxelIndex source = Address(grid, default);
+        SwiftList<GridNavigationBodyTraceCell> results = new(1);
+        GridNavigationBodyTraceScratch scratch = new(gridCapacity: 1, addressCapacity: 1);
+
+        GridNavigationBodyTraceReport topOverflow = GridTracer.TraceNavigationBodyInto(
+            _world, source, source,
+            new Vector3d(Fixed64.Zero, Fixed64.MaxValue, Fixed64.Zero),
+            new Vector3d(Fixed64.Zero, Fixed64.MaxValue, Fixed64.Zero),
+            Fixed64.Zero, Fixed64.MinIncrement, results, scratch,
+            gridCandidateLimit: 1,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 2L);
+        Assert.Equal(GridNavigationBodyTraceStatus.ArithmeticOverflow, topOverflow.Status);
+        Assert.Equal(0L, topOverflow.CandidateWorkCount);
+
+        GridNavigationBodyTraceReport boundsOverflow = GridTracer.TraceNavigationBodyInto(
+            _world, source, source,
+            new Vector3d(Fixed64.MaxValue, -Fixed64.Half, Fixed64.Zero),
+            new Vector3d(Fixed64.MaxValue, -Fixed64.Half, Fixed64.Zero),
+            Fixed64.MinIncrement, Fixed64.One, results, scratch,
+            gridCandidateLimit: 1,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 2L);
+        Assert.Equal(GridNavigationBodyTraceStatus.ArithmeticOverflow, boundsOverflow.Status);
+        Assert.Equal(0L, boundsOverflow.CandidateWorkCount);
+
+        Fixed64 maximumCellOrigin = new Fixed64(int.MaxValue);
+        Vector3d maximumCell = new(maximumCellOrigin, Fixed64.Zero, Fixed64.Zero);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(maximumCell, maximumCell),
+            out ushort maximumGridIndex));
+        WorldVoxelIndex maximumSource = Address(_world.ActiveGrids[maximumGridIndex], default);
+        GridNavigationBodyTraceReport expandedBoundsOverflow = GridTracer.TraceNavigationBodyInto(
+            _world, maximumSource, maximumSource,
+            new Vector3d(maximumCellOrigin, -Fixed64.Half, Fixed64.Zero),
+            new Vector3d(maximumCellOrigin, -Fixed64.Half, Fixed64.Zero),
+            Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: 1,
+            addressCandidateLimit: 1,
+            outputLimit: 1,
+            candidateWorkLimit: 2L);
+        Assert.Equal(
+            GridNavigationBodyTraceStatus.ArithmeticOverflow,
+            expandedBoundsOverflow.Status);
+        Assert.Equal(0L, expandedBoundsOverflow.CandidateWorkCount);
     }
 
     [Fact]
@@ -743,9 +893,20 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         SwiftList<GridNavigationBodyTraceCell> results = new(9);
         GridNavigationBodyTraceScratch scratch = new(gridCapacity: 1, addressCapacity: 9);
 
+        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridTracer.TraceNavigationBodyInto(
+                _world, source, target, start, end,
+                Fixed64.Zero, Fixed64.One, results, scratch,
+                gridCandidateLimit: -1,
+                addressCandidateLimit: 9,
+                outputLimit: 4,
+                candidateWorkLimit: 10L));
+        Assert.Equal("gridCandidateLimit", exception.ParamName);
+
         GridNavigationBodyTraceReport exact = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 10L);
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, exact.Status);
         WorldVoxelIndex[] canonical = results.Select(value => value.Cell).ToArray();
@@ -753,12 +914,14 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         GridNavigationBodyTraceReport reverse = GridTracer.TraceNavigationBodyInto(
             _world, target, source, end, start,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 10L);
         Assert.Equal(canonical, results.Select(value => value.Cell));
 
         GridNavigationBodyTraceReport addressFailure = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 8, outputLimit: 4, candidateWorkLimit: 10L);
         Assert.Equal(GridNavigationBodyTraceStatus.AddressLimitExceeded, addressFailure.Status);
         Assert.Equal(8, addressFailure.AddressCandidateCount);
@@ -767,6 +930,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         GridNavigationBodyTraceReport workFailure = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 9L);
         Assert.Equal(GridNavigationBodyTraceStatus.CandidateWorkLimitExceeded, workFailure.Status);
         Assert.Equal(9, workFailure.CandidateWorkCount);
@@ -779,6 +943,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             new Vector3d(Fixed64.One, Fixed64.FromFraction(-1, 2), Fixed64.One),
             new Vector3d(Fixed64.One, Fixed64.FromFraction(-1, 2), Fixed64.One),
             Fixed64.FromFraction(3, 4), Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 8, candidateWorkLimit: 10L);
         Assert.Equal(GridNavigationBodyTraceStatus.OutputLimitExceeded, outputFailure.Status);
         Assert.Empty(results);
@@ -786,6 +951,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         GridNavigationBodyTraceReport invalid = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             -Fixed64.MinIncrement, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 10L);
         Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, invalid.Status);
         Assert.Empty(results);
@@ -793,11 +959,13 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         _ = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 10L);
         long before = GC.GetAllocatedBytesForCurrentThread();
         _ = GridTracer.TraceNavigationBodyInto(
             _world, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 9, outputLimit: 4, candidateWorkLimit: 10L);
         long after = GC.GetAllocatedBytesForCurrentThread();
         Assert.Equal(0, after - before);
@@ -818,6 +986,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         GridNavigationBodyTraceReport exact = GridTracer.TraceNavigationBodyInto(
             _world, center, center, foot, foot,
             Fixed64.Zero, Fixed64.One, results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 3, outputLimit: 3, candidateWorkLimit: 4L);
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, exact.Status);
         Assert.Equal(new[] { center.VoxelIndex }, results.Select(value => value.Cell.VoxelIndex));
@@ -825,6 +994,7 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         GridNavigationBodyTraceReport oneRaw = GridTracer.TraceNavigationBodyInto(
             _world, center, center, foot, foot,
             Fixed64.Zero, Fixed64.FromRaw(Fixed64.One.m_rawValue + 1L), results, scratch,
+            gridCandidateLimit: scratch.CandidateGrids.Capacity,
             addressCandidateLimit: 3, outputLimit: 3, candidateWorkLimit: 4L);
         Assert.Equal(GridNavigationBodyTraceStatus.Complete, oneRaw.Status);
         Assert.Equal(
