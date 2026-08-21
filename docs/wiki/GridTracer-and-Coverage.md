@@ -218,6 +218,8 @@ This is one of the most important practical details:
 - `GetCoveredVoxelsInto(...)` writes directly to caller-owned storage
 - `GridTraceScratch` can be reused across calls but should not be shared between
   concurrent queries
+- `GridCoveredAddressCursor.RetainedBytes` reports deterministic logical
+  retention for admission budgets, including its configured generation capacity
 
 Callers should treat grouped voxel lists as transient and consume them
 immediately inside the enumeration.

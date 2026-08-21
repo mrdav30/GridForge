@@ -12,6 +12,18 @@ namespace GridForge.Grids.Tests;
 public sealed class GridCoveredAddressCursorTests
 {
     [Fact]
+    public void RetainedBytes_ShouldIncludeLogicalCursorAndOwnedGenerationCapacity()
+    {
+        var empty = new GridCoveredAddressCursor(generationCapacity: 0);
+        var oneGeneration = new GridCoveredAddressCursor(generationCapacity: 1);
+
+        Assert.Equal(512L, empty.RetainedBytes);
+        Assert.Equal(696L, oneGeneration.RetainedBytes);
+        Assert.True(oneGeneration.RetainedBytes <= 696L);
+        Assert.False(oneGeneration.RetainedBytes <= 695L);
+    }
+
+    [Fact]
     public void Advance_ShouldValidateThenYieldCanonicalCoveredAddressesWithinSeparateBudgets()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);

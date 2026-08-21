@@ -34,6 +34,10 @@ public enum GridCoveredAddressCursorStatus : byte
 /// </remarks>
 public sealed class GridCoveredAddressCursor
 {
+    private const long LogicalStateBytes = 512L;
+    private const long ArrayHeaderBytes = 24L;
+    private const long BoundGenerationBytes = 160L;
+
     internal readonly struct BoundGeneration
     {
         internal BoundGeneration(
@@ -85,6 +89,14 @@ public sealed class GridCoveredAddressCursor
 
     /// <summary>The maximum eligible generation count accepted by this cursor.</summary>
     public int GenerationCapacity => Generations.Length;
+
+    /// <summary>The deterministic logical bytes retained by this cursor and its owned generation storage.</summary>
+    /// <remarks>Shared empty-array storage is not charged.</remarks>
+    public long RetainedBytes => checked(
+        LogicalStateBytes
+        + (Generations.Length == 0
+            ? 0L
+            : ArrayHeaderBytes + ((long)Generations.Length * BoundGenerationBytes)));
 
     /// <summary>The current query state.</summary>
     public GridCoveredAddressCursorStatus Status => CurrentStatus;
