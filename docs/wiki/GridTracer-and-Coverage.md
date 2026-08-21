@@ -19,6 +19,7 @@ Several higher-level systems depend on the same answer:
 - `GetCoveredScanCells(GridWorld world, Vector3d boundsMin, Vector3d boundsMax, ...)`
 - `GetCoveredScanCells(GridWorld world, Vector2d boundsMin, Vector2d boundsMax, layerY: ...)`
 - `GetCoveredScanCellsInto(...)` for caller-owned scan-cell result storage
+- `TraceNavigationBodyInto(...)` for bounded, allocation-free swept upright-body prism unions
 
 ## The Common Coverage Pipeline
 
@@ -54,6 +55,68 @@ merely because a sparse grid or query spans a large world-space range.
 The result is intentionally practical for blockers and scans: coverage may
 include every hex cell touched by a world-space region without asking callers to
 branch on `GridTopologyKind`.
+
+## Swept Navigation Bodies
+
+`TraceNavigationBodyInto(...)` is the non-allocating coverage entry point for a
+direct cylindrical body-foot sweep. Callers provide both the result
+`SwiftList<GridNavigationBodyTraceCell>` and reusable
+`GridNavigationBodyTraceScratch`; there is intentionally no allocating
+convenience overload.
+
+The stationary body at `startFoot` must have closed-set contact with the
+declared source prism, and the stationary body at `endFoot` must have closed-set
+contact with the declared target prism. Exact planar or vertical tangency is
+accepted for these endpoint identity checks; a declared endpoint that the body
+never contacts fails as `InvalidOrUnrepresentableGeometry` before candidate
+work.
+
+The tracer discovers candidate grids from the swept capsule/body bounds, uses
+each grid topology's existing covered-address range, creates exact cell prisms,
+and retains only positive interior body overlap. FixedMathSharp evaluates the
+strict swept-cylinder relation with exact wide intermediates: planar and
+vertical interior overlap must coexist at one shared continuous parameter.
+Mere tangency or boundary-only coincidence does not claim a neighboring prism.
+A direct rectangular diagonal also retains the deterministic
+four- or eight-cell corner closure; a hex vertical-planar diagonal retains its
+source, planar peer, vertical peer, and target. Results are sorted by durable
+configuration identity, grid generation, and topology-local address, so
+reversing the segment endpoints does not reverse the published set.
+
+The union check starts from the source prism and closes every positive-overlap
+neighbor in that topology's exact 26-cell rectangular or 20-cell hex lattice.
+An adjacent grid participates only when it issues an exactly coincident,
+congruent prism in the same aligned topology lattice, which allows aligned maps
+to support one large body across their boundary. A missing outer neighbor
+rejects a body that penetrates beyond all returned prisms; exact boundary
+tangency remains owned by the interior cell. Unaligned or differently shaped
+cross-grid coverage is rejected conservatively. In particular, multiple
+heterogeneous partial prisms are not combined as a general CSG replacement for
+one required source-lattice prism.
+
+Exact duplicate prisms from overlapping grids are alternatives, not additional
+requirements. Distinct source and target identities remain pinned even when
+their prisms coincide; for other exact duplicates the certificate prefers a
+physically present address and then the stable canonical grid/address order.
+When every non-endpoint alternative is missing, one is marked
+`RequiredCoverage` and the other missing identities are published as
+`PhysicalAlternativeDependency`. Those dependency cells are invalidation-only
+OR evidence, not jointly required physical coverage.
+
+Unlike ordinary sparse voxel coverage, this API publishes required missing
+addresses. Every result carries canonical world/grid generation identity,
+physical presence, role, and the owning grid's change high-water sequence. The
+report also carries the world run stamp. `IncompletePhysicalCoverage` therefore
+gives callers a reusable negative proof whose complete per-grid evidence stales
+when any satisfying alternative changes without staling a trace that depends
+only on an unrelated grid.
+
+Address, output, and combined candidate-work ceilings are exact. Raw
+alternatives consume address/work budget. `outputLimit` is preflighted against
+the full required plus dependency-evidence result, so a one-below failure does
+not publish a partial proof. Capacity, budget, invalid-input, and
+unrepresentable-geometry failures clear the result; complete and
+incomplete-physical results retain their full canonical evidence.
 
 ## 2D XZ Projection
 

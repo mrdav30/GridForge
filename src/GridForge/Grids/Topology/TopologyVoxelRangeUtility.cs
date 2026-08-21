@@ -41,6 +41,35 @@ internal static class TopologyVoxelRangeUtility
             : TryGetRectangularCandidateRange(grid, queryMin, queryMax, out minIndex, out maxIndex);
     }
 
+    internal static bool TryGetPrismCandidateRange(
+        VoxelGrid grid,
+        Vector3d queryMin,
+        Vector3d queryMax,
+        out VoxelIndex minIndex,
+        out VoxelIndex maxIndex)
+    {
+        GridTopologyMetrics metrics = grid.Topology.Metrics;
+        Vector3d rangeMin;
+        Vector3d rangeMax;
+        if (grid.Topology.Kind == GridTopologyKind.RectangularPrism)
+        {
+            Vector3d halfExtents = new(
+                metrics.CellWidth * Fixed64.Half,
+                metrics.LayerHeight * Fixed64.Half,
+                metrics.CellLength * Fixed64.Half);
+            rangeMin = queryMin - halfExtents;
+            rangeMax = queryMax + halfExtents;
+        }
+        else
+        {
+            Fixed64 halfHeight = metrics.LayerHeight * Fixed64.Half;
+            rangeMin = new Vector3d(queryMin.X, queryMin.Y - halfHeight, queryMin.Z);
+            rangeMax = new Vector3d(queryMax.X, queryMax.Y + halfHeight, queryMax.Z);
+        }
+
+        return TryGetCandidateRange(grid, rangeMin, rangeMax, out minIndex, out maxIndex);
+    }
+
     private static bool TryGetRectangularCandidateRange(
         VoxelGrid grid,
         Vector3d queryMin,

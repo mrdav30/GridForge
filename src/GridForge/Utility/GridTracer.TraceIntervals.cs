@@ -6,9 +6,8 @@
 //=======================================================================
 
 using System;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 using FixedMathSharp;
-using FixedMathSharp.Geometry;
 using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
@@ -183,29 +182,10 @@ public static partial class GridTracer
         GridTraceIntervalScratch scratch,
         int addressCandidateLimit)
     {
-        GridTopologyMetrics metrics = grid.Configuration.TopologyMetrics;
-        Vector3d rangeMin;
-        Vector3d rangeMax;
-        if (grid.Configuration.TopologyKind == GridTopologyKind.RectangularPrism)
-        {
-            Vector3d halfExtents = new Vector3d(
-                metrics.CellWidth * Fixed64.Half,
-                metrics.LayerHeight * Fixed64.Half,
-                metrics.CellLength * Fixed64.Half);
-            rangeMin = queryMin - halfExtents;
-            rangeMax = queryMax + halfExtents;
-        }
-        else
-        {
-            Fixed64 halfHeight = metrics.LayerHeight * Fixed64.Half;
-            rangeMin = new Vector3d(queryMin.X, queryMin.Y - halfHeight, queryMin.Z);
-            rangeMax = new Vector3d(queryMax.X, queryMax.Y + halfHeight, queryMax.Z);
-        }
-
-        TopologyVoxelAabb queryBounds = new TopologyVoxelAabb(rangeMin, rangeMax);
-        if (!TopologyVoxelRangeUtility.TryGetCandidateRange(
+        if (!TopologyVoxelRangeUtility.TryGetPrismCandidateRange(
                 grid,
-                queryBounds,
+                queryMin,
+                queryMax,
                 out VoxelIndex minIndex,
                 out VoxelIndex maxIndex))
         {
@@ -258,7 +238,12 @@ public static partial class GridTracer
         out Fixed64 tEnter,
         out Fixed64 tExit)
     {
-        if (!TryGetPlanarInterval(start, end, prism, out Fixed64 planarEnter, out Fixed64 planarExit)
+        if (!GridCellGeometry.TryGetPlanarSegmentInterval(
+                prism,
+                new Vector2d(start.X, start.Z),
+                new Vector2d(end.X, end.Z),
+                out Fixed64 planarEnter,
+                out Fixed64 planarExit)
             || !TryGetVerticalInterval(start.Y, end.Y, prism.VerticalMin, prism.VerticalMax,
                 out Fixed64 verticalEnter, out Fixed64 verticalExit))
         {
@@ -270,73 +255,6 @@ public static partial class GridTracer
         tEnter = FixedMath.Max(planarEnter, verticalEnter);
         tExit = FixedMath.Min(planarExit, verticalExit);
         return tEnter <= tExit;
-    }
-
-    private static bool TryGetPlanarInterval(
-        Vector3d start,
-        Vector3d end,
-        in GridCellPrism prism,
-        out Fixed64 tEnter,
-        out Fixed64 tExit)
-    {
-        Vector2d traceStart = new Vector2d(start.X, start.Z);
-        Vector2d traceEnd = new Vector2d(end.X, end.Z);
-        FixedSegment2d trace = new FixedSegment2d(traceStart, traceEnd);
-        Span<Vector2d> vertices = stackalloc Vector2d[6];
-        Span<Vector2d> offsets = stackalloc Vector2d[6];
-        prism.CopyFootprintTo(vertices);
-        Vector2d origin = new Vector2d(prism.Center.X, prism.Center.Z);
-        for (int i = 0; i < prism.FootprintVertexCount; i++)
-            offsets[i] = vertices[i] - origin;
-
-        ReadOnlySpan<Vector2d> footprintOffsets = offsets[..prism.FootprintVertexCount];
-        if (traceStart == traceEnd)
-        {
-            bool contained = FixedConvex2dRelations.ContainsPoint(traceStart, origin, footprintOffsets);
-            tEnter = Fixed64.Zero;
-            tExit = Fixed64.One;
-            return contained;
-        }
-
-        Span<Fixed64> parameters = stackalloc Fixed64[16];
-        int parameterCount = 0;
-        if (FixedConvex2dRelations.ContainsPoint(traceStart, origin, footprintOffsets))
-            AddParameter(parameters, ref parameterCount, Fixed64.Zero);
-        if (FixedConvex2dRelations.ContainsPoint(traceEnd, origin, footprintOffsets))
-            AddParameter(parameters, ref parameterCount, Fixed64.One);
-
-        for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
-        {
-            Vector2d edgeStart = vertices[edgeIndex];
-            Vector2d edgeEnd = vertices[(edgeIndex + 1) % prism.FootprintVertexCount];
-            FixedSegment2d edge = new FixedSegment2d(edgeStart, edgeEnd);
-            if (trace.TryGetUniqueIntersection(edge, out Fixed64 parameter))
-                AddParameter(parameters, ref parameterCount, parameter);
-
-            if (Vector2d.OrientationSign(traceStart, traceEnd, edgeStart) == 0
-                && Vector2d.OrientationSign(traceStart, traceEnd, edgeEnd) == 0)
-            {
-                AddParameter(parameters, ref parameterCount, GetTraceParameter(traceStart, traceEnd, edgeStart));
-                AddParameter(parameters, ref parameterCount, GetTraceParameter(traceStart, traceEnd, edgeEnd));
-            }
-        }
-
-        if (parameterCount == 0)
-        {
-            tEnter = default;
-            tExit = default;
-            return false;
-        }
-
-        tEnter = parameters[0];
-        tExit = parameters[0];
-        for (int i = 1; i < parameterCount; i++)
-        {
-            tEnter = FixedMath.Min(tEnter, parameters[i]);
-            tExit = FixedMath.Max(tExit, parameters[i]);
-        }
-
-        return true;
     }
 
     private static bool TryGetVerticalInterval(
@@ -365,30 +283,6 @@ public static partial class GridTracer
         return tEnter <= tExit
             && ((start <= verticalMax && end >= verticalMin)
                 || (end <= verticalMax && start >= verticalMin));
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Fixed64 GetTraceParameter(Vector2d start, Vector2d end, Vector2d point)
-    {
-        Vector2d delta = end - start;
-        return FixedMath.Abs(delta.X) >= FixedMath.Abs(delta.Y)
-            ? (point.X - start.X) / delta.X
-            : (point.Y - start.Y) / delta.Y;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void AddParameter(Span<Fixed64> parameters, ref int count, Fixed64 parameter)
-    {
-        if (parameter < Fixed64.Zero || parameter > Fixed64.One)
-            return;
-
-        for (int i = 0; i < count; i++)
-        {
-            if (parameters[i] == parameter)
-                return;
-        }
-
-        parameters[count++] = parameter;
     }
 
     private static GridTraceIntervalReport CreateTraceReport(
@@ -482,23 +376,8 @@ public static partial class GridTracer
         return started && coveredThrough >= Fixed64.One;
     }
 
-    private static void SortGridIndices(GridWorld world, SwiftList<ushort> values)
-    {
-        ushort[] items = values.InnerArray;
-        for (int i = 1; i < values.Count; i++)
-        {
-            ushort value = items[i];
-            int insertion = i - 1;
-            while (insertion >= 0
-                && CompareGridIdentity(world.ActiveGrids[items[insertion]], world.ActiveGrids[value]) > 0)
-            {
-                items[insertion + 1] = items[insertion];
-                insertion--;
-            }
-
-            items[insertion + 1] = value;
-        }
-    }
+    private static void SortGridIndices(GridWorld world, SwiftList<ushort> values) =>
+        values.SortInPlace(new GridIndexComparer(world));
 
     private static void SortIntervals(SwiftList<GridTraceInterval> values)
     {
@@ -558,6 +437,16 @@ public static partial class GridTracer
             return comparison;
         comparison = first.SpawnToken.CompareTo(second.SpawnToken);
         return comparison != 0 ? comparison : first.GridIndex.CompareTo(second.GridIndex);
+    }
+
+    private readonly struct GridIndexComparer : IComparer<ushort>
+    {
+        private readonly GridWorld _world;
+
+        internal GridIndexComparer(GridWorld world) => _world = world;
+
+        public int Compare(ushort first, ushort second) =>
+            CompareGridIdentity(_world.ActiveGrids[first], _world.ActiveGrids[second]);
     }
 
     private static int CompareConfigurationKeys(

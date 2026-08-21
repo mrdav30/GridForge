@@ -5,6 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
+using System;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 
@@ -659,4 +660,130 @@ public static partial class GridCellGeometry
         first = second;
         second = value;
     }
+
+    internal static bool HasPositiveNavigationBodyPrismOverlap(
+        in GridCellPrism prism,
+        Vector3d footStart,
+        Vector3d footEnd,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight)
+    {
+        if (!IsNavigationPrismValid(prism)
+            || horizontalRadius < Fixed64.Zero
+            || bodyHeight <= Fixed64.Zero
+            || !Fixed64.TrySubtract(
+                prism.VerticalMax,
+                prism.VerticalMin,
+                out Fixed64 prismThickness)
+            || !TryGetExactHalf(prismThickness, out Fixed64 prismHalfThickness)
+            || !Fixed64.TryAdd(
+                prism.VerticalMin,
+                prismHalfThickness,
+                out Fixed64 prismOriginY))
+        {
+            return false;
+        }
+
+        Span<Vector2d> offsets = stackalloc Vector2d[6];
+        Vector2d planarOrigin = new(prism.Center.X, prism.Center.Z);
+        for (int i = 0; i < prism.FootprintVertexCount; i++)
+            offsets[i] = prism.GetFootprintVertex(i) - planarOrigin;
+
+        return FixedConvexPrismRelations.IntersectsSweptUprightCylinderStrict(
+            footStart,
+            footEnd,
+            horizontalRadius,
+            bodyHeight,
+            new Vector3d(prism.Center.X, prismOriginY, prism.Center.Z),
+            Fixed64.Zero,
+            offsets[..prism.FootprintVertexCount],
+            prismHalfThickness);
+    }
+
+    internal static bool TryGetPlanarSegmentInterval(
+        in GridCellPrism prism,
+        Vector2d start,
+        Vector2d end,
+        out Fixed64 overlapEnter,
+        out Fixed64 overlapExit)
+    {
+        Vector2d origin = new(prism.Center.X, prism.Center.Z);
+        Span<Vector2d> vertices = stackalloc Vector2d[6];
+        Span<Vector2d> offsets = stackalloc Vector2d[6];
+        prism.CopyFootprintTo(vertices);
+        for (int i = 0; i < prism.FootprintVertexCount; i++)
+            offsets[i] = vertices[i] - origin;
+        ReadOnlySpan<Vector2d> footprint = offsets[..prism.FootprintVertexCount];
+
+        bool startContained = FixedConvex2dRelations.ContainsPoint(start, origin, footprint);
+        if (start == end)
+        {
+            overlapEnter = Fixed64.Zero;
+            overlapExit = Fixed64.One;
+            return startContained;
+        }
+
+        Span<Fixed64> parameters = stackalloc Fixed64[16];
+        int count = 0;
+        if (startContained)
+            parameters[count++] = Fixed64.Zero;
+        if (FixedConvex2dRelations.ContainsPoint(end, origin, footprint))
+            parameters[count++] = Fixed64.One;
+
+        FixedSegment2d path = new(start, end);
+        for (int i = 0; i < prism.FootprintVertexCount; i++)
+        {
+            FixedSegment2d edge = new(
+                vertices[i],
+                vertices[(i + 1) % prism.FootprintVertexCount]);
+            if (path.TryGetUniqueIntersection(edge, out Fixed64 parameter))
+                AddNavigationBodyParameter(parameters, ref count, parameter);
+            if (Vector2d.OrientationSign(start, end, edge.Start) == 0
+                && Vector2d.OrientationSign(start, end, edge.End) == 0)
+            {
+                AddNavigationBodyParameter(parameters, ref count, GetNavigationBodyParameter(path, edge.Start));
+                AddNavigationBodyParameter(parameters, ref count, GetNavigationBodyParameter(path, edge.End));
+            }
+        }
+
+        if (count == 0)
+        {
+            overlapEnter = default;
+            overlapExit = default;
+            return false;
+        }
+
+        overlapEnter = parameters[0];
+        overlapExit = parameters[0];
+        for (int i = 1; i < count; i++)
+        {
+            overlapEnter = FixedMath.Min(overlapEnter, parameters[i]);
+            overlapExit = FixedMath.Max(overlapExit, parameters[i]);
+        }
+        return true;
+    }
+
+    private static void AddNavigationBodyParameter(
+        Span<Fixed64> parameters,
+        ref int count,
+        Fixed64 parameter)
+    {
+        if (parameter < Fixed64.Zero || parameter > Fixed64.One)
+            return;
+        for (int i = 0; i < count; i++)
+        {
+            if (parameters[i] == parameter)
+                return;
+        }
+        parameters[count++] = parameter;
+    }
+
+    private static Fixed64 GetNavigationBodyParameter(FixedSegment2d path, Vector2d point)
+    {
+        Vector2d delta = path.Delta;
+        return FixedMath.Abs(delta.X) >= FixedMath.Abs(delta.Y)
+            ? (point.X - path.Start.X) / delta.X
+            : (point.Y - path.Start.Y) / delta.Y;
+    }
+
 }

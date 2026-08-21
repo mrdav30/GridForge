@@ -188,4 +188,35 @@ public static class HexDirectionUtility
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsVertical(HexDirection direction) =>
         direction == HexDirection.Below || direction == HexDirection.Above;
+
+    internal static int CopyNavigationClosureOffsets(
+        VoxelIndex neighborOffset,
+        Span<VoxelIndex> destination)
+    {
+        bool isNeighbor = false;
+        for (int i = 0; i < OffsetValues.Length; i++)
+        {
+            if (OffsetValues[i] == neighborOffset)
+            {
+                isNeighbor = true;
+                break;
+            }
+        }
+
+        if (!isNeighbor)
+            return 0;
+
+        destination[0] = new VoxelIndex(0, 0, 0);
+        if (neighborOffset.y == 0
+            || (neighborOffset.x == 0 && neighborOffset.z == 0))
+        {
+            destination[1] = neighborOffset;
+            return 2;
+        }
+
+        destination[1] = new VoxelIndex(neighborOffset.x, 0, neighborOffset.z);
+        destination[2] = new VoxelIndex(0, neighborOffset.y, 0);
+        destination[3] = neighborOffset;
+        return 4;
+    }
 }

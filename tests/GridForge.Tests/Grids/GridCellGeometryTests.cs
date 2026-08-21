@@ -844,6 +844,47 @@ public sealed class GridCellGeometryTests : IDisposable
     }
 
     [Fact]
+    public void PositiveNavigationBodyPrismOverlap_ShouldExcludeExactTangencyAndIncludeOneRawPenetration()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(Fixed64.One);
+        GridCellPrism east = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(Fixed64.One, Fixed64.Zero, Fixed64.Zero));
+        GridCellPrism above = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(Fixed64.Zero, Fixed64.One, Fixed64.Zero));
+        Vector3d foot = new(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero);
+
+        Assert.False(GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+            east,
+            foot,
+            foot,
+            Fixed64.Half,
+            Fixed64.One));
+        Assert.True(GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+            east,
+            foot,
+            foot,
+            Fixed64.FromRaw(Fixed64.Half.m_rawValue + 1L),
+            Fixed64.One));
+
+        Assert.False(GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+            above,
+            foot,
+            foot,
+            Fixed64.Zero,
+            Fixed64.One));
+        Assert.True(GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+            above,
+            foot,
+            foot,
+            Fixed64.Zero,
+            Fixed64.FromRaw(Fixed64.One.m_rawValue + 1L)));
+    }
+
+    [Fact]
     public void NavigationBodySegment_EndpointAllowanceCertifiesOnlyDirectedFootprintCrossing()
     {
         GridCellPrism prism = CreateOfflinePrism(

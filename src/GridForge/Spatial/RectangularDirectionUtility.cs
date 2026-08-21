@@ -263,6 +263,33 @@ public static class RectangularDirectionUtility
             : RectangularDirection.None;
     }
 
+    internal static int CopyNavigationClosureOffsets(
+        RectangularDirection direction,
+        Span<VoxelIndex> destination)
+    {
+        if ((uint)direction >= (uint)OffsetValues.Length)
+            return 0;
+
+        (int x, int y, int z) offset = OffsetValues[(int)direction];
+        int axisCount = (offset.x != 0 ? 1 : 0)
+            + (offset.y != 0 ? 1 : 0)
+            + (offset.z != 0 ? 1 : 0);
+        int closureCount = 1 << axisCount;
+        if (destination.Length < closureCount)
+            throw new ArgumentException("The destination is smaller than the navigation closure.", nameof(destination));
+
+        for (int subset = 0; subset < closureCount; subset++)
+        {
+            int bit = 0;
+            int x = offset.x != 0 && (subset & (1 << bit++)) != 0 ? offset.x : 0;
+            int y = offset.y != 0 && (subset & (1 << bit++)) != 0 ? offset.y : 0;
+            int z = offset.z != 0 && (subset & (1 << bit)) != 0 ? offset.z : 0;
+            destination[subset] = new VoxelIndex(x, y, z);
+        }
+
+        return closureCount;
+    }
+
     /// <summary>
     /// Gets the boundary range for a given offset and size,
     /// returning (0, 0) for negative offsets, (size-1, size-1) for positive offsets,
