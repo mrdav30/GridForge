@@ -93,29 +93,29 @@
 	<!-- Dependencies and Package References -->
 	<ItemGroup Condition="'$(DisableMemoryPack)' != 'true'">
 		<PackageReference Include="MemoryPack" Version="1.21.4" />
-		<PackageReference Include="FixedMathSharp" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="FixedMathSharp" Version="7.0.0" Condition="'$(UseLocalLsfStack)' == 'true'"
+		<PackageReference Include="FixedMathSharp" Version="7.1.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="FixedMathSharp" Version="7.1.0" Condition="'$(UseLocalLsfStack)' == 'true'"
 			ExcludeAssets="compile;runtime" />
 		<PackageReference Include="SwiftCollections" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="7.1.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
-		<PackageReference Include="FixedMathSharp.Lean" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="FixedMathSharp.Lean" Version="7.0.0" Condition="'$(UseLocalLsfStack)' == 'true'"
+		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0" Condition="'$(UseLocalLsfStack)' == 'true'"
 			ExcludeAssets="compile;runtime" />
 		<PackageReference Include="SwiftCollections.Lean" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="7.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="7.1.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 		<PackageReference Include="Chronicler.MemoryPackShim" Version="0.4.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
 		<ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
-			AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
+			AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
 		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
 			AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
 		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj"
-			AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
+			AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">

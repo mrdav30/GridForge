@@ -19,21 +19,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GridForge\GridForge.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
-    <!-- The Test SDK is required only for the VSTest Adapter to work -->
-  </ItemGroup>
-  <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
-    <PackageReference Include="FixedMathSharp" Version="7.0.0"
-                      Condition="'$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
-    <PackageReference Include="FixedMathSharp.Lean" Version="7.0.0"
-                      Condition="'$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
-    <ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
-    <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
-    <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove=".gitignore" />
   </ItemGroup>
 </Project>
