@@ -237,13 +237,17 @@ public sealed class GridNavigationBaselineTests
         try
         {
             snapshotThread.Start();
+            ThreadState observedState = default;
             Assert.True(SpinWait.SpinUntil(
-                () => (snapshotThread.ThreadState
-                    & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+                () =>
+                {
+                    observedState = snapshotThread.ThreadState;
+                    return (observedState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0;
+                },
                 TimeSpan.FromSeconds(5)));
             Assert.Equal(
                 ThreadState.WaitSleepJoin,
-                snapshotThread.ThreadState & ThreadState.WaitSleepJoin);
+                observedState & ThreadState.WaitSleepJoin);
             Assert.Equal(0, Volatile.Read(ref snapshotEntered));
 
             releaseCallback.Set();

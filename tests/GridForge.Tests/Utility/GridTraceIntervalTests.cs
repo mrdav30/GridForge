@@ -1032,10 +1032,15 @@ public sealed class GridTraceIntervalTests : IDisposable
 
     private static void AssertThreadIsWaiting(Thread thread)
     {
+        ThreadState observedState = default;
         Assert.True(SpinWait.SpinUntil(
-            () => (thread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+            () =>
+            {
+                observedState = thread.ThreadState;
+                return (observedState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0;
+            },
             TimeSpan.FromSeconds(5)));
-        Assert.Equal(ThreadState.WaitSleepJoin, thread.ThreadState & ThreadState.WaitSleepJoin);
+        Assert.Equal(ThreadState.WaitSleepJoin, observedState & ThreadState.WaitSleepJoin);
     }
 
     private static GridConfiguration CreateHexConfiguration(
