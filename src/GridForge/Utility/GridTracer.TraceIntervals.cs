@@ -57,9 +57,6 @@ public static partial class GridTracer
         world.EnterReadLock();
         try
         {
-            if (!world.IsActive)
-                return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, 0, results);
-
             (Vector3d queryMin, Vector3d queryMax) = CreatePaddedOrderedBounds(start, end, padding: null);
             (Vector3d candidateMin, Vector3d candidateMax) =
                 ExpandOrderedBounds(queryMin, queryMax, world.MaxTopologyCellEdge);

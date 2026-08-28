@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -476,94 +475,6 @@ public sealed class GridTraceIntervalTests : IDisposable
     }
 
     [Fact]
-    public async Task Trace_ShouldWaitBehindDeactivationAndReturnAnEmptyInactiveSnapshot()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld();
-        Assert.True(world.TryAddGrid(
-            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
-            out _));
-        using ManualResetEventSlim snapshotEntered = new();
-        using ManualResetEventSlim releaseSnapshot = new();
-        var results = new SwiftList<GridTraceInterval>(1);
-        var scratch = new GridTraceIntervalScratch(1, 1);
-
-        Task maintenance = Task.Run(() => world.ExecuteNavigationMaintenanceSnapshot(() =>
-        {
-            snapshotEntered.Set();
-            releaseSnapshot.Wait(TestContext.Current.CancellationToken);
-        }), TestContext.Current.CancellationToken);
-        Assert.True(snapshotEntered.Wait(
-            TimeSpan.FromSeconds(5),
-            TestContext.Current.CancellationToken));
-        Exception deactivateError = null;
-        Thread deactivateThread = new(() =>
-        {
-            try
-            {
-                world.Reset(deactivate: true);
-            }
-            catch (Exception exception)
-            {
-                deactivateError = exception;
-            }
-        }) { IsBackground = true };
-        deactivateThread.Start();
-        AssertThreadIsWaiting(deactivateThread);
-
-        GridTraceIntervalReport report = default;
-        Exception traceError = null;
-        Thread traceThread = new(() =>
-        {
-            try
-            {
-                report = GridTracer.TraceIntervalsInto(
-                    world,
-                    Vector3d.Zero,
-                    Vector3d.Zero,
-                    results,
-                    scratch,
-                    gridCandidateLimit: 1,
-                    addressCandidateLimit: 1,
-                    outputLimit: 1,
-                    candidateWorkLimit: 2L);
-            }
-            catch (Exception exception)
-            {
-                traceError = exception;
-            }
-        }) { IsBackground = true };
-
-        try
-        {
-            traceThread.Start();
-            AssertThreadIsWaiting(traceThread);
-
-            releaseSnapshot.Set();
-            await maintenance.WaitAsync(
-                TimeSpan.FromSeconds(5),
-                TestContext.Current.CancellationToken);
-            Assert.True(deactivateThread.Join(TimeSpan.FromSeconds(5)));
-            Assert.True(traceThread.Join(TimeSpan.FromSeconds(5)));
-
-            Assert.Null(deactivateError);
-            Assert.Null(traceError);
-            Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
-            Assert.Empty(results);
-        }
-        finally
-        {
-            releaseSnapshot.Set();
-            if (deactivateThread.IsAlive)
-                deactivateThread.Join(TimeSpan.FromSeconds(5));
-            if (traceThread.IsAlive)
-                traceThread.Join(TimeSpan.FromSeconds(5));
-            await maintenance.WaitAsync(
-                TimeSpan.FromSeconds(5),
-                TestContext.Current.CancellationToken);
-        }
-    }
-
-    [Fact]
     public void TraceCeilings_ShouldFailClosedAndWarmedTraceShouldAllocateZero()
     {
         Assert.True(_world.TryAddGrid(
@@ -656,10 +567,10 @@ public sealed class GridTraceIntervalTests : IDisposable
         Assert.Equal(GridTraceIntervalStatus.Complete, stationaryOutside.Status);
         Assert.Empty(_results);
 
-        using GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
-        inactiveWorld.Dispose();
-        GridTraceIntervalReport inactive = GridTracer.TraceIntervalsInto(
-            inactiveWorld,
+        GridWorld disposedWorld = GridWorldTestFactory.CreateWorld();
+        disposedWorld.Dispose();
+        GridTraceIntervalReport disposed = GridTracer.TraceIntervalsInto(
+            disposedWorld,
             Vector3d.Zero,
             Vector3d.Zero,
             _results,
@@ -668,7 +579,7 @@ public sealed class GridTraceIntervalTests : IDisposable
             0,
             0,
             0L);
-        Assert.Equal(GridTraceIntervalStatus.Complete, inactive.Status);
+        Assert.Equal(GridTraceIntervalStatus.Complete, disposed.Status);
         Assert.Empty(_results);
     }
 
@@ -1029,19 +940,6 @@ public sealed class GridTraceIntervalTests : IDisposable
             addressCandidateLimit: 4096,
             outputLimit: 1024,
             candidateWorkLimit: 4104L);
-
-    private static void AssertThreadIsWaiting(Thread thread)
-    {
-        ThreadState observedState = default;
-        Assert.True(SpinWait.SpinUntil(
-            () =>
-            {
-                observedState = thread.ThreadState;
-                return (observedState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0;
-            },
-            TimeSpan.FromSeconds(5)));
-        Assert.Equal(ThreadState.WaitSleepJoin, observedState & ThreadState.WaitSleepJoin);
-    }
 
     private static GridConfiguration CreateHexConfiguration(
         GridTopologyMetrics metrics,

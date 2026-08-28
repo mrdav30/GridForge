@@ -88,8 +88,7 @@ public static partial class GridTracer
         world.EnterReadLock();
         try
         {
-            if (!world.IsActive
-                || !world.TryGetGrid(source, out VoxelGrid? sourceGridValue)
+            if (!world.TryGetGrid(source, out VoxelGrid? sourceGridValue)
                 || !world.TryGetGrid(target, out VoxelGrid? targetGridValue))
             {
                 return FailNavigationBodyTrace(

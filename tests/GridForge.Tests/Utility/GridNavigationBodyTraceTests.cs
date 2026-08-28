@@ -1092,13 +1092,13 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             1, 3, 2, 4L);
         Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, missingEndpoint.Status);
 
-        using GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
-        inactiveWorld.Dispose();
-        GridNavigationBodyTraceReport inactive = GridTracer.TraceNavigationBodyInto(
-            inactiveWorld, source, target, start, end,
+        GridWorld disposedWorld = GridWorldTestFactory.CreateWorld();
+        disposedWorld.Dispose();
+        GridNavigationBodyTraceReport disposed = GridTracer.TraceNavigationBodyInto(
+            disposedWorld, source, target, start, end,
             Fixed64.Zero, Fixed64.One, results, scratch,
             1, 3, 2, 4L);
-        Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, inactive.Status);
+        Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, disposed.Status);
         Assert.Empty(results);
     }
 
