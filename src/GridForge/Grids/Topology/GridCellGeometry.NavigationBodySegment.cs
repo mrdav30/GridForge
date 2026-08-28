@@ -94,7 +94,7 @@ public static partial class GridCellGeometry
             FixedSegment2d opening = new(
                 portal.VerticalFaceSegmentStart,
                 portal.VerticalFaceSegmentEnd);
-            if (!IsDirectedPortalCrossing(sourcePrism, targetPrism, path, opening)
+            if (!IsDirectedPortalCrossing(sourcePrism, path, opening)
                 || !path.TryGetUniqueIntersectionParameterEnclosure(
                     opening,
                     out _,
@@ -111,9 +111,12 @@ public static partial class GridCellGeometry
             FixedSegment2d traversalGap = new(
                 new Vector2d(sourcePoint.X, sourcePoint.Z),
                 new Vector2d(targetPoint.X, targetPoint.Z));
-            if (!sourcePrism.Contains(sourcePoint)
-                || !targetPrism.Contains(targetPoint)
-                || !IsPortalTraversalGapPlanarValid(
+            path.TryGetCapsuleIntersectionParameterEnclosure(
+                opening,
+                horizontalRadius,
+                out Fixed64 overlapEntry,
+                out Fixed64 overlapExit);
+            if (!IsPortalTraversalGapPlanarValid(
                     sourcePrism,
                     traversalGap,
                     horizontalRadius,
@@ -123,11 +126,6 @@ public static partial class GridCellGeometry
                     traversalGap,
                     horizontalRadius,
                     portal)
-                || !path.TryGetCapsuleIntersectionParameterEnclosure(
-                    opening,
-                    horizontalRadius,
-                    out Fixed64 overlapEntry,
-                    out Fixed64 overlapExit)
                 || !IsPortalHeightValidOverInterval(
                     footStart.Y,
                     footEnd.Y,
@@ -144,22 +142,9 @@ public static partial class GridCellGeometry
             return true;
         }
 
-        if (portal.FaceKind != VoxelContactFaceKind.Horizontal
-            || !TryGetPointParameter(footStart, footEnd, sourceAnchor, out sourceParameter)
+        if (!TryGetPointParameter(footStart, footEnd, sourceAnchor, out sourceParameter)
             || !TryGetPointParameter(footStart, footEnd, targetAnchor, out targetParameter)
-            || sourceParameter >= targetParameter
-            || !IsNavigationBodyAnchorValid(
-                sourcePrism,
-                sourceAnchor,
-                horizontalRadius,
-                bodyHeight,
-                portal)
-            || !IsNavigationBodyAnchorValid(
-                targetPrism,
-                targetAnchor,
-                horizontalRadius,
-                bodyHeight,
-                portal))
+            || sourceParameter >= targetParameter)
         {
             sourceParameter = default;
             targetParameter = default;
@@ -347,12 +332,7 @@ public static partial class GridCellGeometry
                     return false;
                 }
             }
-            else if (!path.IsDistanceAtLeast(
-                    new FixedSegment2d(firstEnd, secondStart),
-                    horizontalRadius)
-                || !path.IsDistanceAtLeast(
-                    new FixedSegment2d(secondEnd, edgeEnd),
-                    horizontalRadius))
+            else
             {
                 return false;
             }
@@ -393,9 +373,9 @@ public static partial class GridCellGeometry
             bool directed = clipStart
                 ? endSide == centerSide && startSide != centerSide
                 : startSide == centerSide && endSide != centerSide;
-            if (centerSide == 0
-                || !directed
-                || !path.TryGetUniqueIntersectionParameterEnclosure(
+            if (!directed)
+                continue;
+            if (!path.TryGetUniqueIntersectionParameterEnclosure(
                     edge,
                     out _,
                     out Fixed64 candidateLower,
@@ -408,8 +388,6 @@ public static partial class GridCellGeometry
             {
                 return false;
             }
-            if (allowedEdgeIndex >= 0)
-                return false;
             allowedEdgeIndex = edgeIndex;
             lowerParameter = candidateLower;
             upperParameter = candidateUpper;
@@ -482,7 +460,6 @@ public static partial class GridCellGeometry
 
     private static bool IsDirectedPortalCrossing(
         in GridCellPrism sourcePrism,
-        in GridCellPrism targetPrism,
         FixedSegment2d path,
         FixedSegment2d opening)
     {
@@ -490,16 +467,11 @@ public static partial class GridCellGeometry
             return false;
 
         Vector2d sourceCenter = new(sourcePrism.Center.X, sourcePrism.Center.Z);
-        Vector2d targetCenter = new(targetPrism.Center.X, targetPrism.Center.Z);
         int sourceSide = Vector2d.OrientationSign(opening.Start, opening.End, sourceCenter);
-        int targetSide = Vector2d.OrientationSign(opening.Start, opening.End, targetCenter);
-        if (sourceSide == 0 || targetSide != -sourceSide)
-            return false;
-
         int startSide = Vector2d.OrientationSign(opening.Start, opening.End, path.Start);
         int endSide = Vector2d.OrientationSign(opening.Start, opening.End, path.End);
         return (startSide == 0 || startSide == sourceSide)
-            && (endSide == 0 || endSide == targetSide)
+            && (endSide == 0 || endSide == -sourceSide)
             && (startSide != 0 || endSide != 0);
     }
 
@@ -509,18 +481,16 @@ public static partial class GridCellGeometry
         Fixed64 horizontalRadius,
         in GridNavigationPortal portal)
     {
-        if (!TryGetCertifiedPortalEdge(prism, portal, out int selectedEdgeIndex))
-            return false;
-
         for (int edgeIndex = 0; edgeIndex < prism.FootprintVertexCount; edgeIndex++)
         {
             Vector2d edgeStart = prism.GetFootprintVertex(edgeIndex);
             Vector2d edgeEnd = prism.GetFootprintVertex(
                 (edgeIndex + 1) % prism.FootprintVertexCount);
-            if (edgeIndex != selectedEdgeIndex)
+            FixedSegment2d edge = new(edgeStart, edgeEnd);
+            if (!IsPortalCertifiedOnEdge(edge, portal))
             {
                 if (!traversalGap.IsDistanceAtLeast(
-                        new FixedSegment2d(edgeStart, edgeEnd),
+                        edge,
                         horizontalRadius))
                 {
                     return false;
@@ -554,11 +524,8 @@ public static partial class GridCellGeometry
         Fixed64 bodyHeight,
         in GridNavigationPortal portal)
     {
-        return Fixed64.TryAdd(
-                portal.CanonicalFacePoint.Y,
-                portal.MaximumBodyHeight,
-                out Fixed64 portalTop)
-            && IsBodyHeightValidOverInterval(
+        Fixed64 portalTop = portal.CanonicalFacePoint.Y + portal.MaximumBodyHeight;
+        return IsBodyHeightValidOverInterval(
                 footStartY,
                 footEndY,
                 entryParameter,
@@ -668,21 +635,7 @@ public static partial class GridCellGeometry
         Fixed64 horizontalRadius,
         Fixed64 bodyHeight)
     {
-        if (!IsNavigationPrismValid(prism)
-            || horizontalRadius < Fixed64.Zero
-            || bodyHeight <= Fixed64.Zero
-            || !Fixed64.TrySubtract(
-                prism.VerticalMax,
-                prism.VerticalMin,
-                out Fixed64 prismThickness)
-            || !TryGetExactHalf(prismThickness, out Fixed64 prismHalfThickness)
-            || !Fixed64.TryAdd(
-                prism.VerticalMin,
-                prismHalfThickness,
-                out Fixed64 prismOriginY))
-        {
-            return false;
-        }
+        Fixed64 prismHalfThickness = prism.VerticalMax - prism.Center.Y;
 
         Span<Vector2d> offsets = stackalloc Vector2d[6];
         Vector2d planarOrigin = new(prism.Center.X, prism.Center.Z);
@@ -694,7 +647,7 @@ public static partial class GridCellGeometry
             footEnd,
             horizontalRadius,
             bodyHeight,
-            new Vector3d(prism.Center.X, prismOriginY, prism.Center.Z),
+            prism.Center,
             Fixed64.Zero,
             offsets[..prism.FootprintVertexCount],
             prismHalfThickness);
@@ -768,7 +721,7 @@ public static partial class GridCellGeometry
         ref int count,
         Fixed64 parameter)
     {
-        if (parameter < Fixed64.Zero || parameter > Fixed64.One)
+        if ((ulong)parameter.m_rawValue > (ulong)Fixed64.One.m_rawValue)
             return;
         for (int i = 0; i < count; i++)
         {

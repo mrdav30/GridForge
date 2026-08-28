@@ -17,7 +17,7 @@ namespace GridForge.Grids;
 public readonly struct GridChangeStamp : IEquatable<GridChangeStamp>
 {
     /// <summary>
-    /// The world-local commit order. Zero denotes an unstamped compatibility payload.
+    /// The world-local commit order. Zero is reserved for an invalid or default value.
     /// </summary>
     public readonly ulong Sequence;
 

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -12,6 +14,85 @@ namespace GridForge.Grids.Tests;
 public sealed class GridCoveredAddressCursorTests
 {
     [Fact]
+    public void GenerationComparison_ShouldOrderEveryDurableConfigurationComponent()
+    {
+        GridConfigurationKey baseline = CreateConfigurationKey();
+        var orderedPairs = new (GridConfigurationKey Earlier, GridConfigurationKey Later)[]
+        {
+            (baseline, CreateConfigurationKey(boundsMin: new Vector3d(1, 0, 0))),
+            (baseline, CreateConfigurationKey(boundsMin: new Vector3d(0, 1, 0))),
+            (baseline, CreateConfigurationKey(boundsMin: new Vector3d(0, 0, 1))),
+            (baseline, CreateConfigurationKey(boundsMax: new Vector3d(1, 0, 0))),
+            (baseline, CreateConfigurationKey(boundsMax: new Vector3d(0, 1, 0))),
+            (baseline, CreateConfigurationKey(boundsMax: new Vector3d(0, 0, 1))),
+            (baseline, CreateConfigurationKey(topologyKind: GridTopologyKind.HexPrism)),
+            (baseline, CreateConfigurationKey(cellRadius: Fixed64.One)),
+            (baseline, CreateConfigurationKey(cellWidth: Fixed64.One)),
+            (baseline, CreateConfigurationKey(layerHeight: Fixed64.One)),
+            (baseline, CreateConfigurationKey(cellLength: Fixed64.One)),
+            (baseline, CreateConfigurationKey(hexOrientation: HexOrientation.PointyTop))
+        };
+
+        foreach ((GridConfigurationKey earlierKey, GridConfigurationKey laterKey) in orderedPairs)
+        {
+            var earlier = new GridCoveredAddressGeneration(earlierKey, 0, 0, 0);
+            var later = new GridCoveredAddressGeneration(laterKey, 0, 0, 0);
+
+            Assert.True(earlier.CompareTo(later) < 0);
+            Assert.True(later.CompareTo(earlier) > 0);
+        }
+
+        Assert.Equal(
+            0,
+            new GridCoveredAddressGeneration(baseline, 0, 0, 0).CompareTo(
+                new GridCoveredAddressGeneration(baseline, 1, 2, 3)));
+    }
+
+    [Fact]
+    public void RunStamp_ShouldRemainAStableCacheKeyForOneCommittedWorldRevision()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        var firstCursor = new GridCoveredAddressCursor(generationCapacity: 1);
+        var sameRevisionCursor = new GridCoveredAddressCursor(generationCapacity: 1);
+
+        Assert.True(world.TryBeginCoveredAddresses(
+            firstCursor,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            eligibleGenerationCount: 1));
+        Assert.True(world.TryBeginCoveredAddresses(
+            sameRevisionCursor,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            eligibleGenerationCount: 1));
+        var exactRevisionCache = new HashSet<GridCoveredAddressRunStamp>
+        {
+            firstCursor.RunStamp
+        };
+
+        Assert.Contains(sameRevisionCursor.RunStamp, exactRevisionCache);
+        Assert.True(firstCursor.RunStamp.Equals((object)sameRevisionCursor.RunStamp));
+        Assert.False(firstCursor.RunStamp.Equals(null));
+        Assert.False(firstCursor.RunStamp.Equals(world));
+        Assert.True(firstCursor.RunStamp == sameRevisionCursor.RunStamp);
+
+        GridWorldTestFactory.AddGrid(
+            world,
+            new Vector3d(2, 0, 0),
+            new Vector3d(2, 0, 0));
+        var changedRevisionCursor = new GridCoveredAddressCursor(generationCapacity: 2);
+        Assert.True(world.TryBeginCoveredAddresses(
+            changedRevisionCursor,
+            Vector3d.Zero,
+            new Vector3d(2, 0, 0),
+            eligibleGenerationCount: 2));
+
+        Assert.True(firstCursor.RunStamp != changedRevisionCursor.RunStamp);
+        Assert.False(firstCursor.RunStamp == changedRevisionCursor.RunStamp);
+    }
+
+    [Fact]
     public void RetainedBytes_ShouldIncludeLogicalCursorAndOwnedGenerationCapacity()
     {
         var empty = new GridCoveredAddressCursor(generationCapacity: 0);
@@ -21,6 +102,48 @@ public sealed class GridCoveredAddressCursorTests
         Assert.Equal(696L, oneGeneration.RetainedBytes);
         Assert.True(oneGeneration.RetainedBytes <= 696L);
         Assert.False(oneGeneration.RetainedBytes <= 695L);
+    }
+
+    [Fact]
+    public void Begin_ShouldCompleteAnEmptyRunAndRejectNegativeGenerationCounts()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        var cursor = new GridCoveredAddressCursor(generationCapacity: 1);
+
+        Assert.True(world.TryBeginCoveredAddresses(
+            cursor,
+            Vector3d.One,
+            Vector3d.Zero,
+            eligibleGenerationCount: 0));
+        Assert.Equal(1, cursor.GenerationCapacity);
+        Assert.Equal(GridCoveredAddressCursorStatus.Complete, cursor.Status);
+        Assert.NotEqual(default, cursor.RunStamp);
+
+        Assert.Equal(
+            GridCoveredAddressCursorStatus.Complete,
+            world.AdvanceCoveredAddresses(
+                cursor,
+                ReadOnlySpan<GridCoveredAddressGeneration>.Empty,
+                Span<GridCoveredAddress>.Empty,
+                lookupProbeLimit: 0,
+                addressProbeLimit: 0,
+                outputLimit: 0,
+                out int lookupProbes,
+                out int addressProbes,
+                out int inputsConsumed,
+                out int outputCount));
+        Assert.Equal(0, lookupProbes);
+        Assert.Equal(0, addressProbes);
+        Assert.Equal(0, inputsConsumed);
+        Assert.Equal(0, outputCount);
+
+        Assert.False(world.TryBeginCoveredAddresses(
+            cursor,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            eligibleGenerationCount: -1));
+        Assert.Equal(GridCoveredAddressCursorStatus.Stale, cursor.Status);
+        Assert.Equal(default, cursor.RunStamp);
     }
 
     [Fact]
@@ -430,6 +553,84 @@ public sealed class GridCoveredAddressCursorTests
     }
 
     [Fact]
+    public void Advance_ShouldSaturateOrdinalsAndCompleteBelowTheOutputCapacity()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        GridCoveredAddressGeneration[] generation = { CreateGeneration(grid) };
+        var cursor = new GridCoveredAddressCursor(generationCapacity: 1);
+        var output = new GridCoveredAddress[2];
+        Assert.True(world.TryBeginCoveredAddresses(
+            cursor,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            eligibleGenerationCount: 1));
+        cursor.LookupProbeOrdinal = ulong.MaxValue;
+        cursor.AddressProbeOrdinal = ulong.MaxValue;
+        cursor.OutputOrdinal = ulong.MaxValue;
+
+        GridCoveredAddressCursorStatus status = world.AdvanceCoveredAddresses(
+            cursor,
+            generation,
+            output,
+            lookupProbeLimit: 1,
+            addressProbeLimit: 1,
+            outputLimit: 2,
+            out int lookupProbes,
+            out int addressProbes,
+            out int inputsConsumed,
+            out int outputCount);
+
+        Assert.Equal(GridCoveredAddressCursorStatus.Complete, status);
+        Assert.Equal(1, lookupProbes);
+        Assert.Equal(1, addressProbes);
+        Assert.Equal(1, inputsConsumed);
+        Assert.Equal(1, outputCount);
+        Assert.Equal(ulong.MaxValue, cursor.LookupProbeOrdinal);
+        Assert.Equal(ulong.MaxValue, cursor.AddressProbeOrdinal);
+        Assert.Equal(ulong.MaxValue, cursor.OutputOrdinal);
+        Assert.Equal(default, output[0].VoxelIndex);
+    }
+
+    [Fact]
+    public void BeginAndAdvance_ShouldRejectUnavailableWorldsAndOversizedOutputLimits()
+    {
+        var cursor = new GridCoveredAddressCursor(generationCapacity: 0);
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => world.AdvanceCoveredAddresses(
+            cursor,
+            ReadOnlySpan<GridCoveredAddressGeneration>.Empty,
+            Span<GridCoveredAddress>.Empty,
+            lookupProbeLimit: 0,
+            addressProbeLimit: 0,
+            outputLimit: 1,
+            out _,
+            out _,
+            out _,
+            out _));
+
+        world.Dispose();
+
+        Assert.Throws<InvalidOperationException>(() => world.TryBeginCoveredAddresses(
+            cursor,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            eligibleGenerationCount: 0));
+        Assert.Throws<InvalidOperationException>(() => world.AdvanceCoveredAddresses(
+            cursor,
+            ReadOnlySpan<GridCoveredAddressGeneration>.Empty,
+            Span<GridCoveredAddress>.Empty,
+            lookupProbeLimit: 0,
+            addressProbeLimit: 0,
+            outputLimit: 0,
+            out _,
+            out _,
+            out _,
+            out _));
+    }
+
+    [Fact]
     public void BeginAndAdvance_ShouldRejectCapacityExtraDuplicateAndInvalidGenerationInput()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
@@ -493,7 +694,7 @@ public sealed class GridCoveredAddressCursorTests
             generation.ConfigurationKey,
             generation.GridIndex,
             generation.GridSpawnToken + 1,
-            generation.GridHighWaterSequence);
+            generation.GridLastChangeSequence);
         Assert.True(world.TryBeginCoveredAddresses(
             cursor,
             Vector3d.Zero,
@@ -690,6 +891,153 @@ public sealed class GridCoveredAddressCursorTests
         Assert.Equal(0, allocated);
     }
 
+    [Fact]
+    public void Maintenance_ShouldWaitForTheCommittedPrefixBeforeBeginningOrAdvancing()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        var cursor = new GridCoveredAddressCursor(generationCapacity: 1);
+        var output = new GridCoveredAddress[1];
+        ObstacleToken token = world.AllocateObstacleToken();
+
+        using ManualResetEventSlim handlerEntered = new ManualResetEventSlim();
+        using ManualResetEventSlim releaseHandler = new ManualResetEventSlim();
+        using ManualResetEventSlim beginFinished = new ManualResetEventSlim();
+        Exception mutationError = null;
+        Exception maintenanceError = null;
+        bool began = false;
+        void BlockCommittedHandler(GridEventInfo _)
+        {
+            handlerEntered.Set();
+            releaseHandler.Wait(TestContext.Current.CancellationToken);
+        }
+
+        world.OnChangeCommitted += BlockCommittedHandler;
+        Thread mutationThread = new Thread(() =>
+        {
+            try
+            {
+                Assert.True(grid.TryAddObstacle(voxel, token));
+            }
+            catch (Exception exception)
+            {
+                mutationError = exception;
+            }
+        });
+        Thread beginThread = new Thread(() =>
+        {
+            try
+            {
+                began = world.TryBeginCoveredAddresses(
+                    cursor,
+                    Vector3d.Zero,
+                    Vector3d.Zero,
+                    eligibleGenerationCount: 1);
+            }
+            catch (Exception exception)
+            {
+                maintenanceError = exception;
+            }
+            finally
+            {
+                beginFinished.Set();
+            }
+        });
+
+        try
+        {
+            mutationThread.Start();
+            Assert.True(handlerEntered.Wait(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken));
+            beginThread.Start();
+            Assert.True(SpinWait.SpinUntil(
+                () => (beginThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.False(beginFinished.IsSet);
+        }
+        finally
+        {
+            releaseHandler.Set();
+            world.OnChangeCommitted -= BlockCommittedHandler;
+        }
+
+        Assert.True(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.True(beginThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.Null(mutationError);
+        Assert.Null(maintenanceError);
+        Assert.True(began);
+
+        GridCoveredAddressGeneration generation = CreateGeneration(grid);
+        handlerEntered.Reset();
+        releaseHandler.Reset();
+        using ManualResetEventSlim advanceFinished = new ManualResetEventSlim();
+        GridCoveredAddressCursorStatus status = GridCoveredAddressCursorStatus.More;
+        world.OnChangeCommitted += BlockCommittedHandler;
+        mutationThread = new Thread(() =>
+        {
+            try
+            {
+                Assert.True(grid.TryRemoveObstacle(voxel, token));
+            }
+            catch (Exception exception)
+            {
+                mutationError = exception;
+            }
+        });
+        Thread advanceThread = new Thread(() =>
+        {
+            try
+            {
+                status = world.AdvanceCoveredAddresses(
+                    cursor,
+                    new[] { generation },
+                    output,
+                    lookupProbeLimit: 1,
+                    addressProbeLimit: 1,
+                    outputLimit: 1,
+                    out _,
+                    out _,
+                    out _,
+                    out _);
+            }
+            catch (Exception exception)
+            {
+                maintenanceError = exception;
+            }
+            finally
+            {
+                advanceFinished.Set();
+            }
+        });
+
+        try
+        {
+            mutationThread.Start();
+            Assert.True(handlerEntered.Wait(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken));
+            advanceThread.Start();
+            Assert.True(SpinWait.SpinUntil(
+                () => (advanceThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.False(advanceFinished.IsSet);
+        }
+        finally
+        {
+            releaseHandler.Set();
+            world.OnChangeCommitted -= BlockCommittedHandler;
+        }
+
+        Assert.True(mutationThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.True(advanceThread.Join(TimeSpan.FromSeconds(5)));
+        Assert.Null(mutationError);
+        Assert.Null(maintenanceError);
+        Assert.Equal(GridCoveredAddressCursorStatus.Stale, status);
+        Assert.Equal(default, cursor.RunStamp);
+    }
+
     private static GridCoveredAddressCursorStatus Drain(
         GridWorld world,
         GridCoveredAddressCursor cursor,
@@ -760,5 +1108,25 @@ public sealed class GridCoveredAddressCursorTests
         grid.Configuration.ToGridKey(),
         grid.GridIndex,
         grid.SpawnToken,
-        grid.ChangeHighWaterSequence);
+        grid.LastChangeSequence);
+
+    private static GridConfigurationKey CreateConfigurationKey(
+        Vector3d boundsMin = default,
+        Vector3d boundsMax = default,
+        GridTopologyKind topologyKind = GridTopologyKind.RectangularPrism,
+        Fixed64 cellRadius = default,
+        Fixed64 cellWidth = default,
+        Fixed64 layerHeight = default,
+        Fixed64 cellLength = default,
+        HexOrientation hexOrientation = HexOrientation.FlatTop) =>
+        new(
+            boundsMin,
+            boundsMax,
+            topologyKind,
+            new GridTopologyMetrics(
+                cellRadius,
+                cellWidth,
+                layerHeight,
+                cellLength,
+                hexOrientation));
 }

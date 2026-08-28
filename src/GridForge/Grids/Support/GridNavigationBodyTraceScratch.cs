@@ -50,7 +50,7 @@ internal readonly struct GridNavigationBodyTraceCandidate
         bool hasPositiveOverlap,
         bool isClosure,
         bool isPhysicallyPresent = false,
-        ulong gridHighWaterSequence = 0UL,
+        ulong gridLastChangeSequence = 0UL,
         bool isVisited = false)
     {
         Grid = grid;
@@ -59,7 +59,7 @@ internal readonly struct GridNavigationBodyTraceCandidate
         HasPositiveOverlap = hasPositiveOverlap;
         IsClosure = isClosure;
         IsPhysicallyPresent = isPhysicallyPresent;
-        GridHighWaterSequence = gridHighWaterSequence;
+        GridLastChangeSequence = gridLastChangeSequence;
         IsVisited = isVisited;
     }
 
@@ -75,13 +75,13 @@ internal readonly struct GridNavigationBodyTraceCandidate
 
     internal bool IsPhysicallyPresent { get; }
 
-    internal ulong GridHighWaterSequence { get; }
+    internal ulong GridLastChangeSequence { get; }
 
     internal bool IsVisited { get; }
 
     internal GridNavigationBodyTraceCandidate WithPhysicalEvidence(
         bool isPhysicallyPresent,
-        ulong gridHighWaterSequence) =>
+        ulong gridLastChangeSequence) =>
         new(
             Grid,
             Index,
@@ -89,7 +89,7 @@ internal readonly struct GridNavigationBodyTraceCandidate
             HasPositiveOverlap,
             IsClosure,
             isPhysicallyPresent,
-            gridHighWaterSequence,
+            gridLastChangeSequence,
             IsVisited);
 
     internal GridNavigationBodyTraceCandidate WithVisited() =>
@@ -100,6 +100,6 @@ internal readonly struct GridNavigationBodyTraceCandidate
             HasPositiveOverlap,
             IsClosure,
             IsPhysicallyPresent,
-            GridHighWaterSequence,
+            GridLastChangeSequence,
             isVisited: true);
 }

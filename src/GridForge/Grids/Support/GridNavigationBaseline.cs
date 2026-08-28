@@ -18,9 +18,9 @@ public sealed class GridNavigationBaseline
     private readonly NavigationBaselineVoxelState[] _voxelStates;
 
     /// <summary>
-    /// The world-local high-water change sequence captured with the state.
+    /// The world-local committed change sequence captured with the state.
     /// </summary>
-    public ulong HighWaterSequence { get; }
+    public ulong CapturedChangeSequence { get; }
 
     /// <summary>
     /// The exact process-unique identity of the source world.
@@ -36,7 +36,7 @@ public sealed class GridNavigationBaseline
     /// The last world-local change sequence applied to this exact grid generation.
     /// Unrelated grids do not advance this value.
     /// </summary>
-    public ulong GridHighWaterSequence { get; }
+    public ulong GridLastChangeSequence { get; }
 
     /// <summary>
     /// The active grid's recyclable world-local slot.
@@ -54,18 +54,18 @@ public sealed class GridNavigationBaseline
     public ReadOnlySpan<NavigationBaselineVoxelState> VoxelStates => _voxelStates;
 
     internal GridNavigationBaseline(
-        ulong highWaterSequence,
+        ulong capturedChangeSequence,
         long worldSpawnToken,
         long gridSpawnToken,
-        ulong gridHighWaterSequence,
+        ulong gridLastChangeSequence,
         ushort gridIndex,
         GridConfigurationKey configurationKey,
         NavigationBaselineVoxelState[] voxelStates)
     {
-        HighWaterSequence = highWaterSequence;
+        CapturedChangeSequence = capturedChangeSequence;
         WorldSpawnToken = worldSpawnToken;
         GridSpawnToken = gridSpawnToken;
-        GridHighWaterSequence = gridHighWaterSequence;
+        GridLastChangeSequence = gridLastChangeSequence;
         GridIndex = gridIndex;
         ConfigurationKey = configurationKey;
         _voxelStates = voxelStates;

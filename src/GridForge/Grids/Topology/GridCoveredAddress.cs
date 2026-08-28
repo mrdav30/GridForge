@@ -24,8 +24,8 @@ public readonly struct GridCoveredAddress
     /// <summary>The exact process-unique grid allocation identity.</summary>
     public long GridSpawnToken { get; }
 
-    /// <summary>The grid-local high-water sequence captured for this result.</summary>
-    public ulong GridHighWaterSequence { get; }
+    /// <summary>The grid's last committed change sequence captured for this result.</summary>
+    public ulong GridLastChangeSequence { get; }
 
     /// <summary>The topology-local address, whether or not a physical voxel currently exists.</summary>
     public VoxelIndex VoxelIndex { get; }
@@ -35,7 +35,7 @@ public readonly struct GridCoveredAddress
         ConfigurationKey = generation.ConfigurationKey;
         GridIndex = generation.GridIndex;
         GridSpawnToken = generation.GridSpawnToken;
-        GridHighWaterSequence = generation.GridHighWaterSequence;
+        GridLastChangeSequence = generation.GridLastChangeSequence;
         VoxelIndex = voxelIndex;
     }
 }

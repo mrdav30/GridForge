@@ -57,7 +57,7 @@ public readonly struct GridNavigationBodyTraceCell
     public bool IsPhysicallyPresent { get; }
 
     /// <summary>The last committed sequence applied to the owning grid generation.</summary>
-    public ulong GridHighWaterSequence { get; }
+    public ulong GridLastChangeSequence { get; }
 
     /// <summary>How this identity participates in the physical coverage proof.</summary>
     public GridNavigationBodyTraceCellRole Role { get; }
@@ -66,13 +66,13 @@ public readonly struct GridNavigationBodyTraceCell
         WorldVoxelIndex cell,
         GridConfigurationKey configurationKey,
         bool isPhysicallyPresent,
-        ulong gridHighWaterSequence,
+        ulong gridLastChangeSequence,
         GridNavigationBodyTraceCellRole role)
     {
         Cell = cell;
         ConfigurationKey = configurationKey;
         IsPhysicallyPresent = isPhysicallyPresent;
-        GridHighWaterSequence = gridHighWaterSequence;
+        GridLastChangeSequence = gridLastChangeSequence;
         Role = role;
     }
 }

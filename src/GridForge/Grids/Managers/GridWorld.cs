@@ -124,6 +124,7 @@ public sealed partial class GridWorld : IDisposable
     private ulong _changeSequence;
     private ulong _publishedChangeSequence;
     private bool _isPublishingCommittedChanges;
+    private volatile bool _isDisposed;
     private int _committedPublicationOwnerThreadId;
     private int _navigationMaintenanceOwnerThreadId;
 
@@ -344,6 +345,7 @@ public sealed partial class GridWorld : IDisposable
     public void Dispose()
     {
         Reset(deactivate: true);
+        _isDisposed = true;
         _gridLock.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -484,27 +486,20 @@ public sealed partial class GridWorld : IDisposable
             {
                 try
                 {
-                    if (!BoundsTracker.TryGetValue(configurationKey, out ushort gridIndex)
-                        || !ActiveGrids.IsAllocated(gridIndex))
+                    if (!BoundsTracker.TryGetValue(configurationKey, out ushort gridIndex))
                     {
                         cursor.MarkStale();
                         return false;
                     }
 
                     VoxelGrid grid = ActiveGrids[gridIndex];
-                    if (grid.Configuration.ToGridKey() != configurationKey)
-                    {
-                        cursor.MarkStale();
-                        return false;
-                    }
-
                     cursor.BeginFiltered(
                         SpawnToken,
                         Version,
                         _changeSequence,
                         gridIndex,
                         grid.SpawnToken,
-                        grid.ChangeHighWaterSequence);
+                        grid.LastChangeSequence);
                     return true;
                 }
                 finally
@@ -692,8 +687,7 @@ public sealed partial class GridWorld : IDisposable
                             return cursor.CurrentStatus;
                         }
 
-                        if (!TryBindBoundaryContactPair(cursor, filteredSource, filteredTarget))
-                            return cursor.MarkStale();
+                        BindBoundaryContactPair(cursor, filteredSource, filteredTarget);
                         cursor.Stage = GridBoundaryContactCursor.TraversalStage.Source;
                         continue;
                     }
@@ -742,10 +736,11 @@ public sealed partial class GridWorld : IDisposable
                         continue;
                     }
 
-                    if (!_boundaryContactTargetsBySource.TryGetValue(
-                            cursor.PairSourceGridIndex,
-                            out SwiftList<ushort>? pairTargets)
-                        || cursor.PairTargetOrdinal >= pairTargets.Count)
+                    bool foundPairTargets = _boundaryContactTargetsBySource.TryGetValue(
+                        cursor.PairSourceGridIndex,
+                        out SwiftList<ushort>? pairTargets);
+                    Debug.Assert(foundPairTargets && pairTargets != null);
+                    if (cursor.PairTargetOrdinal >= pairTargets.Count)
                     {
                         cursor.HasPairSource = false;
                         continue;
@@ -756,13 +751,7 @@ public sealed partial class GridWorld : IDisposable
 
                     ushort pairTarget = pairTargets[cursor.PairTargetOrdinal++];
                     ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
-                    if (!TryBindBoundaryContactPair(
-                            cursor,
-                            cursor.PairSourceGridIndex,
-                            pairTarget))
-                    {
-                        return cursor.MarkStale();
-                    }
+                    BindBoundaryContactPair(cursor, cursor.PairSourceGridIndex, pairTarget);
                     cursor.Stage = GridBoundaryContactCursor.TraversalStage.Source;
                     continue;
 
@@ -819,10 +808,8 @@ public sealed partial class GridWorld : IDisposable
         }
 
         if (cursor.IsFiltered
-            && (!ActiveGrids.IsAllocated(cursor.FilterGridIndex)
-                || ActiveGrids[cursor.FilterGridIndex].SpawnToken != cursor.FilterGridSpawnToken
-                || ActiveGrids[cursor.FilterGridIndex].ChangeHighWaterSequence
-                    != cursor.FilterGridHighWaterSequence))
+            && ActiveGrids[cursor.FilterGridIndex].LastChangeSequence
+                != cursor.FilterGridLastChangeSequence)
         {
             return false;
         }
@@ -830,14 +817,10 @@ public sealed partial class GridWorld : IDisposable
         if (cursor.SourceGridSpawnToken == 0)
             return true;
 
-        return ActiveGrids.IsAllocated(cursor.SourceGridIndex)
-            && ActiveGrids.IsAllocated(cursor.TargetGridIndex)
-            && ActiveGrids[cursor.SourceGridIndex].SpawnToken == cursor.SourceGridSpawnToken
-            && ActiveGrids[cursor.TargetGridIndex].SpawnToken == cursor.TargetGridSpawnToken
-            && ActiveGrids[cursor.SourceGridIndex].ChangeHighWaterSequence
-                == cursor.SourceGridHighWaterSequence
-            && ActiveGrids[cursor.TargetGridIndex].ChangeHighWaterSequence
-                == cursor.TargetGridHighWaterSequence;
+        return ActiveGrids[cursor.SourceGridIndex].LastChangeSequence
+                == cursor.SourceGridLastChangeSequence
+            && ActiveGrids[cursor.TargetGridIndex].LastChangeSequence
+                == cursor.TargetGridLastChangeSequence;
     }
 
     private bool TryAdvanceFilteredBoundaryContactPair(
@@ -903,13 +886,10 @@ public sealed partial class GridWorld : IDisposable
                 if (candidateProbesConsumed == candidateProbeLimit)
                     return false;
 
-                if (!rows.TryGetValue(cursor.FilterGridIndex, out SwiftList<ushort>? row)
-                    || row.Count != cursor.FilteredPairRowCount)
-                {
-                    cursor.MarkStale();
-                    return false;
-                }
-
+                bool foundRow = rows.TryGetValue(
+                    cursor.FilterGridIndex,
+                    out SwiftList<ushort>? row);
+                Debug.Assert(foundRow && row != null);
                 cursor.PendingFilteredGridIndex = row[cursor.FilteredPairRowOrdinal++];
                 cursor.HasPendingFilteredPair = true;
                 ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
@@ -926,33 +906,30 @@ public sealed partial class GridWorld : IDisposable
         return false;
     }
 
-    private bool TryBindBoundaryContactPair(
+    private void BindBoundaryContactPair(
         GridBoundaryContactCursor cursor,
         ushort sourceGridIndex,
         ushort targetGridIndex)
     {
-        if (!ActiveGrids.IsAllocated(sourceGridIndex)
-            || !ActiveGrids.IsAllocated(targetGridIndex))
-        {
-            return false;
-        }
-
         VoxelGrid sourceGrid = ActiveGrids[sourceGridIndex];
         VoxelGrid targetGrid = ActiveGrids[targetGridIndex];
         cursor.SourceGridIndex = sourceGridIndex;
         cursor.TargetGridIndex = targetGridIndex;
         cursor.SourceGridSpawnToken = sourceGrid.SpawnToken;
         cursor.TargetGridSpawnToken = targetGrid.SpawnToken;
-        cursor.SourceGridHighWaterSequence = sourceGrid.ChangeHighWaterSequence;
-        cursor.TargetGridHighWaterSequence = targetGrid.ChangeHighWaterSequence;
+        cursor.SourceGridLastChangeSequence = sourceGrid.LastChangeSequence;
+        cursor.TargetGridLastChangeSequence = targetGrid.LastChangeSequence;
         cursor.SourceConfigurationKey = sourceGrid.Configuration.ToGridKey();
         cursor.TargetConfigurationKey = targetGrid.Configuration.ToGridKey();
 
-        if (!TryCreateBoundaryContactEnvelope(targetGrid, out FixedBoundVolume targetEnvelope)
-            || !TryCreateTopologyPrism(sourceGrid, default, out GridCellPrism firstSourcePrism))
-        {
-            return false;
-        }
+        bool createdEnvelope = TryCreateBoundaryContactEnvelope(
+            targetGrid,
+            out FixedBoundVolume targetEnvelope);
+        bool createdSourcePrism = TryCreateTopologyPrism(
+            sourceGrid,
+            default,
+            out GridCellPrism firstSourcePrism);
+        Debug.Assert(createdEnvelope && createdSourcePrism);
 
         TopologyVoxelAabb firstSourceBounds = firstSourcePrism.GetAabb();
         Vector3d lowerExtent = sourceGrid.BoundsMin - firstSourceBounds.Min;
@@ -966,7 +943,6 @@ public sealed partial class GridWorld : IDisposable
             out cursor.SourceMinimum,
             out cursor.SourceMaximum);
         cursor.SourceAddress = cursor.SourceMinimum;
-        return true;
     }
 
     private void ProbeBoundaryContactTarget(
@@ -984,8 +960,11 @@ public sealed partial class GridWorld : IDisposable
         }
         ConsumeBoundaryContactProbe(cursor, ref candidateProbesConsumed);
 
-        if (!TryCreateTopologyPrism(targetGrid, targetIndex, out GridCellPrism targetPrism))
-            return;
+        bool createdTargetPrism = TryCreateTopologyPrism(
+            targetGrid,
+            targetIndex,
+            out GridCellPrism targetPrism);
+        Debug.Assert(createdTargetPrism);
 
         VoxelContactManifold contact = GridCellGeometry.GetContact(cursor.SourcePrism, targetPrism);
         if (contact.Kind != VoxelContactKind.Separated)
@@ -1101,50 +1080,6 @@ public sealed partial class GridWorld : IDisposable
         }
     }
 
-    /// <summary>
-    /// Atomically attaches a committed-change listener and captures a requested-address baseline.
-    /// Events with a sequence greater than the baseline high-water mark are the only events the
-    /// caller applies after initialization.
-    /// </summary>
-    /// <param name="configurationKey">The exact normalized configuration identity to resolve.</param>
-    /// <param name="requestedVoxels">Strictly ascending, unique, in-bounds topology-local addresses.</param>
-    /// <param name="onChangeCommitted">The committed-change listener to attach.</param>
-    /// <param name="subscription">The owned subscription and atomic baseline on success.</param>
-    /// <returns>True when attachment and capture both succeeded; otherwise false.</returns>
-    public bool TrySubscribeNavigationChanges(
-        GridConfigurationKey configurationKey,
-        ReadOnlySpan<VoxelIndex> requestedVoxels,
-        Action<GridEventInfo> onChangeCommitted,
-        out GridNavigationChangeSubscription? subscription)
-    {
-        SwiftThrowHelper.ThrowIfNull(onChangeCommitted, nameof(onChangeCommitted));
-
-        subscription = null;
-        if (!IsActive)
-            return false;
-
-        _gridLock.EnterReadLock();
-        try
-        {
-            lock (ChangeSyncRoot)
-            {
-                _onChangeCommitted += onChangeCommitted;
-                if (TryCaptureNavigationBaselineCore(configurationKey, requestedVoxels, out GridNavigationBaseline? baseline))
-                {
-                    subscription = new GridNavigationChangeSubscription(this, onChangeCommitted, baseline!);
-                    return true;
-                }
-
-                _onChangeCommitted -= onChangeCommitted;
-                return false;
-            }
-        }
-        finally
-        {
-            _gridLock.ExitReadLock();
-        }
-    }
-
     private bool TryCaptureNavigationBaselineCore(
         GridConfigurationKey configurationKey,
         ReadOnlySpan<VoxelIndex> requestedVoxels,
@@ -1152,19 +1087,13 @@ public sealed partial class GridWorld : IDisposable
     {
         Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
         baseline = null;
-        if (!IsActive
-            || !BoundsTracker.TryGetValue(configurationKey, out ushort gridIndex)
-            || !ActiveGrids.IsAllocated(gridIndex))
+        if (!BoundsTracker.TryGetValue(configurationKey, out ushort gridIndex))
         {
             return false;
         }
 
-        if (!ActiveGrids.IsAllocated(gridIndex))
-            return false;
-
         VoxelGrid grid = ActiveGrids[gridIndex];
-        if (grid.Configuration.ToGridKey() != configurationKey
-            || !AreNavigationBaselineAddressesValid(grid, requestedVoxels))
+        if (!AreNavigationBaselineAddressesValid(grid, requestedVoxels))
         {
             return false;
         }
@@ -1184,7 +1113,7 @@ public sealed partial class GridWorld : IDisposable
             _changeSequence,
             SpawnToken,
             grid.SpawnToken,
-            grid.ChangeHighWaterSequence,
+            grid.LastChangeSequence,
             grid.GridIndex,
             configurationKey,
             states);
@@ -1273,7 +1202,7 @@ public sealed partial class GridWorld : IDisposable
             return false;
         }
 
-        if (!IsActive)
+        if (_isDisposed)
         {
             GridForgeLogger.Channel.Error($"Grid world not active. Cannot add grids to an inactive world.");
             return false;
@@ -1641,10 +1570,9 @@ public sealed partial class GridWorld : IDisposable
             _boundaryContactTargetsBySource,
             source,
             out bool addedSourceRow);
-        if (!InsertSortedUnique(targets, target))
-            return;
+        InsertSorted(targets, target);
 
-        InsertSortedUnique(
+        InsertSorted(
             GetOrCreateBoundaryContactRow(_boundaryContactSourcesByTarget, target, out _),
             source);
         if (addedSourceRow)
@@ -1695,12 +1623,11 @@ public sealed partial class GridWorld : IDisposable
         ushort incidentIndex,
         bool clearSourceBit)
     {
-        if (!rows.TryGetValue(rowIndex, out SwiftList<ushort>? row)
-            || !RemoveSorted(row, incidentIndex)
-            || row.Count != 0)
-        {
+        bool foundRow = rows.TryGetValue(rowIndex, out SwiftList<ushort>? row);
+        Debug.Assert(foundRow && row != null);
+        RemoveSorted(row, incidentIndex);
+        if (row.Count != 0)
             return;
-        }
 
         rows.Remove(rowIndex);
         SwiftListPool<ushort>.Shared.Release(row);
@@ -1725,24 +1652,17 @@ public sealed partial class GridWorld : IDisposable
         return row;
     }
 
-    private static bool InsertSortedUnique(SwiftList<ushort> row, ushort value)
+    private static void InsertSorted(SwiftList<ushort> row, ushort value)
     {
         int index = FindSortedIndex(row, value);
-        if (index < row.Count && row[index] == value)
-            return false;
-
         row.Insert(index, value);
-        return true;
     }
 
-    private static bool RemoveSorted(SwiftList<ushort> row, ushort value)
+    private static void RemoveSorted(SwiftList<ushort> row, ushort value)
     {
         int index = FindSortedIndex(row, value);
-        if (index >= row.Count || row[index] != value)
-            return false;
-
+        Debug.Assert(index < row.Count && row[index] == value);
         row.RemoveAt(index);
-        return true;
     }
 
     private static int FindSortedIndex(SwiftList<ushort> row, ushort value)
@@ -1775,13 +1695,11 @@ public sealed partial class GridWorld : IDisposable
 
     private void ClearBoundaryContactSource(ushort source)
     {
-        if (_boundaryContactSourceWords == null || _boundaryContactSourceSummaryWords == null)
-            return;
-
+        Debug.Assert(_boundaryContactSourceWords != null && _boundaryContactSourceSummaryWords != null);
         int wordIndex = source >> 6;
-        _boundaryContactSourceWords[wordIndex] &= ~(1UL << (source & 63));
+        _boundaryContactSourceWords![wordIndex] &= ~(1UL << (source & 63));
         if (_boundaryContactSourceWords[wordIndex] == 0)
-            _boundaryContactSourceSummaryWords[wordIndex >> 6] &= ~(1UL << (wordIndex & 63));
+            _boundaryContactSourceSummaryWords![wordIndex >> 6] &= ~(1UL << (wordIndex & 63));
 
         while (_boundaryContactSourceSummaryLength > 0
             && _boundaryContactSourceSummaryWords[_boundaryContactSourceSummaryLength - 1] == 0)
@@ -2478,54 +2396,6 @@ public sealed partial class GridWorld : IDisposable
         overlappingGrids.Add(ActiveGrids[neighborIndex]);
     }
 
-    internal void NotifyActiveGridChange(VoxelGrid? grid)
-    {
-        if (grid == null || !grid.IsActive)
-            return;
-
-        bool drainCommittedChanges;
-        lock (ChangeSyncRoot)
-        {
-            GridEventInfo eventInfo = CreateGridEventInfo(
-                grid,
-                GridEventKind.GridChanged,
-                AllocateChangeStamp());
-            drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(eventInfo));
-        }
-
-        if (drainCommittedChanges)
-            DrainCommittedChanges();
-    }
-
-    internal void NotifyActiveGridChange(
-        VoxelGrid? grid,
-        GridEventKind changeKind,
-        VoxelIndex voxelIndex,
-        Vector3d affectedPosition)
-    {
-        if (grid == null || !grid.IsActive)
-            return;
-
-        bool drainCommittedChanges;
-        lock (ChangeSyncRoot)
-        {
-            GridEventInfo eventInfo = CreateGridEventInfo(
-                grid,
-                changeKind,
-                voxelIndex,
-                affectedPosition,
-                affectedPosition,
-                AllocateChangeStamp(),
-                hasVoxelState: true,
-                isVoxelPresent: changeKind != GridEventKind.SparseVoxelRemoved,
-                obstacleCount: 0);
-            drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(eventInfo));
-        }
-
-        if (drainCommittedChanges)
-            DrainCommittedChanges();
-    }
-
     #endregion
 
     #region Private Helpers
@@ -2548,7 +2418,7 @@ public sealed partial class GridWorld : IDisposable
         GridEventKind changeKind,
         GridChangeStamp changeStamp)
     {
-        grid.ChangeHighWaterSequence = changeStamp.Sequence;
+        grid.LastChangeSequence = changeStamp.Sequence;
         return new GridEventInfo(
             SpawnToken,
             grid.GridIndex,
@@ -2573,7 +2443,7 @@ public sealed partial class GridWorld : IDisposable
         bool isVoxelPresent,
         byte obstacleCount)
     {
-        grid.ChangeHighWaterSequence = changeStamp.Sequence;
+        grid.LastChangeSequence = changeStamp.Sequence;
         return new GridEventInfo(
             SpawnToken,
             grid.GridIndex,
@@ -2594,10 +2464,7 @@ public sealed partial class GridWorld : IDisposable
     internal GridChangeStamp AllocateChangeStamp()
     {
         Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
-        if (_changeSequence == ulong.MaxValue)
-            throw new InvalidOperationException("The GridWorld change sequence is exhausted.");
-
-        _changeSequence++;
+        _changeSequence = checked(_changeSequence + 1);
         return new GridChangeStamp(_changeSequence, _changeSequence);
     }
 

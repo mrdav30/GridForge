@@ -38,26 +38,6 @@ public static partial class GridCellGeometry
             GridNavigationBodySegmentEndpointAllowance.None);
     }
 
-    private static bool TryGetCertifiedPortalEdge(
-        in GridCellPrism prism,
-        in GridNavigationPortal portal,
-        out int edgeIndex)
-    {
-        edgeIndex = -1;
-        for (int i = 0; i < prism.FootprintVertexCount; i++)
-        {
-            FixedSegment2d edge = new(
-                prism.GetFootprintVertex(i),
-                prism.GetFootprintVertex((i + 1) % prism.FootprintVertexCount));
-            if (!IsPortalCertifiedOnEdge(edge, portal))
-                continue;
-            edgeIndex = i;
-            return true;
-        }
-
-        return false;
-    }
-
     private static bool IsPortalCertifiedOnEdge(
         FixedSegment2d edge,
         in GridNavigationPortal portal)

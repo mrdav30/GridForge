@@ -296,16 +296,14 @@ public sealed partial class GridWorld
     {
         bound = default;
         if (!BoundsTracker.TryGetValue(generation.ConfigurationKey, out ushort gridIndex)
-            || gridIndex != generation.GridIndex
-            || !ActiveGrids.IsAllocated(gridIndex))
+            || gridIndex != generation.GridIndex)
         {
             return false;
         }
 
         VoxelGrid grid = ActiveGrids[gridIndex];
         if (grid.SpawnToken != generation.GridSpawnToken
-            || grid.ChangeHighWaterSequence != generation.GridHighWaterSequence
-            || grid.Configuration.ToGridKey() != generation.ConfigurationKey)
+            || grid.LastChangeSequence != generation.GridLastChangeSequence)
         {
             return false;
         }

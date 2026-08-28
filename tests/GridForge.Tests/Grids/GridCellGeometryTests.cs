@@ -57,6 +57,226 @@ public sealed class GridCellGeometryTests : IDisposable
     }
 
     [Fact]
+    public void TryGetPrism_ShouldRejectMissingAndInactiveCells()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Assert.False(GridCellGeometry.TryGetPrism(grid, new VoxelIndex(1, 0, 0), out _));
+        Assert.True(_world.TryRemoveGrid(gridIndex));
+        Assert.False(GridCellGeometry.TryGetPrism(grid, default, out _));
+    }
+
+    [Fact]
+    public void TryCreatePrism_ShouldFailWhenExactBoundsCannotBeRepresented()
+    {
+        GridTopologyMetrics rectangular = GridTopologyMetrics.Rectangular(new Fixed64(2));
+        GridTopologyMetrics hex = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            new Fixed64(2),
+            HexOrientation.PointyTop);
+
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            rectangular,
+            new Vector3d(Fixed64.MaxValue, Fixed64.Zero, Fixed64.Zero),
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            rectangular,
+            new Vector3d(Fixed64.Zero, Fixed64.MinValue, Fixed64.Zero),
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            hex,
+            new Vector3d(Fixed64.Zero, Fixed64.Zero, Fixed64.MaxValue),
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            GridTopologyMetrics.Hex(new Fixed64(2), new Fixed64(2), HexOrientation.FlatTop),
+            new Vector3d(Fixed64.MaxValue, Fixed64.Zero, Fixed64.Zero),
+            default,
+            out _));
+    }
+
+    [Fact]
+    public void TryCreatePrism_ShouldRejectInvalidAndOverflowingMetrics()
+    {
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            (GridTopologyKind)byte.MaxValue,
+            GridTopologyMetrics.Rectangular(new Fixed64(2)),
+            Vector3d.Zero,
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            default,
+            Vector3d.Zero,
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.HexPrism,
+            GridTopologyMetrics.Hex(Fixed64.MaxValue, new Fixed64(2)),
+            Vector3d.Zero,
+            default,
+            out _));
+    }
+
+    [Fact]
+    public void ConvexContactPolygon_ShouldPreserveEveryBoundaryVertexAndRejectInvalidBuffers()
+    {
+        Vector2d[] vertices =
+        {
+            new(0, 0), new(1, 0), new(2, 0), new(3, 0),
+            new(4, 0), new(5, 0), new(6, 0), new(7, 0),
+            new(8, 0), new(9, 0), new(10, 0), new(11, 0)
+        };
+        var polygon = new GridConvexPolygon2d(vertices);
+        var copied = new Vector2d[vertices.Length];
+
+        polygon.CopyTo(copied);
+
+        Assert.Equal(vertices, copied);
+        Assert.Equal(vertices[6], polygon.GetVertex(6));
+        Assert.Equal(vertices[11], polygon.GetVertex(11));
+        Assert.Throws<ArgumentOutOfRangeException>(() => polygon.GetVertex(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => polygon.GetVertex(vertices.Length));
+        Assert.Throws<ArgumentException>(() => polygon.CopyTo(new Vector2d[vertices.Length - 1]));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new GridConvexPolygon2d(new Vector2d[GridConvexPolygon2d.MaxVertexCount + 1]));
+    }
+
+    [Fact]
+    public void CellPrism_ShouldRejectMalformedFootprintsAndContainOnlyItsClosedVerticalSpan()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new GridCellPrism(
+            default,
+            GridTopologyKind.RectangularPrism,
+            Vector3d.Zero,
+            -Fixed64.One,
+            Fixed64.One,
+            Fixed64.One,
+            new Vector2d[3]));
+
+        GridCellPrism prism = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(2), new Fixed64(2), new Fixed64(2)),
+            Vector3d.Zero);
+
+        Assert.True(prism.Contains(new Vector3d(0, -1, 0)));
+        Assert.True(prism.Contains(new Vector3d(0, 1, 0)));
+        Assert.False(prism.Contains(new Vector3d(0, -2, 0)));
+        Assert.False(prism.Contains(new Vector3d(0, 2, 0)));
+        Assert.False(default(GridCellPrism).Contains(Vector3d.Zero));
+        Assert.Throws<ArgumentException>(() => prism.CopyFootprintTo(new Vector2d[3]));
+        Assert.Throws<ArgumentOutOfRangeException>(() => prism.GetFootprintVertex(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => prism.GetFootprintVertex(prism.FootprintVertexCount));
+    }
+
+    [Fact]
+    public void NavigationPortal_ShouldFailClosedForDegenerateCapacityDirectionAndTranslation()
+    {
+        var vertical = new GridNavigationPortal(
+            VoxelContactFaceKind.Vertical,
+            new Vector3d(1, 0, 0),
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            new Vector2d(Fixed64.Zero, Fixed64.Zero),
+            new Vector2d(Fixed64.One, Fixed64.Zero));
+        var horizontalWithoutDirection = new GridNavigationPortal(
+            VoxelContactFaceKind.Horizontal,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default);
+
+        Assert.True(vertical.IsValid);
+        Assert.False(new GridNavigationPortal(
+            VoxelContactFaceKind.Vertical,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default).IsValid);
+        Assert.False(new GridNavigationPortal(
+            VoxelContactFaceKind.None,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default).IsValid);
+        Assert.False(new GridNavigationPortal(
+            VoxelContactFaceKind.Horizontal,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            -Fixed64.One,
+            Fixed64.One,
+            default,
+            default).IsValid);
+        Assert.False(new GridNavigationPortal(
+            VoxelContactFaceKind.Horizontal,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.Zero,
+            default,
+            default).IsValid);
+        Assert.False(horizontalWithoutDirection.TryResolveProfile(
+            Fixed64.Zero,
+            Fixed64.One,
+            out _,
+            out _));
+
+        var firstEndpointOverflow = new GridNavigationPortal(
+            VoxelContactFaceKind.Vertical,
+            new Vector3d(1, 0, 0),
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            new Vector2d(Fixed64.MaxValue, Fixed64.Zero),
+            Vector2d.Zero);
+        Assert.False(firstEndpointOverflow.TryTranslate(
+            new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero),
+            out _));
+
+        var secondEndpointOverflow = new GridNavigationPortal(
+            VoxelContactFaceKind.Vertical,
+            new Vector3d(1, 0, 0),
+            Vector3d.Zero,
+            Fixed64.One,
+            Fixed64.One,
+            Vector2d.Zero,
+            new Vector2d(Fixed64.MaxValue, Fixed64.Zero));
+        Assert.False(secondEndpointOverflow.TryTranslate(
+            new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero),
+            out _));
+
+        var horizontalUnderflow = new GridNavigationPortal(
+            VoxelContactFaceKind.Horizontal,
+            new Vector3d(0, 1, 0),
+            new Vector3d(Fixed64.Zero, Fixed64.MinValue, Fixed64.Zero),
+            Fixed64.One,
+            Fixed64.One,
+            default,
+            default);
+        Assert.False(horizontalUnderflow.TryResolveProfile(
+            Fixed64.Zero,
+            Fixed64.One,
+            out _,
+            out _));
+    }
+
+    [Fact]
     public void TryCreatePrism_ShouldFailClosedWhenMetricsCannotBeBisectedExactly()
     {
         Fixed64 oddRaw = Fixed64.FromRaw(Fixed64.One.m_rawValue + 1L);
@@ -138,6 +358,7 @@ public sealed class GridCellGeometryTests : IDisposable
         Assert.Equal(VoxelContactKind.Point, ContactAt(new Vector3d(2, 2, 2)).Kind);
         Assert.Equal(VoxelContactKind.VolumeOverlap, ContactAt(new Vector3d(1, 0, 0)).Kind);
         Assert.Equal(VoxelContactKind.Separated, ContactAt(new Vector3d(3, 0, 0)).Kind);
+        Assert.Equal(VoxelContactKind.Separated, ContactAt(new Vector3d(0, 3, 0)).Kind);
 
         VoxelContactManifold face = ContactAt(new Vector3d(2, 0, 0));
         Assert.Equal(VoxelContactFaceKind.Vertical, face.FaceKind);
@@ -170,6 +391,8 @@ public sealed class GridCellGeometryTests : IDisposable
         Assert.Equal(manifold.VerticalMin, manifold.VerticalMax);
         Assert.Equal(new Fixed64(4), manifold.CheckedArea);
         Assert.Equal(4, manifold.HorizontalPolygon.VertexCount);
+        Assert.Equal(Fixed64.Zero, manifold.VerticalFaceWidth);
+        Assert.Equal(Fixed64.Zero, manifold.VerticalFaceHeight);
     }
 
     [Fact]
@@ -717,6 +940,108 @@ public sealed class GridCellGeometryTests : IDisposable
             southPortal,
             northPortal,
             GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            source,
+            northPortal.CanonicalFacePoint,
+            southPortal.CanonicalFacePoint,
+            radius,
+            Fixed64.One,
+            northPortal,
+            southPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_OverlappingSameWallOpeningsAreOrderIndependent()
+    {
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(4),
+                new Fixed64(8)),
+            Vector3d.Zero);
+        GridTopologyMetrics targetMetrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        GridCellPrism southTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            targetMetrics,
+            new Vector3d(4, 0, -1));
+        GridCellPrism northTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            targetMetrics,
+            new Vector3d(4, 0, 1));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            southTarget,
+            out GridNavigationPortal southPortal));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            northTarget,
+            out GridNavigationPortal northPortal));
+
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            source,
+            southPortal.CanonicalFacePoint,
+            northPortal.CanonicalFacePoint,
+            Fixed64.Half,
+            Fixed64.One,
+            southPortal,
+            northPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            source,
+            northPortal.CanonicalFacePoint,
+            southPortal.CanonicalFacePoint,
+            Fixed64.Half,
+            Fixed64.One,
+            northPortal,
+            southPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_NestedOpeningDoesNotShrinkTheSelectedWallUnion()
+    {
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(4),
+                new Fixed64(8)),
+            Vector3d.Zero);
+        GridCellPrism wideTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(4),
+                new Fixed64(6)),
+            new Vector3d(4, 0, 0));
+        GridCellPrism narrowTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(4),
+                new Fixed64(2)),
+            new Vector3d(4, 0, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            wideTarget,
+            out GridNavigationPortal widePortal));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            narrowTarget,
+            out GridNavigationPortal narrowPortal));
+        Assert.Equal(widePortal.CanonicalFacePoint, narrowPortal.CanonicalFacePoint);
+
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            source,
+            widePortal.CanonicalFacePoint,
+            widePortal.CanonicalFacePoint,
+            Fixed64.Half,
+            Fixed64.One,
+            widePortal,
+            narrowPortal,
+            GridNavigationBodySegmentEndpointAllowance.None));
     }
 
     [Fact]
@@ -944,6 +1269,25 @@ public sealed class GridCellGeometryTests : IDisposable
             new Vector3d(-2, -2, 0),
             new Vector3d(-2, -2, 0),
             Fixed64.One,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_EndpointAllowanceIgnoresSupportingLineOutsideEdge()
+    {
+        GridCellPrism prism = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(2)),
+            Vector3d.Zero);
+
+        Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            new Vector3d(new Fixed64(2), new Fixed64(-1), Fixed64.FromFraction(3, 2)),
+            new Vector3d(0, -1, 0),
+            Fixed64.Zero,
             Fixed64.One,
             default,
             default,
@@ -1323,6 +1667,553 @@ public sealed class GridCellGeometryTests : IDisposable
     }
 
     [Fact]
+    public void NavigationPortalTraversal_RequiresTheExactCompiledPortalAndAFittingProfile()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(4, 0, 0));
+        GridCellPrism disconnected = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(8, 0, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            target,
+            out GridNavigationPortal portal));
+        Vector3d start = new(0, -2, 0);
+        Vector3d end = new(4, -2, 0);
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            disconnected,
+            portal,
+            start,
+            end,
+            Fixed64.One,
+            Fixed64.One,
+            out Fixed64 disconnectedSource,
+            out Fixed64 disconnectedTarget));
+        Assert.Equal(Fixed64.Zero, disconnectedSource);
+        Assert.Equal(Fixed64.Zero, disconnectedTarget);
+
+        GridNavigationPortal[] mismatches =
+        {
+            new(
+                VoxelContactFaceKind.Horizontal,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget + new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero),
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint + new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero),
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius - Fixed64.MinIncrement,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight - Fixed64.MinIncrement,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart + new Vector2d(Fixed64.MinIncrement, Fixed64.Zero),
+                portal.VerticalFaceSegmentEnd),
+            new(
+                portal.FaceKind,
+                portal.SourceToTarget,
+                portal.CanonicalFacePoint,
+                portal.MaximumHorizontalRadius,
+                portal.MaximumBodyHeight,
+                portal.VerticalFaceSegmentStart,
+                portal.VerticalFaceSegmentEnd + new Vector2d(Fixed64.MinIncrement, Fixed64.Zero))
+        };
+        foreach (GridNavigationPortal mismatch in mismatches)
+        {
+            Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+                source,
+                target,
+                mismatch,
+                start,
+                end,
+                Fixed64.One,
+                Fixed64.One,
+                out Fixed64 mismatchSource,
+                out Fixed64 mismatchTarget));
+            Assert.Equal(Fixed64.Zero, mismatchSource);
+            Assert.Equal(Fixed64.Zero, mismatchTarget);
+        }
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            start,
+            end,
+            portal.MaximumHorizontalRadius + Fixed64.MinIncrement,
+            Fixed64.One,
+            out Fixed64 profileSource,
+            out Fixed64 profileTarget));
+        Assert.Equal(Fixed64.Zero, profileSource);
+        Assert.Equal(Fixed64.Zero, profileTarget);
+    }
+
+    [Fact]
+    public void NavigationPortalTraversal_HorizontalProfileMustLieOnTheDirectedSegment()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        GridCellPrism lower = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero);
+        GridCellPrism upper = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(0, 4, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            lower,
+            upper,
+            out GridNavigationPortal portal));
+        Assert.True(portal.TryResolveProfile(
+            Fixed64.One,
+            Fixed64.One,
+            out Vector3d sourceAnchor,
+            out Vector3d targetAnchor));
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            lower,
+            upper,
+            portal,
+            targetAnchor,
+            sourceAnchor,
+            Fixed64.One,
+            Fixed64.One,
+            out _,
+            out _));
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            lower,
+            upper,
+            portal,
+            sourceAnchor,
+            targetAnchor + new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero),
+            Fixed64.One,
+            Fixed64.One,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationPortalTraversal_AcceptsDirectedFaceEndpointsButRejectsTravelAlongTheFace()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(4, 0, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            target,
+            out GridNavigationPortal portal));
+        Vector3d sourceCenter = new(0, -2, 0);
+        Vector3d targetCenter = new(4, -2, 0);
+
+        Assert.True(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            portal.CanonicalFacePoint,
+            targetCenter,
+            Fixed64.Zero,
+            Fixed64.One,
+            out Fixed64 faceStart,
+            out _));
+        Assert.Equal(Fixed64.Zero, faceStart);
+        Assert.True(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            sourceCenter,
+            portal.CanonicalFacePoint,
+            Fixed64.Zero,
+            Fixed64.One,
+            out _,
+            out Fixed64 faceEnd));
+        Assert.Equal(Fixed64.One, faceEnd);
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            portal.CanonicalFacePoint - new Vector3d(Fixed64.Zero, Fixed64.Zero, Fixed64.One),
+            portal.CanonicalFacePoint + new Vector3d(Fixed64.Zero, Fixed64.Zero, Fixed64.One),
+            Fixed64.Zero,
+            Fixed64.One,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationPortalTraversal_RejectsBothBlockedEndsOfAPartialOpening()
+    {
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)),
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(4),
+                new Fixed64(2)),
+            new Vector3d(new Fixed64(4), Fixed64.Zero, Fixed64.Half));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            target,
+            out GridNavigationPortal portal));
+        Fixed64 south = -Fixed64.Half;
+        Fixed64 north = new Fixed64(3) / new Fixed64(2);
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            new Vector3d(Fixed64.Zero, new Fixed64(-2), south),
+            new Vector3d(new Fixed64(4), new Fixed64(-2), south),
+            Fixed64.Half,
+            Fixed64.One,
+            out _,
+            out _));
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            new Vector3d(Fixed64.Zero, new Fixed64(-2), north),
+            new Vector3d(new Fixed64(4), new Fixed64(-2), north),
+            Fixed64.Half,
+            Fixed64.One,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationPortalTraversal_RejectsTargetSideClearanceBeyondTheCellDepth()
+    {
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)),
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                Fixed64.One,
+                new Fixed64(4),
+                new Fixed64(4)),
+            new Vector3d(
+                new Fixed64(5) / new Fixed64(2),
+                Fixed64.Zero,
+                Fixed64.Zero));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            target,
+            out GridNavigationPortal portal));
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            source,
+            target,
+            portal,
+            new Vector3d(0, -2, 0),
+            target.Center + new Vector3d(0, -2, 0),
+            new Fixed64(3) / new Fixed64(2),
+            Fixed64.One,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_VerticalOpeningCannotExceedItsCompiledHeight()
+    {
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(10),
+                new Fixed64(4)),
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(
+                new Fixed64(4),
+                new Fixed64(2),
+                new Fixed64(4)),
+            new Vector3d(4, 0, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            source,
+            target,
+            out GridNavigationPortal portal));
+
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            source,
+            portal.CanonicalFacePoint,
+            portal.CanonicalFacePoint,
+            Fixed64.Half,
+            new Fixed64(3),
+            portal,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+    }
+
+    [Fact]
+    public void NavigationPortalTraversal_HandlesConservativeInterpolationAtFixedPointExtremes()
+    {
+        Fixed64 verticalSize = Fixed64.FromRaw(2L);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(
+            new Fixed64(4),
+            verticalSize,
+            new Fixed64(4));
+        Fixed64 minimumCenter = Fixed64.FromRaw(long.MinValue + 1L);
+        GridCellPrism minimumSource = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(Fixed64.Zero, minimumCenter, Fixed64.Zero));
+        GridCellPrism minimumTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(new Fixed64(4), minimumCenter, Fixed64.Zero));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            minimumSource,
+            minimumTarget,
+            out GridNavigationPortal minimumPortal));
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            minimumSource,
+            minimumTarget,
+            minimumPortal,
+            new Vector3d(Fixed64.Zero, Fixed64.MinValue, Fixed64.Zero),
+            new Vector3d(
+                new Fixed64(4),
+                Fixed64.FromRaw(long.MinValue + 1L),
+                Fixed64.Zero),
+            Fixed64.Zero,
+            Fixed64.MinIncrement,
+            out _,
+            out _));
+
+        Fixed64 maximumCenter = Fixed64.FromRaw(long.MaxValue - 1L);
+        GridCellPrism maximumSource = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(Fixed64.Zero, maximumCenter, Fixed64.Zero));
+        GridCellPrism maximumTarget = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(new Fixed64(4), maximumCenter, Fixed64.Zero));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            maximumSource,
+            maximumTarget,
+            out GridNavigationPortal maximumPortal));
+
+        Assert.False(GridCellGeometry.TryGetNavigationPortalTraversalParameters(
+            maximumSource,
+            maximumTarget,
+            maximumPortal,
+            new Vector3d(Fixed64.Zero, Fixed64.MaxValue, Fixed64.Zero),
+            new Vector3d(
+                new Fixed64(4),
+                Fixed64.FromRaw(long.MaxValue - 1L),
+                Fixed64.Zero),
+            Fixed64.Zero,
+            Fixed64.MinIncrement,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_RejectsMalformedPrismsInvalidAllowancesAndSelectedEdgeExemptions()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
+        GridCellPrism prism = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            Vector3d.Zero);
+        GridCellPrism east = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            metrics,
+            new Vector3d(4, 0, 0));
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(
+            prism,
+            east,
+            out GridNavigationPortal eastPortal));
+        Vector3d outside = new(-3, -2, 0);
+        Vector3d inside = new(0, -2, 0);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridCellGeometry.IsNavigationBodySegmentValid(
+                prism,
+                inside,
+                inside,
+                Fixed64.Zero,
+                Fixed64.One,
+                default,
+                default,
+                (GridNavigationBodySegmentEndpointAllowance)byte.MaxValue));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            default,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            outside,
+            inside,
+            Fixed64.Zero,
+            Fixed64.One,
+            eastPortal,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.StartFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            inside,
+            -outside,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            eastPortal,
+            GridNavigationBodySegmentEndpointAllowance.EndFootprintEdge));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            prism,
+            outside,
+            inside,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.EndFootprintEdge));
+    }
+
+    [Fact]
+    public void NavigationBodySegment_FailsClosedWhenEitherEndpointOrBodyTopIsOutsideThePrism()
+    {
+        Vector2d[] footprint =
+        {
+            new(-1, -1),
+            new(1, -1),
+            new(1, 1),
+            new(-1, 1)
+        };
+        Fixed64 nearMaximum = Fixed64.MaxValue - new Fixed64(2);
+        var highPrism = new GridCellPrism(
+            default,
+            GridTopologyKind.RectangularPrism,
+            new Vector3d(Fixed64.Zero, nearMaximum + Fixed64.One, Fixed64.Zero),
+            nearMaximum,
+            Fixed64.MaxValue,
+            Fixed64.One,
+            footprint);
+        Vector3d low = new(Fixed64.Zero, nearMaximum, Fixed64.Zero);
+        Vector3d high = new(Fixed64.Zero, Fixed64.MaxValue, Fixed64.Zero);
+
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            highPrism,
+            high,
+            low,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            highPrism,
+            low,
+            high,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+
+        GridCellPrism ordinary = CreateOfflinePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)),
+            Vector3d.Zero);
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            ordinary,
+            new Vector3d(3, -2, 0),
+            Vector3d.Zero,
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            ordinary,
+            Vector3d.Zero,
+            new Vector3d(3, -2, 0),
+            Fixed64.Zero,
+            Fixed64.One,
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            ordinary,
+            new Vector3d(0, 1, 0),
+            new Vector3d(0, -2, 0),
+            Fixed64.Zero,
+            new Fixed64(2),
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+        Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+            ordinary,
+            new Vector3d(0, -2, 0),
+            new Vector3d(0, 1, 0),
+            Fixed64.Zero,
+            new Fixed64(2),
+            default,
+            default,
+            GridNavigationBodySegmentEndpointAllowance.None));
+    }
+
+    [Fact]
     public void NavigationBodySegmentAndTraversal_ShouldAllocateNothingAfterWarmup()
     {
         GridTopologyMetrics metrics = GridTopologyMetrics.Rectangular(new Fixed64(4));
@@ -1413,6 +2304,37 @@ public sealed class GridCellGeometryTests : IDisposable
             footprint);
 
         Assert.Equal(exactClearance, portal.MaximumHorizontalRadius);
+    }
+
+    [Fact]
+    public void NavigationPortal_ObliqueHexFace_ShouldRoundRadiusInward()
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            Fixed64.FromRaw(65_684),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        GridCellPrism source = CreateOfflinePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            Vector3d.Zero);
+        GridCellPrism target = CreateOfflinePrism(
+            GridTopologyKind.HexPrism,
+            metrics,
+            new Vector3d(
+                Fixed64.FromRaw(56_884),
+                Fixed64.Zero,
+                Fixed64.FromRaw(98_526)));
+
+        Assert.True(GridCellGeometry.TryCreateNavigationPortal(source, target, out GridNavigationPortal portal));
+
+        Fixed64 conservativeRadius = Fixed64.FromRaw(32_841);
+        Assert.Equal(conservativeRadius, portal.MaximumHorizontalRadius);
+        Assert.True(portal.TryResolveProfile(conservativeRadius, Fixed64.One, out _, out _));
+        Assert.False(portal.TryResolveProfile(
+            conservativeRadius + Fixed64.MinIncrement,
+            Fixed64.One,
+            out _,
+            out _));
     }
 
     [Fact]
@@ -1845,6 +2767,28 @@ public sealed class GridCellGeometryTests : IDisposable
             out _));
     }
 
+    [Fact]
+    public void TryGetPrimaryFace_ShouldRejectNullAndMissingCells()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            GridCellGeometry.TryGetPrimaryFace(null!, default, default, out _));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        Assert.False(GridCellGeometry.TryGetPrimaryFace(
+            grid,
+            new VoxelIndex(1, 0, 0),
+            default,
+            out _));
+        Assert.False(GridCellGeometry.TryGetPrimaryFace(
+            grid,
+            default,
+            new VoxelIndex(1, 0, 0),
+            out _));
+    }
+
     [Theory]
     [InlineData(HexOrientation.PointyTop)]
     [InlineData(HexOrientation.FlatTop)]
@@ -1873,6 +2817,13 @@ public sealed class GridCellGeometryTests : IDisposable
             Assert.Equal(VoxelContactKind.Face, face.Kind);
             Assert.True(face.IsPositiveAreaFace);
         }
+
+        Assert.True(GridCellGeometry.TryGetPrimaryFace(
+            grid,
+            new VoxelIndex(1, 1, 1),
+            source,
+            out VoxelContactManifold below));
+        Assert.True(below.IsPositiveAreaFace);
 
         Assert.False(GridCellGeometry.TryGetPrimaryFace(
             grid,
@@ -1994,6 +2945,81 @@ public sealed class GridCellGeometryTests : IDisposable
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void BulkContacts_ShouldRejectAliasedInactiveAndForeignGridPairs()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort firstIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort secondIndex));
+        VoxelGrid first = _world.ActiveGrids[firstIndex];
+        VoxelGrid second = _world.ActiveGrids[secondIndex];
+        var results = new SwiftList<VoxelContactManifold>(1);
+        var scratch = new GridContactQueryScratch(1, 1);
+
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(first, first, results, scratch));
+
+        using GridWorld foreignWorld = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        Assert.True(foreignWorld.TryAddGrid(
+            new GridConfiguration(new Vector3d(2, 0, 0), new Vector3d(2, 0, 0)),
+            out ushort foreignIndex));
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(
+            first,
+            foreignWorld.ActiveGrids[foreignIndex],
+            results,
+            scratch));
+
+        Assert.True(_world.TryRemoveGrid(secondIndex));
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(first, second, results, scratch));
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(second, first, results, scratch));
+    }
+
+    [Fact]
+    public void BulkContacts_ShouldReturnEmptyForSeparatedGridBounds()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort sourceIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(100, 0, 0), new Vector3d(100, 0, 0)),
+            out ushort targetIndex));
+        var results = new SwiftList<VoxelContactManifold>(1);
+        var scratch = new GridContactQueryScratch(1, 1);
+
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(
+            _world.ActiveGrids[sourceIndex],
+            _world.ActiveGrids[targetIndex],
+            results,
+            scratch));
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void BulkContacts_ShouldSkipCellsWhosePrismsAreNotExactlyRepresentable()
+    {
+        Fixed64 oddCellSize = Fixed64.FromRaw(Fixed64.One.m_rawValue + 1L);
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                topologyMetrics: GridTopologyMetrics.Rectangular(oddCellSize),
+                storageKind: GridStorageKind.Sparse),
+            new[] { default(VoxelIndex) },
+            out ushort inexactIndex));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out ushort exactIndex));
+        VoxelGrid inexact = _world.ActiveGrids[inexactIndex];
+        VoxelGrid exact = _world.ActiveGrids[exactIndex];
+        var results = new SwiftList<VoxelContactManifold>(1);
+        var scratch = new GridContactQueryScratch(1, 1);
+
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(inexact, exact, results, scratch));
+        Assert.Equal(0, GridCellGeometry.GetExactBoundaryContactsInto(exact, inexact, results, scratch));
     }
 
     private static void AssertCanonicalOrder(SwiftList<VoxelContactManifold> contacts)

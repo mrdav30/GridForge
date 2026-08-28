@@ -105,8 +105,8 @@ OR evidence, not jointly required physical coverage.
 
 Unlike ordinary sparse voxel coverage, this API publishes required missing
 addresses. Every result carries canonical world/grid generation identity,
-physical presence, role, and the owning grid's change high-water sequence. The
-report also carries the world run stamp. `IncompletePhysicalCoverage` therefore
+physical presence, role, and the owning grid's last committed change sequence.
+The report also carries the world run stamp. `IncompletePhysicalCoverage` therefore
 gives callers a reusable negative proof whose complete per-grid evidence stales
 when any satisfying alternative changes without staling a trace that depends
 only on an unrelated grid.

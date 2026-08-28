@@ -191,8 +191,8 @@ candidate probes and emitted contacts. The cursor walks a maintained exact
 contact-envelope index, canonical grid pairs, and topology-configured addresses
 without retaining live grids or voxels. Sparse physical absence is therefore a
 separate runtime state, not missing seam geometry. `Stale` means a bound world,
-grid generation, or committed high-water changed: discard all output from that
-run and begin again. `Complete` remains bound and is revalidated by later
+grid generation, or last committed change sequence changed: discard all output
+from that run and begin again. `Complete` remains bound and is revalidated by later
 advances, including zero-budget calls.
 When only one active grid changed, `TryBeginBoundaryContacts(...)` resolves its
 exact `GridConfigurationKey` and restricts the same cursor to that grid's
@@ -206,7 +206,7 @@ extent from turning a native shared face into a gap or volume overlap.
 
 `GridTracer.TraceIntervalsInto(...)` is the exact navigation-facing segment
 query. It reports normalized grid binding plus exact runtime generation and
-address identity, the traced grid generation's committed high-water sequence,
+address identity, the traced grid generation's last committed change sequence,
 physical presence for sparse addresses, closed `tEnter` and `tExit` prism
 intervals, and deterministic simultaneous-coverage groups. A tie
 group describes overlapping interval coverage only; its peer cells are not

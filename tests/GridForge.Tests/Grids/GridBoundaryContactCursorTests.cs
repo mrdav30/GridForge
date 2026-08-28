@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -237,6 +240,45 @@ public sealed class GridBoundaryContactCursorTests
         Assert.True(contact.IsPositiveAreaFace);
     }
 
+    [Fact]
+    public void Advance_ShouldScanEveryTargetCellInsideALargeSourceEnvelope()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        GridTopologyMetrics largeMetrics = GridTopologyMetrics.Rectangular(
+            new Fixed64(6),
+            Fixed64.One,
+            Fixed64.One);
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero, topologyMetrics: largeMetrics),
+            out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                new Vector3d(2, 0, 0),
+                new Vector3d(4, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        var output = new VoxelContactManifold[1];
+        int contactCount = 0;
+        world.BeginBoundaryContacts(cursor);
+
+        GridBoundaryContactCursorStatus status;
+        do
+        {
+            status = world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 16,
+                outputLimit: 1,
+                out _,
+                out int outputCount);
+            contactCount += outputCount;
+        }
+        while (status == GridBoundaryContactCursorStatus.More);
+
+        Assert.Equal(GridBoundaryContactCursorStatus.Complete, status);
+        Assert.Equal(2, contactCount);
+    }
+
     [Theory]
     [InlineData(HexOrientation.PointyTop)]
     [InlineData(HexOrientation.FlatTop)]
@@ -302,11 +344,15 @@ public sealed class GridBoundaryContactCursorTests
         Assert.Equal(world.ActiveGrids[reusedIndex].SpawnToken, contact.Target.GridSpawnToken);
     }
 
-    [Fact]
-    public void Advance_ShouldStaleOnBoundPairHighWaterMismatch()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Advance_ShouldStaleOnEitherBoundGridLastChangeSequenceMismatch(bool sourceMismatch)
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
-        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort sourceIndex));
         Assert.True(world.TryAddGrid(
             new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
             out ushort targetIndex));
@@ -319,7 +365,7 @@ public sealed class GridBoundaryContactCursorTests
         Assert.Equal(3, pairProbes);
         Assert.Equal(0, count);
 
-        world.ActiveGrids[targetIndex].ChangeHighWaterSequence++;
+        world.ActiveGrids[sourceMismatch ? sourceIndex : targetIndex].LastChangeSequence++;
 
         Assert.Equal(
             GridBoundaryContactCursorStatus.Stale,
@@ -327,6 +373,312 @@ public sealed class GridBoundaryContactCursorTests
         Assert.Equal(0, staleProbes);
         Assert.Equal(0, count);
         Assert.Equal(0UL, cursor.CandidateOrdinal);
+    }
+
+    [Fact]
+    public void Advance_ShouldRejectOutputLimitsLargerThanEitherResultSpan()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        var cursor = new GridBoundaryContactCursor();
+
+        Assert.Equal("outputLimit", Assert.Throws<ArgumentOutOfRangeException>(() =>
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 1,
+                out _,
+                out _)).ParamName);
+        Assert.Equal("outputLimit", Assert.Throws<ArgumentOutOfRangeException>(() =>
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<GridBoundaryContact>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 1,
+                out _,
+                out _)).ParamName);
+    }
+
+    [Fact]
+    public void Advance_ShouldPreserveAPendingContactAcrossAZeroOutputBudget()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        world.BeginBoundaryContacts(cursor);
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 16,
+                outputLimit: 0,
+                out int discoveryProbes,
+                out int zeroCount));
+        Assert.True(discoveryProbes > 0);
+        Assert.Equal(0, zeroCount);
+
+        var output = new VoxelContactManifold[1];
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 0,
+                outputLimit: 1,
+                out int resumeProbes,
+                out int outputCount));
+        Assert.Equal(0, resumeProbes);
+        Assert.Equal(1, outputCount);
+        Assert.Equal(VoxelContactKind.Face, output[0].Kind);
+    }
+
+    [Fact]
+    public void Advance_ShouldHonorZeroCandidateBudgetBeforeReadingThePairDirectory()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        world.BeginBoundaryContacts(cursor);
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int candidateProbes,
+                out int outputCount));
+        Assert.Equal(0, candidateProbes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(0UL, cursor.CandidateOrdinal);
+    }
+
+    [Fact]
+    public void Advance_ShouldSaturateCandidateOrdinalWhileContinuingBoundedWork()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        world.BeginBoundaryContacts(cursor);
+        cursor.CandidateOrdinal = ulong.MaxValue;
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 1,
+                outputLimit: 0,
+                out int candidateProbes,
+                out int outputCount));
+        Assert.Equal(1, candidateProbes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(ulong.MaxValue, cursor.CandidateOrdinal);
+    }
+
+    [Fact]
+    public void Advance_ShouldRejectACursorBoundToAnotherWorld()
+    {
+        using GridWorld first = GridWorldTestFactory.CreateWorld();
+        using GridWorld second = GridWorldTestFactory.CreateWorld();
+        var cursor = new GridBoundaryContactCursor();
+        first.BeginBoundaryContacts(cursor);
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.Stale,
+            second.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int candidateProbes,
+                out int outputCount));
+        Assert.Equal(0, candidateProbes);
+        Assert.Equal(0, outputCount);
+        Assert.Equal(default, cursor.RunStamp);
+    }
+
+    [Fact]
+    public void BoundaryContacts_ShouldRejectHexEnvelopeCornerFalsePositives()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
+            new Fixed64(2),
+            Fixed64.One,
+            HexOrientation.PointyTop);
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                topologyKind: GridTopologyKind.HexPrism,
+                topologyMetrics: metrics),
+            out _));
+        Vector3d diagonal = new(
+            HexCoordinateUtility.Sqrt3 * new Fixed64(2) - Fixed64.FromFraction(1, 100),
+            Fixed64.Zero,
+            new Fixed64(4) - Fixed64.FromFraction(1, 100));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(
+                diagonal,
+                diagonal,
+                topologyKind: GridTopologyKind.HexPrism,
+                topologyMetrics: metrics),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        var output = new VoxelContactManifold[1];
+        int totalContacts = 0;
+        world.BeginBoundaryContacts(cursor);
+
+        GridBoundaryContactCursorStatus status;
+        do
+        {
+            status = world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 16,
+                outputLimit: 1,
+                out _,
+                out int outputCount);
+            totalContacts += outputCount;
+        }
+        while (status == GridBoundaryContactCursorStatus.More);
+
+        Assert.Equal(GridBoundaryContactCursorStatus.Complete, status);
+        Assert.True(cursor.CandidateOrdinal > 0);
+        Assert.Equal(0, totalContacts);
+    }
+
+    [Fact]
+    public async Task BeginAndAdvance_ShouldWaitForTheCommittedPrefix()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        GridConfiguration selected = new(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out ushort selectedIndex));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        VoxelGrid grid = world.ActiveGrids[selectedIndex];
+        Assert.True(grid.TryGetVoxel(default(VoxelIndex), out Voxel voxel));
+        var advanceCursor = new GridBoundaryContactCursor();
+        world.BeginBoundaryContacts(advanceCursor);
+        var beginCursor = new GridBoundaryContactCursor();
+        var filteredCursor = new GridBoundaryContactCursor();
+        using ManualResetEventSlim handlerEntered = new();
+        using ManualResetEventSlim releaseHandler = new();
+        void BlockCommittedHandler(GridEventInfo eventInfo)
+        {
+            if (eventInfo.ChangeKind != GridEventKind.ObstacleAdded)
+                return;
+
+            handlerEntered.Set();
+            releaseHandler.Wait(TestContext.Current.CancellationToken);
+        }
+
+        world.OnChangeCommitted += BlockCommittedHandler;
+        Task mutation = Task.Run(
+            () => Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken())),
+            TestContext.Current.CancellationToken);
+        Assert.True(handlerEntered.Wait(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken));
+        Exception beginError = null;
+        Exception filteredError = null;
+        Exception advanceError = null;
+        bool filteredResult = false;
+        GridBoundaryContactCursorStatus advanceStatus = default;
+        Thread beginThread = new(() =>
+        {
+            try
+            {
+                world.BeginBoundaryContacts(beginCursor);
+            }
+            catch (Exception exception)
+            {
+                beginError = exception;
+            }
+        }) { IsBackground = true };
+        Thread filteredThread = new(() =>
+        {
+            try
+            {
+                filteredResult = world.TryBeginBoundaryContacts(
+                    selected.ToGridKey(),
+                    filteredCursor);
+            }
+            catch (Exception exception)
+            {
+                filteredError = exception;
+            }
+        }) { IsBackground = true };
+        Thread advanceThread = new(() =>
+        {
+            try
+            {
+                advanceStatus = world.AdvanceBoundaryContacts(
+                    advanceCursor,
+                    Span<VoxelContactManifold>.Empty,
+                    candidateProbeLimit: 0,
+                    outputLimit: 0,
+                    out _,
+                    out _);
+            }
+            catch (Exception exception)
+            {
+                advanceError = exception;
+            }
+        }) { IsBackground = true };
+
+        try
+        {
+            beginThread.Start();
+            AssertThreadIsWaiting(beginThread);
+            filteredThread.Start();
+            AssertThreadIsWaiting(filteredThread);
+            advanceThread.Start();
+            AssertThreadIsWaiting(advanceThread);
+
+            releaseHandler.Set();
+            Assert.True(beginThread.Join(TimeSpan.FromSeconds(5)));
+            Assert.True(filteredThread.Join(TimeSpan.FromSeconds(5)));
+            Assert.True(advanceThread.Join(TimeSpan.FromSeconds(5)));
+            await mutation.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+
+            Assert.Null(beginError);
+            Assert.Null(filteredError);
+            Assert.Null(advanceError);
+            Assert.True(filteredResult);
+            Assert.Equal(GridBoundaryContactCursorStatus.Stale, advanceStatus);
+            Assert.NotEqual(default, beginCursor.RunStamp);
+            Assert.NotEqual(default, filteredCursor.RunStamp);
+        }
+        finally
+        {
+            releaseHandler.Set();
+            world.OnChangeCommitted -= BlockCommittedHandler;
+            if (beginThread.IsAlive)
+                beginThread.Join(TimeSpan.FromSeconds(5));
+            if (filteredThread.IsAlive)
+                filteredThread.Join(TimeSpan.FromSeconds(5));
+            if (advanceThread.IsAlive)
+                advanceThread.Join(TimeSpan.FromSeconds(5));
+            await mutation.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]
@@ -523,6 +875,15 @@ public sealed class GridBoundaryContactCursorTests
         Assert.True(world.TryBeginBoundaryContacts(second.ToGridKey(), secondCursor));
         Assert.NotEqual(default, firstCursor.RunStamp);
         Assert.Equal(firstCursor.RunStamp, secondCursor.RunStamp);
+        var exactRevisionCache = new HashSet<GridBoundaryContactRunStamp>
+        {
+            firstCursor.RunStamp
+        };
+        Assert.Contains(secondCursor.RunStamp, exactRevisionCache);
+        Assert.True(firstCursor.RunStamp.Equals((object)secondCursor.RunStamp));
+        Assert.False(firstCursor.RunStamp.Equals(null));
+        Assert.False(firstCursor.RunStamp.Equals(world));
+        Assert.True(firstCursor.RunStamp == secondCursor.RunStamp);
         Assert.Equal(
             GridBoundaryContactCursorStatus.Complete,
             world.AdvanceBoundaryContacts(firstCursor, firstOutput, 16, 2, out _, out int firstCount));
@@ -561,6 +922,8 @@ public sealed class GridBoundaryContactCursorTests
         Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), secondCursor));
 
         Assert.NotEqual(firstStamp, secondCursor.RunStamp);
+        Assert.True(firstStamp != secondCursor.RunStamp);
+        Assert.False(firstStamp == secondCursor.RunStamp);
         Assert.Equal(
             GridBoundaryContactCursorStatus.Stale,
             world.AdvanceBoundaryContacts(
@@ -600,6 +963,66 @@ public sealed class GridBoundaryContactCursorTests
             Assert.Equal(0, outputCount);
             Assert.Equal(expectedOrdinal, cursor.CandidateOrdinal);
         }
+    }
+
+    [Fact]
+    public void FilteredAdvance_ShouldPauseBetweenIncidentPairsAtZeroCandidateBudget()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1);
+        GridConfiguration selected = new(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(world.TryAddGrid(selected, out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(new Vector3d(0, 0, 1), new Vector3d(0, 0, 1)),
+            out _));
+        var cursor = new GridBoundaryContactCursor();
+        var output = new VoxelContactManifold[1];
+        Assert.True(world.TryBeginBoundaryContacts(selected.ToGridKey(), cursor));
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 16,
+                outputLimit: 1,
+                out _,
+                out int firstCount));
+        Assert.Equal(1, firstCount);
+        ulong ordinalAfterFirstContact = cursor.CandidateOrdinal;
+
+        Assert.Equal(
+            GridBoundaryContactCursorStatus.More,
+            world.AdvanceBoundaryContacts(
+                cursor,
+                Span<VoxelContactManifold>.Empty,
+                candidateProbeLimit: 0,
+                outputLimit: 0,
+                out int pausedProbes,
+                out int pausedCount));
+        Assert.Equal(0, pausedProbes);
+        Assert.Equal(0, pausedCount);
+        Assert.Equal(ordinalAfterFirstContact, cursor.CandidateOrdinal);
+
+        int remainingContacts = 0;
+        GridBoundaryContactCursorStatus status;
+        do
+        {
+            status = world.AdvanceBoundaryContacts(
+                cursor,
+                output,
+                candidateProbeLimit: 16,
+                outputLimit: 1,
+                out _,
+                out int outputCount);
+            remainingContacts += outputCount;
+        }
+        while (status == GridBoundaryContactCursorStatus.More);
+
+        Assert.Equal(GridBoundaryContactCursorStatus.Complete, status);
+        Assert.Equal(1, remainingContacts);
     }
 
     [Fact]
@@ -676,7 +1099,7 @@ public sealed class GridBoundaryContactCursorTests
     }
 
     [Fact]
-    public void FilteredComplete_ShouldStaleOnSelectedGridHighWaterMismatch()
+    public void FilteredComplete_ShouldStaleOnSelectedGridLastChangeSequenceMismatch()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
         var selected = new GridConfiguration(Vector3d.Zero, Vector3d.Zero);
@@ -687,7 +1110,7 @@ public sealed class GridBoundaryContactCursorTests
             GridBoundaryContactCursorStatus.Complete,
             DrainFiltered(world, selected.ToGridKey(), cursor, output));
 
-        world.ActiveGrids[selectedIndex].ChangeHighWaterSequence++;
+        world.ActiveGrids[selectedIndex].LastChangeSequence++;
 
         Assert.Equal(
             GridBoundaryContactCursorStatus.Stale,
@@ -871,6 +1294,14 @@ public sealed class GridBoundaryContactCursorTests
         while (status == GridBoundaryContactCursorStatus.More);
 
         return status;
+    }
+
+    private static void AssertThreadIsWaiting(Thread thread)
+    {
+        Assert.True(SpinWait.SpinUntil(
+            () => (thread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+            TimeSpan.FromSeconds(5)));
+        Assert.Equal(ThreadState.WaitSleepJoin, thread.ThreadState & ThreadState.WaitSleepJoin);
     }
 
     private static void AssertCanonicalOrder(ReadOnlySpan<VoxelContactManifold> contacts)

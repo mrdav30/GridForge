@@ -56,8 +56,8 @@ public sealed class GridBoundaryContactCursor
     internal ushort TargetGridIndex;
     internal long SourceGridSpawnToken;
     internal long TargetGridSpawnToken;
-    internal ulong SourceGridHighWaterSequence;
-    internal ulong TargetGridHighWaterSequence;
+    internal ulong SourceGridLastChangeSequence;
+    internal ulong TargetGridLastChangeSequence;
     internal GridConfigurationKey SourceConfigurationKey;
     internal GridConfigurationKey TargetConfigurationKey;
     internal GridCellPrism SourcePrism;
@@ -70,7 +70,7 @@ public sealed class GridBoundaryContactCursor
     internal VoxelContactManifold PendingContact;
     internal ushort FilterGridIndex;
     internal long FilterGridSpawnToken;
-    internal ulong FilterGridHighWaterSequence;
+    internal ulong FilterGridLastChangeSequence;
     internal int FilteredPairPhase;
     internal int FilteredPairRowCount;
     internal int FilteredPairRowOrdinal;
@@ -125,12 +125,12 @@ public sealed class GridBoundaryContactCursor
         ulong worldChangeSequence,
         ushort gridIndex,
         long gridSpawnToken,
-        ulong gridHighWaterSequence)
+        ulong gridLastChangeSequence)
     {
         Begin(worldSpawnToken, worldVersion, worldChangeSequence);
         FilterGridIndex = gridIndex;
         FilterGridSpawnToken = gridSpawnToken;
-        FilterGridHighWaterSequence = gridHighWaterSequence;
+        FilterGridLastChangeSequence = gridLastChangeSequence;
         IsFiltered = true;
     }
 
@@ -173,8 +173,8 @@ public sealed class GridBoundaryContactCursor
         TargetGridIndex = 0;
         SourceGridSpawnToken = 0;
         TargetGridSpawnToken = 0;
-        SourceGridHighWaterSequence = 0;
-        TargetGridHighWaterSequence = 0;
+        SourceGridLastChangeSequence = 0;
+        TargetGridLastChangeSequence = 0;
         SourceConfigurationKey = default;
         TargetConfigurationKey = default;
         SourcePrism = default;
@@ -191,7 +191,7 @@ public sealed class GridBoundaryContactCursor
     {
         FilterGridIndex = 0;
         FilterGridSpawnToken = 0;
-        FilterGridHighWaterSequence = 0;
+        FilterGridLastChangeSequence = 0;
         FilteredPairPhase = 0;
         FilteredPairRowCount = 0;
         FilteredPairRowOrdinal = 0;

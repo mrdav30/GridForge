@@ -156,7 +156,7 @@ public static partial class GridTracer
                     cell,
                     grid.Configuration.ToGridKey(),
                     candidate.IsPhysicallyPresent,
-                    grid.ChangeHighWaterSequence,
+                    grid.LastChangeSequence,
                     tEnter,
                     tExit));
             }
@@ -280,9 +280,8 @@ public static partial class GridTracer
 
         tEnter = FixedMath.Clamp(tEnter, Fixed64.Zero, Fixed64.One);
         tExit = FixedMath.Clamp(tExit, Fixed64.Zero, Fixed64.One);
-        return tEnter <= tExit
-            && ((start <= verticalMax && end >= verticalMin)
-                || (end <= verticalMax && start >= verticalMin));
+        return FixedMath.Min(start, end) <= verticalMax
+            && FixedMath.Max(start, end) >= verticalMin;
     }
 
     private static GridTraceIntervalReport CreateTraceReport(
@@ -422,21 +421,14 @@ public static partial class GridTracer
         comparison = CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
         if (comparison != 0)
             return comparison;
-        comparison = first.Cell.GridSpawnToken.CompareTo(second.Cell.GridSpawnToken);
-        return comparison != 0
-            ? comparison
-            : first.Cell.VoxelIndex.CompareTo(second.Cell.VoxelIndex);
+        return first.Cell.VoxelIndex.CompareTo(second.Cell.VoxelIndex);
     }
 
     private static int CompareGridIdentity(VoxelGrid first, VoxelGrid second)
     {
-        int comparison = CompareConfigurationKeys(
+        return CompareConfigurationKeys(
             first.Configuration.ToGridKey(),
             second.Configuration.ToGridKey());
-        if (comparison != 0)
-            return comparison;
-        comparison = first.SpawnToken.CompareTo(second.SpawnToken);
-        return comparison != 0 ? comparison : first.GridIndex.CompareTo(second.GridIndex);
     }
 
     private readonly struct GridIndexComparer : IComparer<ushort>

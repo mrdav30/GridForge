@@ -561,6 +561,84 @@ public class ManagerCoverageTests : IDisposable
     }
 
     [Fact]
+    public void DetachedGridReference_ShouldNotMutateVoxelOwnedByAnotherWorld()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort activeGridIndex));
+        VoxelGrid activeGrid = _world.ActiveGrids[activeGridIndex];
+        Assert.True(activeGrid.TryGetVoxel(Vector3d.Zero, out Voxel activeVoxel));
+        ObstacleToken token = _world.AllocateObstacleToken();
+        Assert.True(activeGrid.TryAddObstacle(activeVoxel, token));
+
+        using GridWorld detachedWorld = GridWorldTestFactory.CreateWorld();
+        Assert.True(detachedWorld.TryAddGrid(
+            new GridConfiguration(new Vector3d(10, 0, 0), new Vector3d(10, 0, 0)),
+            out ushort detachedIndex));
+        VoxelGrid detachedGrid = detachedWorld.ActiveGrids[detachedIndex];
+        Assert.True(detachedWorld.TryRemoveGrid(detachedIndex));
+
+        Assert.False(detachedGrid.TryAddObstacle(activeVoxel, token));
+        Assert.False(detachedGrid.TryRemoveObstacle(activeVoxel, token));
+        detachedGrid.ClearObstacles(activeVoxel);
+
+        Assert.True(activeVoxel.IsBlocked);
+        Assert.Equal(1, activeVoxel.ObstacleCount);
+        Assert.Equal(1, activeGrid.ObstacleCount);
+    }
+
+    [Fact]
+    public void ExactObstacleDelivery_ShouldNotNotifyAStaleTargetVoxel()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel target));
+        Assert.True(grid.TryGetVoxel(new Vector3d(1, 0, 0), out Voxel actual));
+        ObstacleToken token = _world.AllocateObstacleToken();
+        int globalAdded = 0;
+        int globalRemoved = 0;
+        int targetAdded = 0;
+        int targetRemoved = 0;
+        void HandleGlobalAdded(ObstacleEventInfo _) => globalAdded++;
+        void HandleGlobalRemoved(ObstacleEventInfo _) => globalRemoved++;
+        void HandleTargetAdded(ObstacleEventInfo _) => targetAdded++;
+        void HandleTargetRemoved(ObstacleEventInfo _) => targetRemoved++;
+        var eventInfo = new ObstacleEventInfo(actual.WorldIndex, token, 1, grid.Version);
+
+        GridObstacleManager.OnObstacleAdded += HandleGlobalAdded;
+        GridObstacleManager.OnObstacleRemoved += HandleGlobalRemoved;
+        target.OnObstacleAdded += HandleTargetAdded;
+        target.OnObstacleRemoved += HandleTargetRemoved;
+        try
+        {
+            GridObstacleManager.NotifyCommittedExact(new GridCommittedChange(
+                default,
+                GridExactChangeKind.ObstacleAdded,
+                eventInfo,
+                target));
+            GridObstacleManager.NotifyCommittedExact(new GridCommittedChange(
+                default,
+                GridExactChangeKind.ObstacleRemoved,
+                eventInfo,
+                target));
+        }
+        finally
+        {
+            GridObstacleManager.OnObstacleAdded -= HandleGlobalAdded;
+            GridObstacleManager.OnObstacleRemoved -= HandleGlobalRemoved;
+            target.OnObstacleAdded -= HandleTargetAdded;
+            target.OnObstacleRemoved -= HandleTargetRemoved;
+        }
+
+        Assert.Equal(1, globalAdded);
+        Assert.Equal(1, globalRemoved);
+        Assert.Equal(0, targetAdded);
+        Assert.Equal(0, targetRemoved);
+    }
+
+    [Fact]
     public void GridObstacleManager_ShouldRecheckCapacityAfterWaitingForObstacleLock()
     {
         Assert.True(_world.TryAddGrid(

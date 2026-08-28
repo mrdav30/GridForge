@@ -123,7 +123,6 @@ public readonly struct GridCellPrism
     public bool Contains(Vector3d point)
     {
         if (FootprintVertexCount is not 4 and not 6
-            || VerticalMax < VerticalMin
             || point.Y < VerticalMin
             || point.Y > VerticalMax)
             return false;

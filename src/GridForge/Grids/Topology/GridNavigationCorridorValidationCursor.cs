@@ -133,6 +133,9 @@ public struct GridNavigationCorridorValidationCursor
         Span<Vector3d> portalWaypoints,
         int maxWork)
     {
+        if (maxWork < 0)
+            throw new ArgumentOutOfRangeException(nameof(maxWork));
+
         _hasCurrentPortal = false;
         if (_status != GridNavigationCorridorValidationStatus.InProgress)
             return _status;
@@ -224,22 +227,7 @@ public struct GridNavigationCorridorValidationCursor
                 _heightClearance,
                 incomingPortal,
                 outgoingPortal,
-                GridNavigationBodySegmentEndpointAllowance.None)
-            || (outgoingPortal.FaceKind == VoxelContactFaceKind.Horizontal
-                && (!GridCellGeometry.TryGetCompiledNavigationPortalTraversalParameters(
-                        source,
-                        target,
-                        outgoingPortal,
-                        sourcePoint,
-                        targetPoint,
-                        sourcePoint,
-                        targetPoint,
-                        _radiusClearance,
-                        _heightClearance,
-                        out Fixed64 sourceParameter,
-                        out Fixed64 targetParameter)
-                    || sourceParameter != Fixed64.Zero
-                    || targetParameter != Fixed64.One)))
+                GridNavigationBodySegmentEndpointAllowance.None))
         {
             Fail(GridNavigationCorridorValidationStatus.Invalid);
             return;

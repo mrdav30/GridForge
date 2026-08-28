@@ -25,19 +25,19 @@ public readonly struct GridCoveredAddressGeneration : IComparable<GridCoveredAdd
     public long GridSpawnToken { get; }
 
     /// <summary>The last committed sequence applied to this grid generation.</summary>
-    public ulong GridHighWaterSequence { get; }
+    public ulong GridLastChangeSequence { get; }
 
     /// <summary>Initializes an exact eligible grid-generation identity.</summary>
     public GridCoveredAddressGeneration(
         GridConfigurationKey configurationKey,
         ushort gridIndex,
         long gridSpawnToken,
-        ulong gridHighWaterSequence)
+        ulong gridLastChangeSequence)
     {
         ConfigurationKey = configurationKey;
         GridIndex = gridIndex;
         GridSpawnToken = gridSpawnToken;
-        GridHighWaterSequence = gridHighWaterSequence;
+        GridLastChangeSequence = gridLastChangeSequence;
     }
 
     /// <summary>

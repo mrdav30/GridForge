@@ -392,6 +392,51 @@ public class HexPrismGridTests
     }
 
     [Fact]
+    public void HexNavigationClosure_ShouldDistinguishInvalidPlanarVerticalAndLayerDiagonalOffsets()
+    {
+        var closure = new VoxelIndex[4];
+
+        Assert.Equal(
+            0,
+            HexDirectionUtility.CopyNavigationClosureOffsets(
+                new VoxelIndex(2, 0, 0),
+                closure));
+
+        Assert.Equal(
+            2,
+            HexDirectionUtility.CopyNavigationClosureOffsets(
+                new VoxelIndex(1, 0, 0),
+                closure));
+        Assert.Equal(
+            new[] { new VoxelIndex(0, 0, 0), new VoxelIndex(1, 0, 0) },
+            closure.Take(2));
+
+        Assert.Equal(
+            2,
+            HexDirectionUtility.CopyNavigationClosureOffsets(
+                new VoxelIndex(0, 1, 0),
+                closure));
+        Assert.Equal(
+            new[] { new VoxelIndex(0, 0, 0), new VoxelIndex(0, 1, 0) },
+            closure.Take(2));
+
+        Assert.Equal(
+            4,
+            HexDirectionUtility.CopyNavigationClosureOffsets(
+                new VoxelIndex(1, 1, -1),
+                closure));
+        Assert.Equal(
+            new[]
+            {
+                new VoxelIndex(0, 0, 0),
+                new VoxelIndex(1, 0, -1),
+                new VoxelIndex(0, 1, 0),
+                new VoxelIndex(1, 1, -1)
+            },
+            closure);
+    }
+
+    [Fact]
     public void HexDirectionUtility_ShouldUseOrientationNeutralAxialNames()
     {
         Assert.Equal(new VoxelIndex(1, 0, 0), HexDirectionUtility.GetOffset(HexDirection.QPositive));

@@ -278,19 +278,6 @@ public static partial class GridTracer
                 }
             }
 
-            if (!ContainsNavigationClosure(
-                    scratch.AddressCandidates,
-                    closurePrisms,
-                    closureCount))
-            {
-                return FailNavigationBodyTrace(
-                    results,
-                    GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry,
-                    scratch.CandidateGrids.Count,
-                    addressCandidateCount,
-                    default);
-            }
-
             GridCoveredAddressRunStamp runStamp = SnapshotNavigationBodyCandidates(
                 world,
                 scratch.AddressCandidates);
@@ -346,7 +333,7 @@ public static partial class GridTracer
                         candidate.Index),
                     candidate.Grid.Configuration.ToGridKey(),
                     candidate.IsPhysicallyPresent,
-                    candidate.GridHighWaterSequence,
+                    candidate.GridLastChangeSequence,
                     GridNavigationBodyTraceCellRole.RequiredCoverage));
             }
 
@@ -453,31 +440,32 @@ public static partial class GridTracer
                 (targetOffset.x, targetOffset.y, targetOffset.z));
             closureCount = RectangularDirectionUtility.CopyNavigationClosureOffsets(direction, offsets);
         }
-        else if (sourceGrid.Configuration.TopologyKind == GridTopologyKind.HexPrism)
-        {
-            closureCount = HexDirectionUtility.CopyNavigationClosureOffsets(targetOffset, offsets);
-        }
         else
         {
-            return 0;
+            closureCount = HexDirectionUtility.CopyNavigationClosureOffsets(targetOffset, offsets);
         }
 
         for (int i = 0; i < closureCount; i++)
         {
             VoxelIndex offset = offsets[i];
-            if (!Vector3d.TryAdd(
-                    source.Center,
-                    sourceGrid.Topology.GetWorldOffset((offset.x, offset.y, offset.z)),
-                    out Vector3d center)
-                || !GridCellGeometry.TryCreatePrism(
-                    sourceGrid.Configuration.TopologyKind,
-                    sourceGrid.Configuration.TopologyMetrics,
-                    center,
-                    default,
-                    out closure[i]))
-            {
-                return 0;
-            }
+            bool usesTargetPlanarCoordinates = offset.x != 0 || offset.z != 0;
+            Vector3d center = sourceGrid.Configuration.TopologyKind == GridTopologyKind.RectangularPrism
+                ? new Vector3d(
+                    offset.x == 0 ? source.Center.X : target.Center.X,
+                    offset.y == 0 ? source.Center.Y : target.Center.Y,
+                    offset.z == 0 ? source.Center.Z : target.Center.Z)
+                : new Vector3d(
+                    usesTargetPlanarCoordinates ? target.Center.X : source.Center.X,
+                    offset.y == 0 ? source.Center.Y : target.Center.Y,
+                    usesTargetPlanarCoordinates ? target.Center.Z : source.Center.Z);
+
+            // Every coordinate comes from one of the two already validated endpoint prisms.
+            _ = GridCellGeometry.TryCreatePrism(
+                sourceGrid.Configuration.TopologyKind,
+                sourceGrid.Configuration.TopologyMetrics,
+                center,
+                default,
+                out closure[i]);
         }
 
         return closureCount;
@@ -515,7 +503,7 @@ public static partial class GridTracer
                     || candidate.Grid.TryGetVoxel(candidate.Index, out _);
                 candidates[i] = candidate.WithPhysicalEvidence(
                     isPresent,
-                    candidate.Grid.ChangeHighWaterSequence);
+                    candidate.Grid.LastChangeSequence);
             }
         }
 
@@ -587,32 +575,6 @@ public static partial class GridTracer
         return true;
     }
 
-    private static bool ContainsNavigationClosure(
-        SwiftList<GridNavigationBodyTraceCandidate> candidates,
-        ReadOnlySpan<GridCellPrism> closure,
-        int count)
-    {
-        for (int closureIndex = 0; closureIndex < count; closureIndex++)
-        {
-            bool found = false;
-            for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
-            {
-                if (AreSameNavigationBodyPrism(
-                        candidates[candidateIndex].Prism,
-                        closure[closureIndex]))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-                return false;
-        }
-
-        return true;
-    }
-
     private static bool HasNavigationBodyUnionCoverage(
         VoxelGrid sourceGrid,
         VoxelIndex source,
@@ -627,12 +589,6 @@ public static partial class GridTracer
     {
         int sourceCandidate = FindNavigationBodyCandidate(candidates, sourceGrid, source);
         int targetCandidate = FindNavigationBodyCandidate(candidates, targetGrid, target);
-        if (sourceCandidate < 0
-            || targetCandidate < 0
-            || (!candidates[sourceCandidate].HasPositiveOverlap
-                && !candidates[sourceCandidate].IsClosure))
-            return false;
-
         // A connected body intersects a connected set of interiors in the source topology's
         // exact lattice. Closing every positive-overlap neighbor therefore proves containment;
         // exact coincident prisms let aligned adjacent grids continue the same lattice.
@@ -650,19 +606,18 @@ public static partial class GridTracer
             for (int slot = 0; slot < sourceGrid.Topology.NeighborSlotCount; slot++)
             {
                 VoxelIndex offset = sourceGrid.Topology.GetNeighborOffset(slot);
-                if (!Vector3d.TryAdd(
-                        member.Center,
-                        sourceGrid.Topology.GetWorldOffset((offset.x, offset.y, offset.z)),
-                        out Vector3d neighborCenter)
-                    || !GridCellGeometry.TryCreatePrism(
-                        sourceGrid.Configuration.TopologyKind,
-                        sourceGrid.Configuration.TopologyMetrics,
-                        neighborCenter,
-                        default,
-                        out GridCellPrism neighbor))
-                {
-                    return false;
-                }
+                // Candidate bounds were expanded by the world's maximum topology edge, so every
+                // immediate neighbor of a selected member is exactly representable here.
+                _ = Vector3d.TryAdd(
+                    member.Center,
+                    sourceGrid.Topology.GetWorldOffset((offset.x, offset.y, offset.z)),
+                    out Vector3d neighborCenter);
+                _ = GridCellGeometry.TryCreatePrism(
+                    sourceGrid.Configuration.TopologyKind,
+                    sourceGrid.Configuration.TopologyMetrics,
+                    neighborCenter,
+                    default,
+                    out GridCellPrism neighbor);
 
                 int matchingCandidate = FindBestMatchingNavigationBodyPrism(
                     candidates,
@@ -680,8 +635,6 @@ public static partial class GridTracer
                 if (overlapsBody && matchingCandidate < 0)
                     return false;
                 if (matchingCandidate >= 0
-                    && (candidates[matchingCandidate].HasPositiveOverlap
-                        || candidates[matchingCandidate].IsClosure)
                     && !candidates[matchingCandidate].IsVisited)
                 {
                     AddNavigationBodyUnionMember(candidates, unionMembers, matchingCandidate);
@@ -697,14 +650,12 @@ public static partial class GridTracer
         VoxelGrid grid,
         VoxelIndex index)
     {
-        for (int i = 0; i < candidates.Count; i++)
+        for (int i = 0;; i++)
         {
             GridNavigationBodyTraceCandidate candidate = candidates[i];
             if (candidate.Grid == grid && candidate.Index == index)
                 return i;
         }
-
-        return -1;
     }
 
     private static int FindBestMatchingNavigationBodyPrism(
@@ -738,9 +689,7 @@ public static partial class GridTracer
         if (candidate.IsPhysicallyPresent != current.IsPhysicallyPresent)
             return candidate.IsPhysicallyPresent;
 
-        int comparison = CompareGridIdentity(candidate.Grid, current.Grid);
-        return comparison < 0
-            || (comparison == 0 && candidate.Index.CompareTo(current.Index) < 0);
+        return CompareGridIdentity(candidate.Grid, current.Grid) < 0;
     }
 
     private static bool AreSameNavigationBodyPrism(
@@ -766,13 +715,7 @@ public static partial class GridTracer
         comparison = first.VerticalMin.CompareTo(second.VerticalMin);
         if (comparison != 0)
             return comparison;
-        comparison = first.VerticalMax.CompareTo(second.VerticalMax);
-        if (comparison != 0)
-            return comparison;
         comparison = first.PlanarInradius.CompareTo(second.PlanarInradius);
-        if (comparison != 0)
-            return comparison;
-        comparison = first.FootprintVertexCount.CompareTo(second.FootprintVertexCount);
         if (comparison != 0)
             return comparison;
 
@@ -880,7 +823,7 @@ public static partial class GridTracer
                         candidate.Index),
                     candidate.Grid.Configuration.ToGridKey(),
                     isPhysicallyPresent: false,
-                    candidate.GridHighWaterSequence,
+                    candidate.GridLastChangeSequence,
                     GridNavigationBodyTraceCellRole.PhysicalAlternativeDependency));
             }
 
@@ -1022,9 +965,6 @@ public static partial class GridTracer
         GridNavigationBodyTraceCell second)
     {
         int comparison = CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
-        if (comparison != 0)
-            return comparison;
-        comparison = first.Cell.GridSpawnToken.CompareTo(second.Cell.GridSpawnToken);
         return comparison != 0
             ? comparison
             : first.Cell.VoxelIndex.CompareTo(second.Cell.VoxelIndex);

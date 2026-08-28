@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
@@ -10,6 +12,7 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
+using SwiftCollections.Diagnostics;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -144,6 +147,33 @@ public class GridWorldTests
         Assert.False(world.TryGetGrid(new Vector3d(10_000, 0, 0), out _));
         Assert.True(world.TryGetGrid(new Vector3d(20_000, 0, 0), out VoxelGrid replacement));
         Assert.Equal(replacementIndex, replacement.GridIndex);
+    }
+
+    [Fact]
+    public void ReentrantReset_ShouldRemainInTheSameCommittedPublicationDrain()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        var committedKinds = new List<GridEventKind>();
+        bool resetRequested = false;
+        world.OnChangeCommitted += eventInfo =>
+        {
+            committedKinds.Add(eventInfo.ChangeKind);
+            if (eventInfo.ChangeKind == GridEventKind.GridAdded && !resetRequested)
+            {
+                resetRequested = true;
+                world.Reset();
+            }
+        };
+
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out _));
+
+        Assert.Equal(
+            new[] { GridEventKind.GridAdded, GridEventKind.WorldReset },
+            committedKinds);
+        Assert.True(world.IsActive);
+        Assert.Empty(world.ActiveGrids);
     }
 
     [Fact]
@@ -311,7 +341,7 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void TryAddGrid_ShouldRejectInactiveAndDuplicateConfigurations()
+    public void TryAddGrid_ShouldRejectDuplicateConfigurations()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 50);
         GridConfiguration firstConfiguration = new(new Vector3d(0, 0, 0), new Vector3d(1, 0, 1));
@@ -323,12 +353,46 @@ public class GridWorldTests
         Assert.True(world.TryAddGrid(
             new GridConfiguration(new Vector3d(10, 0, 10), new Vector3d(11, 0, 11)),
             out _));
+    }
 
-        GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
-        inactiveWorld.Dispose();
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TryAddGrid_ShouldRejectInactiveWorldRegardlessOfDiagnostics(
+        bool disableDiagnostics)
+    {
+        using GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Reset(deactivate: true);
+        DiagnosticLevel previousMinimumLevel = GridForgeLogger.MinimumLevel;
+        GridForgeLogger.MinimumLevel = disableDiagnostics
+            ? DiagnosticLevel.None
+            : DiagnosticLevel.Error;
 
-        Assert.False(inactiveWorld.TryAddGrid(firstConfiguration, out ushort inactiveIndex));
-        Assert.Equal(ushort.MaxValue, inactiveIndex);
+        try
+        {
+            Assert.False(inactiveWorld.TryAddGrid(
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+                out ushort inactiveIndex));
+
+            Assert.Equal(ushort.MaxValue, inactiveIndex);
+            Assert.Empty(inactiveWorld.ActiveGrids);
+        }
+        finally
+        {
+            GridForgeLogger.MinimumLevel = previousMinimumLevel;
+        }
+    }
+
+    [Fact]
+    public void TryAddGrid_ShouldRejectDisposedWorldWithoutAccessingReleasedLock()
+    {
+        GridWorld disposedWorld = GridWorldTestFactory.CreateWorld();
+        disposedWorld.Dispose();
+
+        Assert.False(disposedWorld.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out ushort allocatedIndex));
+        Assert.Equal(ushort.MaxValue, allocatedIndex);
     }
 
     [Fact]
@@ -553,27 +617,6 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void NotifyActiveGridChange_ShouldIgnoreNullAndInactiveGrids()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld();
-        VoxelGrid grid = GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(0, 0, 0),
-            new Vector3d(1, 0, 1));
-        int notifications = 0;
-        world.OnActiveGridChange += _ => notifications++;
-
-        world.NotifyActiveGridChange(null);
-        world.NotifyActiveGridChange(null, GridEventKind.GridChanged, default, Vector3d.Zero);
-
-        Assert.True(world.TryRemoveGrid(grid.GridIndex));
-        world.NotifyActiveGridChange(grid);
-        world.NotifyActiveGridChange(grid, GridEventKind.GridChanged, default, Vector3d.Zero);
-
-        Assert.Equal(0, notifications);
-    }
-
-    [Fact]
     public void FindOverlappingGrids_ShouldReturnActiveOverlapsInGridSlotOrder()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 1024);
@@ -643,26 +686,6 @@ public class GridWorldTests
     }
 
     [Fact]
-    public void NotifyActiveGridChange_ShouldIgnoreNullOrInactiveGrid()
-    {
-        using GridWorld world = GridWorldTestFactory.CreateWorld();
-        int changedCount = 0;
-        world.OnActiveGridChange += _ => changedCount++;
-
-        world.NotifyActiveGridChange(null);
-
-        VoxelGrid grid = GridWorldTestFactory.AddGrid(
-            world,
-            new Vector3d(0, 0, 0),
-            new Vector3d(1, 0, 1));
-        Assert.True(world.TryRemoveGrid(grid.GridIndex));
-
-        world.NotifyActiveGridChange(grid);
-
-        Assert.Equal(0, changedCount);
-    }
-
-    [Fact]
     public void GridWorldEvents_ShouldSwallowSubscriberExceptions()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
@@ -701,6 +724,34 @@ public class GridWorldTests
         Assert.Equal(2, changedCount);
         Assert.Equal(1, removedCount);
         Assert.Equal(1, resetCount);
+    }
+
+    [Fact]
+    public void CommittedChangeEvent_ShouldContinueAfterSubscriberException()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        GridEventInfo recorded = default;
+        Action<GridEventInfo> throwingHandler = _ => throw new InvalidOperationException("committed event");
+        void RecordingHandler(GridEventInfo eventInfo) => recorded = eventInfo;
+        world.OnChangeCommitted += throwingHandler;
+        world.OnChangeCommitted += RecordingHandler;
+
+        try
+        {
+            Assert.True(world.TryAddGrid(
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+                out ushort gridIndex));
+
+            Assert.Equal(GridEventKind.GridAdded, recorded.ChangeKind);
+            Assert.Equal(gridIndex, recorded.GridIndex);
+            Assert.Equal(world.SpawnToken, recorded.WorldSpawnToken);
+            Assert.NotEqual(0UL, recorded.ChangeSequence);
+        }
+        finally
+        {
+            world.OnChangeCommitted -= throwingHandler;
+            world.OnChangeCommitted -= RecordingHandler;
+        }
     }
 
     [Fact]
@@ -1080,10 +1131,7 @@ public class GridWorldTests
         {
             accessorThread.Start();
             Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
-            Assert.True(SpinWait.SpinUntil(
-                () => (accessorThread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
-                TimeSpan.FromSeconds(5)));
-            Assert.Equal(ThreadState.WaitSleepJoin, accessorThread.ThreadState & ThreadState.WaitSleepJoin);
+            AssertThreadIsWaiting(accessorThread);
         }
         finally
         {
@@ -1091,6 +1139,14 @@ public class GridWorldTests
         }
 
         Assert.True(accessorThread.Join(TimeSpan.FromSeconds(5)));
+    }
+
+    private static void AssertThreadIsWaiting(Thread thread)
+    {
+        Assert.True(SpinWait.SpinUntil(
+            () => (thread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+            TimeSpan.FromSeconds(5)));
+        Assert.Equal(ThreadState.WaitSleepJoin, thread.ThreadState & ThreadState.WaitSleepJoin);
     }
 
     private sealed class SharedIdOccupant : IVoxelOccupant

@@ -1,8 +1,10 @@
 using FixedMathSharp;
+using GridForge.Diagnostics;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
+using SwiftCollections.Diagnostics;
 using Xunit;
 
 namespace GridForge.Configuration.Tests;
@@ -224,6 +226,45 @@ public class NormalizedGridConfigurationTests
         Assert.False(invalidDescriptor.IsValid);
         Assert.False(oversized.TryNormalize(out NormalizedGridConfiguration oversizedDescriptor));
         Assert.False(oversizedDescriptor.IsValid);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void TryNormalize_DimensionOverflow_FailsRegardlessOfAxisAndDiagnostics(int axis)
+    {
+        Vector3d minimum = axis switch
+        {
+            0 => new Vector3d(int.MinValue, 0, 0),
+            1 => new Vector3d(0, int.MinValue, 0),
+            _ => new Vector3d(0, 0, int.MinValue)
+        };
+        Vector3d maximum = axis switch
+        {
+            0 => new Vector3d(int.MaxValue, 0, 0),
+            1 => new Vector3d(0, int.MaxValue, 0),
+            _ => new Vector3d(0, 0, int.MaxValue)
+        };
+        GridConfiguration overflowed = new(
+            minimum,
+            maximum);
+        DiagnosticLevel previousMinimumLevel = GridForgeLogger.MinimumLevel;
+
+        try
+        {
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.Warning;
+            Assert.False(overflowed.TryNormalize(out NormalizedGridConfiguration warningDescriptor));
+            Assert.False(warningDescriptor.IsValid);
+
+            GridForgeLogger.MinimumLevel = DiagnosticLevel.None;
+            Assert.False(overflowed.TryNormalize(out NormalizedGridConfiguration quietDescriptor));
+            Assert.False(quietDescriptor.IsValid);
+        }
+        finally
+        {
+            GridForgeLogger.MinimumLevel = previousMinimumLevel;
+        }
     }
 
     [Fact]

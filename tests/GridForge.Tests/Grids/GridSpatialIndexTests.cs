@@ -76,6 +76,38 @@ public sealed class GridSpatialIndexTests
     }
 
     [Fact]
+    public void MissingContactEnvelope_ShouldNeverProduceOrRetainContactCandidates()
+    {
+        var index = new GridSpatialIndex(1);
+        var candidates = new SwiftList<ushort> { ushort.MaxValue };
+        FixedBoundVolume bounds = new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero);
+
+        Assert.True(index.Insert(7, bounds, contactEnvelope: null));
+        index.CollectContactCandidates(bounds, candidates);
+        Assert.Empty(candidates);
+
+        Assert.True(index.Remove(7));
+        candidates.Add(ushort.MaxValue);
+        index.CollectContactCandidates(bounds, candidates);
+        Assert.Empty(candidates);
+    }
+
+    [Fact]
+    public void ContactEnvelopeRemoval_ShouldRemoveOnlyTheMatchingSlot()
+    {
+        var index = new GridSpatialIndex(1);
+        FixedBoundVolume bounds = new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero);
+        var candidates = new SwiftList<ushort>();
+        Assert.True(index.Insert(2, bounds, bounds));
+        Assert.True(index.Insert(1, bounds, bounds));
+
+        Assert.True(index.Remove(2));
+        index.CollectContactCandidates(bounds, candidates);
+
+        Assert.Equal(new ushort[] { 1 }, candidates);
+    }
+
+    [Fact]
     public void Clear_ShouldReleaseBothTiersForReuse()
     {
         var index = new GridSpatialIndex(50, 64UL);
@@ -131,6 +163,22 @@ public sealed class GridSpatialIndexTests
         index.CollectPointCandidates(Vector3d.One, candidates);
 
         Assert.Equal(new[] { oversizedGrid.GridIndex, ordinaryGrid.GridIndex }, candidates);
+    }
+
+    [Fact]
+    public void EmptyIndexQueries_ShouldClearCallerOwnedCandidateStorage()
+    {
+        var index = new GridSpatialIndex(1);
+        var candidates = new SwiftList<ushort> { ushort.MaxValue };
+
+        index.CollectPointCandidates(Vector3d.Zero, candidates);
+        Assert.Empty(candidates);
+
+        candidates.Add(ushort.MaxValue);
+        index.CollectContactCandidates(
+            new FixedBoundVolume(Vector3d.Zero, Vector3d.Zero),
+            candidates);
+        Assert.Empty(candidates);
     }
 
     [Fact]

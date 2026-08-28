@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System;
+using System.Diagnostics;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 
@@ -27,8 +28,7 @@ public static partial class GridCellGeometry
     {
         portal = default;
         if (!IsNavigationPrismValid(source)
-            || !IsNavigationPrismValid(target)
-            || !Vector3d.TrySubtract(target.Center, source.Center, out Vector3d sourceToTarget))
+            || !IsNavigationPrismValid(target))
         {
             return false;
         }
@@ -36,40 +36,22 @@ public static partial class GridCellGeometry
         VoxelContactManifold contact = GetContact(source, target);
         if (!contact.IsPositiveAreaFace)
             return false;
+        Vector3d sourceToTarget = contact.SourceToTarget;
 
         if (contact.FaceKind == VoxelContactFaceKind.Vertical)
         {
-            if (!TryGetConservativeDistance(
-                    contact.HorizontalSegmentStart,
-                    contact.HorizontalSegmentEnd,
-                    out Fixed64 faceWidth)
-                || !Fixed64.TrySubtract(
-                    contact.VerticalMax,
-                    contact.VerticalMin,
-                    out Fixed64 faceHeight)
-                || faceWidth <= Fixed64.Zero
-                || faceHeight <= Fixed64.Zero)
-            {
-                return false;
-            }
+            Fixed64 faceHeight = contact.VerticalMax - contact.VerticalMin;
 
             Vector2d center = GetNearestRepresentableSegmentMidpoint(
                 contact.HorizontalSegmentStart,
                 contact.HorizontalSegmentEnd);
             var canonicalFacePoint = new Vector3d(center.X, contact.VerticalMin, center.Y);
-            if (!source.Contains(canonicalFacePoint)
-                || !target.Contains(canonicalFacePoint)
-                || !TryGetConservativeDistance(
-                    contact.HorizontalSegmentStart,
-                    center,
-                    out Fixed64 startClearance)
-                || !TryGetConservativeDistance(
-                    center,
-                    contact.HorizontalSegmentEnd,
-                    out Fixed64 endClearance))
-            {
-                return false;
-            }
+            Fixed64 startClearance = GetConservativeDistance(
+                contact.HorizontalSegmentStart,
+                center);
+            Fixed64 endClearance = GetConservativeDistance(
+                center,
+                contact.HorizontalSegmentEnd);
 
             portal = new GridNavigationPortal(
                 VoxelContactFaceKind.Vertical,
@@ -82,34 +64,26 @@ public static partial class GridCellGeometry
             return true;
         }
 
-        if (contact.FaceKind != VoxelContactFaceKind.Horizontal
-            || sourceToTarget.Y == Fixed64.Zero
-            || !Fixed64.TrySubtract(source.VerticalMax, source.VerticalMin, out Fixed64 sourceHeight)
-            || !Fixed64.TrySubtract(target.VerticalMax, target.VerticalMin, out Fixed64 targetHeight)
-            || sourceHeight <= Fixed64.Zero
-            || targetHeight <= Fixed64.Zero)
-        {
-            return false;
-        }
+        Fixed64 sourceHeight = source.VerticalMax - source.VerticalMin;
+        Fixed64 targetHeight = target.VerticalMax - target.VerticalMin;
 
         Span<Vector2d> polygon = stackalloc Vector2d[GridConvexPolygon2d.MaxVertexCount];
         contact.HorizontalPolygon.CopyTo(polygon);
         ReadOnlySpan<Vector2d> footprint = polygon[..contact.HorizontalPolygon.VertexCount];
-        if (!FixedConvex2dRelations.TryGetAreaAndCentroid(footprint, out _, out Vector2d centroid))
-        {
-            return false;
-        }
+        bool hasCentroid = FixedConvex2dRelations.TryGetAreaAndCentroid(
+            footprint,
+            out _,
+            out Vector2d centroid);
+        Debug.Assert(hasCentroid);
 
         Fixed64 maximumRadius;
         if (IsPlanarPointContained(source, centroid) && IsPlanarPointContained(target, centroid))
         {
-            if (!TryGetMinimumPolygonClearance(footprint, centroid, out maximumRadius))
-                return false;
+            maximumRadius = GetMinimumPolygonClearance(footprint, centroid);
         }
         else
         {
-            if (!TryGetContainedPolygonVertex(footprint, source, target, out centroid))
-                return false;
+            centroid = footprint[0];
             maximumRadius = Fixed64.Zero;
         }
 
@@ -125,52 +99,16 @@ public static partial class GridCellGeometry
     }
 
     private static bool IsNavigationPrismValid(in GridCellPrism prism)
-    {
-        if (prism.FootprintVertexCount is not 4 and not 6
-            || prism.VerticalMax <= prism.VerticalMin
-            || prism.PlanarInradius <= Fixed64.Zero)
-        {
-            return false;
-        }
-
-        Span<Vector2d> footprint = stackalloc Vector2d[6];
-        prism.CopyFootprintTo(footprint);
-        return FixedConvex2dRelations.IsStrictlyConvex(footprint[..prism.FootprintVertexCount]);
-    }
-
-    private static bool TryGetContainedPolygonVertex(
-        ReadOnlySpan<Vector2d> polygon,
-        in GridCellPrism source,
-        in GridCellPrism target,
-        out Vector2d point)
-    {
-        point = default;
-        bool found = false;
-        for (int i = 0; i < polygon.Length; i++)
-        {
-            Vector2d candidate = polygon[i];
-            if (IsPlanarPointContained(source, candidate)
-                && IsPlanarPointContained(target, candidate)
-                && (!found || CompareCoordinates(candidate, point) < 0))
-            {
-                point = candidate;
-                found = true;
-            }
-        }
-
-        return found;
-    }
+        => prism.FootprintVertexCount is 4 or 6;
 
     private static bool IsPlanarPointContained(in GridCellPrism prism, Vector2d point) =>
         prism.Contains(new Vector3d(point.X, prism.Center.Y, point.Y));
 
-    private static bool TryGetMinimumPolygonClearance(
+    private static Fixed64 GetMinimumPolygonClearance(
         ReadOnlySpan<Vector2d> polygon,
-        Vector2d point,
-        out Fixed64 clearance)
+        Vector2d point)
     {
         long minimumRaw = long.MaxValue;
-        bool foundEdge = false;
         Span<ulong> firstProduct = stackalloc ulong[2];
         Span<ulong> secondProduct = stackalloc ulong[2];
         Span<ulong> cross = stackalloc ulong[3];
@@ -202,11 +140,6 @@ public static partial class GridCellGeometry
             Multiply64(edgeX, edgeX, firstProduct);
             Multiply64(edgeY, edgeY, secondProduct);
             Add128(firstProduct, secondProduct, edgeSquared);
-            if ((edgeSquared[0] | edgeSquared[1] | edgeSquared[2]) == 0UL)
-            {
-                clearance = default;
-                return false;
-            }
 
             MultiplyWords(cross, cross, crossSquared);
             long low = 0L;
@@ -224,11 +157,9 @@ public static partial class GridCellGeometry
             }
 
             minimumRaw = low;
-            foundEdge = true;
         }
 
-        clearance = Fixed64.FromRaw(minimumRaw);
-        return foundEdge;
+        return Fixed64.FromRaw(minimumRaw);
     }
 
     private static void GetSignedDifference(
@@ -272,13 +203,7 @@ public static partial class GridCellGeometry
         result.Clear();
         result[0] = unchecked(first[0] + second[0]);
         ulong carry = result[0] < first[0] ? 1UL : 0UL;
-        result[1] = unchecked(first[1] + second[1]);
-        ulong highCarry = result[1] < first[1] ? 1UL : 0UL;
-        ulong high = result[1];
-        result[1] = unchecked(high + carry);
-        if (result[1] < high)
-            highCarry = 1UL;
-        result[2] = highCarry;
+        result[1] = unchecked(first[1] + second[1] + carry);
     }
 
     private static void Subtract128(
@@ -340,11 +265,12 @@ public static partial class GridCellGeometry
 
     private static int CompareWords(ReadOnlySpan<ulong> first, ReadOnlySpan<ulong> second)
     {
-        int index = Math.Max(first.Length, second.Length) - 1;
+        Debug.Assert(first.Length == second.Length);
+        int index = first.Length - 1;
         while (index >= 0)
         {
-            ulong firstWord = index < first.Length ? first[index] : 0UL;
-            ulong secondWord = index < second.Length ? second[index] : 0UL;
+            ulong firstWord = first[index];
+            ulong secondWord = second[index];
             if (firstWord != secondWord)
                 return firstWord < secondWord ? -1 : 1;
             index--;
@@ -353,36 +279,29 @@ public static partial class GridCellGeometry
         return 0;
     }
 
-    private static bool TryGetConservativeDistance(
+    private static Fixed64 GetConservativeDistance(
         Vector2d start,
-        Vector2d end,
-        out Fixed64 distance)
+        Vector2d end)
     {
-        if (!Vector2d.TryGetDistance(start, end, out distance))
-            return false;
+        bool hasDistance = Vector2d.TryGetDistance(start, end, out Fixed64 distance);
+        Debug.Assert(hasDistance);
 
         Vector2d representedDistance = new Vector2d(distance, Fixed64.Zero);
-        if (Vector2d.CompareDistanceSquared(start, end, Vector2d.Zero, representedDistance) < 0
-            && !Fixed64.TrySubtract(distance, Fixed64.MinIncrement, out distance))
-        {
-            distance = default;
-            return false;
-        }
+        if (Vector2d.CompareDistanceSquared(start, end, Vector2d.Zero, representedDistance) < 0)
+            distance = Fixed64.FromRaw(distance.m_rawValue - 1L);
 
-        return true;
+        return distance;
     }
 
     private static Vector2d GetNearestRepresentableSegmentMidpoint(Vector2d start, Vector2d end)
     {
-        GetSignedDifference(end.X.m_rawValue, start.X.m_rawValue, out bool xNegative, out ulong xDelta);
+        ulong xDelta = unchecked((ulong)end.X.m_rawValue - (ulong)start.X.m_rawValue);
         GetSignedDifference(end.Y.m_rawValue, start.Y.m_rawValue, out bool yNegative, out ulong yDelta);
         ulong divisor = GetGreatestCommonDivisor(xDelta, yDelta);
         ulong latticeIndex = divisor >> 1;
         ulong xOffset = (xDelta / divisor) * latticeIndex;
         ulong yOffset = (yDelta / divisor) * latticeIndex;
-        long x = unchecked((long)(xNegative
-            ? (ulong)start.X.m_rawValue - xOffset
-            : (ulong)start.X.m_rawValue + xOffset));
+        long x = unchecked((long)((ulong)start.X.m_rawValue + xOffset));
         long y = unchecked((long)(yNegative
             ? (ulong)start.Y.m_rawValue - yOffset
             : (ulong)start.Y.m_rawValue + yOffset));

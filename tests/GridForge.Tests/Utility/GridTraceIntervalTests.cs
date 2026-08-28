@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -50,8 +51,8 @@ public sealed class GridTraceIntervalTests : IDisposable
             Assert.Equal(gridIndex, value.Cell.GridIndex);
             Assert.Equal(_world.ActiveGrids[gridIndex].SpawnToken, value.Cell.GridSpawnToken);
             Assert.Equal(
-                _world.ActiveGrids[gridIndex].ChangeHighWaterSequence,
-                value.GridHighWaterSequence);
+                _world.ActiveGrids[gridIndex].LastChangeSequence,
+                value.GridLastChangeSequence);
             Assert.True(value.IsPhysicallyPresent);
         });
     }
@@ -190,6 +191,52 @@ public sealed class GridTraceIntervalTests : IDisposable
     }
 
     [Fact]
+    public void FootprintEdgeTrace_ShouldRetainTheExactVerticalEdgeInterval()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out _));
+        Fixed64 half = Fixed64.Half;
+        Fixed64 quarter = Fixed64.One / new Fixed64(4);
+
+        GridTraceIntervalReport report = Trace(
+            new Vector3d(half, Fixed64.Zero, -quarter),
+            new Vector3d(half, Fixed64.Zero, quarter));
+
+        Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+        Assert.True(report.HasContinuousAddressCoverage);
+        Assert.True(report.HasContinuousPhysicalCoverage);
+        GridTraceInterval interval = Assert.Single(_results);
+        Assert.Equal(default, interval.Cell.VoxelIndex);
+        Assert.Equal(Fixed64.Zero, interval.TEnter);
+        Assert.Equal(Fixed64.One, interval.TExit);
+    }
+
+    [Fact]
+    public void PartialInteriorOverlap_ShouldExtendOneStableTieGroup()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                topologyMetrics: GridTopologyMetrics.Rectangular(new Fixed64(2))),
+            out _));
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(new Vector3d(1, 0, 0), new Vector3d(1, 0, 0)),
+            out _));
+
+        GridTraceIntervalReport report = Trace(
+            new Vector3d(-1, 0, 0),
+            new Vector3d(2, 0, 0));
+
+        Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+        Assert.Equal(2, _results.Count);
+        Assert.Equal(_results[0].TieGroupId, _results[1].TieGroupId);
+        Assert.Equal(new[] { 0, 1 }, _results.Select(value => value.TieOrder));
+        Assert.True(_results[1].TExit > _results[0].TExit);
+    }
+
+    [Fact]
     public void CanonicalOrder_ShouldIgnoreRegistrationOrderAndGroupPartialOverlapPeers()
     {
         GridConfiguration narrow = new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0));
@@ -240,6 +287,88 @@ public sealed class GridTraceIntervalTests : IDisposable
     }
 
     [Fact]
+    public void CanonicalOrder_ShouldUseEveryConfigurationComponentBeforeRegistrationOrder()
+    {
+        var orderedPairs = new (GridConfiguration Earlier, GridConfiguration Later)[]
+        {
+            (
+                new GridConfiguration(new Vector3d(-1, 0, 0), Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero)),
+            (
+                new GridConfiguration(new Vector3d(0, -1, 0), Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero)),
+            (
+                new GridConfiguration(new Vector3d(0, 0, -1), Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero)),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, new Vector3d(0, 1, 0))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+                new GridConfiguration(Vector3d.Zero, new Vector3d(0, 0, 1))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyKind: GridTopologyKind.HexPrism,
+                    topologyMetrics: GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One)),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyKind: GridTopologyKind.HexPrism,
+                    topologyMetrics: GridTopologyMetrics.Hex(new Fixed64(2), Fixed64.One))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One, Fixed64.One, Fixed64.One)),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(new Fixed64(2), Fixed64.One, Fixed64.One))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One, Fixed64.One, Fixed64.One)),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One, new Fixed64(2), Fixed64.One))),
+            (
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One, Fixed64.One, Fixed64.One)),
+                new GridConfiguration(Vector3d.Zero, Vector3d.Zero,
+                    topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.One, Fixed64.One, new Fixed64(2))))
+        };
+
+        foreach ((GridConfiguration earlier, GridConfiguration later) in orderedPairs)
+        {
+            GridConfigurationKey[] forward = TraceOrder(earlier, later);
+            GridConfigurationKey[] reverse = TraceOrder(later, earlier);
+
+            Assert.Equal(forward, reverse);
+            Assert.Equal(2, forward.Length);
+            Assert.Equal(earlier.ToGridKey(), forward[0]);
+            Assert.Equal(later.ToGridKey(), forward[1]);
+        }
+
+        static GridConfigurationKey[] TraceOrder(
+            GridConfiguration first,
+            GridConfiguration second)
+        {
+            using GridWorld world = GridWorldTestFactory.CreateWorld(spatialGridCellSize: 16);
+            Assert.True(world.TryAddGrid(first, out _));
+            Assert.True(world.TryAddGrid(second, out _));
+            var results = new SwiftList<GridTraceInterval>(4);
+            var scratch = new GridTraceIntervalScratch(2, 8);
+            GridTraceIntervalReport report = GridTracer.TraceIntervalsInto(
+                world,
+                Vector3d.Zero,
+                Vector3d.Zero,
+                results,
+                scratch,
+                gridCandidateLimit: 2,
+                addressCandidateLimit: 8,
+                outputLimit: 4,
+                candidateWorkLimit: 10L);
+            Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+            return results.Select(value => value.ConfigurationKey).ToArray();
+        }
+    }
+
+    [Fact]
     public void VerticalTrace_ShouldReturnExactClosedIntervals()
     {
         Assert.True(_world.TryAddGrid(
@@ -255,6 +384,183 @@ public sealed class GridTraceIntervalTests : IDisposable
         Assert.True(report.HasContinuousPhysicalCoverage);
         Assert.Equal(Fixed64.Zero, _results[0].TEnter);
         Assert.Equal(Fixed64.One, _results[2].TExit);
+    }
+
+    [Fact]
+    public void IncompleteAndVerticallyDisjointSegments_ShouldReportNoContinuousCoverage()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out _));
+
+        GridTraceIntervalReport incomplete = Trace(Vector3d.Zero, new Vector3d(3, 0, 0));
+        Assert.Single(_results);
+        Assert.False(incomplete.HasContinuousAddressCoverage);
+        Assert.False(incomplete.HasContinuousPhysicalCoverage);
+
+        GridTraceIntervalReport above = Trace(new Vector3d(0, 2, 0), new Vector3d(0, 3, 0));
+        Assert.Empty(_results);
+        Assert.False(above.HasContinuousAddressCoverage);
+
+        GridTraceIntervalReport below = Trace(new Vector3d(0, -2, 0), new Vector3d(0, -3, 0));
+        Assert.Empty(_results);
+        Assert.False(below.HasContinuousAddressCoverage);
+
+        GridTraceIntervalReport stationaryBelow = Trace(
+            new Vector3d(0, -2, 0),
+            new Vector3d(0, -2, 0));
+        Assert.Empty(_results);
+        Assert.False(stationaryBelow.HasContinuousAddressCoverage);
+    }
+
+    [Fact]
+    public void ExactPrismInterval_ShouldRejectAPlanarCrossingAboveTheVerticalSpan()
+    {
+        Assert.True(GridCellGeometry.TryCreatePrism(
+            GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(Fixed64.One),
+            Vector3d.Zero,
+            default,
+            out GridCellPrism prism));
+
+        Assert.False(GridTracer.TryGetPrismInterval(
+            new Vector3d(-Fixed64.One, new Fixed64(2), Fixed64.Zero),
+            new Vector3d(Fixed64.One, new Fixed64(3), Fixed64.Zero),
+            prism,
+            out _,
+            out _));
+    }
+
+    [Fact]
+    public void BroadPhaseOnlyCandidate_ShouldCompleteWithoutConsumingAnAddressBudget()
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                Vector3d.Zero,
+                topologyKind: GridTopologyKind.HexPrism,
+                topologyMetrics: GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One)),
+            out _));
+        Fixed64 outsideCellButInsideBroadPhase = Fixed64.FromFraction(3, 2);
+
+        GridTraceIntervalReport report = Trace(
+            new Vector3d(outsideCellButInsideBroadPhase, Fixed64.Zero, Fixed64.Zero),
+            new Vector3d(outsideCellButInsideBroadPhase, Fixed64.Zero, Fixed64.Zero));
+
+        Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+        Assert.Equal(1, report.GridCandidateCount);
+        Assert.Equal(0, report.AddressCandidateCount);
+        Assert.Empty(_results);
+    }
+
+    [Fact]
+    public void UnrepresentableCandidatePrism_ShouldFailClosedWithoutPartialResults()
+    {
+        Vector3d position = Vector3d.Zero;
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                position,
+                position,
+                topologyMetrics: GridTopologyMetrics.Rectangular(
+                    Fixed64.MinIncrement,
+                    Fixed64.One,
+                    Fixed64.One)),
+            out _));
+
+        GridTraceIntervalReport report = Trace(position, position);
+
+        Assert.Equal(GridTraceIntervalStatus.UnrepresentableGeometry, report.Status);
+        Assert.Equal(1, report.GridCandidateCount);
+        Assert.Equal(1, report.AddressCandidateCount);
+        Assert.Empty(_results);
+    }
+
+    [Fact]
+    public async Task Trace_ShouldWaitBehindDeactivationAndReturnAnEmptyInactiveSnapshot()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        Assert.True(world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero),
+            out _));
+        using ManualResetEventSlim snapshotEntered = new();
+        using ManualResetEventSlim releaseSnapshot = new();
+        var results = new SwiftList<GridTraceInterval>(1);
+        var scratch = new GridTraceIntervalScratch(1, 1);
+
+        Task maintenance = Task.Run(() => world.ExecuteNavigationMaintenanceSnapshot(() =>
+        {
+            snapshotEntered.Set();
+            releaseSnapshot.Wait(TestContext.Current.CancellationToken);
+        }), TestContext.Current.CancellationToken);
+        Assert.True(snapshotEntered.Wait(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken));
+        Exception deactivateError = null;
+        Thread deactivateThread = new(() =>
+        {
+            try
+            {
+                world.Reset(deactivate: true);
+            }
+            catch (Exception exception)
+            {
+                deactivateError = exception;
+            }
+        }) { IsBackground = true };
+        deactivateThread.Start();
+        AssertThreadIsWaiting(deactivateThread);
+
+        GridTraceIntervalReport report = default;
+        Exception traceError = null;
+        Thread traceThread = new(() =>
+        {
+            try
+            {
+                report = GridTracer.TraceIntervalsInto(
+                    world,
+                    Vector3d.Zero,
+                    Vector3d.Zero,
+                    results,
+                    scratch,
+                    gridCandidateLimit: 1,
+                    addressCandidateLimit: 1,
+                    outputLimit: 1,
+                    candidateWorkLimit: 2L);
+            }
+            catch (Exception exception)
+            {
+                traceError = exception;
+            }
+        }) { IsBackground = true };
+
+        try
+        {
+            traceThread.Start();
+            AssertThreadIsWaiting(traceThread);
+
+            releaseSnapshot.Set();
+            await maintenance.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+            Assert.True(deactivateThread.Join(TimeSpan.FromSeconds(5)));
+            Assert.True(traceThread.Join(TimeSpan.FromSeconds(5)));
+
+            Assert.Null(deactivateError);
+            Assert.Null(traceError);
+            Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+            Assert.Empty(results);
+        }
+        finally
+        {
+            releaseSnapshot.Set();
+            if (deactivateThread.IsAlive)
+                deactivateThread.Join(TimeSpan.FromSeconds(5));
+            if (traceThread.IsAlive)
+                traceThread.Join(TimeSpan.FromSeconds(5));
+            await maintenance.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]
@@ -303,6 +609,67 @@ public sealed class GridTraceIntervalTests : IDisposable
 
         Assert.Equal(GridTraceIntervalStatus.Complete, warmed.Status);
         Assert.Equal(0, allocated);
+    }
+
+    [Fact]
+    public void TraceIntervals_ShouldHandleEmptyWorldsInvalidLimitsAndVerticalDirectionExactly()
+    {
+        GridTraceIntervalReport noWorld = GridTracer.TraceIntervalsInto(
+            null,
+            Vector3d.Zero,
+            Vector3d.One,
+            _results,
+            _scratch,
+            0,
+            0,
+            0,
+            0L);
+        Assert.Equal(GridTraceIntervalStatus.Complete, noWorld.Status);
+        Assert.Empty(_results);
+
+        Assert.Equal("gridCandidateLimit", Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridTracer.TraceIntervalsInto(
+                _world, Vector3d.Zero, Vector3d.Zero, _results, _scratch,
+                -1, 0, 0, 0L)).ParamName);
+        Assert.Equal("addressCandidateLimit", Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridTracer.TraceIntervalsInto(
+                _world, Vector3d.Zero, Vector3d.Zero, _results, _scratch,
+                0, -1, 0, 0L)).ParamName);
+        Assert.Equal("outputLimit", Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GridTracer.TraceIntervalsInto(
+                _world, Vector3d.Zero, Vector3d.Zero, _results, _scratch,
+                0, 0, -1, 0L)).ParamName);
+
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(0, 2, 0)),
+            out _));
+        GridTraceIntervalReport descending = Trace(
+            new Vector3d(Fixed64.Zero, Fixed64.FromFraction(5, 2), Fixed64.Zero),
+            new Vector3d(Fixed64.Zero, Fixed64.FromFraction(-1, 2), Fixed64.Zero));
+        Assert.Equal(GridTraceIntervalStatus.Complete, descending.Status);
+        Assert.Equal(new[] { 2, 1, 0 }, _results.Select(value => value.Cell.VoxelIndex.y));
+        Assert.True(descending.HasContinuousPhysicalCoverage);
+
+        GridTraceIntervalReport stationaryOutside = Trace(
+            new Vector3d(0, 10, 0),
+            new Vector3d(0, 10, 0));
+        Assert.Equal(GridTraceIntervalStatus.Complete, stationaryOutside.Status);
+        Assert.Empty(_results);
+
+        using GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();
+        inactiveWorld.Dispose();
+        GridTraceIntervalReport inactive = GridTracer.TraceIntervalsInto(
+            inactiveWorld,
+            Vector3d.Zero,
+            Vector3d.Zero,
+            _results,
+            _scratch,
+            0,
+            0,
+            0,
+            0L);
+        Assert.Equal(GridTraceIntervalStatus.Complete, inactive.Status);
+        Assert.Empty(_results);
     }
 
     [Fact]
@@ -601,79 +968,6 @@ public sealed class GridTraceIntervalTests : IDisposable
     }
 
     [Fact]
-    public void GridRemoval_ShouldWaitForCompleteTraceSnapshot()
-    {
-        VoxelIndex[] addresses = Enumerable.Range(0, 5)
-            .Select(x => new VoxelIndex(x, 0, 0))
-            .ToArray();
-        Assert.True(_world.TryAddGrid(
-            new GridConfiguration(
-                Vector3d.Zero,
-                new Vector3d(4, 0, 0),
-                storageKind: GridStorageKind.Sparse),
-            addresses,
-            out ushort gridIndex));
-        using ManualResetEventSlim traceFinished = new ManualResetEventSlim();
-        using ManualResetEventSlim removalStarted = new ManualResetEventSlim();
-        using ManualResetEventSlim removalFinished = new ManualResetEventSlim();
-        Exception traceError = null;
-        GridTraceIntervalReport report = default;
-        Thread traceThread = new Thread(() =>
-        {
-            try
-            {
-                report = Trace(
-                    new Vector3d(Fixed64.FromFraction(-1, 2), Fixed64.Zero, Fixed64.Zero),
-                    new Vector3d(Fixed64.FromFraction(9, 2), Fixed64.Zero, Fixed64.Zero));
-            }
-            catch (Exception exception)
-            {
-                traceError = exception;
-            }
-            finally
-            {
-                traceFinished.Set();
-            }
-        });
-        bool removalResult = false;
-        Thread removalThread = new Thread(() =>
-        {
-            removalStarted.Set();
-            removalResult = _world.TryRemoveGrid(gridIndex);
-            removalFinished.Set();
-        });
-
-        lock (_world.ChangeSyncRoot)
-        {
-            traceThread.Start();
-            Assert.True(SpinWait.SpinUntil(
-                () => (traceThread.ThreadState & ThreadState.WaitSleepJoin) != 0,
-                TimeSpan.FromSeconds(5)));
-
-            removalThread.Start();
-            Assert.True(removalStarted.Wait(
-                TimeSpan.FromSeconds(5),
-                TestContext.Current.CancellationToken));
-            Assert.False(
-                removalFinished.Wait(
-                    TimeSpan.FromMilliseconds(250),
-                    TestContext.Current.CancellationToken),
-                "Grid removal completed while the trace held its world read lease.");
-        }
-
-        Assert.True(traceFinished.Wait(
-            TimeSpan.FromSeconds(5),
-            TestContext.Current.CancellationToken));
-        Assert.True(removalFinished.Wait(
-            TimeSpan.FromSeconds(5),
-            TestContext.Current.CancellationToken));
-        Assert.Null(traceError);
-        Assert.True(report.IsComplete);
-        Assert.Equal(5, report.IntervalCount);
-        Assert.True(removalResult);
-    }
-
-    [Fact]
     public void DenseTrace_ShouldNotWaitForTheWorldChangeGate()
     {
         Assert.True(_world.TryAddGrid(
@@ -735,6 +1029,14 @@ public sealed class GridTraceIntervalTests : IDisposable
             addressCandidateLimit: 4096,
             outputLimit: 1024,
             candidateWorkLimit: 4104L);
+
+    private static void AssertThreadIsWaiting(Thread thread)
+    {
+        Assert.True(SpinWait.SpinUntil(
+            () => (thread.ThreadState & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+            TimeSpan.FromSeconds(5)));
+        Assert.Equal(ThreadState.WaitSleepJoin, thread.ThreadState & ThreadState.WaitSleepJoin);
+    }
 
     private static GridConfiguration CreateHexConfiguration(
         GridTopologyMetrics metrics,

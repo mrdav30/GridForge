@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using FixedMathSharp;
 using GridForge.Configuration;
@@ -233,6 +234,72 @@ public class SparseVoxelGridTests : IDisposable
         Assert.Equal(GridEventKind.SparseVoxelRemoved, lastEvent.ChangeKind);
         Assert.Equal(index, lastEvent.VoxelIndex);
         Assert.Equal(2, changedCount);
+    }
+
+    [Fact]
+    public void SparseGrid_ReentrantMutationsShouldCommitInOrderAndAdvanceExactLastChangeSequence()
+    {
+        GridConfiguration config = CreateSparseConfig(
+            Vector3d.Zero,
+            new Vector3d(2, 0, 0));
+        VoxelIndex first = new(0, 0, 0);
+        VoxelIndex second = new(1, 0, 0);
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        var committed = new List<GridEventInfo>();
+        _world.OnChangeCommitted += eventInfo =>
+        {
+            committed.Add(eventInfo);
+            if (eventInfo.ChangeKind == GridEventKind.SparseVoxelAdded
+                && eventInfo.VoxelIndex == first)
+            {
+                Assert.True(grid.TryAddVoxel(second, out _));
+            }
+            else if (eventInfo.ChangeKind == GridEventKind.SparseVoxelRemoved
+                && eventInfo.VoxelIndex == first)
+            {
+                Assert.True(grid.TryRemoveVoxel(second));
+            }
+        };
+
+        ulong beforeAdds = _world.ChangeSequence;
+        Assert.True(grid.TryAddVoxel(first, out _));
+
+        Assert.Equal(2, committed.Count);
+        Assert.Equal(
+            new[] { first, second },
+            committed.Select(eventInfo => eventInfo.VoxelIndex));
+        Assert.Equal(beforeAdds + 1, committed[0].ChangeSequence);
+        Assert.Equal(beforeAdds + 2, committed[1].ChangeSequence);
+        Assert.Equal(_world.ChangeSequence, grid.LastChangeSequence);
+
+        committed.Clear();
+        ulong beforeRemoves = _world.ChangeSequence;
+        Assert.True(grid.TryRemoveVoxel(first));
+
+        Assert.Equal(2, committed.Count);
+        Assert.Equal(
+            new[] { first, second },
+            committed.Select(eventInfo => eventInfo.VoxelIndex));
+        Assert.Equal(beforeRemoves + 1, committed[0].ChangeSequence);
+        Assert.Equal(beforeRemoves + 2, committed[1].ChangeSequence);
+        Assert.Equal(_world.ChangeSequence, grid.LastChangeSequence);
+        Assert.Equal(0, grid.ConfiguredVoxelCount);
+    }
+
+    [Fact]
+    public void RemovedSparseGrid_ShouldRejectMutationWithoutAdvancingWorldChangeSequence()
+    {
+        GridConfiguration config = CreateSparseConfig(Vector3d.Zero, Vector3d.Zero);
+        Assert.True(_world.TryAddGrid(config, out ushort gridIndex));
+        VoxelGrid removed = _world.ActiveGrids[gridIndex];
+        Assert.True(_world.TryRemoveGrid(gridIndex));
+        ulong changeSequenceAfterRemoval = _world.ChangeSequence;
+
+        Assert.False(removed.TryAddVoxel(default, out Voxel voxel));
+        Assert.Null(voxel);
+        Assert.False(removed.TryRemoveVoxel(default));
+        Assert.Equal(changeSequenceAfterRemoval, _world.ChangeSequence);
     }
 
     [Fact]

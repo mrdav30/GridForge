@@ -14,7 +14,7 @@ namespace GridForge.Grids.Tests;
 public sealed class GridNavigationBaselineTests
 {
     [Fact]
-    public void Capture_ShouldReturnOnlyRequestedSparsePresenceAndObstacleStateAtHighWater()
+    public void Capture_ShouldReturnOnlyRequestedSparsePresenceAndObstacleStateAtCapturedChangeSequence()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
         GridConfiguration configuration = CreateSparseConfiguration(Vector3d.Zero, new Vector3d(2, 0, 0));
@@ -27,14 +27,14 @@ public sealed class GridNavigationBaselineTests
         Assert.True(grid.TryGetVoxel(last, out Voxel blockedVoxel));
         Assert.True(grid.TryAddObstacle(blockedVoxel, world.AllocateObstacleToken()));
 
-        ulong highWater = world.ChangeSequence;
+        ulong capturedChangeSequence = world.ChangeSequence;
         Assert.True(world.TryCaptureNavigationBaseline(
             grid.Configuration.ToGridKey(),
             new[] { first, absent, last },
             out GridNavigationBaseline baseline));
 
-        Assert.Equal(highWater, baseline.HighWaterSequence);
-        Assert.Equal(highWater, baseline.GridHighWaterSequence);
+        Assert.Equal(capturedChangeSequence, baseline.CapturedChangeSequence);
+        Assert.Equal(capturedChangeSequence, baseline.GridLastChangeSequence);
         Assert.Equal(world.SpawnToken, baseline.WorldSpawnToken);
         Assert.Equal(grid.SpawnToken, baseline.GridSpawnToken);
         Assert.Equal(grid.GridIndex, baseline.GridIndex);
@@ -87,42 +87,43 @@ public sealed class GridNavigationBaselineTests
     }
 
     [Fact]
-    public void SubscribeAndCapture_ShouldHaveNoMutationGapOrDoubleApplication()
+    public void Capture_ShouldRejectAnInactiveWorldWithoutProducingABaseline()
     {
-        using GridWorld world = GridWorldTestFactory.CreateWorld();
-        GridConfiguration configuration = CreateSparseConfiguration(Vector3d.Zero, new Vector3d(1, 0, 0));
-        VoxelIndex address = new VoxelIndex(1, 0, 0);
-        Assert.True(world.TryAddGrid(configuration, out ushort gridIndex));
-        VoxelGrid grid = world.ActiveGrids[gridIndex];
-        List<GridEventInfo> events = new List<GridEventInfo>();
+        GridWorld world = GridWorldTestFactory.CreateWorld();
+        world.Dispose();
 
-        Assert.True(world.TrySubscribeNavigationChanges(
-            grid.Configuration.ToGridKey(),
-            new[] { address },
-            events.Add,
-            out GridNavigationChangeSubscription subscription));
+        Assert.False(world.TryCaptureNavigationBaseline(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero).ToGridKey(),
+            ReadOnlySpan<VoxelIndex>.Empty,
+            out GridNavigationBaseline baseline));
+        Assert.Null(baseline);
+    }
 
-        using (subscription)
+    [Fact]
+    public void ChangeStamp_ShouldProvideStableCommittedMutationIdentity()
+    {
+        var stamp = new GridChangeStamp(sequence: 17, causeId: 9);
+        var same = new GridChangeStamp(sequence: 17, causeId: 9);
+        var laterSequence = new GridChangeStamp(sequence: 18, causeId: 9);
+        var differentCause = new GridChangeStamp(sequence: 17, causeId: 10);
+        var committedChanges = new Dictionary<GridChangeStamp, string>
         {
-            Assert.False(subscription.Baseline.VoxelStates[0].IsPresent);
-            Assert.True(grid.TryAddVoxel(address, out _));
-            Assert.True(grid.TryRemoveVoxel(address));
+            [stamp] = "sparse voxel added"
+        };
 
-            Assert.Equal(2, events.Count);
-            Assert.All(events, eventInfo =>
-                Assert.True(eventInfo.ChangeSequence > subscription.Baseline.HighWaterSequence));
-            Assert.Equal(subscription.Baseline.HighWaterSequence + 1, events[0].ChangeSequence);
-            Assert.Equal(events[0].ChangeSequence + 1, events[1].ChangeSequence);
-            Assert.Equal(GridEventKind.SparseVoxelAdded, events[0].ChangeKind);
-            Assert.True(events[0].HasVoxelState);
-            Assert.True(events[0].IsVoxelPresent);
-            Assert.Equal(GridEventKind.SparseVoxelRemoved, events[1].ChangeKind);
-            Assert.True(events[1].HasVoxelState);
-            Assert.False(events[1].IsVoxelPresent);
-        }
-
-        Assert.True(grid.TryAddVoxel(address, out _));
-        Assert.Equal(2, events.Count);
+        Assert.True(stamp.IsValid);
+        Assert.False(new GridChangeStamp(sequence: 0, causeId: 9).IsValid);
+        Assert.False(new GridChangeStamp(sequence: 17, causeId: 0).IsValid);
+        Assert.True(committedChanges.TryGetValue(same, out string description));
+        Assert.Equal("sparse voxel added", description);
+        Assert.False(committedChanges.ContainsKey(laterSequence));
+        Assert.False(committedChanges.ContainsKey(differentCause));
+        Assert.True(stamp.Equals((object)same));
+        Assert.False(stamp.Equals(null));
+        Assert.False(stamp.Equals("17:9"));
+        Assert.True(stamp == same);
+        Assert.True(stamp != laterSequence);
+        Assert.Equal("17:9", stamp.ToString());
     }
 
     [Fact]
@@ -161,12 +162,12 @@ public sealed class GridNavigationBaselineTests
             new[] { address },
             out GridNavigationBaseline after));
         Assert.Equal(1, after.VoxelStates[0].ObstacleCount);
-        Assert.True(after.HighWaterSequence > baseline.HighWaterSequence);
-        Assert.True(after.GridHighWaterSequence > baseline.GridHighWaterSequence);
+        Assert.True(after.CapturedChangeSequence > baseline.CapturedChangeSequence);
+        Assert.True(after.GridLastChangeSequence > baseline.GridLastChangeSequence);
     }
 
     [Fact]
-    public void Capture_ShouldKeepGridHighWaterStableAcrossUnrelatedGridMutation()
+    public void Capture_ShouldKeepGridLastChangeSequenceStableAcrossUnrelatedGridMutation()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
         VoxelGrid observed = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
@@ -187,8 +188,8 @@ public sealed class GridNavigationBaselineTests
             new[] { address },
             out GridNavigationBaseline after));
 
-        Assert.True(after.HighWaterSequence > before.HighWaterSequence);
-        Assert.Equal(before.GridHighWaterSequence, after.GridHighWaterSequence);
+        Assert.True(after.CapturedChangeSequence > before.CapturedChangeSequence);
+        Assert.Equal(before.GridLastChangeSequence, after.GridLastChangeSequence);
     }
 
     [Fact]
@@ -219,19 +220,50 @@ public sealed class GridNavigationBaselineTests
             () => Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken())),
             TestContext.Current.CancellationToken);
         Assert.True(callbackEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
-        Task snapshot = Task.Run(
-            () => world.ExecuteNavigationMaintenanceSnapshot(
-                () => Volatile.Write(ref snapshotEntered, 1)),
-            TestContext.Current.CancellationToken);
+        Exception snapshotError = null;
+        Thread snapshotThread = new(() =>
+        {
+            try
+            {
+                world.ExecuteNavigationMaintenanceSnapshot(
+                    () => Volatile.Write(ref snapshotEntered, 1));
+            }
+            catch (Exception exception)
+            {
+                snapshotError = exception;
+            }
+        }) { IsBackground = true };
 
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-        Assert.Equal(0, Volatile.Read(ref snapshotEntered));
+        try
+        {
+            snapshotThread.Start();
+            Assert.True(SpinWait.SpinUntil(
+                () => (snapshotThread.ThreadState
+                    & (ThreadState.WaitSleepJoin | ThreadState.Stopped)) != 0,
+                TimeSpan.FromSeconds(5)));
+            Assert.Equal(
+                ThreadState.WaitSleepJoin,
+                snapshotThread.ThreadState & ThreadState.WaitSleepJoin);
+            Assert.Equal(0, Volatile.Read(ref snapshotEntered));
 
-        releaseCallback.Set();
-        await Task.WhenAll(mutation, snapshot)
-            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        Assert.Equal(1, Volatile.Read(ref snapshotEntered));
-        Assert.Equal(1, Volatile.Read(ref reentrantMutationCompleted));
+            releaseCallback.Set();
+            Assert.True(snapshotThread.Join(TimeSpan.FromSeconds(5)));
+            await mutation.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+            Assert.Null(snapshotError);
+            Assert.Equal(1, Volatile.Read(ref snapshotEntered));
+            Assert.Equal(1, Volatile.Read(ref reentrantMutationCompleted));
+        }
+        finally
+        {
+            releaseCallback.Set();
+            if (snapshotThread.IsAlive)
+                snapshotThread.Join(TimeSpan.FromSeconds(5));
+            await mutation.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]
@@ -281,6 +313,8 @@ public sealed class GridNavigationBaselineTests
         Assert.Equal(GridEventKind.ObstacleAdded, committed.ChangeKind);
         Assert.True(committed.ChangeStamp.IsValid);
         Assert.Equal(committed.ChangeStamp, exact.ChangeStamp);
+        Assert.Equal(committed.ChangeSequence, exact.ChangeSequence);
+        Assert.Equal(committed.CauseId, exact.CauseId);
         Assert.Equal(voxel.Index, committed.VoxelIndex);
         Assert.True(committed.HasVoxelState);
         Assert.True(committed.IsVoxelPresent);
@@ -342,6 +376,8 @@ public sealed class GridNavigationBaselineTests
         Assert.Equal(GridEventKind.WorldReset, committed[1].ChangeKind);
         Assert.Equal(committed[0].ChangeSequence + 1, committed[1].ChangeSequence);
         Assert.Equal(committed[0].ChangeStamp, exactClear.ChangeStamp);
+        Assert.Equal(committed[0].ChangeSequence, exactClear.ChangeSequence);
+        Assert.Equal(committed[0].CauseId, exactClear.CauseId);
 
         void HandleExactClear(ObstacleClearEventInfo eventInfo) => exactClear = eventInfo;
     }

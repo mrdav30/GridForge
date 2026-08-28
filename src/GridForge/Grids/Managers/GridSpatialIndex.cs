@@ -58,22 +58,21 @@ internal sealed class GridSpatialIndex
         if (_ordinaryGrids.Contains(gridIndex) || _oversizedSlots.Contains(gridIndex))
             return false;
 
-        bool inserted;
         if (FitsHashCellBudget(bounds))
-            inserted = _ordinaryGrids.Insert(gridIndex, bounds);
+            _ordinaryGrids.Insert(gridIndex, bounds);
         else
         {
             _oversizedGrids.Insert(gridIndex, bounds);
-            inserted = _oversizedSlots.Add(gridIndex);
+            _oversizedSlots.Add(gridIndex);
         }
 
-        if (inserted && contactEnvelope.HasValue)
+        if (contactEnvelope.HasValue)
         {
             _contactEnvelopes.Insert(gridIndex, contactEnvelope.Value);
             _contactEnvelopeSlots.Add(gridIndex);
         }
 
-        return inserted;
+        return true;
     }
 
     internal bool Remove(ushort gridIndex)

@@ -32,7 +32,7 @@ public static partial class GridCellGeometry
     {
         SwiftThrowHelper.ThrowIfNull(grid, nameof(grid));
 
-        if (!grid.IsActive || !grid.TryGetVoxel(index, out Voxel? voxel) || voxel == null)
+        if (!grid.IsActive || !grid.TryGetVoxel(index, out Voxel? voxel))
         {
             prism = default;
             return false;
@@ -41,7 +41,7 @@ public static partial class GridCellGeometry
         return TryCreatePrism(
             grid.Configuration.TopologyKind,
             grid.Configuration.TopologyMetrics,
-            voxel.WorldPosition,
+            voxel!.WorldPosition,
             voxel.WorldIndex,
             out prism);
     }
@@ -72,8 +72,11 @@ public static partial class GridCellGeometry
             return false;
         }
 
-        Fixed64 verticalMin = center.Y - halfHeight;
-        Fixed64 verticalMax = center.Y + halfHeight;
+        if (!TryGetSymmetricBounds(center.Y, halfHeight, out Fixed64 verticalMin, out Fixed64 verticalMax))
+        {
+            prism = default;
+            return false;
+        }
 
         Span<Vector2d> footprint = stackalloc Vector2d[6];
         int vertexCount;
@@ -87,10 +90,26 @@ public static partial class GridCellGeometry
                 prism = default;
                 return false;
             }
-            footprint[0] = new Vector2d(center.X - halfWidth, center.Z - halfLength);
-            footprint[1] = new Vector2d(center.X + halfWidth, center.Z - halfLength);
-            footprint[2] = new Vector2d(center.X + halfWidth, center.Z + halfLength);
-            footprint[3] = new Vector2d(center.X - halfWidth, center.Z + halfLength);
+
+            bool hasExactBounds = TryGetSymmetricBounds(
+                center.X,
+                halfWidth,
+                out Fixed64 minX,
+                out Fixed64 maxX);
+            hasExactBounds &= TryGetSymmetricBounds(
+                center.Z,
+                halfLength,
+                out Fixed64 minZ,
+                out Fixed64 maxZ);
+            if (!hasExactBounds)
+            {
+                prism = default;
+                return false;
+            }
+            footprint[0] = new Vector2d(minX, minZ);
+            footprint[1] = new Vector2d(maxX, minZ);
+            footprint[2] = new Vector2d(maxX, maxZ);
+            footprint[3] = new Vector2d(minX, maxZ);
             vertexCount = 4;
             planarInradius = FixedMath.Min(halfWidth, halfLength);
         }
@@ -115,21 +134,63 @@ public static partial class GridCellGeometry
             }
             if (metrics.HexOrientation == HexOrientation.FlatTop)
             {
-                footprint[0] = new Vector2d(center.X - radius, center.Z);
-                footprint[1] = new Vector2d(center.X - halfRadius, center.Z - apothem);
-                footprint[2] = new Vector2d(center.X + halfRadius, center.Z - apothem);
-                footprint[3] = new Vector2d(center.X + radius, center.Z);
-                footprint[4] = new Vector2d(center.X + halfRadius, center.Z + apothem);
-                footprint[5] = new Vector2d(center.X - halfRadius, center.Z + apothem);
+                bool hasExactBounds = TryGetSymmetricBounds(
+                    center.X,
+                    radius,
+                    out Fixed64 minRadiusX,
+                    out Fixed64 maxRadiusX);
+                hasExactBounds &= TryGetSymmetricBounds(
+                    center.X,
+                    halfRadius,
+                    out Fixed64 minHalfX,
+                    out Fixed64 maxHalfX);
+                hasExactBounds &= TryGetSymmetricBounds(
+                    center.Z,
+                    apothem,
+                    out Fixed64 minApothemZ,
+                    out Fixed64 maxApothemZ);
+                if (!hasExactBounds)
+                {
+                    prism = default;
+                    return false;
+                }
+
+                footprint[0] = new Vector2d(minRadiusX, center.Z);
+                footprint[1] = new Vector2d(minHalfX, minApothemZ);
+                footprint[2] = new Vector2d(maxHalfX, minApothemZ);
+                footprint[3] = new Vector2d(maxRadiusX, center.Z);
+                footprint[4] = new Vector2d(maxHalfX, maxApothemZ);
+                footprint[5] = new Vector2d(minHalfX, maxApothemZ);
             }
             else
             {
-                footprint[0] = new Vector2d(center.X, center.Z - radius);
-                footprint[1] = new Vector2d(center.X + apothem, center.Z - halfRadius);
-                footprint[2] = new Vector2d(center.X + apothem, center.Z + halfRadius);
-                footprint[3] = new Vector2d(center.X, center.Z + radius);
-                footprint[4] = new Vector2d(center.X - apothem, center.Z + halfRadius);
-                footprint[5] = new Vector2d(center.X - apothem, center.Z - halfRadius);
+                bool hasExactBounds = TryGetSymmetricBounds(
+                    center.Z,
+                    radius,
+                    out Fixed64 minRadiusZ,
+                    out Fixed64 maxRadiusZ);
+                hasExactBounds &= TryGetSymmetricBounds(
+                    center.Z,
+                    halfRadius,
+                    out Fixed64 minHalfZ,
+                    out Fixed64 maxHalfZ);
+                hasExactBounds &= TryGetSymmetricBounds(
+                    center.X,
+                    apothem,
+                    out Fixed64 minApothemX,
+                    out Fixed64 maxApothemX);
+                if (!hasExactBounds)
+                {
+                    prism = default;
+                    return false;
+                }
+
+                footprint[0] = new Vector2d(center.X, minRadiusZ);
+                footprint[1] = new Vector2d(maxApothemX, minHalfZ);
+                footprint[2] = new Vector2d(maxApothemX, maxHalfZ);
+                footprint[3] = new Vector2d(center.X, maxRadiusZ);
+                footprint[4] = new Vector2d(minApothemX, maxHalfZ);
+                footprint[5] = new Vector2d(minApothemX, minHalfZ);
             }
 
             vertexCount = 6;
@@ -137,12 +198,6 @@ public static partial class GridCellGeometry
         }
 
         ReadOnlySpan<Vector2d> resolvedFootprint = footprint[..vertexCount];
-        if (!FixedConvex2dRelations.IsStrictlyConvex(resolvedFootprint))
-        {
-            prism = default;
-            return false;
-        }
-
         prism = new GridCellPrism(
             cell,
             topologyKind,
@@ -419,11 +474,7 @@ public static partial class GridCellGeometry
             return 1;
         }
 
-        int hullCount = BuildConvexHull(candidates[..candidateCount], intersection);
-        if (hullCount > GridConvexPolygon2d.MaxVertexCount)
-            return 0;
-
-        return hullCount;
+        return BuildConvexHull(candidates[..candidateCount], intersection);
     }
 
     private static int BuildConvexHull(Span<Vector2d> candidates, Span<Vector2d> destination)
@@ -465,15 +516,14 @@ public static partial class GridCellGeometry
         }
 
         count--;
-        if (count <= destination.Length)
-            hull[..count].CopyTo(destination);
+        hull[..count].CopyTo(destination);
         return count;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetExactHalf(Fixed64 value, out Fixed64 half)
     {
-        if (value <= Fixed64.Zero || (value.m_rawValue & 1L) != 0L)
+        if ((value.m_rawValue & 1L) != 0L)
         {
             half = default;
             return false;
@@ -481,6 +531,18 @@ public static partial class GridCellGeometry
 
         half = Fixed64.FromRaw(value.m_rawValue >> 1);
         return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryGetSymmetricBounds(
+        Fixed64 center,
+        Fixed64 extent,
+        out Fixed64 minimum,
+        out Fixed64 maximum)
+    {
+        maximum = default;
+        return Fixed64.TrySubtract(center, extent, out minimum)
+            && Fixed64.TryAdd(center, extent, out maximum);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -501,15 +563,7 @@ public static partial class GridCellGeometry
         out Vector2d end)
     {
         start = points[0];
-        end = points[0];
-        for (int i = 1; i < points.Length; i++)
-        {
-            Vector2d point = points[i];
-            if (CompareCoordinates(point, start) < 0)
-                start = point;
-            if (CompareCoordinates(point, end) > 0)
-                end = point;
-        }
+        end = points[^1];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -529,17 +583,20 @@ public static partial class GridCellGeometry
         int y = target.y - source.y;
         int z = target.z - source.z;
         if (topologyKind == GridTopologyKind.RectangularPrism)
-            return Math.Abs(x) + Math.Abs(y) + Math.Abs(z) == 1;
+        {
+            RectangularDirection direction = RectangularDirectionUtility.GetDirectionFromOffset((x, y, z));
+            return RectangularDirectionUtility.IsPerpendicularNeighbor(direction);
+        }
 
-        if (y == 0)
-            return (x == 1 && z == 0)
-                || (x == 1 && z == -1)
-                || (x == 0 && z == -1)
-                || (x == -1 && z == 0)
-                || (x == -1 && z == 1)
-                || (x == 0 && z == 1);
+        VoxelIndex offset = new(x, y, z);
+        ReadOnlySpan<HexDirection> directions = HexDirectionUtility.Primary;
+        for (int i = 0; i < directions.Length; i++)
+        {
+            if (HexDirectionUtility.GetOffset(directions[i]) == offset)
+                return true;
+        }
 
-        return x == 0 && z == 0 && Math.Abs(y) == 1;
+        return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

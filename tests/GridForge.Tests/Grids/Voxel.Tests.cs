@@ -529,6 +529,42 @@ public class VoxelTests : IDisposable
     }
 
     [Fact]
+    public void RectangularNavigationClosure_ShouldRejectInvalidDirectionsAndRequireExactCapacity()
+    {
+        var closure = new VoxelIndex[8];
+
+        Assert.Equal(
+            0,
+            RectangularDirectionUtility.CopyNavigationClosureOffsets(
+                RectangularDirection.None,
+                closure));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            RectangularDirectionUtility.CopyNavigationClosureOffsets(
+                RectangularDirection.AboveNorthEast,
+                new VoxelIndex[7]));
+        Assert.Equal("destination", exception.ParamName);
+
+        Assert.Equal(
+            8,
+            RectangularDirectionUtility.CopyNavigationClosureOffsets(
+                RectangularDirection.AboveNorthEast,
+                closure));
+        Assert.Equal(
+            new[]
+            {
+                new VoxelIndex(0, 0, 0),
+                new VoxelIndex(1, 0, 0),
+                new VoxelIndex(0, 1, 0),
+                new VoxelIndex(1, 1, 0),
+                new VoxelIndex(0, 0, 1),
+                new VoxelIndex(1, 0, 1),
+                new VoxelIndex(0, 1, 1),
+                new VoxelIndex(1, 1, 1)
+            },
+            closure);
+    }
+
+    [Fact]
     public void GetRectangularNeighborsInto_ShouldReturnOnlyValidDirectionsForCornerVoxel()
     {
         var config = new GridConfiguration(new Vector3d(0, 0, 0), new Vector3d(2, 2, 2));

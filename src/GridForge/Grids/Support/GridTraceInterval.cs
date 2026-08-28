@@ -45,7 +45,7 @@ public readonly struct GridTraceInterval
     public bool IsPhysicallyPresent { get; }
 
     /// <summary>The last committed sequence applied to the traced grid generation.</summary>
-    public ulong GridHighWaterSequence { get; }
+    public ulong GridLastChangeSequence { get; }
 
     /// <summary>The first inclusive segment parameter in the cell prism.</summary>
     public Fixed64 TEnter { get; }
@@ -69,7 +69,7 @@ public readonly struct GridTraceInterval
         WorldVoxelIndex cell,
         GridConfigurationKey configurationKey,
         bool isPhysicallyPresent,
-        ulong gridHighWaterSequence,
+        ulong gridLastChangeSequence,
         Fixed64 tEnter,
         Fixed64 tExit,
         int tieGroupId = -1,
@@ -78,7 +78,7 @@ public readonly struct GridTraceInterval
         Cell = cell;
         ConfigurationKey = configurationKey;
         IsPhysicallyPresent = isPhysicallyPresent;
-        GridHighWaterSequence = gridHighWaterSequence;
+        GridLastChangeSequence = gridLastChangeSequence;
         TEnter = tEnter;
         TExit = tExit;
         TieGroupId = tieGroupId;
@@ -90,7 +90,7 @@ public readonly struct GridTraceInterval
             Cell,
             ConfigurationKey,
             IsPhysicallyPresent,
-            GridHighWaterSequence,
+            GridLastChangeSequence,
             TEnter,
             TExit,
             tieGroupId,

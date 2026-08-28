@@ -198,22 +198,21 @@ generic committed event carry the same cause ID and immutable post-mutation
 counts. Handlers run after the mutation locks are released, and reentrant
 mutations are queued and delivered in ascending sequence order.
 
-Consumers that install addressed metadata can call
-`TrySubscribeNavigationChanges(...)`. It attaches the handler and captures a
-`GridNavigationBaseline` in one critical section. The request supplies the
-exact normalized `GridConfigurationKey` and a strictly ascending, unique span
-of topology-local `VoxelIndex` values. The baseline returns only those
-addresses, the exact active grid generation, sparse presence, obstacle count,
-the grid-local `GridHighWaterSequence`, and the same high-water sequence used by the feed.
-The grid-local high-water changes only with that grid and lets a chunked consumer
-detect target-grid mutation without restarting for unrelated world churn. Apply baseline state first,
-then only committed events whose sequence is greater than that high-water mark.
-
-Use `TryCaptureNavigationBaseline(...)` only when the caller already owns an
-equivalent subscription protocol. Neither baseline API enumerates unrelated
-grids or unrequested physical voxels. `GridIndex` is included for diagnostics;
-the world token, grid generation, and normalized configuration key are the
-identity boundary.
+Consumers that install addressed metadata subscribe once to
+`GridWorld.OnChangeCommitted`, then capture requested addresses with
+`TryCaptureNavigationBaseline(...)` inside their deterministic maintenance
+protocol. The request supplies the exact normalized `GridConfigurationKey` and
+a strictly ascending, unique span of topology-local `VoxelIndex` values. The
+baseline returns only those addresses, the exact active grid generation,
+sparse presence, obstacle count, the grid-local `GridLastChangeSequence`, and
+the world `CapturedChangeSequence` used by the feed. The grid's last-change
+sequence changes only with that grid and lets a chunked consumer detect
+target-grid mutation without restarting for unrelated world churn. Apply
+baseline state first, then only matching committed events whose sequence is
+greater than that captured change sequence. Neither baseline capture nor the
+committed feed enumerates unrelated grids or unrequested physical voxels.
+`GridIndex` is included for diagnostics; the world token, grid generation, and
+normalized configuration key are the identity boundary.
 
 Consumers that already own one committed-change subscription and reconcile at
 a deterministic maintenance boundary can use
