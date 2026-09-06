@@ -11,6 +11,7 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Configurations>Debug;Release;ReleaseLean</Configurations>
+    <DisableTransitiveProjectReferences Condition="'$(UseLocalLsfStack)' == 'true'">true</DisableTransitiveProjectReferences>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
     <DisableMemoryPack>true</DisableMemoryPack>
@@ -19,5 +20,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\GridForge\GridForge.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
+    <ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
+                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
+    <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
+                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
+    <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj"
+                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
   </ItemGroup>
 </Project>
