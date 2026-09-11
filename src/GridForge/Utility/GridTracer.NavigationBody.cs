@@ -85,6 +85,8 @@ public static partial class GridTracer
                 default);
         }
 
+        // Closed bounds reject only disjoint prisms; exact continuous overlap remains the narrow phase.
+        TopologyVoxelAabb bodyBounds = new TopologyVoxelAabb(queryMin, queryMax);
         world.EnterReadLock();
         try
         {
@@ -252,8 +254,8 @@ public static partial class GridTracer
                                     default);
                             }
 
-                            bool hasPositiveOverlap =
-                                GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+                            bool hasPositiveOverlap = bodyBounds.Overlaps(prism.GetAabb(), Fixed64.Zero)
+                                && GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
                                     prism,
                                     startFoot,
                                     endFoot,
@@ -291,6 +293,7 @@ public static partial class GridTracer
                     endFoot,
                     horizontalRadius,
                     bodyHeight,
+                    bodyBounds,
                     scratch.AddressCandidates,
                     scratch.UnionMembers))
             {
@@ -583,6 +586,7 @@ public static partial class GridTracer
         Vector3d endFoot,
         Fixed64 horizontalRadius,
         Fixed64 bodyHeight,
+        TopologyVoxelAabb bodyBounds,
         SwiftList<GridNavigationBodyTraceCandidate> candidates,
         SwiftList<int> unionMembers)
     {
@@ -625,12 +629,13 @@ public static partial class GridTracer
                     targetCandidate);
                 bool overlapsBody = matchingCandidate >= 0
                     ? candidates[matchingCandidate].HasPositiveOverlap
-                    : GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
-                        neighbor,
-                        startFoot,
-                        endFoot,
-                        horizontalRadius,
-                        bodyHeight);
+                    : bodyBounds.Overlaps(neighbor.GetAabb(), Fixed64.Zero)
+                        && GridCellGeometry.HasPositiveNavigationBodyPrismOverlap(
+                            neighbor,
+                            startFoot,
+                            endFoot,
+                            horizontalRadius,
+                            bodyHeight);
                 if (overlapsBody && matchingCandidate < 0)
                     return false;
                 if (matchingCandidate >= 0

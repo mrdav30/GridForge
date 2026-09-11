@@ -241,6 +241,117 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
         Assert.Equal(5, oneRawOverlap.CellCount);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void TranslatingLargeBody_ShouldClaimPrismsBeyondBothEndpointBounds(
+        bool alongDepth,
+        bool reverse)
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(
+                Vector3d.Zero,
+                alongDepth ? new Vector3d(2, 0, 3) : new Vector3d(3, 0, 2)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        WorldVoxelIndex source = Address(grid, new VoxelIndex(1, 0, 1));
+        WorldVoxelIndex target = Address(
+            grid,
+            alongDepth ? new VoxelIndex(1, 0, 2) : new VoxelIndex(2, 0, 1));
+        Vector3d start = new Vector3d(Fixed64.One, -Fixed64.Half, Fixed64.One);
+        Vector3d end = alongDepth
+            ? new Vector3d(Fixed64.One, -Fixed64.Half, new Fixed64(2))
+            : new Vector3d(new Fixed64(2), -Fixed64.Half, Fixed64.One);
+        SwiftList<GridNavigationBodyTraceCell> results = new SwiftList<GridNavigationBodyTraceCell>(12);
+        GridNavigationBodyTraceScratch scratch = new GridNavigationBodyTraceScratch(1, 12);
+
+        GridNavigationBodyTraceReport report = GridTracer.TraceNavigationBodyInto(
+            _world,
+            reverse ? target : source,
+            reverse ? source : target,
+            reverse ? end : start,
+            reverse ? start : end,
+            Fixed64.FromFraction(3, 4), Fixed64.One,
+            results, scratch,
+            gridCandidateLimit: 1, addressCandidateLimit: 12,
+            outputLimit: 12, candidateWorkLimit: 13L);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, report.Status);
+        Assert.Equal(1, report.GridCandidateCount);
+        Assert.Equal(12, report.AddressCandidateCount);
+        Assert.Equal(13L, report.CandidateWorkCount);
+        Assert.Equal(12, report.CellCount);
+        Assert.Equal(_world.ChangeSequence, report.RunStamp.ChangeSequence);
+        VoxelIndex[] expected = alongDepth
+            ? new[]
+            {
+                new VoxelIndex(0, 0, 0), new VoxelIndex(0, 0, 1),
+                new VoxelIndex(0, 0, 2), new VoxelIndex(0, 0, 3),
+                new VoxelIndex(1, 0, 0), new VoxelIndex(1, 0, 1),
+                new VoxelIndex(1, 0, 2), new VoxelIndex(1, 0, 3),
+                new VoxelIndex(2, 0, 0), new VoxelIndex(2, 0, 1),
+                new VoxelIndex(2, 0, 2), new VoxelIndex(2, 0, 3)
+            }
+            : new[]
+            {
+                new VoxelIndex(0, 0, 0), new VoxelIndex(0, 0, 1), new VoxelIndex(0, 0, 2),
+                new VoxelIndex(1, 0, 0), new VoxelIndex(1, 0, 1), new VoxelIndex(1, 0, 2),
+                new VoxelIndex(2, 0, 0), new VoxelIndex(2, 0, 1), new VoxelIndex(2, 0, 2),
+                new VoxelIndex(3, 0, 0), new VoxelIndex(3, 0, 1), new VoxelIndex(3, 0, 2)
+            };
+        Assert.Equal(expected.Select(index => Address(grid, index)), results.Select(value => value.Cell));
+        Assert.All(results, value =>
+        {
+            Assert.True(value.IsPhysicallyPresent);
+            Assert.Equal(GridNavigationBodyTraceCellRole.RequiredCoverage, value.Role);
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TranslatingZeroRadiusBody_ShouldClaimUpperEndpointHeightBeyondClosure(bool reverse)
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(0, 3, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        WorldVoxelIndex source = Address(grid, new VoxelIndex(0, 1, 0));
+        WorldVoxelIndex target = Address(grid, new VoxelIndex(0, 2, 0));
+        Vector3d start = new Vector3d(Fixed64.Zero, Fixed64.Half, Fixed64.Zero);
+        Vector3d end = new Vector3d(Fixed64.Zero, Fixed64.FromFraction(3, 2), Fixed64.Zero);
+        SwiftList<GridNavigationBodyTraceCell> results = new SwiftList<GridNavigationBodyTraceCell>(3);
+        GridNavigationBodyTraceScratch scratch = new GridNavigationBodyTraceScratch(1, 4);
+
+        GridNavigationBodyTraceReport report = GridTracer.TraceNavigationBodyInto(
+            _world,
+            reverse ? target : source,
+            reverse ? source : target,
+            reverse ? end : start,
+            reverse ? start : end,
+            Fixed64.Zero, Fixed64.FromFraction(3, 2),
+            results, scratch,
+            gridCandidateLimit: 1, addressCandidateLimit: 4,
+            outputLimit: 3, candidateWorkLimit: 5L);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, report.Status);
+        Assert.Equal(1, report.GridCandidateCount);
+        Assert.Equal(4, report.AddressCandidateCount);
+        Assert.Equal(5L, report.CandidateWorkCount);
+        Assert.Equal(3, report.CellCount);
+        Assert.Equal(_world.ChangeSequence, report.RunStamp.ChangeSequence);
+        Assert.Equal(
+            new[] { source, target, Address(grid, new VoxelIndex(0, 3, 0)) },
+            results.Select(value => value.Cell));
+        Assert.All(results, value =>
+        {
+            Assert.True(value.IsPhysicallyPresent);
+            Assert.Equal(GridNavigationBodyTraceCellRole.RequiredCoverage, value.Role);
+        });
+    }
+
     [Fact]
     public void DisjointPlanarAndVerticalInteriorIntervals_ShouldExcludePrism()
     {
