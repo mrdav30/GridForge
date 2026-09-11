@@ -660,10 +660,19 @@ public static partial class GridCellGeometry
         out Fixed64 overlapEnter,
         out Fixed64 overlapExit)
     {
-        Vector2d origin = new(prism.Center.X, prism.Center.Z);
         Span<Vector2d> vertices = stackalloc Vector2d[6];
-        Span<Vector2d> offsets = stackalloc Vector2d[6];
         prism.CopyFootprintTo(vertices);
+        // A convex footprint strictly on one side cannot meet the supporting line;
+        // zero or mixed signs retain the existing exact interval path.
+        if (IsFootprintStrictlySeparatedFromLine(vertices[..prism.FootprintVertexCount], start, end))
+        {
+            overlapEnter = default;
+            overlapExit = default;
+            return false;
+        }
+
+        Vector2d origin = new(prism.Center.X, prism.Center.Z);
+        Span<Vector2d> offsets = stackalloc Vector2d[6];
         for (int i = 0; i < prism.FootprintVertexCount; i++)
             offsets[i] = vertices[i] - origin;
         ReadOnlySpan<Vector2d> footprint = offsets[..prism.FootprintVertexCount];
@@ -712,6 +721,25 @@ public static partial class GridCellGeometry
         {
             overlapEnter = FixedMath.Min(overlapEnter, parameters[i]);
             overlapExit = FixedMath.Max(overlapExit, parameters[i]);
+        }
+        return true;
+    }
+
+    private static bool IsFootprintStrictlySeparatedFromLine(
+        ReadOnlySpan<Vector2d> vertices,
+        Vector2d start,
+        Vector2d end)
+    {
+        if (vertices.IsEmpty)
+            return false;
+
+        int side = Vector2d.OrientationSign(start, end, vertices[0]);
+        if (side == 0)
+            return false;
+        for (int i = 1; i < vertices.Length; i++)
+        {
+            if (Vector2d.OrientationSign(start, end, vertices[i]) != side)
+                return false;
         }
         return true;
     }

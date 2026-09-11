@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-004`.
+  `GF-Benchmark-005`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,9 +55,56 @@ None.
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-004 — Disjoint segment candidates reach expensive planar intersection | Closed locally | High | Trailblazer `TRB-Benchmark-005` remains active for remaining guided-frame costs |
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-004 - Disjoint segment candidates reach expensive planar intersection
+
+- **Discovered:** 2026-09-10 while measuring Trailblazer `TRB-Benchmark-005`.
+- **Status:** Closed locally on 2026-09-10 for the strict disjoint-candidate
+  rejection. The broader guided-frame budget remains unmet and tracked by
+  Trailblazer; this is not a claim that tracing is now fast enough.
+- **Evidence:** Trailblazer's real guided Flow100 frame fixture spends
+  1.14–1.19 seconds on synchronized periodic blocked line-of-sight rechecks.
+  A separate measured-block profile places approximately 90% inclusively in
+  `GridTracer.TraceIntervalsInto`, 87% in `TryGetPlanarSegmentInterval` and
+  60% in wide point containment. Shares overlap; this is not isolated per-call
+  cost or a universal host timing claim.
+- **Cause:** The segment-AABB range includes many cells whose convex
+  footprint lies strictly on one side of the supporting line. Exact interval
+  math currently processes those false positives as well as intersecting cells.
+- **Focused change:** Use existing exact widened `Vector2d.OrientationSign`
+  for conservative same-side rejection, then retain the existing interval solve
+  for every ambiguous/crossing/tangent/point case. Do not alter raw candidate
+  enumeration, ceilings, canonical output, prism validation or failure order.
+- **Matched result:** Three cases (A*/100, Flow/100, Flow/500), each with three
+  launches, one warmup and three actual 64-frame blocks. Observed maximum host
+  frames fall **1,250.667 -> 146.656 ms**, **1,220.792 -> 116.166 ms**, and
+  **4,117.407 -> 501.471 ms**. Median whole-block times improve
+  **85.8% / 87.0% / 82.4%**. Only `GridForge.dll` and its PDB differ between
+  the 47 frozen before/after benchmark output files. All captured replay hashes
+  match, and all frame allocation/collection-change records remain zero.
+- **Limits and tradeoff:** Each case still has 36/576 frames above 31.25 ms,
+  at the same synchronized recheck positions. Ordinary A*/100 median increases
+  **2.371 -> 2.624 ms** in this capture; retain that follow-up rather than
+  claiming every frame improved. A*/500 was excluded from the repeated matrix.
+  This rejection does not reduce candidate enumeration's asymptotic size.
+  Trailblazer's separate `TRB-Issue-119` A* setup exception is not claimed as
+  fixed by this performance change.
+- **Verification:** Nineteen new cases use independent literal geometry,
+  closed-contact, extreme-coordinate, finite-segment, candidate-budget and
+  failure-order assertions. Release/Lean each pass **844 tests** with exact
+  **8,861/8,861 lines**, **3,787/3,787 branches** and **1,115/1,115 fully covered
+  methods**. Both solution configurations build both library targets with zero
+  warnings/errors. An additional Debug solution run passes all **841 applicable
+  tests**. Downstream Trailblazer core/adapter matrices also pass with
+  exact coverage. Independent code/proof and raw-evidence reviews pass.
+  These are local Windows, unreleased-stack checks, not Linux/released-package CI.
+- **Coordination:** Trailblazer's benchmark tracker owns the complete host
+  protocol, remaining profile leads and retained `artifacts/benchmark004`
+  evidence, including `guided-{baseline,candidate}` and `verification-final`.
 
 ### GF-Benchmark-003 — Debug Cursor/Contact Allocation Guards Fail
 
