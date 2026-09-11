@@ -148,6 +148,20 @@ whole-footprint rejection and serve as a control for changes inside the later
 edge loop. These are geometry microbenchmarks, not complete world traces or
 simulation frames; use a consuming workload before claiming a host-frame gain.
 
+## Accepting A Benchmark Capture
+
+Keep the full log and verify every expected case and child launch completed,
+with successful child exits and the expected measurement stages. A populated
+summary can contain results from an earlier launch even when a later launch
+fails. The current launcher also does not propagate BenchmarkDotNet's report
+failures to its own exit code, so a zero command exit is not sufficient.
+
+Exclude incomplete cases from comparisons. Missing allocation diagnostics are
+unknown, not zero; a later successful replay does not complete an earlier
+failed capture. Preserve the actual executed child binaries, generated source
+and runtime configuration when investigating an exception. Inspect diagnostic
+launches as well as timed launches before accepting a result.
+
 ## Benchmark Environment Behavior
 
 `BenchmarkEnvironment`:

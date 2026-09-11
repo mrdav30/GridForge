@@ -2,7 +2,7 @@
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-007`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-008`.
 - Assign an ID when an issue enters this tracker, keep it through resolution,
   and never reuse an ID even if an entry is later removed. Check this file's Git
   history before advancing or repairing the counter.
@@ -20,6 +20,37 @@
   here until they have been investigated and confirmed as runtime defects.
 
 ## Active Issues
+
+### GF-Issue-007 - Benchmark launcher returns success after a failed child
+
+- **Discovered:** 2026-09-11 while investigating `GF-Issue-006`.
+- **Status:** Open; confirmed benchmark-tooling defect, not a geometry defect.
+- **Boundary:** Every execution branch in
+  `tests/GridForge.Benchmarks/Program.cs` discards the summaries returned by
+  `BenchmarkSwitcher.Run(...)` and returns zero. The historical planar baseline
+  command returned zero despite its second pointy-hex strict-miss child exiting
+  -1 and the third launch never running. Partial statistics survive the failure.
+  Trailblazer's launcher has the same defect, coordinated as `TRB-Issue-120`.
+- **Required correction:** Return nonzero for critical validation errors,
+  unsuccessful reports/builds, or failed/unknown exits in a report's returned
+  executions. Preserve successful help/list commands and combine failure status
+  across all execution groups. Do not stop checking after the first good launch.
+- **Upstream boundary:** In BenchmarkDotNet 0.15.8,
+  [`ExecuteResult.IsSuccess`](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Toolchains/Results/ExecuteResult.cs)
+  checks for result measurements, not the exit code. Inspect both report success
+  and execution exit codes; results followed by a nonzero exit must still fail.
+  The [runner](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Running/BenchmarkRunnerClean.cs)
+  does not retain an extra diagnoser run in the returned executions, so a
+  summary-only correction cannot promise to detect every diagnostic failure.
+  Empty summaries also occur for informational and invalid/no-match commands;
+  do not classify every empty result as a failed benchmark.
+- **Acceptance:** Cover successful launches; success followed by a failed
+  launch; results followed by nonzero/unknown exit; build/critical-validation
+  failures; and successful information commands. Exercise the real launcher
+  with an isolated failing workload in addition to result-classification tests.
+- **Interim gate:** Inspect full logs and every expected child exit, launch and
+  sample count. A zero parent exit or populated summary table is insufficient.
+  This correction will not explain or resolve `GF-Issue-006`.
 
 ### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
 
@@ -60,6 +91,76 @@
   retries, disable runtime optimization or change the geometry to conceal it.
 - **Coordination:** Trailblazer `TRB-Issue-119` retains a separate A* setup
   exception with a different reported stack. No common cause or fix is proven.
+
+#### Focused investigation - 2026-09-11
+
+The frozen child still matches all **64 original file hashes**. Source and IL
+inspection found no nullable reference or retained-stack lifetime defect in
+the normal strict-miss geometry path: the prism stores copied value fields,
+its six vertices lie strictly below this ray, and it returns before containment
+or segment intersection. The generated runner's consumer and delegate are
+initialized and rooted. Its wrapper requests `AggressiveOptimization`; the
+late failure is not evidence that this wrapper entered a new tier at that
+iteration. Callees can compile independently. The optimized source line does
+not identify the faulting object or native instruction.
+
+Additional unchanged-child probes on Windows x64 / .NET 8.0.29:
+
+| Probe | Child exits | Actual iterations | Result rows | Outcome |
+| --- | --- | --- | --- | --- |
+| Console host, name-only exception collector | 1/1 zero | 15 | 15 | No recurrence; collector limitation below |
+| Custom acknowledged-pipe parent | 3/3 zero | 15 / 15 / 15 | 14 / 15 / 15 | All four lifecycle signals complete |
+| Same pipe parent, validated collector attached before first acknowledgement | 3/3 zero | 15 / 15 / 15 | 13 / 15 / 15 | Complete lifecycle; no matching fault or dump |
+
+Fewer result rows reflect BenchmarkDotNet's outlier filtering, not a missing
+launch. All seven probes report zero measured allocation. These are diagnostic
+replays, **not** replacement launches for the failed baseline, throughput
+comparisons, or evidence of a fix. The custom parent preserves the exact child,
+benchmark ID 5, benchmark name, job arguments and pipe acknowledgement order,
+requests High priority, and verifies hashes after each run. It is not the
+original BenchmarkDotNet parent: scheduling, redirected stderr and diagnoser
+callbacks differ; captured runs additionally change debugger/handshake timing.
+No production code, runtime optimization setting or dependency was changed.
+
+Evidence is local in the coordinating Trailblazer checkout under
+`artifacts/gf-issue006/`: `console-firstchance-1.log`,
+`pipe-normal-1/run-{1,2,3}` and `pipe-capture-1/run-{1,2,3}`. Each pipe run retains
+arguments, PID, exit, priority/affinity, lifecycle, logs and a hash manifest.
+`pipe-replay/README.md` documents the ignored diagnostic harness and its limits.
+Independent source and evidence reviews found no justified runtime patch.
+
+**Capture blind spot established by a separate positive control:**
+BenchmarkDotNet's generated program catches and prints the exception, so
+unhandled-only collection is inadequate. An isolated net8.0 program deliberately
+dereferenced null and caught the resulting exception without loading GridForge.
+On this host, ProcDump 12.01 with only `*NullReferenceException*` captured nothing;
+including native `C0000005` captured the fault before managed exception creation.
+Dump analysis identifies the control's `Program.Touch` frame, fault instruction
+address and zero registers. This is a collector validation, **not a reproduction
+or crash dump of GF-Issue-006**.
+
+For the next fault capture, use the validated first-chance filter
+`-ma -e 1 -f 'C0000005,*NullReferenceException*'`. With the frozen pipe harness,
+read each new run's `attach-ready.json`, attach to that exact PID, verify the
+collector's monitoring-ready message, then create that run's `continue` file.
+The harness has a 180-second per-child budget, stops on failure and never retries.
+Do not interpret the collector's own exit code as the benchmark child's status.
+Use native fault context plus disassembly/registers, runner/consumer/delegate
+references, prism inputs and loaded-module identities to identify the failing
+operation before changing code. A matching native event can also be handled
+internally, so correlate any dump with the child's exception log and stack.
+The one-dump collector stops after its first match. If that event is unrelated,
+the remaining execution is no longer covered; inspect the dump before arranging
+another bounded capture, and never retry a failed child to erase its failure.
+The smoke logs and analyzed control dump remain in `capture-smoke*`; full dumps
+stay local and private, with no global debugger/WER registration or upload.
+See [ProcDump's capture options](https://learn.microsoft.com/en-us/sysinternals/downloads/procdump).
+
+**Disposition:** Remains open, awaiting a captured recurrence. No confirmed
+GridForge, FixedMathSharp, BenchmarkDotNet, runtime or hardware cause was found.
+Do not spend further runs treating successful replays as a fix. Address the
+separately confirmed launcher-status defect (`GF-Issue-007`) before trusting an
+automated profiling gate, and keep the failed case excluded from comparisons.
 
 ## Performance Investigation Queue
 
