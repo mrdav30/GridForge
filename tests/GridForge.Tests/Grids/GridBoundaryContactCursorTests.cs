@@ -1192,6 +1192,7 @@ public sealed class GridBoundaryContactCursorTests
         long contactAllocated = MeasureGridCycle(world, neighbor);
 
         Assert.True(baselineAllocated >= 0);
+        Assert.True(contactAllocated >= 0);
         Assert.True(
             contactAllocated <= baselineAllocated,
             $"Contact churn allocated {contactAllocated} bytes versus {baselineAllocated} baseline bytes.");

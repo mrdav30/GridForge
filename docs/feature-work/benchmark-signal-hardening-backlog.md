@@ -49,51 +49,108 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ## Active Signals
 
-| Signal | Status | Priority | Tracking |
-| ------ | ------ | -------- | -------- |
-| GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Open | Medium | Source-correlated SwiftDictionary value-key null checks |
-
-### GF-Benchmark-003 — Debug Cursor/Contact Allocation Guards Fail
-
-- **Discovered:** 2026-09-10 during extra Debug validation for
-  `GF-Benchmark-002` / Trailblazer `TRB-Benchmark-003`.
-- **Evidence:** Full local-stack Debug passes 818 tests and fails four of 822:
-  `GridCoveredAddressCursorTests.Advance_ShouldAllocateNothingAfterWarmup`
-  (112 bytes), `GridBoundaryContactCursorTests.FilteredAdvance_ShouldAllocateNothingAfterWarmup`
-  (160 bytes), `Advance_ShouldAllocateNothingAndRetainNoVoxelReferencesAfterWarmup`
-  (48 bytes), and
-  `PairDirectory_ShouldNotAllocateWhenLastPairIsRemovedAndReaddedAfterWarmup`
-  (880 versus 856 baseline bytes). Release/Lean each pass all 825 tests at exact
-  100% coverage. Configuration-dependent test counts are retained as observed.
-- **Counterfactual:** Temporarily removing only the body-bound optimization
-  restores the complete pre-change GridForge production source and reproduces
-  the same four Debug failures and byte counts. The new body tests are retained.
-  Candidate source was restored exactly, and its 42 body-trace tests pass in
-  Debug. This signal predates and is independent of the body patch; the full
-  Debug gate is still red, not waived by the Release results.
-- **Source lead:** SwiftCollections `SwiftDictionary<TKey,TValue>.FindEntry`
-  and `Remove` compare a generic key with null. Value-key boxing in unoptimized
-  code is consistent with one 112-byte configuration-key lookup, two 24-byte
-  ushort lookups for pair traversal, and their 160-byte filtered sum. The churn
-  delta has no clean single-lookup attribution. This is source-correlated
-  evidence, not an allocation-stack capture or confirmed fix.
-- **Reproduction:** `dotnet test GridForge.slnx -c Debug -p:UseLocalLsfStack=true`.
-  Initial candidate, pre-change production counterfactual and restored body
-  logs/TRX are retained in the Trailblazer checkout under
-  `artifacts/benchmark003/validated/debug-gridforge`, `debug-baseline` and
-  `validated/debug-body`, respectively; companion logs retain exact failures.
-  No SwiftCollections source change was made in this pass.
-- **Next isolation:** Confirm the generic null-check allocation with a focused
-  SwiftCollections Debug value-key probe, preserve reference-key null behavior,
-  then validate the owning upstream fix and downstream configurations together.
-  Do not weaken or skip the guards or blame Debug assertions without attribution.
+None.
 
 ## Closed Signals
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-003 — Debug Cursor/Contact Allocation Guards Fail
+
+- **Discovered:** 2026-09-10 during extra Debug validation for
+  `GF-Benchmark-002` / Trailblazer `TRB-Benchmark-003`.
+- **Status:** Closed locally on 2026-09-10. The SwiftCollections-owned fix and
+  focused tests are implemented, independently reviewed and validated through
+  the unreleased local stack. No GridForge runtime change is required.
+- **Baseline:** GridForge `0ac12155344828047f0c4f69adfa53883227d0da` with
+  SwiftCollections `df71a0fad083f42a8dde528f8a0634ab8d5a5a54` reproduces the
+  original four Debug failures: 818 pass, four fail, 822 total. The earlier
+  pre-body-optimization counterfactual also reproduced exactly these failures;
+  they are independent of `GF-Benchmark-002`.
+
+  | Debug guard | Before | After |
+  | ----------- | -----: | ----- |
+  | Covered-address cursor advance | 112 B | 0 B |
+  | Filtered boundary-contact advance | 160 B | 0 B |
+  | Unfiltered boundary-contact advance | 48 B | 0 B |
+  | Last-pair remove/readd churn | 880 B versus 856 B control | Passes the unchanged no-incremental-allocation comparison |
+
+- **Isolation:** Six new SwiftDictionary Debug rows measure lookup hit/miss,
+  removal hit/miss/reinsert and indexer hits with `ushort` and a 96-byte
+  `IEquatable<T>` key. At 256 warmed iterations, each baseline row allocates
+  12,288 / 57,344 bytes respectively: two 24 / 112-byte boxes per iteration.
+  Caching whether `TKey` can be null, then short-circuiting the existing
+  `FindEntry`/`Remove` null guards, makes lookup/removal allocate exactly zero
+  and passes all 822 original GridForge Debug tests before any GridForge test
+  change. This controlled change confirms the downstream fix, including the
+  churn comparison, without claiming a unique allocation stack for its net
+  24-byte difference.
+- **Adjacent confirmed cause:** The typed indexer still allocates one box per
+  hit (6,144 / 28,672 bytes per 256 iterations) after the null-guard-only fix.
+  Calling the existing object-based error helper only on a miss removes that
+  successful-read boxing too. All six rows then pass at exact zero, without
+  Debug exclusions, retries, forced GC or relaxed tolerances.
+- **Contracts and tests:** Reference-null and empty nullable keys preserve
+  lookup/removal failure, default output, comparer bypass and exception types.
+  Valid nullable keys still work. Probing, comparer behavior for valid keys,
+  mutation/versioning, public API and serialization are unchanged. The GridForge
+  churn test now also rejects its helper's `-1` failure sentinel on the contact
+  side, preventing failed add/remove operations from masquerading as low
+  allocation. The allocation comparison itself is unchanged.
+- **Coverage follow-up:** Initial Swift ReleaseLean coverage exposed two lines
+  and three branches in cached key-view reuse, enumeration completion and
+  packed-set populated-state restoration. The same gaps reproduced on unchanged
+  production source. Two transport-independent behavior tests close them; no
+  additional runtime change or coverage exclusion was needed. The original
+  indexer also failed the new allocation regressions in that instrumented Lean
+  counterfactual. Swift's complexity register records the fresh review and
+  distinguishes source complexity from Coverlet's exported metric.
+- **Verification:** All builds succeed and cover both runtime target frameworks.
+  The Swift ReleaseLean build records one `MSB3026` file-copy retry warning;
+  it succeeds on retry with zero errors. The retained matrix is not described
+  as warning-free. A separate serial (`-m:1`) Swift Lean build confirmation
+  succeeds with zero warnings/errors; the original warning remains in evidence.
+  Tests pass without skips:
+  - Swift core: 1,097 Debug / 1,099 Release / 1,071 Lean; companion: 43 each.
+    Combined exact coverage is 7,527 lines / 2,530 branches / 1,278 methods in
+    Debug, 5,676 / 2,522 / 1,278 in Release, 5,664 / 2,522 / 1,272 in Lean.
+  - GridForge: 822 Debug / 825 Release / 825 Lean. Both Release variants retain
+    exactly 8,848 lines / 3,777 branches / 1,114 fully covered methods.
+    Debug tests are green; its separately recorded instrumented coverage is
+    11,066/11,078 lines, 3,790/3,807 branches and 1,109/1,114 fully covered
+    methods, not a claim of full Debug coverage.
+  - Trailblazer: 2,467 core + 65 adapter in Release; 2,405 + 65 in Lean.
+    Both retain exactly 30,842 lines / 12,089 branches / 3,011 fully covered
+    methods. Existing staged Trailblazer changes were preserved.
+- **Benchmark scope:** Matched serial BenchmarkDotNet ShortRun integer
+  lookup/removal cases at 100 / 1K / 10K / 100K entries report zero allocation
+  both before and after. These are smoke measurements, not a Release speedup,
+  steady-state or tail-latency claim. The decisive evidence is the controlled
+  boxing regressions and downstream Debug guards. Measurements are local
+  Windows x64/.NET 8.0.29 results, not Linux CI or released-package validation.
+  Standalone benchmark builds use the repository's `0.0.0` assembly identity;
+  local-stack test copies use the declared `7.0.0` core identity. The two smoke
+  runs use matching standalone build settings, but they are not byte-identical
+  to the version-stamped downstream test binaries. No cross-binary timing claim
+  is made.
+- **Reproduction and evidence:** Run
+  `dotnet test GridForge.slnx -c Debug -p:UseLocalLsfStack=true`; build and test
+  SwiftCollections in Debug/Release/ReleaseLean and Trailblazer in both release
+  configurations with the same local-stack property and each project's coverage
+  runsettings. The Swift allocation cases are named
+  `ValueKeyLookup_ShouldAllocateZeroAfterWarmup`,
+  `ValueKeyRemoval_ShouldAllocateZeroAfterWarmup` and
+  `ValueKeyIndexerHit_ShouldAllocateZeroAfterWarmup`.
+  Trailblazer's `artifacts/gf-benchmark003` retains baseline and null-guard-only
+  logs/TRX, the unchanged-production Lean coverage counterfactual, final matrices
+  in `final-validated`, and `benchmark-baseline`/`benchmark-candidate` reports.
+  Baseline setup mistakes (the benchmark project's declared TFM is `net8`, not
+  `net8.0`, and an initially incorrect test constructor argument) remain in
+  separate logs; they are not runtime failures or flaky-test retries.
 
 ### GF-Benchmark-002 — Disjoint Swept-Body Prisms Reach Expensive Exact Overlap
 
@@ -121,7 +178,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean
   Lean, each with exactly 8,848/8,848 lines, 3,777/3,777 branches and 1,114/1,114
   fully covered methods. All 42 body-trace tests pass in Debug; the wider Debug
   failures are independently reproduced on pre-change production source and
-  retained above as `GF-Benchmark-003`, not declared fixed or passing.
+  retained as `GF-Benchmark-003`, not fixed by the body patch. The later
+  SwiftCollections follow-up above now closes that separate Debug gate.
   Independent source and downstream-evidence review found no blocking body-
   patch finding. Full evidence and provenance limits are consolidated in
   Trailblazer's `docs/feature-work/benchmark-signal-hardening-backlog.md`
