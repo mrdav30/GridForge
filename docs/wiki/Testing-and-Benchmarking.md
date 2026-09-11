@@ -110,6 +110,8 @@ dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c R
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
 dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-spatial-index --filter '*GridSpatialIndex*'
+
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-planar-interval --filter '*'
 ```
 
 The `sparse-voxel-grid` alias covers sparse construction density, configured and
@@ -137,6 +139,14 @@ scaling, mixed ordinary/oversized lookup, and many-oversized-grid scaling. For
 matched evidence, build once and run the compiled `Release/net8.0` benchmark DLL
 with the same aliases and filters, changing only `--artifacts` between the
 baseline, after, and confirmation roots.
+
+The `grid-planar-interval` alias isolates exact planar interval solving on
+rectangular, pointy-top hex and flat-top hex cell footprints. Each layout has
+a crossing, a closed vertex touch and a one-raw-unit strict miss; setup verifies
+the exact Boolean and interval results. Strict misses exercise the early
+whole-footprint rejection and serve as a control for changes inside the later
+edge loop. These are geometry microbenchmarks, not complete world traces or
+simulation frames; use a consuming workload before claiming a host-frame gain.
 
 ## Benchmark Environment Behavior
 

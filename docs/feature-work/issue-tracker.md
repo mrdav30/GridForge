@@ -2,7 +2,7 @@
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-006`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-007`.
 - Assign an ID when an issue enters this tracker, keep it through resolution,
   and never reuse an ID even if an entry is later removed. Check this file's Git
   history before advancing or repairing the counter.
@@ -21,7 +21,45 @@
 
 ## Active Issues
 
-- None currently.
+### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
+
+- **Discovered:** 2026-09-11 during `GF-Benchmark-005` baseline measurement.
+- **Status:** Open; root cause is not established. This is an incomplete
+  benchmark capture, not a confirmed GridForge runtime defect.
+- **Failure:** `GridPlanarIntervalBenchmarks.StrictMiss(Topology: "PointyHex")`,
+  launch 2, throws `NullReferenceException` after seven warmup and 13 actual
+  iterations. The stack identifies generated
+  `Runnable_5.WorkloadActionUnroll` at `.notcs:1287`, the fifteenth of sixteen
+  identical `consumer.Consume(workloadDelegate())` calls. The benchmark process
+  exits -1; its third launch is not executed. Other cases complete.
+- **Source boundary:** GridForge `b3e60f3`, FixedMathSharp `e8a2ab5`, and the new
+  benchmark fixture, before the runtime edge guard. The pointy-hex query is a
+  horizontal line one raw unit above the top vertex. Its normal strict-miss
+  path returns before point containment and before the proposed edge loop.
+  The benchmark's geometry fields are value types written only by setup.
+  The generated constructor initializes its delegate and consumer, with no
+  later reassignment. These observations do not identify the failing object.
+- **Evidence:** The full log, JSON and actual executed child/source/hash
+  snapshots are retained in the coordinating Trailblazer checkout under
+  `artifacts/benchmark005/planar-edge-baseline*`. The capture has 26 child
+  executions, 25 successful exits and one failed exit. Its partial pointy-hex
+  miss statistics must not be presented as a complete three-launch result.
+- **Bounded follow-up:** Two direct executions of the same frozen child with
+  `--benchmarkId 5` both complete successfully with zero measured allocation.
+  Their logs are `planar-strictmiss-frozen-repro-{1,2}.log` beside the capture.
+  These use the generated runner's console host instead of BenchmarkDotNet's
+  parent-driven host; they neither complete the original three-launch baseline
+  nor establish a fix. The exception remains unresolved.
+- **Candidate watch:** The separate edge-guard candidate capture completes all
+  nine cases / 27 child launches, including all three pointy-hex strict-miss
+  launches. The runtime guard was then withdrawn after mixed performance results.
+  This unchanged strict-miss path and its clean follow-up do not explain or
+  resolve the original failure; no exception workaround is retained.
+- **Next check:** If it recurs, capture the exception state before changing
+  code. Do not add null guards,
+  retries, disable runtime optimization or change the geometry to conceal it.
+- **Coordination:** Trailblazer `TRB-Issue-119` retains a separate A* setup
+  exception with a different reported stack. No common cause or fix is proven.
 
 ## Performance Investigation Queue
 

@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-005`.
+  `GF-Benchmark-006`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -49,16 +49,109 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ## Active Signals
 
-None.
+- None currently.
 
 ## Closed Signals
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-005 — Strictly separated edges still enter exact interval solving | Closed locally; runtime candidate withdrawn | High | Mixed measured benefit; Trailblazer `TRB-Benchmark-005` remains active |
 | GF-Benchmark-004 — Disjoint segment candidates reach expensive planar intersection | Closed locally | High | Trailblazer `TRB-Benchmark-005` remains active for remaining guided-frame costs |
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-005 - Strictly separated edges still enter exact interval solving
+
+- **Discovered:** 2026-09-11 during Trailblazer `TRB-Benchmark-005`.
+- **Status:** Closed locally on 2026-09-11 with a **no-runtime-change decision**.
+  The tested edge guard is withdrawn: its narrow touch-case gains do not establish
+  enough benefit in the consuming workload to retain added per-edge work/state.
+  The earlier whole-footprint rejection remains unchanged.
+- **Hypothesis:** A prior guided Flow/100 sampled-thread-time profile attributes
+  roughly 49.0% inclusively to tracing and 36.7% to planar interval solving
+  (overlapping shares). Avoid exact intersection work for individual edges whose
+  endpoints have equal nonzero widened orientation signs relative to the ray.
+  Reuse consecutive signs; preserve mixed/zero contacts and the existing exact
+  parameter solve. This candidate added no cache or public API.
+- **Capture:** Windows/.NET 8.0.29, BenchmarkDotNet 0.15.8, local-stack Release.
+  Baseline GridForge `b3e60f3`, FixedMathSharp `e8a2ab5`, plus the new benchmark
+  fixture; the candidate changes only the planar-interval implementation in
+  production source. Default adaptive iterations and outlier policy, three
+  launches per case; all timing runs are serial. With the unreleased siblings,
+  set `$env:UseLocalLsfStack = 'true'` before building and running so generated
+  children also select the local stack:
+
+  ```powershell
+  dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -p:UseLocalLsfStack=true
+  dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll grid-planar-interval --filter '*' --launchCount 3 --exporters json --keepFiles --artifacts artifacts/planar-edge-baseline
+  ```
+
+  Use a distinct candidate artifact directory for a comparison; do not overwrite
+  the baseline. The actual coordinated captures are under Trailblazer's
+  `artifacts/benchmark005/planar-edge-{baseline,candidate}*`.
+
+  | Case | BDN mean before / candidate, ns | BDN change | All-raw Actual mean change |
+  | --- | ---: | ---: | ---: |
+  | Flat hex crossing | 3,070.308 / 3,094.237 | +0.8% | +0.7% |
+  | Flat hex vertex touch | 3,602.272 / 3,470.694 | -3.7% | -3.7% |
+  | Flat hex strict miss | 45.441 / 47.124 | +3.7% | +3.9% |
+  | Pointy hex crossing | 3,040.900 / 3,031.906 | -0.3% | -0.1% |
+  | Pointy hex vertex touch | 3,654.261 / 3,412.504 | -6.6% | -6.7% |
+  | Rectangle crossing | 3,423.084 / 3,480.132 | +1.7% | +1.7% |
+  | Rectangle vertex touch | 3,928.495 / 3,900.625 | -0.7% | -0.8% |
+  | Rectangle strict miss | 42.847 / 43.702 | +2.0% | +2.1% |
+
+- **Interpretation:** Negative means less time. BDN means use its retained,
+  overhead-corrected results; all-raw means retain every Actual iteration without
+  trimming or overhead subtraction. Each complete case has 45 raw observations.
+  All three launch-level raw medians improve for hex touches, but not for all
+  crossings. Strict misses return before the new guard: their higher measured
+  times are not evidence of guard execution. Capture drift and code-generation
+  effects are possibilities, not proven causes or a universal noise threshold.
+  These are separate process batches, not randomized paired trials. Hex crossings
+  pass through opposite vertices; rectangle crossings pass through edge interiors.
+- **Incomplete baseline:** [GF-Issue-006](issue-tracker.md#gf-issue-006---planar-strict-miss-benchmark-launch-reported-a-null-reference-exception)
+  excludes pointy-hex strict miss from this table. Baseline has 26 child executions,
+  25 clean exits and one failure; candidate has 27 clean exits. All complete cases
+  have explicit zero allocation/GC evidence; the failed baseline case has unknown
+  allocation, not zero. Two clean direct frozen-runner replays are separate
+  evidence, not replacements for the failed parent-driven launch or a fix.
+- **Containing frames:** Trailblazer's three-case guided capture has 27 actual
+  64-frame blocks per version. Whole-block median changes are **-2.3% A*/100,
+  -0.5% Flow/100 and +2.3% Flow/500**. Each case still has 36/576 frames above
+  31.25 ms. Replay is exact and allocation observations are zero, but there is no
+  consistent workload-level gain. The coordinating tracker retains frame and
+  launch distributions; do not describe the rejected candidate as shipped savings.
+- **Retained checks:** Eight literal interval cases cover reversed crossings,
+  closing-edge entry, vertex entry/exit and exact one-sixth/five-sixths rounding.
+  They pass on unchanged runtime and the candidate; all eight fail an intentionally
+  incorrect whole-prism-rejection mutation. All 27 focused interval tests pass
+  after restoring correct behavior. A separate frozen-binary differential probe
+  compares 33,324 ordered queries across rectangle/both hex footprints, extreme
+  origins/endpoints and one-raw offsets with identical boolean and raw interval
+  outputs. It is characterization evidence, not an independent geometry oracle.
+- **Final validation:** After withdrawing the guard, Release and ReleaseLean each
+  pass **852 tests** with exact **8,861/8,861 lines**, **3,787/3,787 branches** and
+  **1,115/1,115 fully covered methods**. Both solution configurations build both
+  library targets with zero warnings/errors. Downstream Trailblazer core/adapter
+  matrices also pass with exact coverage. These are local Windows unreleased-stack
+  checks, not Linux CI or released-package validation. Evidence is in the
+  coordinating checkout's `artifacts/benchmark005/ray-verification`. A final
+  restored-source confirmation also passes both exact Release/Lean gates and
+  **849 Debug tests**, with zero build warnings/errors, under
+  `ray-restored-gridforge`.
+- **Provenance/review:** Independent code/proof and raw-evidence reviews pass.
+  All 64 files in each micro child archive match their manifest. Portable-PDB
+  checks identify only the intended GridForge implementation document as a changed
+  authored input; all 110 GridForge and 200 FixedMathSharp authored documents match
+  their corresponding guided capture. This is a rebuilt comparison, not a claim
+  of identical generated native code. Runtime source is restored to committed HEAD.
+- **Next boundary:** Keep Trailblazer `TRB-Benchmark-005` active. Measure repeated
+  transformed-vertex work in FixedMathSharp containment separately; preserve wide
+  arithmetic and early-exit behavior. Do not change candidate accounting, sparse
+  snapshots, failure order or LOS cadence to manufacture a win. Neither this
+  experiment nor clean follow-up runs resolve `GF-Issue-006` or `TRB-Issue-119`.
 
 ### GF-Benchmark-004 - Disjoint segment candidates reach expensive planar intersection
 
@@ -84,7 +177,12 @@ None.
   frames fall **1,250.667 -> 146.656 ms**, **1,220.792 -> 116.166 ms**, and
   **4,117.407 -> 501.471 ms**. Median whole-block times improve
   **85.8% / 87.0% / 82.4%**. Only `GridForge.dll` and its PDB differ between
-  the 47 frozen before/after benchmark output files. All captured replay hashes
+  the 47 frozen before/after **parent** output files. A later provenance audit
+  found a different FixedMathSharp binary in the retained generated child;
+  parent hashes alone do not prove exact historical child-binary attribution.
+  The timings remain recorded observations. Trailblazer's `TRB-Benchmark-005`
+  records the qualification and a subsequent frozen-child control; new captures
+  archive actual executed children separately. All captured replay hashes
   match, and all frame allocation/collection-change records remain zero.
 - **Limits and tradeoff:** Each case still has 36/576 frames above 31.25 ms,
   at the same synchronized recheck positions. Ordinary A*/100 median increases

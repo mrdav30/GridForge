@@ -104,6 +104,30 @@ public sealed class GridPlanarTraceIntervalTests
         AssertInterval(prism, end, start, true, Fixed64.Half - Fixed64.MinIncrement, Fixed64.Half);
     }
 
+    [Theory]
+    [InlineData(-16, -2, 16, 2, 1610612736L, 2684354560L)]
+    [InlineData(16, 2, -16, -2, 1610612736L, 2684354560L)]
+    [InlineData(-8, 1, 16, 1, 715827883L, 2147483648L)]
+    [InlineData(16, 1, -8, 1, 2147483648L, 3579139413L)]
+    [InlineData(-4, -4, 12, 4, 0L, 2147483648L)]
+    [InlineData(12, 4, -4, -4, 2147483648L, 4294967296L)]
+    [InlineData(-4, 4, 12, -4, 0L, 2147483648L)]
+    [InlineData(12, -4, -4, 4, 2147483648L, 4294967296L)]
+    public void RectangularInterval_ShouldRetainCrossingsWhenOtherEdgesAreStrictlySeparated(
+        int startEighthsX, int startEighthsZ, int endEighthsX, int endEighthsZ,
+        long enterRaw, long exitRaw)
+    {
+        GridCellPrism prism = CreateRectangle(Vector3d.Zero);
+        Vector2d start = new Vector2d(
+            Fixed64.FromFraction(startEighthsX, 8), Fixed64.FromFraction(startEighthsZ, 8));
+        Vector2d end = new Vector2d(
+            Fixed64.FromFraction(endEighthsX, 8), Fixed64.FromFraction(endEighthsZ, 8));
+
+        // Literal slab crossings include 1/6 and 5/6 rounding, and first/last-vertex
+        // contact. Rejecting a whole prism from one separated edge loses these hits.
+        AssertInterval(prism, start, end, true, Fixed64.FromRaw(enterRaw), Fixed64.FromRaw(exitRaw));
+    }
+
     [Fact]
     public void TranslatedExtremePrism_ShouldPreserveTheSameRepresentableInterval()
     {
