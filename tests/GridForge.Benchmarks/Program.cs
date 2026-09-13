@@ -12,8 +12,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
-            return 0;
+            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args));
         }
 
         string command = args[0];
@@ -42,8 +41,7 @@ internal static class Program
                 return 1;
             }
 
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args.Skip(1).ToArray());
-            return 0;
+            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args.Skip(1).ToArray()));
         }
 
         int aliasCount = 0;
@@ -52,8 +50,7 @@ internal static class Program
 
         if (aliasCount == 0)
         {
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
-            return 0;
+            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args));
         }
 
         Type[] selectedTypes = _catalog.Resolve(args.Take(aliasCount).ToArray(), out string unknownAlias);
@@ -65,8 +62,7 @@ internal static class Program
             return 1;
         }
 
-        BenchmarkSwitcher.FromTypes(selectedTypes).Run(args.Skip(aliasCount).ToArray());
-        return 0;
+        return BenchmarkExitCode.Get(BenchmarkSwitcher.FromTypes(selectedTypes).Run(args.Skip(aliasCount).ToArray()));
     }
 
     private static void WriteUsage()

@@ -153,8 +153,13 @@ simulation frames; use a consuming workload before claiming a host-frame gain.
 Keep the full log and verify every expected case and child launch completed,
 with successful child exits and the expected measurement stages. A populated
 summary can contain results from an earlier launch even when a later launch
-fails. The current launcher also does not propagate BenchmarkDotNet's report
-failures to its own exit code, so a zero command exit is not sufficient.
+fails. The launcher returns `1` for critical validation errors, failed
+reports/builds, and failed or unknown exits in returned child executions.
+Successful help/list commands return `0`.
+
+A zero exit is not a complete capture audit: BenchmarkDotNet does not include
+extra diagnoser executions in its returned reports, and empty summaries can
+represent informational or invalid/no-match requests. Check the full log too.
 
 Exclude incomplete cases from comparisons. Missing allocation diagnostics are
 unknown, not zero; a later successful replay does not complete an earlier

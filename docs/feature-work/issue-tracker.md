@@ -21,37 +21,6 @@
 
 ## Active Issues
 
-### GF-Issue-007 - Benchmark launcher returns success after a failed child
-
-- **Discovered:** 2026-09-11 while investigating `GF-Issue-006`.
-- **Status:** Open; confirmed benchmark-tooling defect, not a geometry defect.
-- **Boundary:** Every execution branch in
-  `tests/GridForge.Benchmarks/Program.cs` discards the summaries returned by
-  `BenchmarkSwitcher.Run(...)` and returns zero. The historical planar baseline
-  command returned zero despite its second pointy-hex strict-miss child exiting
-  -1 and the third launch never running. Partial statistics survive the failure.
-  Trailblazer's launcher has the same defect, coordinated as `TRB-Issue-120`.
-- **Required correction:** Return nonzero for critical validation errors,
-  unsuccessful reports/builds, or failed/unknown exits in a report's returned
-  executions. Preserve successful help/list commands and combine failure status
-  across all execution groups. Do not stop checking after the first good launch.
-- **Upstream boundary:** In BenchmarkDotNet 0.15.8,
-  [`ExecuteResult.IsSuccess`](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Toolchains/Results/ExecuteResult.cs)
-  checks for result measurements, not the exit code. Inspect both report success
-  and execution exit codes; results followed by a nonzero exit must still fail.
-  The [runner](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Running/BenchmarkRunnerClean.cs)
-  does not retain an extra diagnoser run in the returned executions, so a
-  summary-only correction cannot promise to detect every diagnostic failure.
-  Empty summaries also occur for informational and invalid/no-match commands;
-  do not classify every empty result as a failed benchmark.
-- **Acceptance:** Cover successful launches; success followed by a failed
-  launch; results followed by nonzero/unknown exit; build/critical-validation
-  failures; and successful information commands. Exercise the real launcher
-  with an isolated failing workload in addition to result-classification tests.
-- **Interim gate:** Inspect full logs and every expected child exit, launch and
-  sample count. A zero parent exit or populated summary table is insufficient.
-  This correction will not explain or resolve `GF-Issue-006`.
-
 ### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
 
 - **Discovered:** 2026-09-11 during `GF-Benchmark-005` baseline measurement.
@@ -158,9 +127,10 @@ See [ProcDump's capture options](https://learn.microsoft.com/en-us/sysinternals/
 
 **Disposition:** Remains open, awaiting a captured recurrence. No confirmed
 GridForge, FixedMathSharp, BenchmarkDotNet, runtime or hardware cause was found.
-Do not spend further runs treating successful replays as a fix. Address the
-separately confirmed launcher-status defect (`GF-Issue-007`) before trusting an
-automated profiling gate, and keep the failed case excluded from comparisons.
+Do not spend further runs treating successful replays as a fix. The separately
+confirmed launcher-status defect (`GF-Issue-007`) is now resolved below; that
+correction neither explains this exception nor completes its failed capture.
+Keep the failed case excluded from comparisons and retain full-log validation.
 
 ## Performance Investigation Queue
 
@@ -170,6 +140,41 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### GF-Issue-007 - Benchmark launcher returns success after a failed child
+
+- **Discovered:** 2026-09-11 while investigating `GF-Issue-006`.
+- **Status:** Resolved locally on 2026-09-11; benchmark tooling only.
+- **Failure:** Every execution branch discarded `BenchmarkSwitcher.Run(...)`
+  summaries and returned zero. The historical planar baseline therefore returned
+  zero despite launch 2 exiting -1, launch 3 never running and partial statistics
+  surviving. Trailblazer had the same defect, coordinated as `TRB-Issue-120`.
+- **Resolution:** Every launcher execution route now returns `1` for critical
+  validation errors, unsuccessful reports/builds, missing executables, and
+  nonzero or unknown exits in returned executions. Successful help/list commands
+  still return `0`. No runtime geometry, dependency or benchmark job changed.
+- **Verification (2026-09-11):** Temporary checks reproduced the original false
+  success and verified rejection of a later failed launch and a child exiting
+  `23` after producing results. Result-model checks covered mixed reports,
+  validation/build failure and unknown exits. Local Windows `Release` and
+  `ReleaseLean` builds passed without warnings/errors, with `852/852` tests each;
+  Debug passed `849/849`. Production DLLs returned `1` for invalid invocation/
+  unroll settings and `0` for help/list.
+- **Scope (2026-09-12):** Retain the launcher fix and documented evidence only.
+  The temporary verification projects and their CI additions were removed at
+  maintainer review; no permanent benchmark-tooling test system is introduced.
+- **Evidence location:** The coordinating Trailblazer checkout retains
+  `artifacts/gf-issue006/launcher-red-gridforge.log` and
+  `artifacts/gf-issue006/launcher-validation/GridForge-*` logs. Full per-case
+  output is local to this checkout under `artifacts/launcher-regression/`.
+- **Remaining limits:** In BenchmarkDotNet 0.15.8,
+  [`ExecuteResult.IsSuccess`](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Toolchains/Results/ExecuteResult.cs)
+  checks result measurements, not exit status; the launcher checks both.
+  The [runner](https://github.com/dotnet/BenchmarkDotNet/blob/v0.15.8/src/BenchmarkDotNet/Running/BenchmarkRunnerClean.cs)
+  does not retain extra diagnoser executions in returned reports. Empty summaries
+  can also represent information or invalid/no-match requests. A zero exit is
+  therefore not a complete capture audit: inspect full logs and expected child,
+  launch and sample counts. This fixes neither `GF-Issue-006` nor `TRB-Issue-119`.
 
 ### GF-Issue-005 — Recycled Occupant Tickets Could Resolve Replacement Occupants
 
