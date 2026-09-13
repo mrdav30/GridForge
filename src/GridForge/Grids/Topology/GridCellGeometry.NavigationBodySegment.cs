@@ -660,6 +660,40 @@ public static partial class GridCellGeometry
         out Fixed64 overlapEnter,
         out Fixed64 overlapExit)
     {
+        if (prism.TopologyKind == GridTopologyKind.RectangularPrism && prism.FootprintVertexCount == 4)
+        {
+            Vector2d minimum = prism.GetFootprintVertex(0);
+            Vector2d maximum = prism.GetFootprintVertex(2);
+            // Both nonzero axes must qualify before even a miss is handled.
+            // Axis-aligned rays retain the generic collinear projection behavior.
+            if (TryGetPlanarSlab(start.X, end.X, minimum.X, maximum.X,
+                    out Fixed64 denominatorX, out Fixed64 lowerX, out Fixed64 upperX)
+                && TryGetPlanarSlab(start.Y, end.Y, minimum.Y, maximum.Y,
+                    out Fixed64 denominatorZ, out Fixed64 lowerZ, out Fixed64 upperZ))
+            {
+                lowerX = FixedMath.Max(Fixed64.Zero, lowerX);
+                upperX = FixedMath.Min(denominatorX, upperX);
+                lowerZ = FixedMath.Max(Fixed64.Zero, lowerZ);
+                upperZ = FixedMath.Min(denominatorZ, upperZ);
+                overlapEnter = default;
+                overlapExit = default;
+                // Compare the exact rational bounds before rounding: separated
+                // bounds can otherwise collapse onto the same raw parameter.
+                if (lowerX > upperX || lowerZ > upperZ
+                    || Fixed64.CompareProducts(lowerX, denominatorZ, upperZ, denominatorX) > 0
+                    || Fixed64.CompareProducts(lowerZ, denominatorX, upperX, denominatorZ) > 0)
+                    return false;
+
+                overlapEnter = Fixed64.CompareProducts(lowerX, denominatorZ, lowerZ, denominatorX) >= 0
+                    ? lowerX / denominatorX
+                    : lowerZ / denominatorZ;
+                overlapExit = Fixed64.CompareProducts(upperX, denominatorZ, upperZ, denominatorX) <= 0
+                    ? upperX / denominatorX
+                    : upperZ / denominatorZ;
+                return true;
+            }
+        }
+
         Span<Vector2d> vertices = stackalloc Vector2d[6];
         prism.CopyFootprintTo(vertices);
         // A convex footprint strictly on one side cannot meet the supporting line;
@@ -723,6 +757,22 @@ public static partial class GridCellGeometry
             overlapExit = FixedMath.Max(overlapExit, parameters[i]);
         }
         return true;
+    }
+
+    private static bool TryGetPlanarSlab(
+        Fixed64 start, Fixed64 end, Fixed64 minimum, Fixed64 maximum,
+        out Fixed64 denominator, out Fixed64 lower, out Fixed64 upper)
+    {
+        denominator = lower = upper = default;
+        if (end > start)
+            return Fixed64.TrySubtract(end, start, out denominator)
+                && Fixed64.TrySubtract(minimum, start, out lower)
+                && Fixed64.TrySubtract(maximum, start, out upper);
+
+        return end < start
+            && Fixed64.TrySubtract(start, end, out denominator)
+            && Fixed64.TrySubtract(start, maximum, out lower)
+            && Fixed64.TrySubtract(start, minimum, out upper);
     }
 
     private static bool IsFootprintStrictlySeparatedFromLine(

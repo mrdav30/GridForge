@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-006`.
+  `GF-Benchmark-007`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,11 +55,63 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-006 — Rectangular traces enumerate and solve unnecessary geometry | Closed locally | High | Exact candidate pruning/slab intervals; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-005 — Strictly separated edges still enter exact interval solving | Closed locally; runtime candidate withdrawn | High | Mixed measured benefit; Trailblazer `TRB-Benchmark-005` remains active |
 | GF-Benchmark-004 — Disjoint segment candidates reach expensive planar intersection | Closed locally | High | Trailblazer `TRB-Benchmark-005` remains active for remaining guided-frame costs |
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-006 - Rectangular traces enumerate and solve unnecessary geometry
+
+- **Discovered/resolved locally:** 2026-09-13 during Trailblazer
+  `TRB-Benchmark-005`, against GridForge `b19f373`.
+- **Signal:** After earlier rejection/containment improvements, rectangular
+  tracing still enumerates the ray's full address box and invokes general
+  polygon intersection. Planar intervals occupy about 24-27% of sampled
+  guided measured-root time, which also includes benchmark validation/hashing.
+- **Implementation:** Keep complete-range logical candidate admission/counts,
+  but narrow eligible rectangular columns to conservative closed Z ranges.
+  Use actual cell centers, guarded rounding and unchanged Y candidates.
+  Horizontal/vertical rays, unrepresentable arithmetic and unsupported topology
+  retain the original enumeration. Canonical rectangles use closed-bound
+  containment and exact slab intersection before rounding the two final
+  parameters. Sparse presence, candidate order, capacity/failure precedence
+  and public interval results remain unchanged; no public API/cache is added.
+- **Review correction:** Preserve the original horizontal path because a
+  collinear extrapolated parameter can round onto a finite endpoint. Literal
+  forward/reverse regressions reproduce this old behavior. The intermediate
+  `column` capture predates that correction; later captures use the hardened
+  fallback. This is not the withdrawn per-edge experiment (`GF-Benchmark-005`).
+- **Isolated containing-frame evidence:** Trailblazer's `distance` to `slab`
+  captures change exactly one authored runtime document,
+  `GridCellGeometry.NavigationBodySegment.cs`. Recheck medians improve from
+  **50.049 / 35.076 / 163.764 ms** to **36.293 / 21.479 / 105.392 ms** for
+  A*/100, Flow/100 and Flow/500: **27.5% / 38.8% / 35.6%** less time.
+  All nine launch-level recheck and block medians improve; ordinary timing is
+  mixed. Cumulative reductions also include separate FixedMathSharp changes
+  and must not be attributed to GridForge alone.
+- **Protocol:** Serial Windows/i7-9700K/.NET 8.0.29 local-stack Release,
+  BenchmarkDotNet 0.15.8; three launches per case, one warmup and three actual
+  64-frame blocks per launch. Every capture has nine successful children and
+  45 records, including diagnostics. Exact signed-Int64 replay and zero frame
+  allocation/GC persist. Child manifests and portable-PDB source hashes are
+  independently verified. These are descriptive local comparisons, not
+  randomized paired trials; no outlier is removed.
+- **Validation:** Release and ReleaseLean each pass **887 tests**, with exact
+  **8,957/8,957 lines**, **3,857/3,857 branches** and **1,118/1,118 fully covered
+  methods**. Both solution builds have zero warnings/errors. New tests assert
+  raw interval results, closed tangencies, full-domain/one-raw behavior, sparse
+  results and unchanged budgets. An intentionally rounded emptiness comparison
+  fails the narrow-miss regressions; the restored implementation passes.
+  Independent correctness/Ponytail reviews find no actionable issues.
+- **Evidence/remaining boundary:** The coordinating Trailblazer tracker retains
+  the command and cumulative results under `TRB-Benchmark-005`; local evidence
+  is in its `artifacts/benchmark005/guided-*`,
+  `guided-final-endpoints-review-audit.json` and `reduction-verification`.
+  Trailblazer full-frame acceptance remains incomplete. This closes the focused
+  GridForge source change, not the broader workload signal, Linux CI,
+  released-package validation or historical `GF-Issue-006` exception.
 
 ### GF-Benchmark-005 - Strictly separated edges still enter exact interval solving
 

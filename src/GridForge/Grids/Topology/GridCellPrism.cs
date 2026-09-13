@@ -127,6 +127,11 @@ public readonly struct GridCellPrism
             || point.Y > VerticalMax)
             return false;
 
+        // Rectangular construction stores exact opposite corners in this order.
+        if (TopologyKind == GridTopologyKind.RectangularPrism)
+            return point.X >= _vertex0.X && point.X <= _vertex2.X
+                && point.Z >= _vertex0.Y && point.Z <= _vertex2.Y;
+
         Span<Vector2d> offsets = stackalloc Vector2d[6];
         Vector2d origin = new(Center.X, Center.Z);
         for (int i = 0; i < FootprintVertexCount; i++)

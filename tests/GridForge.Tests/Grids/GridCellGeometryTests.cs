@@ -56,6 +56,41 @@ public sealed class GridCellGeometryTests : IDisposable
             GetFootprint(prism));
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void RectangularContainment_ShouldKeepClosedFacesAndRejectOneRawUnitOutside(int translation)
+    {
+        Fixed64 offset = translation < 0 ? Fixed64.MinValue + new Fixed64(4)
+            : translation > 0 ? Fixed64.MaxValue - new Fixed64(4) : Fixed64.Zero;
+        Vector3d center = new(offset, offset, offset);
+        GridCellPrism prism = CreateOfflinePrism(GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4), new Fixed64(2), new Fixed64(6)), center);
+
+        Assert.True(prism.Contains(center));
+        for (int corner = 0; corner < 8; corner++)
+            Assert.True(prism.Contains(center + new Vector3d(
+                (corner & 1) == 0 ? -2 : 2,
+                (corner & 2) == 0 ? -1 : 1,
+                (corner & 4) == 0 ? -3 : 3)));
+
+        foreach (int sign in new[] { -1, 1 })
+        {
+            Assert.False(prism.Contains(center + new Vector3d(
+                sign * (new Fixed64(2) + Fixed64.MinIncrement), Fixed64.Zero, Fixed64.Zero)));
+            Assert.False(prism.Contains(center + new Vector3d(
+                Fixed64.Zero, sign * (Fixed64.One + Fixed64.MinIncrement), Fixed64.Zero)));
+            Assert.False(prism.Contains(center + new Vector3d(
+                Fixed64.Zero, Fixed64.Zero, sign * (new Fixed64(3) + Fixed64.MinIncrement))));
+        }
+
+        // Do not narrow point-center differences before rejecting distant points.
+        Fixed64 distant = translation > 0 ? Fixed64.MinValue : Fixed64.MaxValue;
+        Assert.False(prism.Contains(new Vector3d(distant, center.Y, center.Z)));
+        Assert.False(prism.Contains(new Vector3d(center.X, center.Y, distant)));
+    }
+
     [Fact]
     public void TryGetPrism_ShouldRejectMissingAndInactiveCells()
     {
