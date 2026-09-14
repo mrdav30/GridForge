@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-008`.
+  `GF-Benchmark-009`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,6 +55,7 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-007 — Ordered trace sorting repeatedly copies full interval payloads | Closed locally | Medium | Smaller heap-sort data movement; Trailblazer `TRB-Benchmark-005` remains active, with short/long protocol results retained |
 | GF-Benchmark-006 — Rectangular traces enumerate and solve unnecessary geometry | Closed locally | High | Exact candidate pruning/slab intervals; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-005 — Strictly separated edges still enter exact interval solving | Closed locally; runtime candidate withdrawn | High | Mixed measured benefit; Trailblazer `TRB-Benchmark-005` remains active |
@@ -62,6 +63,54 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-008 - Rectangular candidate probes calculate unused coordinates
+
+- **Discovered/resolved locally:** 2026-09-14 UTC during Trailblazer
+  `TRB-Benchmark-005`, against GridForge `8a9de6f`.
+- **Signal/change:** Rectangular candidate narrowing constructs a full world
+  position to inspect only X or Z. Calculate the requested axis from the same
+  bounds origin and topology metric instead. Preserve the exact saturating
+  multiply-then-add order, binary-search comparisons and duplicate centers.
+  Full-prism representability checks, fallback traversal, candidate/work charges,
+  sparse presence, interval ordering and failure priority remain unchanged.
+  No cache, retained state, public API or target-specific implementation is added;
+  the same code supports `netstandard2.1` and `net8.0`.
+- **Containing-workload evidence:** Two serial original/candidate comparisons
+  improve Trailblazer LOS medians **6.2% then 6.2% / 11.1% then 10.5% / 7.0%
+  then 6.7%** for A*/100, Flow/100 and Flow/500. Final medians are **22.6 / 13.1 /
+  63.8 ms**. Complete-block medians improve in both pairs, but ordinary frames
+  do not establish a uniform gain. Flow/500 candidate collection falls from
+  about 250 to 48 ms in separate sampled profiles whose measured roots are
+  3,120 and 2,994 ms; A*/100 does not show the same inclusive reduction.
+  Overlapping samples include benchmark validation and do not predict savings.
+- **Required qualification:** Short-protocol Flow/100 ordinary frames above
+  2 ms increase **9 to 136**, then **43 to 75**, of 540 per capture. P95/P99
+  worsen in both pairs. A separate ten-warmup/twenty-actual pair improves LOS
+  **7.0%** and complete blocks **4.1%**, but ordinary medians rise **3.1%**
+  (0.7864 to 0.8112 ms); block P99/maximum also slightly worsen. Neither longer
+  capture has an ordinary frame above 2 ms. Keep both protocols and all tails;
+  this is not a confirmed JIT cause or a universal containing-frame win.
+- **Behavior coverage:** Extend the existing spatial-diagonal theory with
+  translated, fractional, unequal-axis metrics in dense/sparse grids and both
+  ray directions. Assert all 29 exact contacts, physical presence, continuous
+  coverage and exact/one-below budgets. All eight rows pass on original source;
+  deliberately omitting the Z origin fails exactly the four new rows. The final
+  implementation passes all 87 focused interval-tracing tests. Independent
+  correctness and Ponytail review finds no actionable issue.
+- **Local verification:** Release and ReleaseLean solution builds pass with
+  zero warnings/errors and both library target frameworks. All **894 tests**
+  pass in each configuration, without skips, with exact **8,960/8,960 lines,
+  3,857/3,857 branches and 1,118/1,118 fully covered methods**. No coverage
+  exclusions or relaxed gates are added. These local source-stack checks do
+  not replace Linux CI or released-package validation.
+- **Evidence and disposition:** Full consuming-workload results, replay/binary
+  provenance, validation and limitations are consolidated in Trailblazer's
+  `docs/feature-work/benchmark-signal-hardening-backlog.md`, under the axis-only
+  candidate follow-up. Ignored artifacts are in its `artifacts/benchmark005/`
+  (`guided-chain-baseline*`, `guided-axis-*`, `axis-*` and `chain-baseline-profile-*`).
+  This focused source improvement closes locally; parent `TRB-Benchmark-005`
+  remains open because every final Flow/500 LOS frame still exceeds 31.25 ms.
 
 ### GF-Benchmark-007 - Ordered trace sorting repeatedly copies full interval payloads
 

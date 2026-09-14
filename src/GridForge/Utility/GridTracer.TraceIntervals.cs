@@ -260,10 +260,12 @@ public static partial class GridTracer
         Fixed64 halfLength = metrics.CellLength * Fixed64.Half;
         Fixed64 segmentMinX = FixedMath.Min(start.X, end.X);
         Fixed64 segmentMaxX = FixedMath.Max(start.X, end.X);
+        Vector3d boundsMin = grid.BoundsMin;
         bool isDense = grid.StorageKind == GridStorageKind.Dense;
         for (int x = minIndex.x; x <= maxIndex.x; x++)
         {
-            Fixed64 centerX = grid.GetWorldPosition(new VoxelIndex(x, minIndex.y, minIndex.z)).X;
+            // Keep the topology's saturating multiply-then-add, but only compute the queried axis.
+            Fixed64 centerX = boundsMin.X + x * metrics.CellWidth;
             Fixed64 slabMin = FixedMath.Max(centerX - halfWidth, segmentMinX);
             Fixed64 slabMax = FixedMath.Min(centerX + halfWidth, segmentMaxX);
             if (slabMin > slabMax)
@@ -283,8 +285,10 @@ public static partial class GridTracer
             // contacts before expanding to the closed cell-center range.
             Fixed64 minZ = FixedMath.Min(firstZ, secondZ) - Fixed64.MinIncrement - halfLength;
             Fixed64 maxZ = FixedMath.Max(firstZ, secondZ) + Fixed64.MinIncrement + halfLength;
-            int zStart = FindRectangularZBound(grid, minIndex.z, maxIndex.z, minZ, upper: false);
-            int zEnd = FindRectangularZBound(grid, zStart, maxIndex.z, maxZ, upper: true);
+            int zStart = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
+                minIndex.z, maxIndex.z, minZ, upper: false);
+            int zEnd = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
+                zStart, maxIndex.z, maxZ, upper: true);
             // Keep Y unchanged: independently rounded vertical intervals may
             // overlap a planar interval even without exact simultaneous contact.
             for (int y = minIndex.y; y <= maxIndex.y; y++)
@@ -298,7 +302,7 @@ public static partial class GridTracer
     }
 
     private static int FindRectangularZBound(
-        VoxelGrid grid, int min, int max, Fixed64 position, bool upper)
+        Fixed64 origin, Fixed64 cellLength, int min, int max, Fixed64 position, bool upper)
     {
         // Search actual centers, not an inverse transform: positioning may
         // saturate and produce multiple addresses with the same center.
@@ -306,7 +310,7 @@ public static partial class GridTracer
         while (min < end)
         {
             int middle = min + ((end - min) >> 1);
-            Fixed64 center = grid.GetWorldPosition(new VoxelIndex(0, 0, middle)).Z;
+            Fixed64 center = origin + middle * cellLength;
             if (center < position || (upper && center == position))
                 min = middle + 1;
             else

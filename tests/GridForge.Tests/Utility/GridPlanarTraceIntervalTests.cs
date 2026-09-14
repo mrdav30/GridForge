@@ -334,14 +334,26 @@ public sealed class GridPlanarTraceIntervalTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public void SpatialDiagonal_ShouldRetainClosedCornerPeersAndFullRangeBudgets(bool sparse, bool reverse)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public void SpatialDiagonal_ShouldRetainClosedCornerPeersAndFullRangeBudgets(
+        bool sparse, bool reverse, bool translatedAnisotropic)
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();
-        GridConfiguration configuration = new GridConfiguration(Vector3d.Zero, new Vector3d(4, 4, 4),
+        Vector3d origin = translatedAnisotropic ? new Vector3d(-6, -5, -9) : Vector3d.Zero;
+        Vector3d farthestCenter = translatedAnisotropic ? new Vector3d(-3, 0, -3) : new Vector3d(4, 4, 4);
+        GridTopologyMetrics metrics = translatedAnisotropic
+            ? GridTopologyMetrics.Rectangular(
+                Fixed64.FromFraction(3, 4), Fixed64.FromFraction(5, 4), Fixed64.FromFraction(3, 2))
+            : GridTopologyMetrics.Rectangular(Fixed64.One);
+        GridConfiguration configuration = new GridConfiguration(origin, farthestCenter,
+            topologyMetrics: metrics,
             storageKind: sparse ? Storage.GridStorageKind.Sparse : Storage.GridStorageKind.Dense);
         if (sparse)
             Assert.True(world.TryAddGrid(configuration, new[] { new VoxelIndex(0, 0, 0) }, out _));
@@ -350,8 +362,8 @@ public sealed class GridPlanarTraceIntervalTests
 
         SwiftList<GridTraceInterval> results = new SwiftList<GridTraceInterval>(128);
         GridTraceIntervalScratch scratch = new GridTraceIntervalScratch(1, 125);
-        Vector3d start = reverse ? new Vector3d(4, 4, 4) : Vector3d.Zero;
-        Vector3d end = reverse ? Vector3d.Zero : new Vector3d(4, 4, 4);
+        Vector3d start = reverse ? farthestCenter : origin;
+        Vector3d end = reverse ? origin : farthestCenter;
         GridTraceIntervalReport report = Trace(125, 29, 126);
         Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
         Assert.Equal(125, report.AddressCandidateCount);
@@ -359,7 +371,7 @@ public sealed class GridPlanarTraceIntervalTests
         Assert.True(report.HasContinuousAddressCoverage);
         Assert.Equal(!sparse, report.HasContinuousPhysicalCoverage);
 
-        // Five positive-length cube intervals and six point-only peers at each
+        // Five positive-length prism intervals and six point-only peers at each
         // of four corners: 5 + 4 * 6 = 29 closed-set contacts.
         for (int index = 0; index <= 4; index++)
             Check(new VoxelIndex(index, index, index),
