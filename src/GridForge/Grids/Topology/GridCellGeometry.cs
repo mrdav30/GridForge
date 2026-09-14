@@ -429,20 +429,29 @@ public static partial class GridCellGeometry
             targetOffsets[i] = targetFootprint[i] - targetOrigin;
         ReadOnlySpan<Vector2d> resolvedSourceOffsets = sourceOffsets[..sourceFootprint.Length];
         ReadOnlySpan<Vector2d> resolvedTargetOffsets = targetOffsets[..targetFootprint.Length];
+        // Default prisms must retain the generic empty-footprint validation.
+        bool sourceRectangular = source.TopologyKind == GridTopologyKind.RectangularPrism
+            && source.FootprintVertexCount == 4;
+        bool targetRectangular = target.TopologyKind == GridTopologyKind.RectangularPrism
+            && target.FootprintVertexCount == 4;
         Span<Vector2d> candidates = stackalloc Vector2d[MaximumIntersectionCandidateCount];
         int candidateCount = 0;
 
         for (int i = 0; i < sourceFootprint.Length; i++)
         {
             Vector2d vertex = sourceFootprint[i];
-            if (FixedConvex2dRelations.ContainsPoint(vertex, targetOrigin, resolvedTargetOffsets))
+            if (targetRectangular
+                ? IsPlanarPointContained(target, vertex)
+                : FixedConvex2dRelations.ContainsPoint(vertex, targetOrigin, resolvedTargetOffsets))
                 AddUnique(candidates, ref candidateCount, vertex);
         }
 
         for (int i = 0; i < targetFootprint.Length; i++)
         {
             Vector2d vertex = targetFootprint[i];
-            if (FixedConvex2dRelations.ContainsPoint(vertex, sourceOrigin, resolvedSourceOffsets))
+            if (sourceRectangular
+                ? IsPlanarPointContained(source, vertex)
+                : FixedConvex2dRelations.ContainsPoint(vertex, sourceOrigin, resolvedSourceOffsets))
                 AddUnique(candidates, ref candidateCount, vertex);
         }
 

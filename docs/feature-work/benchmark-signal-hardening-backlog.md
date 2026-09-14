@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-009`.
+  `GF-Benchmark-010`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,6 +55,7 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-009 — Rectangular contacts use general polygon containment | Closed locally | Medium | Reuse existing rectangle predicate; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-007 — Ordered trace sorting repeatedly copies full interval payloads | Closed locally | Medium | Smaller heap-sort data movement; Trailblazer `TRB-Benchmark-005` remains active, with short/long protocol results retained |
 | GF-Benchmark-006 — Rectangular traces enumerate and solve unnecessary geometry | Closed locally | High | Exact candidate pruning/slab intervals; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
@@ -63,6 +64,57 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-009 - Rectangular contacts use general polygon containment
+
+- **Discovered/resolved locally:** 2026-09-14 UTC during Trailblazer
+  `TRB-Benchmark-005`, against GridForge `011c422`.
+- **Signal/change:** Incoming ordinary-portal construction reaches
+  `BuildFootprintIntersection`, whose rectangle vertices still use generic
+  widened polygon containment. Reuse the existing planar containment predicate
+  only when the tested prism is rectangular with four footprint vertices.
+  Factory-created rectangles have exact symmetric bounds, including translated
+  scalar extremes. Preserve generic hex/default behavior, offset preparation,
+  rounded edge intersections, uniqueness, hull ordering and contact/area results.
+  No API, cache, retained state or target-specific implementation is added;
+  `netstandard2.1` and `net8.0` share the same code.
+- **Containing-workload evidence:** Two serial original/candidate comparisons
+  improve Trailblazer LOS medians **7.3% then 6.7% / 3.5% then 4.3% / 4.4% then
+  5.5%** for A*/100, Flow/100 and Flow/500. Final medians are **21.2 / 12.5 /
+  59.8 ms**. A*/100 and Flow/500 block medians improve in both pairs. A separate
+  sampled Flow/500 profile attributes about **78 to 48 ms** to footprint
+  intersection, against measured roots of **3,138 and 3,116 ms**; overlapping
+  samples include validation and do not establish an isolated-method speedup.
+- **Required qualification:** Ordinary gains do not repeat, and short Flow/100
+  blocks move **+0.7% then -2.1%**. Its ordinary frames above 2 ms increase
+  **34 to 74**, then **62 to 72**, of 540 per capture; P99 worsens in both pairs.
+  A* ordinary medians worsen **0.5% then 2.3%**, and repeat block P95/maximum
+  also worsen. A separate three-launch, ten-warmup/twenty-actual Flow/100 pair
+  improves LOS **5.9%** and blocks **2.3%**, with ordinary medians essentially
+  unchanged (**0.7900 to 0.7913 ms**). Neither longer capture has an actual
+  ordinary frame above 2 ms; warmup excursions remain retained. Keep both
+  protocols; no JIT cause or universal frame win is established.
+- **Behavior coverage:** Fifteen new cases assert exact nested rectangle
+  polygons, area/contact kind and stacked faces in both argument orders near
+  zero and both scalar extremes; opposite-extreme separation; and default-prism
+  validation after vertical admission. All pass on original source. Disabling
+  containment fails all 12 nested cases; removing footprint-count guards fails
+  the default test. Both mutations are removed. Final source passes all 102
+  focused geometry tests in Release and ReleaseLean, plus all 906 Debug tests.
+  Independent correctness/Ponytail review finds no actionable issue.
+- **Local verification:** Release and ReleaseLean solution builds pass with
+  zero warnings/errors and both library target frameworks. All **909 tests**
+  pass per configuration without skips, with exact **8,968/8,968 lines,
+  3,865/3,865 branches and 1,118/1,118 fully covered methods**. No exclusions or
+  relaxed coverage gates are added.
+- **Evidence and disposition:** Full consuming-workload protocol, provenance,
+  validation and limitations are consolidated in Trailblazer's
+  `docs/feature-work/benchmark-signal-hardening-backlog.md`, under the rectangular
+  contact-containment follow-up. Ignored evidence is in its
+  `artifacts/benchmark005/` (`guided-contact-*` and `contact-*`). The focused
+  source change closes locally; parent `TRB-Benchmark-005` remains open because
+  every final Flow/500 LOS frame still exceeds 31.25 ms. Local Windows results
+  are not Linux CI or released-package validation.
 
 ### GF-Benchmark-008 - Rectangular candidate probes calculate unused coordinates
 
