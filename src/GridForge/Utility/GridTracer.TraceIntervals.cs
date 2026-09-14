@@ -496,23 +496,24 @@ public static partial class GridTracer
 
     private static void SiftIntervalsDown(GridTraceInterval[] items, int root, int count)
     {
-        while (true)
+        // Carry the root once instead of swapping the full interval at every level.
+        GridTraceInterval value = items[root];
+        while (root < (count >> 1))
         {
             int child = (root << 1) + 1;
-            if (child >= count)
-                return;
             int right = child + 1;
             if (right < count && CompareIntervals(items[child], items[right]) < 0)
                 child = right;
-            if (CompareIntervals(items[root], items[child]) >= 0)
-                return;
+            if (CompareIntervals(value, items[child]) >= 0)
+                break;
 
-            (items[root], items[child]) = (items[child], items[root]);
+            items[root] = items[child];
             root = child;
         }
+        items[root] = value;
     }
 
-    private static int CompareIntervals(GridTraceInterval first, GridTraceInterval second)
+    private static int CompareIntervals(in GridTraceInterval first, in GridTraceInterval second)
     {
         int comparison = first.TEnter.CompareTo(second.TEnter);
         if (comparison != 0)

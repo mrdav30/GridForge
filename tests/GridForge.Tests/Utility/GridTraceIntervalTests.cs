@@ -57,6 +57,43 @@ public sealed class GridTraceIntervalTests : IDisposable
     }
 
     [Theory]
+    [InlineData(31)]
+    [InlineData(32)]
+    [InlineData(33)]
+    public void LongTrace_ShouldPreserveEveryOrderedIntervalInEitherDirection(int cellCount)
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, new Vector3d(cellCount - 1, 0, 0)),
+            out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+
+        foreach (bool reverse in new[] { false, true })
+        {
+            Vector3d start = new Vector3d(-Fixed64.Half, Fixed64.Zero, Fixed64.Zero);
+            Vector3d end = new Vector3d(new Fixed64(cellCount) - Fixed64.Half, Fixed64.Zero, Fixed64.Zero);
+            GridTraceIntervalReport report = reverse ? Trace(end, start) : Trace(start, end);
+
+            Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+            Assert.True(report.HasContinuousPhysicalCoverage);
+            Assert.Equal(cellCount, report.IntervalCount);
+            Assert.Equal(cellCount, report.TieGroupCount);
+            for (int ordinal = 0; ordinal < cellCount; ordinal++)
+            {
+                GridTraceInterval interval = _results[ordinal];
+                Assert.Equal(new WorldVoxelIndex(_world.SpawnToken, gridIndex, grid.SpawnToken,
+                    new VoxelIndex(reverse ? cellCount - 1 - ordinal : ordinal, 0, 0)), interval.Cell);
+                Assert.Equal(grid.Configuration.ToGridKey(), interval.ConfigurationKey);
+                Assert.True(interval.IsPhysicallyPresent);
+                Assert.Equal(grid.LastChangeSequence, interval.GridLastChangeSequence);
+                Assert.Equal(Fixed64.FromFraction(ordinal, cellCount), interval.TEnter);
+                Assert.Equal(Fixed64.FromFraction(ordinal + 1, cellCount), interval.TExit);
+                Assert.Equal(ordinal, interval.TieGroupId);
+                Assert.Equal(0, interval.TieOrder);
+            }
+        }
+    }
+
+    [Theory]
     [InlineData(HexOrientation.PointyTop)]
     [InlineData(HexOrientation.FlatTop)]
     public void HexTrace_ShouldUseTruePrismsInBothOrientations(HexOrientation orientation)
