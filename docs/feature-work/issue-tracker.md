@@ -2,7 +2,7 @@
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-009`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-010`.
 - Assign an ID when an issue enters this tracker, keep it through resolution,
   and never reuse an ID even if an entry is later removed. Check this file's Git
   history before advancing or repairing the counter.
@@ -140,6 +140,37 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### GF-Issue-009 - Local-stack executable hosts selected published math binaries
+
+- **Discovered/resolved locally:** 2026-09-15 during Trailblazer direct-visibility
+  prerequisite validation; related to Trailblazer `TRB-Issue-135`.
+- **Cause:** GridForge's library project suppressed the competing transitive
+  FixedMathSharp package assets in local-stack mode, but its test and benchmark
+  executable hosts did not. Their direct sibling project reference therefore
+  coexisted with a same-version package reference, and the host outputs selected
+  the published package DLL.
+- **Reproduction:** Fresh local-stack restores and builds for both executable
+  hosts in `Release` and `ReleaseLean` copied the published FixedMathSharp hashes
+  `731A3D734CD43836260FE0BEEBF6186347DB6615D1C92B5E64F23392085C9C6C` and
+  `8A5138E7036F25522C408BFABED7726CEC6CCF22A8D3AEC6735DA930F6B484D3`,
+  rather than the corresponding sibling hashes
+  `8B125CBF3E70BF6C3731638510A33AECA1F79C43EC990CDBA08BA03721F7A4AB` and
+  `BF21DA9A746A603E382D6C81E84E69210B85ED237017EDD8A84809E772FC9283`.
+- **Correction:** In local-stack mode only, both executable hosts retain their
+  existing direct FixedMathSharp project reference while excluding the matching
+  standard or Lean package's compile and runtime assets. Package-backed builds
+  are unchanged.
+- **Verification:** All four local host outputs match their corresponding
+  sibling FixedMathSharp hash and select it as a project reference; host runtime
+  traces load that output. Full `Release` and `ReleaseLean` solution tests pass,
+  and both library target frameworks build. Normal package-mode host builds
+  retain the published package selection. A bounded parent/child geometry smoke
+  completes, but its generated top-level project still selects the published
+  package DLL because host exclusions do not propagate through that extra
+  project boundary. This correction certifies the two direct executable hosts,
+  not generated BenchmarkDotNet children; coordinated performance evidence uses
+  Trailblazer's separately reviewed prebuilt-child path.
 
 ### GF-Issue-008 - Generated local-stack benchmark builds rediscover unversioned dependencies
 

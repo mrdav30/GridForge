@@ -35,6 +35,11 @@
 		</PackageReference>
 	</ItemGroup>
 	<ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
+		<!-- Suppress competing transitive package binaries at the executable host. -->
+		<PackageReference Include="FixedMathSharp" Version="7.1.0"
+			Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0"
+			Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
 		<ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
 			AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
 		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
