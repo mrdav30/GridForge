@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-010`.
+  `GF-Benchmark-011`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,6 +55,7 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-010 — Interior body sweeps still test every wall | Closed locally; runtime candidate withdrawn | Medium | Mixed containing-frame results; Trailblazer `TRB-Benchmark-005` remains active |
 | GF-Benchmark-009 — Rectangular contacts use general polygon containment | Closed locally | Medium | Reuse existing rectangle predicate; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-007 — Ordered trace sorting repeatedly copies full interval payloads | Closed locally | Medium | Smaller heap-sort data movement; Trailblazer `TRB-Benchmark-005` remains active, with short/long protocol results retained |
@@ -64,6 +65,58 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-010 - Interior body sweeps still test every wall
+
+- **Discovered/disposition:** 2026-09-15, GridForge `52e9d947` and Trailblazer
+  `152c8e06`. Closed with a no-runtime-change decision, not a claimed speedup.
+- **Candidate:** After existing endpoint and body-top validation, a 20-line
+  positive proof accepted unclipped rectangular sweeps when both endpoints were
+  inside the closed radius-inset rectangle. Checked arithmetic failures and all
+  non-interior, clipped and hex cases retained the original wall/portal path.
+  Independent correctness and simplicity reviews found no source defect.
+- **Decision:** Eight matched Trailblazer guided captures retained all three
+  selected cases, 72 successful child launches and 216 actual 64-frame blocks.
+  Flow/500 block reductions were **8.81% / 4.32%** with original cadence and
+  **14.43% / 2.04%** with balanced phases. However, balanced Flow/100 block costs
+  increased **22.84% / 8.49%**; the first comparison failed the predeclared
+  maximum 10% regression. Baselines also varied, so this is not proof of a
+  portable runtime regression. It is insufficient evidence to retain the
+  optimization. The candidate is removed; no cache, API or runtime change
+  remains. Trailblazer's benchmark tracker retains the full comparison.
+- **Retained safeguards:** Thirteen behavior cases protect both endpoints at
+  all four inset boundaries, equality/one-raw-unit penetration, nonsquare and
+  near-scalar-limit translations, a footprint-filling radius and checked-bound
+  overflow. All 100 geometry cases pass against the original authority. A
+  temporary missing-endpoint mutation fails exactly its four new endpoint
+  cases, establishing test sensitivity; no production bug is claimed.
+  The six-case `grid-navigation-body-segment` fixture lives in the existing
+  benchmark project and checks literal outcomes for interior anchor/sweep,
+  selected portal, blocked corner, clipped entry and hex controls.
+- **Isolated evidence limit:** One corrected candidate capture completes
+  18 launches, 54 warmups, 162 actuals and 18 zero-byte diagnostics. Interior
+  measurements change markedly during actual iterations and are not a stable
+  warmed estimate. Further isolated comparisons were stopped once the full-frame
+  gate failed; **no isolated before/after gain is claimed**. Failed generated
+  builds/setup attempts remain excluded. Their configuration cause is resolved
+  separately as [`GF-Issue-008`](issue-tracker.md#gf-issue-008---generated-local-stack-benchmark-builds-rediscover-unversioned-dependencies).
+- **Reproduction/evidence:** Use the local-stack command in
+  [Testing and Benchmarking](../wiki/Testing-and-Benchmarking.md#benchmarking-unreleased-sibling-libraries).
+  Trailblazer `artifacts/benchmark005-edge-ray` retains the candidate diff,
+  mutation/restored logs, isolated capture, comparison and independent reviews;
+  `artifacts/los-phase/edge-ray-*` holds complete guided captures and frozen
+  children. Do not revive the candidate based only on its best Flow/500 pair
+  or an isolated interior timing. No benchmark project or CI framework is added.
+- **Verification:** Both local-stack solution configurations build
+  `netstandard2.1` and `net8.0` without warnings/errors and pass **922 tests**
+  each without skips. Release and ReleaseLean retain exact
+  **8,968/8,968 lines, 3,865/3,865 branches and 1,118/1,118 covered and fully
+  covered methods**, with no coverage exclusions added. The tested Release
+  runtime matches the initial frozen baseline. Trailblazer and its Gravitas
+  adapter also pass both configurations with exact coverage; standalone
+  Gravitas tests, Linux CI and released-package validation were not rerun.
+  Both DocFX sites build without warnings/errors; final independent retained-diff
+  and evidence reviews have no outstanding findings.
 
 ### GF-Benchmark-009 - Rectangular contacts use general polygon containment
 

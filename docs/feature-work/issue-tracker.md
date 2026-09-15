@@ -2,7 +2,7 @@
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-008`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-009`.
 - Assign an ID when an issue enters this tracker, keep it through resolution,
   and never reuse an ID even if an entry is later removed. Check this file's Git
   history before advancing or repairing the counter.
@@ -140,6 +140,38 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### GF-Issue-008 - Generated local-stack benchmark builds rediscover unversioned dependencies
+
+- **Discovered/resolved locally:** 2026-09-15 during Trailblazer
+  `TRB-Benchmark-005`; benchmark invocation guidance, not a geometry defect.
+- **Cause:** A generated BenchmarkDotNet entry project does not inherit the
+  benchmark project's local-stack transitive-reference setting. Rediscovery can
+  build an unqualified sibling project beside its explicitly versioned reference.
+  Serializing the build does not correct that identity mismatch.
+- **Reproduction:** Two single-case Dry jobs inherit `UseLocalLsfStack=true`
+  and `BuildInParallel=false`, differing only in inherited
+  `DisableTransitiveProjectReferences=false/true`. The failing archived child
+  contains SwiftCollections and its FixedMathSharp bridge at **0.0.0.0** and
+  exits before workload execution when loading required SwiftCollections
+  **7.0.0.0**. The corrected child contains **7.0.0.0 / 7.1.0.0**, exits zero,
+  and completes its actual observation and zero-byte allocation diagnostic.
+  GridForge and benchmark DLLs are byte-identical across that pair.
+- **Correction:** Inherit both `UseLocalLsfStack=true` and
+  `DisableTransitiveProjectReferences=true`, as documented in
+  [Testing and Benchmarking](../wiki/Testing-and-Benchmarking.md#benchmarking-unreleased-sibling-libraries).
+  The corrected normal parallel-build capture also completes all six cases,
+  18 child launches, 54 warmups, 162 actual observations and 18 zero-byte
+  diagnostics. No project graph, runtime, dependency package or CI change is
+  needed; package-backed commands remain unchanged.
+- **Evidence:** Trailblazer `artifacts/benchmark005-edge-ray` retains the
+  `candidate-captures.ps1` reproduction command, `identity-bad/good` logs and
+  frozen children, and `isolated-candidate-2` with complete raw/JSON/archive
+  evidence. Independent review verifies all 192 frozen runtime-file hashes
+  across those three jobs. Earlier incomplete attempts remain excluded; their
+  reused output paths are not historical identity proof. This is the generated
+  entry-point variant of Trailblazer `TRB-Issue-103`, not a resolution of the
+  separate `GF-Issue-006` null-reference watch.
 
 ### GF-Issue-007 - Benchmark launcher returns success after a failed child
 

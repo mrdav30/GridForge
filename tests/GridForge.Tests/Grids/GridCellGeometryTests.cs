@@ -1203,6 +1203,83 @@ public sealed class GridCellGeometryTests : IDisposable
             GridNavigationBodySegmentEndpointAllowance.None));
     }
 
+    [Theory]
+    [InlineData(true, -1, true)]
+    [InlineData(true, -1, false)]
+    [InlineData(true, 1, true)]
+    [InlineData(true, 1, false)]
+    [InlineData(false, -1, true)]
+    [InlineData(false, -1, false)]
+    [InlineData(false, 1, true)]
+    [InlineData(false, 1, false)]
+    public void NavigationBodySegment_InsetBoundaryRequiresBothEndpoints(
+        bool xAxis, int sign, bool firstEndpoint)
+    {
+        foreach (Fixed64 translation in new[]
+        {
+            Fixed64.Zero,
+            Fixed64.MinValue + new Fixed64(4),
+            Fixed64.MaxValue - new Fixed64(4)
+        })
+        {
+            Vector3d center = new(translation, Fixed64.Zero, translation);
+            GridCellPrism prism = CreateOfflinePrism(GridTopologyKind.RectangularPrism,
+                GridTopologyMetrics.Rectangular(new Fixed64(4), new Fixed64(4), new Fixed64(6)),
+                center);
+            // Radius one in a 4-by-6 footprint leaves closed X +/-1, Z +/-2.
+            Vector3d interior = center + new Vector3d(0, -1, 0);
+            Vector3d boundary = center + (xAxis
+                ? new Vector3d(sign, 0, 0)
+                : new Vector3d(0, 0, sign * 2));
+            Vector3d penetration = boundary + (xAxis
+                ? new Vector3d(sign * Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero)
+                : new Vector3d(Fixed64.Zero, Fixed64.Zero, sign * Fixed64.MinIncrement));
+
+            Assert.True(GridCellGeometry.IsNavigationBodySegmentValid(
+                prism, firstEndpoint ? boundary : interior, firstEndpoint ? interior : boundary,
+                Fixed64.One, Fixed64.One, default, default,
+                GridNavigationBodySegmentEndpointAllowance.None));
+            Assert.False(GridCellGeometry.IsNavigationBodySegmentValid(
+                prism, firstEndpoint ? penetration : interior, firstEndpoint ? interior : penetration,
+                Fixed64.One, Fixed64.One, default, default,
+                GridNavigationBodySegmentEndpointAllowance.None));
+        }
+    }
+
+    [Fact]
+    public void NavigationBodyAnchor_BodyFillingTheFootprintAcceptsEqualityButNotLargerRadius()
+    {
+        GridCellPrism prism = CreateOfflinePrism(GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)), Vector3d.Zero);
+        Vector3d foot = new(0, -2, 0);
+
+        Assert.True(GridCellGeometry.IsNavigationBodyAnchorValid(
+            prism, foot, Fixed64.Two, Fixed64.One, default));
+        Assert.False(GridCellGeometry.IsNavigationBodyAnchorValid(
+            prism, foot, Fixed64.Two + Fixed64.MinIncrement, Fixed64.One, default));
+    }
+
+    [Theory]
+    [InlineData(true, -1)]
+    [InlineData(true, 1)]
+    [InlineData(false, -1)]
+    [InlineData(false, 1)]
+    public void NavigationBodyAnchor_LargeRadiusNearCoordinateLimitCannotWrapIntoClearance(
+        bool xAxis, int sign)
+    {
+        Fixed64 translation = sign < 0
+            ? Fixed64.MinValue + new Fixed64(4)
+            : Fixed64.MaxValue - new Fixed64(4);
+        Vector3d center = xAxis
+            ? new Vector3d(translation, Fixed64.Zero, Fixed64.Zero)
+            : new Vector3d(Fixed64.Zero, Fixed64.Zero, translation);
+        GridCellPrism prism = CreateOfflinePrism(GridTopologyKind.RectangularPrism,
+            GridTopologyMetrics.Rectangular(new Fixed64(4)), center);
+
+        Assert.False(GridCellGeometry.IsNavigationBodyAnchorValid(
+            prism, center, new Fixed64(8), Fixed64.One, default));
+    }
+
     [Fact]
     public void PositiveNavigationBodyPrismOverlap_ShouldExcludeExactTangencyAndIncludeOneRawPenetration()
     {

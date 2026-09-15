@@ -148,6 +148,32 @@ whole-footprint rejection and serve as a control for changes inside the later
 edge loop. These are geometry microbenchmarks, not complete world traces or
 simulation frames; use a consuming workload before claiming a host-frame gain.
 
+## Benchmarking Unreleased Sibling Libraries
+
+Package references are the default. For coordinated source-stack work, the
+generated benchmark project must inherit the same dependency choices as the
+project you build. In a dedicated PowerShell session, set both properties before
+building and running:
+
+```powershell
+$env:UseLocalLsfStack = 'true'
+$env:DisableTransitiveProjectReferences = 'true'
+dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0
+dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll grid-navigation-body-segment --filter '*' --keepFiles --artifacts artifacts/body-clearance
+```
+
+Passing `-p:UseLocalLsfStack=true` only to the first build does not configure the
+later generated build. Disabling transitive project rediscovery keeps the direct,
+explicitly versioned sibling references authoritative. Without it, a generated
+entry project can rebuild an unversioned dependency into the same output as its
+versioned counterpart. Close the dedicated session before returning to normal
+package-backed validation. These build properties do not change runtime math or
+benchmark work.
+
+The `grid-navigation-body-segment` cases measure interior anchor/sweep checks
+and portal, blocked-corner, clipped-entry and hex controls. They are geometry
+microbenchmarks; use a consuming workload to establish a host-frame improvement.
+
 ## Accepting A Benchmark Capture
 
 Keep the full log and verify every expected case and child launch completed,
