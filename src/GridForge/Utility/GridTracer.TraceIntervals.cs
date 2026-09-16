@@ -29,6 +29,7 @@ public static partial class GridTracer
     /// Results are cleared on entry and on any ceiling or representability failure. Candidate grids are
     /// discovered through the world spatial index. Candidate addresses are bounded around the segment,
     /// then exact rectangular or hexagonal prisms reject all broad-phase false positives.
+    /// The supplied scratch must not already be active in another trace; reentrant use throws before clearing results.
     /// </remarks>
     public static GridTraceIntervalReport TraceIntervalsInto(
         GridWorld world,
@@ -41,16 +42,35 @@ public static partial class GridTracer
         int outputLimit,
         long candidateWorkLimit)
     {
+        ValidateTraceArguments(results, scratch, gridCandidateLimit, addressCandidateLimit, outputLimit, candidateWorkLimit);
+        scratch.Enter();
+        try
+        {
+            return TraceIntervalsCore(world, start, end, results, scratch,
+                gridCandidateLimit, addressCandidateLimit, outputLimit, candidateWorkLimit);
+        }
+        finally
+        {
+            scratch.Exit();
+        }
+    }
+
+    private static void ValidateTraceArguments(SwiftList<GridTraceInterval> results, GridTraceIntervalScratch scratch,
+        int gridCandidateLimit, int addressCandidateLimit, int outputLimit, long candidateWorkLimit)
+    {
         SwiftThrowHelper.ThrowIfNull(results, nameof(results));
         SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
         SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
         SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
-        if (candidateWorkLimit < 0L)
-            throw new ArgumentOutOfRangeException(nameof(candidateWorkLimit));
+        SwiftThrowHelper.ThrowIfArgumentOutOfRange(candidateWorkLimit < 0L, null, nameof(candidateWorkLimit));
+    }
 
+    private static GridTraceIntervalReport TraceIntervalsCore(GridWorld world, Vector3d start, Vector3d end,
+        SwiftList<GridTraceInterval> results, GridTraceIntervalScratch scratch,
+        int gridCandidateLimit, int addressCandidateLimit, int outputLimit, long candidateWorkLimit)
+    {
         results.Clear();
-        scratch.Clear();
         if (world == null || !world.IsActive)
             return CreateTraceReport(GridTraceIntervalStatus.Complete, 0, 0, results);
 
@@ -117,50 +137,11 @@ public static partial class GridTracer
             if (hasSparseGrid)
                 SnapshotSparsePresence(world, scratch.AddressCandidates);
 
-            for (int addressIndex = 0; addressIndex < scratch.AddressCandidates.Count; addressIndex++)
-            {
-                GridTraceAddressCandidate candidate = scratch.AddressCandidates[addressIndex];
-                VoxelGrid grid = candidate.Grid;
-                VoxelIndex index = candidate.Index;
-                WorldVoxelIndex cell = new WorldVoxelIndex(
-                    world.SpawnToken,
-                    grid.GridIndex,
-                    grid.SpawnToken,
-                    index);
-                if (!GridCellGeometry.TryCreatePrism(
-                        grid.Configuration.TopologyKind,
-                        grid.Configuration.TopologyMetrics,
-                        grid.GetWorldPosition(index),
-                        cell,
-                        out GridCellPrism prism))
-                {
-                    return FailTrace(
-                        results,
-                        GridTraceIntervalStatus.UnrepresentableGeometry,
-                        scratch.CandidateGrids.Count,
-                        addressCandidateCount);
-                }
-
-                if (!TryGetPrismInterval(start, end, prism, out Fixed64 tEnter, out Fixed64 tExit))
-                    continue;
-
-                if (results.Count >= outputLimit)
-                {
-                    return FailTrace(
-                        results,
-                        GridTraceIntervalStatus.OutputLimitExceeded,
-                        scratch.CandidateGrids.Count,
-                        addressCandidateCount);
-                }
-
-                results.Add(new GridTraceInterval(
-                    cell,
-                    grid.Configuration.ToGridKey(),
-                    candidate.IsPhysicallyPresent,
-                    grid.LastChangeSequence,
-                    tEnter,
-                    tExit));
-            }
+            int unusedTagCount = 0;
+            GridTraceIntervalStatus status = AppendTraceIntervals(world, start, end, results, scratch,
+                outputLimit, default, ref unusedTagCount);
+            if (status != GridTraceIntervalStatus.Complete)
+                return FailTrace(results, status, scratch.CandidateGrids.Count, addressCandidateCount);
 
             SortIntervals(results);
             return CreateTraceReport(
@@ -172,8 +153,34 @@ public static partial class GridTracer
         finally
         {
             world.ExitReadLock();
-            scratch.Clear();
         }
+    }
+
+    private static GridTraceIntervalStatus AppendTraceIntervals(
+        GridWorld world, Vector3d start, Vector3d end, SwiftList<GridTraceInterval> results,
+        GridTraceIntervalScratch scratch, int outputLimit, Span<int> sourceOrdinals, ref int usedTags)
+    {
+        for (int addressIndex = 0; addressIndex < scratch.AddressCandidates.Count; addressIndex++)
+        {
+            GridTraceAddressCandidate candidate = scratch.AddressCandidates[addressIndex];
+            VoxelGrid grid = candidate.Grid;
+            VoxelIndex index = candidate.Index;
+            WorldVoxelIndex cell = new WorldVoxelIndex(world.SpawnToken, grid.GridIndex, grid.SpawnToken, index);
+            if (!GridCellGeometry.TryCreatePrism(grid.Configuration.TopologyKind, grid.Configuration.TopologyMetrics,
+                    grid.GetWorldPosition(index), cell, out GridCellPrism prism))
+                return GridTraceIntervalStatus.UnrepresentableGeometry;
+
+            if (!TryGetPrismInterval(start, end, prism, out Fixed64 tEnter, out Fixed64 tExit))
+                continue;
+            if (results.Count >= outputLimit)
+                return GridTraceIntervalStatus.OutputLimitExceeded;
+
+            if (!sourceOrdinals.IsEmpty)
+                sourceOrdinals[usedTags++] = results.Count;
+            results.Add(new GridTraceInterval(cell, grid.Configuration.ToGridKey(), candidate.IsPhysicallyPresent,
+                grid.LastChangeSequence, tEnter, tExit));
+        }
+        return GridTraceIntervalStatus.Complete;
     }
 
     private static bool TryCollectSegmentCandidates(
@@ -196,18 +203,8 @@ public static partial class GridTracer
             return true;
         }
 
-        // Admission still charges the full original range, including omitted
-        // planar misses. Cap the intermediate product before multiplying depth.
-        long width = Math.Max(0L, (long)maxIndex.x - minIndex.x + 1);
-        long height = Math.Max(0L, (long)maxIndex.y - minIndex.y + 1);
-        long depth = Math.Max(0L, (long)maxIndex.z - minIndex.z + 1);
-        long count = Math.Min(width * height, (long)addressCandidateLimit + 1) * depth;
-        if (count > addressCandidateLimit - addressCandidateCount)
-        {
-            addressCandidateCount = addressCandidateLimit;
+        if (!TryAdmitTraceRange(minIndex, maxIndex, addressCandidateLimit, ref addressCandidateCount))
             return false;
-        }
-        addressCandidateCount += (int)count;
 
         if (TryCollectRectangularSegmentCandidates(grid, start, end, minIndex, maxIndex, scratch))
             return true;
@@ -226,6 +223,25 @@ public static partial class GridTracer
                 }
             }
         }
+
+        return true;
+    }
+
+    private static bool TryAdmitTraceRange(VoxelIndex minIndex, VoxelIndex maxIndex,
+        int addressCandidateLimit, ref int addressCandidateCount)
+    {
+        // Admission still charges the full original range, including omitted
+        // planar misses. Cap the intermediate product before multiplying depth.
+        long width = Math.Max(0L, (long)maxIndex.x - minIndex.x + 1);
+        long height = Math.Max(0L, (long)maxIndex.y - minIndex.y + 1);
+        long depth = Math.Max(0L, (long)maxIndex.z - minIndex.z + 1);
+        long count = Math.Min(width * height, (long)addressCandidateLimit + 1) * depth;
+        if (count > addressCandidateLimit - addressCandidateCount)
+        {
+            addressCandidateCount = addressCandidateLimit;
+            return false;
+        }
+        addressCandidateCount += (int)count;
 
         return true;
     }
@@ -256,49 +272,54 @@ public static partial class GridTracer
                 grid.GetWorldPosition(maxIndex), default, out _))
             return false;
 
+        for (int x = minIndex.x; x <= maxIndex.x; x++)
+            CollectRectangularSegmentSlab(grid, start, end, deltaX, minIndex, maxIndex, x, scratch);
+        return true;
+    }
+
+    private static void CollectRectangularSegmentSlab(VoxelGrid grid, Vector3d start, Vector3d end,
+        Fixed64 deltaX, VoxelIndex minIndex, VoxelIndex maxIndex, int x, GridTraceIntervalScratch scratch)
+    {
+        GridTopologyMetrics metrics = grid.Topology.Metrics;
         Fixed64 halfWidth = metrics.CellWidth * Fixed64.Half;
         Fixed64 halfLength = metrics.CellLength * Fixed64.Half;
         Fixed64 segmentMinX = FixedMath.Min(start.X, end.X);
         Fixed64 segmentMaxX = FixedMath.Max(start.X, end.X);
         Vector3d boundsMin = grid.BoundsMin;
         bool isDense = grid.StorageKind == GridStorageKind.Dense;
-        for (int x = minIndex.x; x <= maxIndex.x; x++)
-        {
-            // Keep the topology's saturating multiply-then-add, but only compute the queried axis.
-            Fixed64 centerX = boundsMin.X + x * metrics.CellWidth;
-            Fixed64 slabMin = FixedMath.Max(centerX - halfWidth, segmentMinX);
-            Fixed64 slabMax = FixedMath.Min(centerX + halfWidth, segmentMaxX);
-            if (slabMin > slabMax)
-                continue;
+        // Keep the topology's saturating multiply-then-add, but only compute the queried axis.
+        Fixed64 centerX = boundsMin.X + x * metrics.CellWidth;
+        Fixed64 slabMin = FixedMath.Max(centerX - halfWidth, segmentMinX);
+        Fixed64 slabMax = FixedMath.Min(centerX + halfWidth, segmentMaxX);
+        if (slabMin > slabMax)
+            return;
 
-            // Clipping first makes both subtractions fit within deltaX.
-            // Division rounds once; expand outward before full-domain Lerp.
-            Fixed64 first = (slabMin - start.X) / deltaX;
-            Fixed64 second = (slabMax - start.X) / deltaX;
-            Fixed64 enter = FixedMath.Max(Fixed64.Zero,
-                FixedMath.Min(first, second) - Fixed64.MinIncrement);
-            Fixed64 exit = FixedMath.Min(Fixed64.One,
-                FixedMath.Max(first, second) + Fixed64.MinIncrement);
-            Fixed64 firstZ = FixedMath.Lerp(start.Z, end.Z, enter);
-            Fixed64 secondZ = FixedMath.Lerp(start.Z, end.Z, exit);
-            // Lerp also rounds once. One raw coordinate unit retains exact
-            // contacts before expanding to the closed cell-center range.
-            Fixed64 minZ = FixedMath.Min(firstZ, secondZ) - Fixed64.MinIncrement - halfLength;
-            Fixed64 maxZ = FixedMath.Max(firstZ, secondZ) + Fixed64.MinIncrement + halfLength;
-            int zStart = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
-                minIndex.z, maxIndex.z, minZ, upper: false);
-            int zEnd = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
-                zStart, maxIndex.z, maxZ, upper: true);
-            // Keep Y unchanged: independently rounded vertical intervals may
-            // overlap a planar interval even without exact simultaneous contact.
-            for (int y = minIndex.y; y <= maxIndex.y; y++)
-            {
-                for (int z = zStart; z < zEnd; z++)
-                    scratch.AddressCandidates.Add(new GridTraceAddressCandidate(
-                        grid, new VoxelIndex(x, y, z), isDense));
-            }
+        // Clipping first makes both subtractions fit within deltaX.
+        // Division rounds once; expand outward before full-domain Lerp.
+        Fixed64 first = (slabMin - start.X) / deltaX;
+        Fixed64 second = (slabMax - start.X) / deltaX;
+        Fixed64 enter = FixedMath.Max(Fixed64.Zero,
+            FixedMath.Min(first, second) - Fixed64.MinIncrement);
+        Fixed64 exit = FixedMath.Min(Fixed64.One,
+            FixedMath.Max(first, second) + Fixed64.MinIncrement);
+        Fixed64 firstZ = FixedMath.Lerp(start.Z, end.Z, enter);
+        Fixed64 secondZ = FixedMath.Lerp(start.Z, end.Z, exit);
+        // Lerp also rounds once. One raw coordinate unit retains exact
+        // contacts before expanding to the closed cell-center range.
+        Fixed64 minZ = FixedMath.Min(firstZ, secondZ) - Fixed64.MinIncrement - halfLength;
+        Fixed64 maxZ = FixedMath.Max(firstZ, secondZ) + Fixed64.MinIncrement + halfLength;
+        int zStart = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
+            minIndex.z, maxIndex.z, minZ, upper: false);
+        int zEnd = FindRectangularZBound(boundsMin.Z, metrics.CellLength,
+            zStart, maxIndex.z, maxZ, upper: true);
+        // Keep Y unchanged: independently rounded vertical intervals may
+        // overlap a planar interval even without exact simultaneous contact.
+        for (int y = minIndex.y; y <= maxIndex.y; y++)
+        {
+            for (int z = zStart; z < zEnd; z++)
+                scratch.AddressCandidates.Add(new GridTraceAddressCandidate(
+                    grid, new VoxelIndex(x, y, z), isDense));
         }
-        return true;
     }
 
     private static int FindRectangularZBound(
@@ -484,24 +505,27 @@ public static partial class GridTracer
     private static void SortGridIndices(GridWorld world, SwiftList<ushort> values) =>
         values.SortInPlace(new GridIndexComparer(world));
 
-    private static void SortIntervals(SwiftList<GridTraceInterval> values)
+    private static void SortIntervals(SwiftList<GridTraceInterval> values, Span<int> sourceOrdinals = default)
     {
         GridTraceInterval[] items = values.InnerArray;
         int count = values.Count;
         for (int root = (count >> 1) - 1; root >= 0; root--)
-            SiftIntervalsDown(items, root, count);
+            SiftIntervalsDown(items, sourceOrdinals, root, count);
 
         for (int end = count - 1; end > 0; end--)
         {
             (items[0], items[end]) = (items[end], items[0]);
-            SiftIntervalsDown(items, 0, end);
+            if (!sourceOrdinals.IsEmpty)
+                (sourceOrdinals[0], sourceOrdinals[end]) = (sourceOrdinals[end], sourceOrdinals[0]);
+            SiftIntervalsDown(items, sourceOrdinals, 0, end);
         }
     }
 
-    private static void SiftIntervalsDown(GridTraceInterval[] items, int root, int count)
+    private static void SiftIntervalsDown(GridTraceInterval[] items, Span<int> sourceOrdinals, int root, int count)
     {
         // Carry the root once instead of swapping the full interval at every level.
         GridTraceInterval value = items[root];
+        int sourceOrdinal = sourceOrdinals.IsEmpty ? 0 : sourceOrdinals[root];
         while (root < (count >> 1))
         {
             int child = (root << 1) + 1;
@@ -512,9 +536,13 @@ public static partial class GridTracer
                 break;
 
             items[root] = items[child];
+            if (!sourceOrdinals.IsEmpty)
+                sourceOrdinals[root] = sourceOrdinals[child];
             root = child;
         }
         items[root] = value;
+        if (!sourceOrdinals.IsEmpty)
+            sourceOrdinals[root] = sourceOrdinal;
     }
 
     private static int CompareIntervals(in GridTraceInterval first, in GridTraceInterval second)

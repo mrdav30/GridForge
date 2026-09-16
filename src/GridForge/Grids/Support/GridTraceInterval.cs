@@ -12,25 +12,6 @@ using GridForge.Spatial;
 namespace GridForge.Grids;
 
 /// <summary>
-/// Reports completion or a deterministic caller-supplied trace ceiling.
-/// </summary>
-public enum GridTraceIntervalStatus : byte
-{
-    /// <summary>The complete trace was written.</summary>
-    Complete,
-    /// <summary>The candidate-address ceiling was exhausted.</summary>
-    AddressCandidateLimitExceeded,
-    /// <summary>The output interval ceiling was exceeded.</summary>
-    OutputLimitExceeded,
-    /// <summary>A candidate grid cell could not be represented exactly.</summary>
-    UnrepresentableGeometry,
-    /// <summary>The candidate-grid ceiling was exhausted.</summary>
-    GridCandidateLimitExceeded,
-    /// <summary>The combined candidate-grid and candidate-address work ceiling was exhausted.</summary>
-    CandidateWorkLimitExceeded
-}
-
-/// <summary>
 /// Describes the exact closed parameter interval where a segment intersects one grid address.
 /// </summary>
 public readonly struct GridTraceInterval
@@ -95,52 +76,4 @@ public readonly struct GridTraceInterval
             TExit,
             tieGroupId,
             tieOrder);
-}
-
-/// <summary>
-/// Summarizes one bounded ordered trace.
-/// </summary>
-public readonly struct GridTraceIntervalReport
-{
-    /// <summary>The completion status.</summary>
-    public GridTraceIntervalStatus Status { get; }
-
-    /// <summary>The number of candidate grids discovered.</summary>
-    public int GridCandidateCount { get; }
-
-    /// <summary>The number of unique candidate addresses enumerated.</summary>
-    public int AddressCandidateCount { get; }
-
-    /// <summary>The number of intervals written.</summary>
-    public int IntervalCount { get; }
-
-    /// <summary>The number of simultaneous-coverage groups.</summary>
-    public int TieGroupCount { get; }
-
-    /// <summary>Whether all parameters from zero through one are covered by grid addresses.</summary>
-    public bool HasContinuousAddressCoverage { get; }
-
-    /// <summary>Whether all parameters from zero through one are covered by physically present voxels.</summary>
-    public bool HasContinuousPhysicalCoverage { get; }
-
-    /// <summary>Whether the complete trace was written.</summary>
-    public bool IsComplete => Status == GridTraceIntervalStatus.Complete;
-
-    internal GridTraceIntervalReport(
-        GridTraceIntervalStatus status,
-        int gridCandidateCount,
-        int candidateCount,
-        int intervalCount,
-        int tieGroupCount,
-        bool hasContinuousAddressCoverage,
-        bool hasContinuousPhysicalCoverage)
-    {
-        Status = status;
-        GridCandidateCount = gridCandidateCount;
-        AddressCandidateCount = candidateCount;
-        IntervalCount = intervalCount;
-        TieGroupCount = tieGroupCount;
-        HasContinuousAddressCoverage = hasContinuousAddressCoverage;
-        HasContinuousPhysicalCoverage = hasContinuousPhysicalCoverage;
-    }
 }

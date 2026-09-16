@@ -5,7 +5,6 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using GridForge.Spatial;
 using SwiftCollections;
 
 namespace GridForge.Grids;
@@ -13,9 +12,13 @@ namespace GridForge.Grids;
 /// <summary>
 /// Owns reusable caller-side storage for allocation-free warmed interval traces.
 /// </summary>
-/// <remarks>Instances retain capacity and are not thread-safe.</remarks>
+/// <remarks>
+/// Instances retain capacity and are not thread-safe. Reentrant tracing or clearing an active instance
+/// throws before caller output is modified. Completed traces release temporary grid references.
+/// </remarks>
 public sealed class GridTraceIntervalScratch
 {
+    private bool _isActive;
     internal SwiftList<ushort> CandidateGrids { get; }
 
     internal SwiftList<GridTraceAddressCandidate> AddressCandidates { get; }
@@ -33,27 +36,29 @@ public sealed class GridTraceIntervalScratch
     /// <summary>Clears temporary values while retaining capacity.</summary>
     public void Clear()
     {
+        ThrowIfActive();
+        ClearCore();
+    }
+
+    internal void Enter()
+    {
+        ThrowIfActive();
+        _isActive = true;
+        ClearCore();
+    }
+
+    internal void Exit()
+    {
+        ClearCore();
+        _isActive = false;
+    }
+
+    private void ThrowIfActive() => SwiftThrowHelper.ThrowIfTrue(
+        _isActive, nameof(GridTraceIntervalScratch), "Interval trace scratch is already in use.");
+
+    private void ClearCore()
+    {
         CandidateGrids.Clear();
         AddressCandidates.Clear();
     }
-}
-
-internal readonly struct GridTraceAddressCandidate
-{
-    public readonly VoxelGrid Grid;
-    public readonly VoxelIndex Index;
-    public readonly bool IsPhysicallyPresent;
-
-    public GridTraceAddressCandidate(
-        VoxelGrid grid,
-        VoxelIndex index,
-        bool isPhysicallyPresent)
-    {
-        Grid = grid;
-        Index = index;
-        IsPhysicallyPresent = isPhysicallyPresent;
-    }
-
-    public GridTraceAddressCandidate WithPhysicalPresence(bool isPhysicallyPresent) =>
-        new(Grid, Index, isPhysicallyPresent);
 }

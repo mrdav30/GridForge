@@ -41,7 +41,8 @@ description: API reference and guides for deterministic rectangular and hex-pris
   <div class="gf-card">
     <h3><a href="xref:GridForge.Utility.GridTracer">Trace and cover</a></h3>
     <p>Resolve lines, boxes, and flat XZ areas into topology-aware voxel or
-    scan-cell coverage across active grids.</p>
+    scan-cell coverage across active grids. Query bounded exact intervals or
+    observe complete rectangular slabs without shortening the original segment.</p>
   </div>
   <div class="gf-card">
     <h3><a href="xref:GridForge.Blockers">Block and occupy</a></h3>

@@ -759,7 +759,7 @@ public static partial class GridCellGeometry
         return true;
     }
 
-    private static bool TryGetPlanarSlab(
+    internal static bool TryGetPlanarSlab(
         Fixed64 start, Fixed64 end, Fixed64 minimum, Fixed64 maximum,
         out Fixed64 denominator, out Fixed64 lower, out Fixed64 upper)
     {

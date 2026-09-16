@@ -26,6 +26,7 @@ diagnostic geometry—without tying the core runtime to a game engine.
 - **Dense or sparse storage.** Model solid voxel volumes or large address spaces
   where only selected cells exist.
 - **Queries and state built in.** Trace lines and bounds, scan nearby occupants,
+  observe bounded exact segment intervals and completed rectangular slabs,
   stack blockers, attach typed partitions, and observe dirty diagnostic regions.
 - **Engine-agnostic by design.** Unity authoring and visualization live in the
   separate [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity)
