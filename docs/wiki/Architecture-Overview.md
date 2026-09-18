@@ -63,6 +63,7 @@ world-space input
 - world versioning and grid-level events
 - a process-unique runtime world token
 - world-local grid generations
+- the lazily created occupant registration registry used by `GridOccupantManager`
 - active-gated allocation of process-unique obstacle registrations
 
 ### `VoxelGrid` owns

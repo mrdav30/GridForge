@@ -112,6 +112,8 @@ public sealed partial class GridWorld : IDisposable
 
     private readonly ReaderWriterLockSlim _gridLock = new();
     internal object ChangeSyncRoot { get; } = new object();
+    // Published and detached atomically by GridOccupantManager; records use the registry lock.
+    internal WorldOccupancyRegistry? OccupancyRegistry;
     private readonly SwiftQueue<GridCommittedChange> _committedChanges = new SwiftQueue<GridCommittedChange>();
     private readonly SwiftList<ushort> _gridCandidates = new();
     private readonly SwiftDictionary<ushort, SwiftList<ushort>> _boundaryContactTargetsBySource = new();

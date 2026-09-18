@@ -51,6 +51,11 @@ That keeps the tracked `WorldVoxelIndex` plus scan-cell ticket relationship
 inside GridForge instead of forcing every consumer implementation to mirror it
 manually.
 
+Each `GridWorld` owns its registry, created on the first registration. A normal
+`Reset()` clears its records for reuse; deactivation or disposal detaches it.
+The static manager does not keep worlds alive through a process-wide registry.
+Continue to dispose worlds explicitly to release grids and other owned resources.
+
 Occupant tickets are `OccupantTicket` values, not raw bucket indices. Each
 ticket combines a recyclable O(1) `Slot` with a nonzero process-wide
 `Generation`. `default(OccupantTicket)` is invalid, and a ticket from a removed

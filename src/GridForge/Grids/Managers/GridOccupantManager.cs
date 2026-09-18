@@ -6,10 +6,9 @@
 //=======================================================================
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using GridForge.Spatial;
-using SwiftCollections;
 using SwiftCollections.Pool;
 
 namespace GridForge.Grids;
@@ -54,34 +53,6 @@ public static class GridOccupantManager
     #endregion
 
     #region Private Fields
-
-    /// <summary>
-    /// Tracks occupant registrations independently for each world.
-    /// </summary>
-    private static readonly ConcurrentDictionary<GridWorld, WorldOccupancyRegistry> _occupancyRegistries = new();
-
-    /// <summary>
-    /// Tracks all voxel registrations for a single occupant.
-    /// </summary>
-    private sealed class OccupancyRecord
-    {
-        public readonly IVoxelOccupant Occupant;
-        public readonly SwiftDictionary<WorldVoxelIndex, OccupantTicket> Tickets = new();
-
-        public OccupancyRecord(IVoxelOccupant occupant)
-        {
-            Occupant = occupant;
-        }
-    }
-
-    /// <summary>
-    /// Synchronizes one world's tracked occupant registrations.
-    /// </summary>
-    private sealed class WorldOccupancyRegistry
-    {
-        public readonly object SyncRoot = new();
-        public readonly SwiftDictionary<Guid, OccupancyRecord> Records = new();
-    }
 
     /// <summary>
     /// Immutable snapshot of one tracked occupancy.
@@ -353,7 +324,10 @@ public static class GridOccupantManager
 
     internal static void ReleaseTrackedOccupancies(GridWorld world)
     {
-        if (!_occupancyRegistries.TryRemove(world, out WorldOccupancyRegistry? registry))
+        // Detach before clearing: callers that already captured this registry retain
+        // its lock, but subsequent lookups must not discover the released registry.
+        WorldOccupancyRegistry? registry = Interlocked.Exchange(ref world.OccupancyRegistry, null);
+        if (registry == null)
             return;
 
         lock (registry.SyncRoot)
@@ -719,13 +693,25 @@ public static class GridOccupantManager
 
     private static WorldOccupancyRegistry GetWorldRegistry(GridWorld world)
     {
-        return _occupancyRegistries.GetOrAdd(world, static _ => new WorldOccupancyRegistry());
+        WorldOccupancyRegistry? registry = Volatile.Read(ref world.OccupancyRegistry);
+        if (registry != null)
+            return registry;
+
+        return PublishWorldRegistry(world, new WorldOccupancyRegistry());
+    }
+
+    private static WorldOccupancyRegistry PublishWorldRegistry(
+        GridWorld world,
+        WorldOccupancyRegistry candidate)
+    {
+        // Return the captured winner, not a reread that can observe concurrent detachment.
+        return Interlocked.CompareExchange(ref world.OccupancyRegistry, candidate, null) ?? candidate;
     }
 
     private static bool TryGetWorldRegistry(GridWorld world, out WorldOccupancyRegistry? registry)
     {
-        registry = null;
-        return _occupancyRegistries.TryGetValue(world, out registry);
+        registry = Volatile.Read(ref world.OccupancyRegistry);
+        return registry != null;
     }
 
     #endregion

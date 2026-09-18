@@ -152,8 +152,8 @@ The runtime is built around explicit world ownership:
 
 - `GridWorld` owns one world's ordinary-tier lookup tuning, active grid bucket,
   bounds tracker, adaptive two-tier spatial index, maximum topology cell edge,
-  versioning, lifecycle, and world-level events. Oversized grids are routed to
-  the secondary fixed BVH automatically.
+  occupant registration registry, versioning, lifecycle, and world-level events.
+  Oversized grids are routed to the secondary fixed BVH automatically.
 - `GridConfiguration` carries per-grid storage and topology intent through
   `GridStorageKind`, `GridTopologyKind`, and `GridTopologyMetrics`.
 - `VoxelGrid` owns one grid's snapped bounds, dimensions, topology instance,
@@ -171,8 +171,11 @@ The runtime is built around explicit world ownership:
 - `GridTracer` converts lines and bounds into covered voxels or scan cells
   across the active grids in one `GridWorld`.
 - `GridObstacleManager` mutates obstacle state and emits obstacle events.
-- `GridOccupantManager` owns world-scoped occupant registration tracking,
-  add/remove flows, ticket lookup, and occupant events.
+- `GridOccupantManager` manages each world's lazily created occupant registry,
+  add/remove flows, ticket lookup, and occupant events. Ordinary reset clears
+  records for reuse; deactivation atomically detaches the registry before clearing
+  it. Preserve grid occupant lock -> registry lock ordering and captured-reference
+  semantics during publication and release.
 - `GridScanManager` performs radius and typed scans through the scan-cell
   overlay.
 - `Blocker`, `BoundsBlocker`, and `AreaBlocker` translate world-space boxes or
