@@ -459,6 +459,55 @@ public class ScanCellTests : IDisposable
         Assert.Same(occupant, results[0]);
     }
 
+    [Theory]
+    // Raw Q32.32 coordinates: exact radius equality, then one raw unit beyond it.
+    [InlineData(4294967296L, 0L, 0L, 0L, 4294967296L, true)]
+    [InlineData(4294967297L, 0L, 0L, 0L, 4294967296L, false)]
+    [InlineData(-4294967296L, 0L, 0L, 0L, 4294967296L, true)]
+    [InlineData(-4294967297L, 0L, 0L, 0L, 4294967296L, false)]
+    // Passing X does not exempt either remaining component.
+    [InlineData(0L, 8589934592L, 0L, 0L, 4294967296L, false)]
+    [InlineData(0L, 0L, 8589934592L, 0L, 4294967296L, false)]
+    // Tiny squares still round to zero; a negative squared radius accepts nothing.
+    [InlineData(1L, 1L, 1L, 0L, 0L, true)]
+    [InlineData(50000L, 0L, 0L, 0L, 0L, false)]
+    [InlineData(40000L, 40000L, 0L, 0L, 0L, true)]
+    [InlineData(0L, 0L, 0L, 0L, -1L, false)]
+    // Saturation preserves equality, for individual products and the final sum.
+    [InlineData(long.MaxValue, 0L, 0L, 0L, long.MaxValue, true)]
+    [InlineData(long.MaxValue, 0L, 0L, 0L, long.MaxValue - 1L, false)]
+    [InlineData(long.MinValue, 0L, 0L, 0L, long.MaxValue, true)]
+    [InlineData(140737488355328L, 140737488355328L, 0L, 0L, long.MaxValue, true)]
+    [InlineData(140737488355328L, 140737488355328L, 0L, 0L, long.MaxValue - 1L, false)]
+    // Opposing extremes also exercise saturated coordinate subtraction.
+    [InlineData(long.MaxValue, 0L, 0L, long.MinValue, long.MaxValue, true)]
+    [InlineData(long.MinValue, 0L, 0L, long.MaxValue, long.MaxValue - 1L, false)]
+    public void ScanCellRadius_ShouldPreserveRoundedAndSaturatedDistance(
+        long x, long y, long z, long centerX, long squaredRadiusRaw, bool included)
+    {
+        Assert.True(_world.TryAddGrid(
+            new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        TestOccupant occupant = new(Vector3d.Zero);
+        Assert.True(grid.TryAddVoxelOccupant(occupant));
+        Assert.True(grid.TryGetScanCell(Vector3d.Zero, out ScanCell scanCell));
+
+        // Scan-cell membership is only a candidate set: use the live position,
+        // including when the host has not yet moved its registration.
+        occupant.Position = new Vector3d(Fixed64.FromRaw(x), Fixed64.FromRaw(y), Fixed64.FromRaw(z));
+        Vector3d center = new(Fixed64.FromRaw(centerX), Fixed64.Zero, Fixed64.Zero);
+        Fixed64 squaredRadius = Fixed64.FromRaw(squaredRadiusRaw);
+        Assert.Equal(included, (occupant.Position - center).MagnitudeSquared <= squaredRadius);
+
+        SwiftList<IVoxelOccupant> untyped = new();
+        SwiftList<TestOccupant> typed = new();
+        scanCell.AddOccupantsWithinRadiusTo(untyped, center, squaredRadius);
+        scanCell.AddOccupantsWithinRadiusTo(typed, center, squaredRadius);
+
+        Assert.Equal(included ? new IVoxelOccupant[] { occupant } : Array.Empty<IVoxelOccupant>(), untyped);
+        Assert.Equal(included ? new[] { occupant } : Array.Empty<TestOccupant>(), typed);
+    }
+
     [Fact]
     public void ScanCell_ShouldRemainEmptyUntilOccupied()
     {

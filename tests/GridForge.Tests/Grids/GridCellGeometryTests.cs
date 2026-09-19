@@ -104,6 +104,39 @@ public sealed class GridCellGeometryTests : IDisposable
         Assert.False(GridCellGeometry.TryGetPrism(grid, default, out _));
     }
 
+    [Theory]
+    [InlineData(GridTopologyKind.RectangularPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.RectangularPrism, (HexOrientation)42)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.PointyTop)]
+    [InlineData(GridTopologyKind.HexPrism, HexOrientation.FlatTop)]
+    public void TryCreatePrism_ShouldIgnoreMetricsUnusedByItsTopology(
+        GridTopologyKind kind, HexOrientation orientation)
+    {
+        bool rectangular = kind == GridTopologyKind.RectangularPrism;
+        GridTopologyMetrics canonical = rectangular
+            ? GridTopologyMetrics.Rectangular(new Fixed64(4), new Fixed64(6), new Fixed64(8))
+            : GridTopologyMetrics.Hex(new Fixed64(2), new Fixed64(6), orientation);
+        GridTopologyMetrics supplied = new GridTopologyMetrics(
+            rectangular ? Fixed64.MinValue : canonical.CellRadius,
+            rectangular ? canonical.CellWidth : Fixed64.MinValue,
+            canonical.LayerHeight,
+            rectangular ? canonical.CellLength : Fixed64.MaxValue,
+            orientation);
+        Vector3d center = new Vector3d(10, -20, 30);
+        WorldVoxelIndex cell = new WorldVoxelIndex(7, 3, 11, new VoxelIndex(2, 4, 6));
+
+        Assert.True(GridCellGeometry.TryCreatePrism(kind, canonical, center, cell, out GridCellPrism expected));
+        Assert.True(GridCellGeometry.TryCreatePrism(kind, supplied, center, cell, out GridCellPrism actual));
+
+        Assert.Equal(cell, actual.Cell);
+        Assert.Equal(kind, actual.TopologyKind);
+        Assert.Equal(center, actual.Center);
+        Assert.Equal(expected.VerticalMin, actual.VerticalMin);
+        Assert.Equal(expected.VerticalMax, actual.VerticalMax);
+        Assert.Equal(expected.PlanarInradius, actual.PlanarInradius);
+        Assert.Equal(GetFootprint(expected), GetFootprint(actual));
+    }
+
     [Fact]
     public void TryCreatePrism_ShouldFailWhenExactBoundsCannotBeRepresented()
     {

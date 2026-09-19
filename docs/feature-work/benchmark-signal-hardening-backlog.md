@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-011`.
+  `GF-Benchmark-013`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -55,6 +55,8 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 | Signal | Status | Priority | Tracking |
 | ------ | ------ | -------- | -------- |
+| GF-Benchmark-012 — Repeated scan and cell-geometry work | Closed locally; runtime candidates withdrawn | Medium | Matched full-frame improvement gates fail; exact behavior tests retained |
+| GF-Benchmark-011 — Radius scans compute already-rejected distance components | Closed locally; runtime candidate withdrawn | Medium | Full-frame tail gate failed; retained exact arithmetic tests |
 | GF-Benchmark-010 — Interior body sweeps still test every wall | Closed locally; runtime candidate withdrawn | Medium | Mixed containing-frame results; Trailblazer `TRB-Benchmark-005` remains active |
 | GF-Benchmark-009 — Rectangular contacts use general polygon containment | Closed locally | Medium | Reuse existing rectangle predicate; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
 | GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
@@ -65,6 +67,117 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 | GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
 | GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
 | GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
+### GF-Benchmark-012 - Repeated scan and cell-geometry work
+
+- **Discovered/disposition:** 2026-09-19, GridForge `9c712ec`, Trailblazer
+  `6e4124a`, and SwiftCollections `4b5715b`. Closed with a no-runtime-change
+  decision after implementation and matched downstream measurements. No speedup
+  is claimed; Trailblazer `TRB-Benchmark-005` remains active.
+- **Candidates:** Remove redundant prism-metric normalization; enumerate scan
+  occupant dictionary values directly; skip discarded direct-hit nearest-voxel
+  distance arithmetic; use known rectangular opposite corners for prism bounds.
+  All preserve serialized lockstep observation order and existing public API,
+  except the withdrawn SwiftCollections value-enumerator factory. None remains
+  in production source. Scan-cell deduplication removal was source-reviewed,
+  not implemented; caller-owned virtual `Add` behavior prevents treating
+  collection as universally unobservable.
+- **Matched downstream results:** The combined normalization/value-enumerator
+  candidate changes Flow/500 median 64-frame cost **322.59 to 323.37 ms (+0.24%)**.
+  Distance-only changes **316.53 to 321.56 ms (+1.59%)**. Rectangular bounds plus
+  Trailblazer terminal-ray cleanup changes **322.02 to 322.70 ms (+0.21%)**;
+  this is combined attribution, not an individual GridForge result. A separate
+  normalization-only pilot improves 1.81%, below the keep threshold. The same
+  predeclared gate requires at least 2% pooled Flow/500 improvement, all three
+  corresponding process-pair medians improving, and no selected-case frame-P95
+  regression above 5%. Every matched candidate fails both improvement gates;
+  all pass tails and exact semantic/allocation checks. Host variability is not
+  assigned a cause, and these observations are not portable regression claims.
+- **Protocol:** Existing balanced guided A*/100, Flow/100, and Flow/500 cases;
+  six fresh processes in control/candidate, candidate/control, control/candidate
+  order. Each has 10 warmup, 30 actual, and one diagnostic block per case, with
+  32 untimed preparation and 64 measured fixed frames per block. No competing
+  build/test/profiler workload. Benchmark/runtime dependencies are frozen;
+  only candidate library binaries, symbols, and corresponding XML documentation
+  change. All 369 paired stage records
+  match six literal replay/ray/allocation/GC arrays and workload metadata, with
+  zero current-thread allocation and collection changes inside measured frames.
+- **Retained tests:** Four valid noncanonical metric cases, nine scan-order/live-
+  registration cases, fifteen nearest-voxel identity/distance/tie/fallback cases,
+  and seven exact prism-bound cases. No hollow API-existence checks, timing
+  assertions, or new benchmark/CI project was added. The prior `GF-Benchmark-011`
+  changes are preserved independently.
+- **Evidence:** Trailblazer's isolated `Trailblazer-trb005-spatial` worktree,
+  `artifacts/trb005-spatial`: `prism-only-*` pilot; `confirm-*`, `distance-*`, and
+  `ray-bounds-*` matched comparisons; frozen runtimes, recursive SHA-256 manifests,
+  raw logs and analyses. `final-runtime` is a historical name for the rejected
+  normalization/enumerator candidate, not a retained final build. See the
+  corresponding `TRB-Benchmark-005` follow-up for the separate occupancy
+  experiment and the unchanged full-frame goal.
+- **Final verification:** restored GridForge production source and retained tests
+  pass Windows local-stack Release and ReleaseLean solution builds for
+  `netstandard2.1`/`net8.0`, with zero warnings/errors and **1,038 tests** in each
+  configuration. Both have exact **9,104/9,104 lines, 3,953/3,953 branches, and
+  1,132/1,132 fully covered methods**. Downstream Trailblazer and its Gravitas
+  adapter also pass both configurations and exact coverage. No exclusions or
+  coverage tolerance were added. Linux, CI, and released-package verification
+  were not rerun for this no-runtime-change slice.
+- **Independent review:** correctness/Ponytail review found no remaining test
+  issue. A separate raw-evidence audit reproduced all four downstream comparisons,
+  including the Trailblazer-only occupancy experiment, and confirmed every
+  improvement-gate failure and frozen-runtime inventory.
+
+### GF-Benchmark-011 - Radius scans compute already-rejected distance components
+
+- **Discovered/disposition:** 2026-09-18, GridForge `9c712ec` and Trailblazer
+  `3658197`. Closed with a no-runtime-change decision; no speedup is claimed.
+- **Signal:** Component timers in a copied Trailblazer Flow/500 runtime located
+  about 0.82 ms per instrumented frame in scan-cell occupant enumeration,
+  filtering and distance work.
+  Instrumented component costs are diagnostic, not uninstrumented timing or a
+  predicted gain. The original synchronization sample locations did not establish
+  expensive locks; no synchronization was changed.
+- **Candidate:** Read the live position once, compute the existing X square,
+  and reject only when it already exceeds the supplied squared radius. Otherwise
+  finish the original left-associated Y/Z sum. FixedMathSharp's nonnegative
+  saturated squares/addition justify this exact rejection. Strict `>` preserves
+  equality at the saturated maximum. Filters, type admission, getter count,
+  iteration order, pooling, 2D behavior and public API stayed unchanged.
+- **Matched result:** The existing Trailblazer balanced guided fixture ran
+  baseline-before / candidate / baseline-after, each with three fresh outer
+  processes, three cases, ten warmups and thirty actual 64-frame blocks per case.
+  Only the candidate GridForge binary and its matching symbols/XML replaced files
+  in the frozen baseline runtime. Flow/500 pooled block medians were
+  **346.51 / 336.04 / 343.21 ms**: candidate reductions of **3.02% / 2.09%**,
+  with overlapping process ranges. A*/100 frame P95 was
+  **1.811 / 1.967 / 1.860 ms**, increases of **8.63% / 5.74%**, failing the
+  predeclared maximum 5% increase against both controls.
+- **Decision:** Withdraw the predicate change; keep the original runtime.
+  This does not prove a portable regression or assign the variation to the host.
+  All 810 actual blocks and 1,107 stage records remain in the evidence; replay,
+  ray schedules, zero frame allocations/GC and frozen-file integrity match.
+  Trailblazer `TRB-Benchmark-005` stays open for its full-frame allowance.
+- **Retained tests:** Seventeen typed/untyped scan cases protect exact equality,
+  one-raw-unit rejection, independent product rounding up/down, the other axes,
+  saturated products/sums and opposing-extreme coordinate subtraction. They use
+  live positions after registration, without assuming an occupant remains inside
+  its registered voxel. Independent review found no retained-diff issues.
+- **Reproduction/evidence:** Trailblazer's
+  `artifacts/benchmark005-validation-costs` contains the declared protocol,
+  candidate patch, frozen binaries, nine capture logs, full per-process and
+  frame distributions, and `comparison-audit.json`. The existing
+  `.superpowers/sdd/navigationRecoveryPlan/capture-steady.ps1` and
+  `analyze-steady.ps1` reproduce the protocol. No benchmark project, CI job,
+  package dependency or runtime diagnostic API was added.
+- **Restored-state validation:** Both Windows local-stack solution configurations
+  build `netstandard2.1` and `net8.0` without warnings/errors and pass **1,003 tests**
+  with no failures/skips. Exact coverage remains **9,104/9,104 lines,
+  3,953/3,953 branches, and 1,132/1,132 covered and fully covered methods** in
+  Release and ReleaseLean. No coverage exclusions were added. The restored
+  Release DLL matches the frozen baseline SHA256
+  `0A2F895BA61D923B56C875C5D7AE9228DB12FEF3DFBBD8B32AFC61F37F62363B`.
+  Trailblazer and its adapter also pass both configurations with exact coverage.
+  Linux, CI and released-package validation were not rerun in this slice.
 
 ### GF-Benchmark-010 - Interior body sweeps still test every wall
 
