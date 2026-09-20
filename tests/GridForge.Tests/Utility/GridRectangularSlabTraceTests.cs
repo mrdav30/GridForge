@@ -556,6 +556,88 @@ public sealed class GridRectangularSlabTraceTests : IDisposable
         AssertScratchReleased();
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void AnisotropicVerticalCrossing_ShouldPreserveLiteralSlabIntervals(bool sparse, bool reverse)
+    {
+        GridConfiguration configuration = new GridConfiguration(
+            new Vector3d(-6, -8, -12), new Vector3d(2, -8, 12),
+            topologyMetrics: GridTopologyMetrics.Rectangular(Fixed64.Two, new Fixed64(4), new Fixed64(6)),
+            storageKind: sparse ? GridStorageKind.Sparse : GridStorageKind.Dense);
+        VoxelIndex[] physical = { new VoxelIndex(1, 0, 1), new VoxelIndex(2, 0, 2), new VoxelIndex(3, 0, 3) };
+        Assert.True(_world.TryAddGrid(configuration, sparse ? physical : null, out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        Vector3d start = new Vector3d(-6, -12, -12);
+        Vector3d end = new Vector3d(2, -4, 12);
+        if (reverse) (start, end) = (end, start);
+
+        SwiftList<GridTraceSlab> slabs = new SwiftList<GridTraceSlab>();
+        SwiftList<GridTraceInterval> emitted = new SwiftList<GridTraceInterval>();
+        Assert.True(Trace(start, end, Generation(grid), slab =>
+        {
+            slabs.Add(slab);
+            for (int i = slab.IntervalStart; i < slab.IntervalStart + slab.IntervalCount; i++)
+                emitted.Add(_results[i]);
+            return true;
+        }, out GridTraceIntervalReport report));
+
+        // The cell Y faces are -10 and -6: only parameters [1/4, 3/4] survive.
+        int[] expectedX = { 1, 1, 2, 2, 2, 3, 3 };
+        int[] expectedZ = { 1, 2, 1, 2, 3, 2, 3 };
+        int[] entryEighths = { 2, 3, 3, 3, 5, 5, 5 };
+        int[] exitEighths = { 3, 3, 3, 5, 5, 5, 6 };
+        Assert.Equal(7, emitted.Count);
+        for (int i = 0; i < emitted.Count; i++)
+        {
+            GridTraceInterval interval = emitted[i];
+            Assert.Equal(new VoxelIndex(expectedX[i], 0, expectedZ[i]), interval.Cell.VoxelIndex);
+            Assert.Equal(Fixed64.FromFraction(reverse ? 8 - exitEighths[i] : entryEighths[i], 8), interval.TEnter);
+            Assert.Equal(Fixed64.FromFraction(reverse ? 8 - entryEighths[i] : exitEighths[i], 8), interval.TExit);
+            Assert.Equal(!sparse || expectedX[i] == expectedZ[i], interval.IsPhysicallyPresent);
+            Assert.Equal(grid.SpawnToken, interval.Cell.GridSpawnToken);
+            Assert.Equal(grid.LastChangeSequence, interval.GridLastChangeSequence);
+        }
+        Assert.Equal(new[] { 0, 1, 2, 3, 4 }, slabs.Select(slab => slab.XIndex));
+        Assert.Equal(new[] { 0, 0, 2, 5, 7 }, slabs.Select(slab => slab.IntervalStart));
+        Assert.Equal(new[] { 0, 2, 3, 2, 0 }, slabs.Select(slab => slab.IntervalCount));
+        Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+        Assert.Equal(1, report.GridCandidateCount);
+        Assert.Equal(25, report.AddressCandidateCount);
+        Assert.Equal(7, report.IntervalCount);
+        Assert.False(report.HasContinuousAddressCoverage);
+        Assert.False(report.HasContinuousPhysicalCoverage);
+
+        SwiftList<GridTraceInterval> eager = new SwiftList<GridTraceInterval>();
+        Assert.Equal(GridTracer.TraceIntervalsInto(_world, start, end, eager, _scratch, 2, 128, 128, 130), report);
+        Assert.Equal(eager.ToArray(), _results.ToArray());
+        for (int i = 0; i < _results.Count; i++)
+            Assert.Equal(_results[i], emitted[_tags[i]].WithTie(_results[i].TieGroupId, _results[i].TieOrder));
+        AssertScratchReleased();
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void StationaryLayerFace_ShouldPreserveClosedContactAndObserveVerticalMisses(int rawOffset)
+    {
+        VoxelGrid grid = AddGrid();
+        Fixed64 y = Fixed64.Half + Fixed64.FromRaw(rawOffset);
+        int observed = 0;
+        Assert.True(Trace(new Vector3d(Fixed64.Zero, y, Fixed64.Zero), new Vector3d(new Fixed64(4), y, new Fixed64(4)),
+            Generation(grid), _ => { observed++; return true; }, out GridTraceIntervalReport report));
+        Assert.Equal(5, observed);
+        Assert.Equal(GridTraceIntervalStatus.Complete, report.Status);
+        Assert.Equal(25, report.AddressCandidateCount);
+        Assert.Equal(rawOffset > 0 ? 0 : 13, report.IntervalCount);
+        Assert.Equal(rawOffset <= 0, report.HasContinuousAddressCoverage);
+        Assert.Equal(rawOffset <= 0, report.HasContinuousPhysicalCoverage);
+        AssertScratchReleased();
+    }
+
     private VoxelGrid AddGrid(bool sparse = false)
     {
         GridConfiguration config = new GridConfiguration(Vector3d.Zero, new Vector3d(4, 0, 4),

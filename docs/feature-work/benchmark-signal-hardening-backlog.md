@@ -70,6 +70,29 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ### GF-Benchmark-012 - Repeated scan and cell-geometry work
 
+**Subsequent rectangular-slab experiment (2026-09-19):** a qualified per-ray
+preparation of repeated rectangular interval arithmetic was implemented and
+tested against the existing eager tracer. Its one-process downstream Flow/500
+pilot changed median 64-frame cost from **289.23 to 286.89 ms (-0.81%)**, too
+small to justify carrying the extra path into full acceptance. This is a pilot,
+not a portable performance result or a failed full-matrix gate. The entire
+runtime experiment was withdrawn; seven behavior rows remain for dense/sparse
+anisotropic vertical crossings in both directions, literal interval/slab order,
+and exact/below/above closed layer-face contact. A temporary vertical-guard
+mutation failed the matching contact test and was restored. No production
+GridForge code, API, dependency, or coverage exclusion changes in this slice.
+Artifacts are retained with Trailblazer's structural continuation under
+`artifacts/trb005-structural` in its isolated worktree; the retained downstream
+runtime improvement instead belongs to FixedMathSharp division and Trailblazer
+mapping reuse, not GridForge.
+
+Fresh Windows local-stack Release and ReleaseLean solution builds pass for both
+library targets with zero warnings or errors. Each configuration passes all
+**1,045 tests**, with none failed or skipped, and exact coverage of
+**9,104 lines / 3,953 branches / 1,132 fully covered methods**. The raw results
+and reports are under `verification/GridForge-Release` and
+`verification/GridForge-ReleaseLean` in that same artifact root.
+
 - **Discovered/disposition:** 2026-09-19, GridForge `9c712ec`, Trailblazer
   `6e4124a`, and SwiftCollections `4b5715b`. Closed with a no-runtime-change
   decision after implementation and matched downstream measurements. No speedup
