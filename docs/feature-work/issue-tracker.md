@@ -12,6 +12,9 @@
 - Record the date on the item, not in this filename.
 - Move an item to `Resolved Issues` only after the fix has tests or documented
   verification evidence.
+- Use `Closed Issues (Unreproduced)` for explicitly closed investigations with
+  no established cause or fix. Preserve their evidence and recurrence-capture
+  instructions; reopen the same ID if the failure recurs.
 - Do not use this tracker as a substitute for tests, benchmarks, or release
   notes.
 - Performance issues should stay in
@@ -21,11 +24,16 @@
 
 ## Active Issues
 
+- None currently.
+
+## Closed Issues (Unreproduced)
+
 ### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
 
 - **Discovered:** 2026-09-11 during `GF-Benchmark-005` baseline measurement.
-- **Status:** Open; root cause is not established. This is an incomplete
-  benchmark capture, not a confirmed GridForge runtime defect.
+- **Status:** Closed without reproduction or an established root cause on
+  2026-09-22, at maintainer direction after bounded follow-up. No runtime fix
+  is claimed. The original benchmark capture remains incomplete.
 - **Failure:** `GridPlanarIntervalBenchmarks.StrictMiss(Topology: "PointyHex")`,
   launch 2, throws `NullReferenceException` after seven warmup and 13 actual
   iterations. The stack identifies generated
@@ -125,12 +133,39 @@ The smoke logs and analyzed control dump remain in `capture-smoke*`; full dumps
 stay local and private, with no global debugger/WER registration or upload.
 See [ProcDump's capture options](https://learn.microsoft.com/en-us/sysinternals/downloads/procdump).
 
-**Disposition:** Remains open, awaiting a captured recurrence. No confirmed
-GridForge, FixedMathSharp, BenchmarkDotNet, runtime or hardware cause was found.
-Do not spend further runs treating successful replays as a fix. The separately
+**Disposition (2026-09-22):** Closed as unreproduced, with no confirmed
+GridForge, FixedMathSharp, BenchmarkDotNet, runtime or hardware cause. Stop
+proactive replay attempts and reopen **GF-Issue-006** if it recurs, capturing
+exception state and exact executable identities using the procedure above.
+Successful replays are not evidence of a fix. The separately
 confirmed launcher-status defect (`GF-Issue-007`) is now resolved below; that
 correction neither explains this exception nor completes its failed capture.
 Keep the failed case excluded from comparisons and retain full-log validation.
+
+#### Bounded closure check - 2026-09-22
+
+- Source state: GridForge `315e0cc`, FixedMathSharp `d5d8782`, SwiftCollections
+  `1ed2be3`. The Release benchmark host builds without warnings/errors using
+  `UseLocalLsfStack=true` and `DisableTransitiveProjectReferences=true`; its
+  FixedMathSharp DLL hash matches the sibling build.
+- One current `StrictMiss(Topology: "PointyHex")` ShortRun completes using
+  the in-process emit toolchain: three warmups, three measured iterations of
+  **16,777,216 calls each**, zero measured allocation, and exit code zero.
+  Setup validates the expected exact miss before measurement. No exception
+  recurs. This current-stack smoke run does not recreate the original frozen
+  child, repair its failed baseline, or prove the cause disappeared.
+- The focused Release `GridPlanarTraceIntervalTests` suite passes **63/63**
+  on the same local stack.
+- Current source inspection found no new cause: the strict-miss path copies
+  value-type prism vertices to stack storage and returns at the strict
+  supporting-line separation check, before containment or edge intersections.
+- The historical `Trailblazer/artifacts/gf-issue006` directory is absent from
+  its recorded location on this checkout. Its prior findings above are retained
+  as historical evidence, not freshly verified frozen-binary results.
+- New local evidence: `artifacts/gf-issue006-current-build.log`,
+  `gf-issue006-current-hashes.txt`, `gf-issue006-current-smoke.log`, and
+  `gf-issue006-current-tests.log`. No runtime code, test fixture, optimization
+  setting, or dependency version was changed for this closure.
 
 ## Performance Investigation Queue
 
