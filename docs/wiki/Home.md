@@ -41,7 +41,7 @@ Already know what you need? Jump straight to the topic map below.
 
 | Guide                                                     | Use it for                                          |
 | --------------------------------------------------------- | --------------------------------------------------- |
-| [GridTracer and Coverage](GridTracer-and-Coverage.md)     | Line, box, and XZ-area coverage across active grids |
+| [GridTracer and Coverage](GridTracer-and-Coverage.md)     | Line, box, XZ-area, and explicit-layer planar body coverage |
 | [Scan Cells and Query Flow](Scan-Cells-and-Query-Flow.md) | Nearby-occupant queries and scan-cell performance   |
 | [Blockers and Obstacles](Blockers-and-Obstacles.md)       | Stackable blocked regions and direct obstacle state |
 | [Occupants and Partitions](Occupants-and-Partitions.md)   | Dynamic entities and typed voxel-local metadata     |

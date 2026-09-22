@@ -171,6 +171,67 @@ Capacity, budget, invalid-input, and unrepresentable-geometry failures clear
 the result; complete and incomplete-physical results retain their full
 canonical evidence.
 
+## Native Planar Navigation Bodies
+
+`GridTracer.TracePlanarNavigationBodyInto(...)` proves one same-footprint or
+immediate planar neighbor leg for an upright capsule. Pass `axisLength = 0`
+for a circle; radius must be positive. The axis follows `Vector2d.Forward`,
+and total planar height is `axisLength + 2 * radius`. This is native footprint
+geometry: world Y is an embedding coordinate, not gameplay height, and the
+world is neither rotated nor treated as a thin 3D navigation body.
+
+The caller supplies a strictly configuration-ordered span of `GridPlanarLayer`
+values, each pairing an exact `GridCoveredAddressGeneration` with one
+nonnegative topology-local layer index. All selected layers must contain
+`embeddingY`. Source and target must belong to those exact generations and
+layers; stale revisions, duplicates, unsorted selections, unselected endpoints,
+and non-neighbor legs fail closed. Longer movement is decomposed by the caller.
+No active-world registry discovery or semantic/map admission is performed.
+
+Closed capsule contact admits each declared endpoint. Coverage of other cells
+uses exact strict continuous swept overlap, including odd raw half-axis lengths,
+rounded corners, capsule middles, and wide bodies. Rectangular diagonals also
+require both side cells. Both hex orientations support their planar neighbors.
+Congruent aligned cross-grid footprints can complete a union even when their
+selected layer heights differ. Incompatible or unaligned footprints cannot fill
+a required source-lattice cell. Virtual positive-overlap neighbors outside all
+eligible bounds invalidate the proof instead of silently clipping the body.
+
+Results reuse the navigation-body evidence contract above: canonical identities,
+physical presence, committed grid revisions, pinned endpoints, and missing
+`PhysicalAlternativeDependency` OR evidence. A complete negative proof returns
+`IncompletePhysicalCoverage`; aborted proofs leave no partial output. Other
+layers and noneligible grids cannot satisfy missing coverage.
+
+Unlike the older 3D body's growing scratch path, this entry treats **existing
+scratch and result capacities as hard insertion ceilings**, in addition to the
+caller budgets. Pre-size `GridNavigationBodyTraceScratch` and the result
+`SwiftList<GridNavigationBodyTraceCell>` before entering a steady-state loop.
+Grid scratch exhaustion reports `GridCandidateLimitExceeded`, address/union
+scratch exhaustion reports `AddressLimitExceeded`, and result exhaustion reports
+`OutputLimitExceeded`. Scratch is cleared on each normal return, retaining its
+capacity. Storage and scratch must not be shared by concurrent calls.
+
+Every selected generation is charged before validation, and every bounded
+address candidate before its geometry inspection. `CandidateWorkCount` is exactly
+their sum, **not an exact count of all arithmetic operations**. Candidate index
+bounds use the actual quantized forward lattice, not an ideal hex inverse:
+at most four binary searches of 31 coordinate probes per selected grid, without
+physical-cell or storage reads. This remains conservative for very small
+representable hex metrics and translated grids. For N retained
+candidates, sorting and lattice lookup cost O(N log N); closure has at most
+eight planar neighbors per member, and duplicate-alternative evidence scans are
+bounded by O(N squared). There are no hidden world scans or storage growth.
+Checked body/query expansion overflow returns `ArithmeticOverflow`.
+
+The bounded proof holds the world lifetime read lock, then the committed-change
+lock, in the same order as sparse mutations. It validates revisions and snapshots
+physical presence under that lock, without invoking host callbacks or acquiring
+grid obstacle/occupant locks. The returned evidence is coherent at its run stamp;
+later edits can still stale it, so consumers must retain the revision checks.
+Large caller budgets also lengthen the period during which edits wait for the
+proof. This API does not provide a wall-clock execution-time bound.
+
 ## 2D XZ Projection
 
 The `Vector2d` overloads are convenience APIs over the same 3D world model:

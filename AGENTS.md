@@ -170,6 +170,11 @@ The runtime is built around explicit world ownership:
   occupant entries for efficient removal and exact lookup.
 - `GridTracer` converts lines and bounds into covered voxels or scan cells
   across the active grids in one `GridWorld`.
+- Native planar navigation-body traces accept explicit ordered generation/layer
+  selections, preserve exact closed endpoint versus strict swept coverage, and
+  treat existing scratch/output capacities as hard ceilings. They hold world
+  read -> committed-change locks for the bounded proof; do not introduce grid
+  obstacle/occupant locks or host callbacks inside that scope.
 - `GridObstacleManager` mutates obstacle state and emits obstacle events.
 - `GridOccupantManager` manages each world's lazily created occupant registry,
   add/remove flows, ticket lookup, and occupant events. Ordinary reset clears

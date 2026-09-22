@@ -150,25 +150,51 @@ simulation frames; use a consuming workload before claiming a host-frame gain.
 
 ## Benchmarking Unreleased Sibling Libraries
 
-Package references are the default. For coordinated source-stack work, the
-generated benchmark project must inherit the same dependency choices as the
-project you build. In a dedicated PowerShell session, set both properties before
-building and running:
+The `grid-planar-navigation-body-trace` alias measures bounded native planar
+coverage with pre-sized caller storage: a nine-cell circle and a three-cell
+upright capsule. Setup checks complete status, generation/address/work counts,
+physical evidence, and exact output counts before measurement. These are full
+single-leg GridForge traces, not navigation search or complete simulation frames.
+Use the `grid-navigation-body-trace` alias as the unchanged 3D coverage control.
+
+Package references are the default. For unreleased sibling changes, the direct
+benchmark host supports source-stack builds, but the extra generated
+BenchmarkDotNet project can still select published math package assets. The
+local-stack flags alone do not prove which DLL a generated child executes.
+
+For a bounded new-API smoke test, use the verified direct host in process. In a
+dedicated PowerShell session, build and compare the math DLL hashes first:
 
 ```powershell
 $env:UseLocalLsfStack = 'true'
 $env:DisableTransitiveProjectReferences = 'true'
 dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0
-dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll grid-navigation-body-segment --filter '*' --keepFiles --artifacts artifacts/body-clearance
+Get-FileHash ../FixedMathSharp/src/FixedMathSharp/bin/Release/net8.0/FixedMathSharp.dll
+Get-FileHash tests/GridForge.Benchmarks/bin/Release/net8.0/FixedMathSharp.dll
 ```
 
-Passing `-p:UseLocalLsfStack=true` only to the first build does not configure the
-later generated build. Disabling transitive project rediscovery keeps the direct,
-explicitly versioned sibling references authoritative. Without it, a generated
-entry project can rebuild an unversioned dependency into the same output as its
-versioned counterpart. Close the dedicated session before returning to normal
+Require matching hashes before running the smoke test:
+
+```powershell
+dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll grid-planar-navigation-body-trace grid-navigation-body-trace --job Short --inProcess --filter '*' --artifacts artifacts/planar-body-smoke
+```
+
+For out-of-process runs, passing `-p:UseLocalLsfStack=true` only to the first
+build does not configure the later generated build. Disabling transitive project
+rediscovery prevents an extra unversioned sibling build beside its explicitly
+versioned counterpart; it does not settle package-asset selection. Close the
+dedicated session before returning to normal
 package-backed validation. These build properties do not change runtime math or
 benchmark work.
+
+The direct test/benchmark hosts exclude competing package assets, but those
+exclusions do not propagate through the generated top-level project. For an
+out-of-process source-stack measurement, independently verify the child's full
+dependency manifest and DLL hashes against the intended local stack. Prefer
+normal out-of-process package-backed captures once the dependencies are released.
+The in-process run above is observational/smoke evidence, not a substitute for
+canonical isolated performance evidence. Do not inject DLLs into failed children
+or treat successful older-API controls as proof that new local APIs were loaded.
 
 The `grid-navigation-body-segment` cases measure interior anchor/sweep checks
 and portal, blocked-corner, clipped-entry and hex controls. They are geometry

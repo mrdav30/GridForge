@@ -2,7 +2,7 @@
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-010`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-011`.
 - Assign an ID when an issue enters this tracker, keep it through resolution,
   and never reuse an ID even if an entry is later removed. Check this file's Git
   history before advancing or repairing the counter.
@@ -20,6 +20,38 @@
   here until they have been investigated and confirmed as runtime defects.
 
 ## Active Issues
+
+### GF-Issue-010 - Ideal hex inverse can omit representable small-metric lattice addresses
+
+- **Discovered:** 2026-09-21 during native planar navigation-body review.
+- **Status:** Confirmed pre-existing coordinate/range mismatch; legacy inverse
+  and its existing consumers are not fixed by the new planar trace.
+- **Boundary:** `HexCoordinateUtility.AxialToWorldOffset` first quantizes the
+  forward basis, while `WorldOffsetToAxial` evaluates the ideal irrational
+  inverse. Error can grow with the index, so expanding by one extra cell is not
+  a general correction.
+- **Reproduction:** Hex radius `Fixed64.FromRaw(6)`, layer height one, pointy
+  orientation has representable full width ten raw and row step nine raw.
+  Address `(100, 0, 100)` has center `(1500, 0, 900)` raw. The legacy inverse's
+  q coordinate is about `94.333`, not `100`. The old candidate-range helper
+  omits the endpoint for a stationary circle of radius one raw. The flat
+  orientation has the symmetric failure.
+- **Evidence:** A first native-planar implementation reusing that helper failed
+  both `SmallRepresentableHexMetrics_DoNotLoseEndpointInInverseProjection`
+  theory cases with `IndexOutOfRangeException` from an empty retained-candidate
+  lookup. The pre-fix local run is
+  `tests/GridForge.Tests/TestResults/900f313c-4315-40b9-9d6f-5f6dd6db6ca5`.
+  The regression uses a 120-by-120 authored axial extent and source `(100,0,100)`.
+- **Contained feature correction:** Native planar tracing now derives its
+  conservative candidate rectangle from bounded monotone forward-coordinate
+  searches, with both-orientation, translated radius 6/8/14 raw, coupled-neighbor,
+  and rectangular two-raw-cell tests. It does not call the legacy inverse.
+  Existing 3D/runtime paths remain untouched, so this issue stays open.
+- **Follow-up:** Audit inverse projection, general covered-address ranges,
+  dimension derivation, and their consumers against the quantized forward
+  lattice. Establish supported rounding/overflow contracts and focused
+  regressions before changing shared topology behavior; do not impose an
+  arbitrary minimum hex radius or treat a missing-endpoint guard as the fix.
 
 ### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
 
