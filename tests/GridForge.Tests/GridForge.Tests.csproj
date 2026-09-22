@@ -10,6 +10,9 @@
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<Configurations>Debug;Release;ReleaseLean</Configurations>
 		<OutputType>Exe</OutputType>
+		<!-- Background GC can count discarded allocation-context space as allocated
+         bytes on .NET 8. Use blocking GC for exact per-thread allocation guards. -->
+		<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
 		<RunSettingsFilePath>$(MSBuildThisFileDirectory)coverlet.runsettings</RunSettingsFilePath>
 		<DisableTransitiveProjectReferences Condition="'$(UseLocalLsfStack)' == 'true'">true</DisableTransitiveProjectReferences>
 	</PropertyGroup>
@@ -36,15 +39,10 @@
 	</ItemGroup>
 	<ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
 		<!-- Suppress competing transitive package binaries at the executable host. -->
-		<PackageReference Include="FixedMathSharp" Version="7.1.0"
-			Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
-		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0"
-			Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
-		<ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
-			AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
-		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
-			AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
-		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj"
-			AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
+		<PackageReference Include="FixedMathSharp" Version="7.1.0" Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0" Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
+		<ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj" AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
+		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj" AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
+		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj" AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
 	</ItemGroup>
 </Project>
