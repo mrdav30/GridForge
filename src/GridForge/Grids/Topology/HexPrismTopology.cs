@@ -48,17 +48,9 @@ internal sealed class HexPrismTopology : IGridTopology
         Fixed64 yMax = CeilToLayerOrigin(max.Y);
         Vector3d normalizedMin = new(min.X, yMin, min.Z);
 
-        HexCoordinateUtility.WorldOffsetToAxial(
-            max.X - normalizedMin.X,
-            max.Z - normalizedMin.Z,
-            Metrics,
-            out Fixed64 qMax,
-            out Fixed64 rMax);
-
-        int maxQ = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(qMax, Fixed64.Zero));
-        int maxR = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(rMax, Fixed64.Zero));
+        VoxelIndex maxIndex = GetMaxIndex(normalizedMin, max);
         int maxY = ((yMax - yMin) / Metrics.LayerHeight).FloorToInt();
-        Vector3d normalizedMax = normalizedMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(maxQ, maxY, maxR), Metrics);
+        Vector3d normalizedMax = normalizedMin + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(maxIndex.x, maxY, maxIndex.z), Metrics);
 
         return (normalizedMin, normalizedMax);
     }
@@ -263,6 +255,19 @@ internal sealed class HexPrismTopology : IGridTopology
             Metrics,
             out Fixed64 qMax,
             out Fixed64 rMax);
+
+        // An odd raw width at an odd coupled index rounds its half-raw center to even.
+        // Its continuous inverse can sit on either side of the integer address.
+        // Preserve exact authored corners before applying outward rounding.
+        HexCoordinateUtility.RoundCube(qMax, rMax, out int roundedQ, out int roundedR);
+        VoxelIndex rounded = new VoxelIndex(roundedQ, 0, roundedR);
+        Vector3d projected = HexCoordinateUtility.AxialToWorldOffset(rounded, Metrics);
+        if (roundedQ >= 0 && roundedR >= 0
+            && projected.X == boundsMax.X - boundsMin.X
+            && projected.Z == boundsMax.Z - boundsMin.Z)
+        {
+            return rounded;
+        }
 
         int maxQ = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(qMax, Fixed64.Zero));
         int maxR = HexCoordinateUtility.CeilToIntWithTolerance(FixedMath.Max(rMax, Fixed64.Zero));

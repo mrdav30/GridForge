@@ -21,38 +21,6 @@
 
 ## Active Issues
 
-### GF-Issue-010 - Ideal hex inverse can omit representable small-metric lattice addresses
-
-- **Discovered:** 2026-09-21 during native planar navigation-body review.
-- **Status:** Confirmed pre-existing coordinate/range mismatch; legacy inverse
-  and its existing consumers are not fixed by the new planar trace.
-- **Boundary:** `HexCoordinateUtility.AxialToWorldOffset` first quantizes the
-  forward basis, while `WorldOffsetToAxial` evaluates the ideal irrational
-  inverse. Error can grow with the index, so expanding by one extra cell is not
-  a general correction.
-- **Reproduction:** Hex radius `Fixed64.FromRaw(6)`, layer height one, pointy
-  orientation has representable full width ten raw and row step nine raw.
-  Address `(100, 0, 100)` has center `(1500, 0, 900)` raw. The legacy inverse's
-  q coordinate is about `94.333`, not `100`. The old candidate-range helper
-  omits the endpoint for a stationary circle of radius one raw. The flat
-  orientation has the symmetric failure.
-- **Evidence:** A first native-planar implementation reusing that helper failed
-  both `SmallRepresentableHexMetrics_DoNotLoseEndpointInInverseProjection`
-  theory cases with `IndexOutOfRangeException` from an empty retained-candidate
-  lookup. The pre-fix local run is
-  `tests/GridForge.Tests/TestResults/900f313c-4315-40b9-9d6f-5f6dd6db6ca5`.
-  The regression uses a 120-by-120 authored axial extent and source `(100,0,100)`.
-- **Contained feature correction:** Native planar tracing now derives its
-  conservative candidate rectangle from bounded monotone forward-coordinate
-  searches, with both-orientation, translated radius 6/8/14 raw, coupled-neighbor,
-  and rectangular two-raw-cell tests. It does not call the legacy inverse.
-  Existing 3D/runtime paths remain untouched, so this issue stays open.
-- **Follow-up:** Audit inverse projection, general covered-address ranges,
-  dimension derivation, and their consumers against the quantized forward
-  lattice. Establish supported rounding/overflow contracts and focused
-  regressions before changing shared topology behavior; do not impose an
-  arbitrary minimum hex radius or treat a missing-endpoint guard as the fix.
-
 ### GF-Issue-006 - Planar strict-miss benchmark launch reported a null-reference exception
 
 - **Discovered:** 2026-09-11 during `GF-Benchmark-005` baseline measurement.
@@ -172,6 +140,61 @@ confirmed runtime defect. Current queue:
 - None currently.
 
 ## Resolved Issues
+
+### GF-Issue-010 - Ideal hex inverse can omit representable small-metric lattice addresses
+
+- **Discovered:** 2026-09-21 during native planar navigation-body review.
+- **Status:** Resolved locally on 2026-09-21.
+- **Cause:** `AxialToWorldOffset` quantizes its width and row step before
+  multiplying by axial coordinates. `WorldOffsetToAxial` used the ideal
+  irrational inverse instead, producing error that grows with the address.
+  A larger constant candidate-range margin cannot correct that drift.
+- **Reproduction:** Radius six raw, pointy orientation, address `(100,0,100)`
+  projects to `(1500,0,900)` raw, but the old inverse's Q is about `94.333`.
+  Flat orientation fails symmetrically. New pre-fix regressions also resolve
+  `(101,0,99)` as `(95,0,99)` and fail authored dimension preservation.
+  The original native-planar failure remains recorded in local test run
+  `900f313c-4315-40b9-9d6f-5f6dd6db6ca5`; the new ten-case red run is
+  `artifacts/gf-issue010-red-local.log`.
+- **Correction:** Invert the actual quantized width and row step. Preserve
+  exact projected authored corners before ceiling in the shared dimension
+  helper, because an odd raw width at an odd coupled index rounds by half a
+  raw unit and need not invert to an exact integer. Forward positions and
+  existing cube-rounding tie rules are unchanged. No radius floor, expanded
+  search margin, dependency change, or missing-endpoint workaround is added.
+- **Consumer audit:** Lookup, closest-index projection, snapping, scan-cell
+  projection, neighbor directions, bounds normalization, and dimensions use
+  the corrected inverse. Covered-address, voxel/scan coverage, blocker,
+  interval, and 3D body queries inherit the corrected candidate ranges. Native
+  planar tracing keeps its independent bounded forward searches.
+- **Contract:** Guarantees require unsaturated intermediate fixed-point math,
+  including basis construction, translation/subtraction, inverse projection,
+  and cube-coordinate sums. Positive raw radii remain supported; exact prism
+  APIs retain their separate representability requirements. See
+  [hex rounding and limits](../wiki/Determinism-Snapping-and-Pooling.md#hex-projection-and-rounding).
+  Previously affected authored inputs can normalize to corrected dimensions
+  and keys; rebuild derived data from those inputs.
+- **Regression coverage:** Both orientations; radii 1–32 raw; signed indices
+  through one million; odd/even authored corners and translated non-authored
+  bounds; normalization idempotence; Int32 address-count boundaries; large
+  representable centers; dense lookup/snapping/coverage; sparse stationary
+  interval and 3D body endpoints at radii 6/8/14 raw. Independent review found
+  no in-contract correctness regression.
+- **Validation environment:** Local-stack builds are required at this HEAD.
+  The default published FixedMathSharp package lacks the existing native
+  planar capsule APIs and fails compilation before these tests. No package
+  version was changed to conceal that pre-existing dependency limitation.
+- **Verification:** On Windows, full solution tests pass with
+  `-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true`:
+  Debug **1159/1159**, Release **1162/1162**, ReleaseLean **1162/1162**.
+  Both library target frameworks build in each configuration. Logs are
+  `artifacts/gf-issue010-final-{Debug,Release,ReleaseLean}.log`.
+  Seven existing in-process ShortRun benchmark cases complete for hex
+  construction, lookup, bounds coverage, line tracing, and rectangular lookup
+  control, after verifying the direct host's math DLL hash. Evidence is in
+  `artifacts/gf-issue010-smoke.log` and `gf-issue010-smoke-hashes.txt`.
+  Short-iteration warnings limit this to smoke evidence, not a performance
+  improvement claim or an isolated before/after comparison.
 
 ### GF-Issue-009 - Local-stack executable hosts selected published math binaries
 

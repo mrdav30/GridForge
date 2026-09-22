@@ -93,6 +93,13 @@ conservative: it expands the broad phase by the hex radius, projects candidate
 corners into axial space, then filters candidate voxels by horizontal cell
 reach.
 
+The shared axial inverse uses the same quantized width and row step as forward
+center projection. Its remaining center-rounding error is bounded independently
+of the address, so the existing one-address range padding is conservative for
+representable unsaturated coordinates, including small raw radii. Native planar
+body tracing retains its bounded forward-coordinate searches. See
+[hex rounding and range limits](Determinism-Snapping-and-Pooling.md#hex-projection-and-rounding).
+
 Candidate discovery is adaptive. Local queries use the world's internal spatial
 index, while queries whose coordinate volume is more expensive than the loaded
 world scan active grids and filter exact bounds. Candidates are sorted by

@@ -6,6 +6,40 @@ namespace GridForge.Spatial.Tests;
 
 public class HexCoordinateUtilityTests
 {
+    [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void QuantizedBasis_ShouldAvoidIdealInverseIntermediateOverflow(HexOrientation orientation)
+    {
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(new Fixed64(300000000), Fixed64.One, orientation);
+        foreach (int sign in new[] { -1, 1 })
+        {
+            VoxelIndex expected = new VoxelIndex(2 * sign, 0, 2 * sign);
+            Vector3d center = HexCoordinateUtility.AxialToWorldOffset(expected, metrics);
+            HexCoordinateUtility.WorldOffsetToAxial(center.X, center.Z, metrics, out Fixed64 q, out Fixed64 r);
+            Assert.Equal(expected, HexCoordinateUtility.RoundAxial(q, Fixed64.Zero, r));
+        }
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void QuantizedBasis_ShouldRoundTripSmallMetricCentersAtSignedDistantIndices(HexOrientation orientation)
+    {
+        for (int radiusRaw = 1; radiusRaw <= 32; radiusRaw++)
+        {
+            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
+            foreach (int qIndex in new[] { -1000001, -101, -1, 0, 1, 100, 1000001 })
+            foreach (int rIndex in new[] { -1000001, -101, -1, 0, 1, 100, 1000001 })
+            {
+                VoxelIndex expected = new VoxelIndex(qIndex, 0, rIndex);
+                Vector3d center = HexCoordinateUtility.AxialToWorldOffset(expected, metrics);
+                HexCoordinateUtility.WorldOffsetToAxial(center.X, center.Z, metrics, out Fixed64 q, out Fixed64 r);
+                Assert.Equal(expected, HexCoordinateUtility.RoundAxial(q, Fixed64.Zero, r));
+            }
+        }
+    }
+
     [Fact]
     public void AxialToWorldOffset_ShouldProjectPointyTopCenters()
     {

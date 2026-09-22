@@ -50,6 +50,32 @@ That means:
 When tests or tools need different cell geometry, create the grid with explicit
 topology metrics and keep expectations local to that grid.
 
+### Hex Projection And Rounding
+
+Hex centers use a quantized fixed-point basis: the full width is
+`CellRadius * Sqrt3`, and the row step is `CellRadius * 3 * Half`, evaluated in
+that order. World-to-axial projection divides by these same quantized values. An
+ideal irrational inverse is not interchangeable with this inverse, especially
+for small positive raw radii or distant addresses.
+
+The forward projection retains FixedMathSharp's round-half-to-even behavior. An
+odd raw width on an odd row can round a center by half a raw unit, so the
+continuous inverse need not be an exact integer. Lookup uses deterministic cube
+rounding; bounds normalization recognizes exactly projected axial corners before
+applying its existing outward ceiling/tolerance rule. Authored corners therefore
+preserve their address dimensions when normalized repeatedly.
+
+These guarantees require representable, unsaturated intermediate arithmetic: the
+basis (including `CellRadius * 3`), axial projection, translated centers,
+relative offsets, inverse coordinates, and cube coordinate `-q - r` must fit
+`Fixed64`. Saturation is not an invertible coordinate mapping. No minimum radius
+beyond a positive representable value is imposed; individual geometry queries
+can have stricter prism-representability checks. Normalized address counts
+remain limited to `Int32.MaxValue`, including sparse grids. This correction
+preserves forward centers, but grids previously affected by inverse drift can
+resolve different indices or normalize to different bounds; rebuild derived
+dimensions and configuration keys from the authored input.
+
 ## Runtime Generations Validate Reuse
 
 Pooling makes storage slots reusable, so `GridIndex` and `OccupantTicket.Slot`

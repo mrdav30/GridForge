@@ -49,15 +49,20 @@ internal static class HexCoordinateUtility
         out Fixed64 q,
         out Fixed64 r)
     {
+        // Invert the same quantized basis used by AxialToWorldOffset. Using the
+        // ideal irrational inverse here introduces an error proportional to the
+        // address, especially when a radius is only a few raw units.
+        Fixed64 width = metrics.CellRadius * Sqrt3;
+        Fixed64 rowStep = metrics.CellRadius * Fixed64.Three * Fixed64.Half;
         if (metrics.HexOrientation == HexOrientation.FlatTop)
         {
-            q = (Fixed64.Two * worldX / Fixed64.Three) / metrics.CellRadius;
-            r = ((Sqrt3 * worldZ / Fixed64.Three) - (worldX / Fixed64.Three)) / metrics.CellRadius;
+            q = worldX / rowStep;
+            r = worldZ / width - q * Fixed64.Half;
             return;
         }
 
-        q = ((Sqrt3 * worldX / Fixed64.Three) - (worldZ / Fixed64.Three)) / metrics.CellRadius;
-        r = (Fixed64.Two * worldZ / Fixed64.Three) / metrics.CellRadius;
+        r = worldZ / rowStep;
+        q = worldX / width - r * Fixed64.Half;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
