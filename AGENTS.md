@@ -132,6 +132,9 @@ about build artifacts:
 - Configurations: `Debug`, `Release`, `ReleaseLean`
 - Local prerequisites: the SDK selected by [`global.json`](global.json) and the
   runtimes targeted by tests and benchmarks
+- Use `UseLocalLsfStack=true` for coordinated sibling-repository validation;
+  library, tests, and benchmarks explicitly reference local Chronicler, plus
+  `Chronicler.MemoryPackShim` in Lean builds.
 
 Package variants:
 
