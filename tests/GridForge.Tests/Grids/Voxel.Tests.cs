@@ -236,6 +236,116 @@ public class VoxelTests : IDisposable
         Assert.Contains(diagnostics.Messages, message => message.Message.Contains("not found"));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PartitionLookups_ShouldPreserveExactTypeAndReferenceAcrossSlotsAndRemoval(int slot)
+    {
+        Voxel voxel = CreatePartitionLookupVoxel();
+        var firstPrefix = new PartitionFamilyA.SharedPartition();
+        var secondPrefix = new PartitionFamilyB.SharedPartition();
+        if (slot >= 1)
+            Assert.True(voxel.TryAddPartition(firstPrefix));
+        if (slot >= 2)
+            Assert.True(voxel.TryAddPartition(secondPrefix));
+        var target = new TestPartition();
+        Assert.True(voxel.TryAddPartition(target));
+
+        AssertPartitionLookup(voxel, target);
+        // Interface assignability never replaces the provider's exact concrete key.
+        AssertPartitionLookup<IVoxelPartition>(voxel, null);
+        Assert.True(voxel.TryRemovePartition<TestPartition>());
+        AssertPartitionLookup<TestPartition>(voxel, null);
+        AssertPartitionLookup(voxel, slot >= 1 ? firstPrefix : null);
+        AssertPartitionLookup(voxel, slot >= 2 ? secondPrefix : null);
+        Assert.True(voxel.TryAddPartition(target));
+        AssertPartitionLookup(voxel, target);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PartitionLookups_WithMismatchedProviderKey_ShouldReturnDefaults(int slot)
+    {
+        Voxel voxel = CreatePartitionLookupVoxel();
+        if (slot >= 1)
+            Assert.True(voxel.TryAddPartition(new PartitionFamilyA.SharedPartition()));
+        if (slot >= 2)
+            Assert.True(voxel.TryAddPartition(new PartitionFamilyB.SharedPartition()));
+
+        // The public provider accepts arbitrary Type/value associations. Inject
+        // one through that existing API to retain the voxel's defensive typed guard.
+        FieldInfo providerField = typeof(Voxel).GetField("_partitionProvider", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(providerField);
+        var provider = Assert.IsType<PartitionProvider<IVoxelPartition>>(providerField.GetValue(voxel));
+        var mismatchedValue = new ThrowOnAddPartition();
+        Assert.True(provider.TryAdd(typeof(TestPartition), mismatchedValue));
+        Assert.True(provider.TryGet(typeof(TestPartition), out IVoxelPartition untyped));
+        Assert.Same(mismatchedValue, untyped);
+        AssertPartitionLookup<TestPartition>(voxel, null);
+    }
+
+    [Fact]
+    public void PartitionLookups_WithBoxedMutableStruct_ShouldReturnIndependentValueCopies()
+    {
+        Voxel voxel = CreatePartitionLookupVoxel();
+        Assert.True(voxel.TryAddPartition(new MutableStructPartition { Value = 37 }));
+        Assert.True(voxel.HasPartition<MutableStructPartition>());
+        Assert.True(voxel.TryGetPartition(out MutableStructPartition first));
+        Assert.Equal(37, first.Value);
+        Assert.Equal(voxel.WorldIndex, first.WorldIndex);
+
+        first.Value = 41;
+        Assert.True(voxel.TryGetPartition(out MutableStructPartition second));
+        Assert.Equal(37, second.Value);
+        Assert.True(voxel.TryRemovePartition<MutableStructPartition>());
+        Assert.Equal(37, second.Value);
+        Assert.False(voxel.HasPartition<MutableStructPartition>());
+        Assert.False(voxel.TryGetPartition(out second));
+        Assert.Equal(default, second.WorldIndex);
+        Assert.Equal(0, second.Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PartitionLookups_InRemovalCallback_ShouldPreserveResetAndOrdinaryRemovalOrdering(bool reset)
+    {
+        Voxel voxel = CreatePartitionLookupVoxel();
+        var partition = new LookupCallbackPartition { Value = 37 };
+        bool callbackRan = false;
+        bool observedHit = false;
+        bool observedHas = false;
+        LookupCallbackPartition observedValue = null;
+        LookupCallbackPartition observedDefault = null;
+        partition.Removed = parent =>
+        {
+            callbackRan = true;
+            partition.Value = 0;
+            observedHit = parent.TryGetPartition(out observedValue);
+            observedHas = parent.HasPartition<LookupCallbackPartition>();
+            observedDefault = parent.GetPartitionOrDefault<LookupCallbackPartition>();
+        };
+        Assert.True(voxel.TryAddPartition(partition));
+        AssertPartitionLookup(voxel, partition);
+        if (reset)
+            voxel.Reset();
+        else
+            Assert.True(voxel.TryRemovePartition<LookupCallbackPartition>());
+
+        // Reset retains publication until its callbacks finish under the monitor;
+        // ordinary removal withdraws the entry before invoking its callback.
+        Assert.True(callbackRan);
+        Assert.Equal(reset, observedHit);
+        Assert.Equal(reset, observedHas);
+        Assert.Same(reset ? partition : null, observedValue);
+        Assert.Same(reset ? partition : null, observedDefault);
+        Assert.Equal(0, partition.Value);
+        AssertPartitionLookup<LookupCallbackPartition>(voxel, null);
+    }
+
     [Fact]
     public void TryAddPartition_ShouldRollbackProviderStateWhenOnAddThrows()
     {
@@ -843,6 +953,50 @@ public class VoxelTests : IDisposable
 
         Assert.NotNull(resetMethod);
         resetMethod.Invoke(voxel, new object[] { null });
+    }
+
+    private Voxel CreatePartitionLookupVoxel()
+    {
+        Assert.True(_world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out ushort gridIndex));
+        Assert.True(_world.ActiveGrids[gridIndex].TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        return voxel;
+    }
+
+    private static void AssertPartitionLookup<T>(Voxel voxel, T expected) where T : class, IVoxelPartition
+    {
+        T actual = expected;
+        Assert.Equal(expected != null, voxel.TryGetPartition(out actual));
+        Assert.Same(expected, actual);
+        Assert.Equal(expected != null, voxel.HasPartition<T>());
+        Assert.Same(expected, voxel.GetPartitionOrDefault<T>());
+    }
+
+    private struct MutableStructPartition : IVoxelPartition
+    {
+        public int Value { get; set; }
+
+        public WorldVoxelIndex WorldIndex { get; private set; }
+
+        public void SetParentIndex(WorldVoxelIndex index) => WorldIndex = index;
+
+        public void OnAddToVoxel(Voxel voxel) { }
+
+        public void OnRemoveFromVoxel(Voxel voxel) => Value = 0;
+    }
+
+    private sealed class LookupCallbackPartition : IVoxelPartition
+    {
+        public int Value { get; set; }
+
+        public Action<Voxel> Removed { get; set; }
+
+        public WorldVoxelIndex WorldIndex { get; private set; }
+
+        public void SetParentIndex(WorldVoxelIndex index) => WorldIndex = index;
+
+        public void OnAddToVoxel(Voxel voxel) { }
+
+        public void OnRemoveFromVoxel(Voxel voxel) => Removed(voxel);
     }
 
     private static GridConfiguration CreateSparseConfig(Vector3d min, Vector3d max) =>

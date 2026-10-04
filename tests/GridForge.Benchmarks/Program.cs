@@ -1,5 +1,8 @@
 using System;
 using System.Linq;
+using System.Reflection;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 
 namespace GridForge.Benchmarks;
@@ -12,7 +15,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args));
+            return RunBenchmarks(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly), args);
         }
 
         string command = args[0];
@@ -41,7 +44,7 @@ internal static class Program
                 return 1;
             }
 
-            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args.Skip(1).ToArray()));
+            return RunBenchmarks(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly), args.Skip(1).ToArray());
         }
 
         int aliasCount = 0;
@@ -50,7 +53,7 @@ internal static class Program
 
         if (aliasCount == 0)
         {
-            return BenchmarkExitCode.Get(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args));
+            return RunBenchmarks(BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly), args);
         }
 
         Type[] selectedTypes = _catalog.Resolve(args.Take(aliasCount).ToArray(), out string unknownAlias);
@@ -62,7 +65,22 @@ internal static class Program
             return 1;
         }
 
-        return BenchmarkExitCode.Get(BenchmarkSwitcher.FromTypes(selectedTypes).Run(args.Skip(aliasCount).ToArray()));
+        return RunBenchmarks(BenchmarkSwitcher.FromTypes(selectedTypes), args.Skip(aliasCount).ToArray());
+    }
+
+    private static int RunBenchmarks(BenchmarkSwitcher switcher, string[] args)
+    {
+        var build = Job.Default.WithCustomBuildConfiguration(
+            typeof(Program).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>().Configuration);
+#if USE_LOCAL_LSF_STACK
+        // Generated child builds must preserve the versioned source-stack edges
+        // and serialize projects that share their benchmark output directory.
+        build = build.WithMsBuildArguments("/p:UseLocalLsfStack=true",
+            "/p:DisableTransitiveProjectReferences=true", "/p:BuildInParallel=false");
+#endif
+        // Mutate build settings only so CLI jobs, including Dry, retain their shape.
+        var config = DefaultConfig.Instance.AddJob(build.AsMutator());
+        return BenchmarkExitCode.Get(switcher.Run(args, config));
     }
 
     private static void WriteUsage()

@@ -16,7 +16,7 @@ this backlog.
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
-  `GF-Benchmark-013`.
+  `GF-Benchmark-014`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
   moves into a dated plan. Check this file's Git history before advancing or
   repairing the counter.
@@ -49,7 +49,117 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ## Active Signals
 
-- None currently.
+### GF-Benchmark-013 — Repeated typed voxel partition lookup
+
+- **Discovered:** 2026-10-04 during Gravitas `GRV-Benchmark-023` refinement.
+- **Status:** Implemented locally and ready for review; unstaged/uncommitted.
+  The runtime candidate is retained after matched repetition confirms lookup
+  benefit without a measured containing-workload regression. Fresh full
+  builds, raw/rendered full coverage and benchmark smoke checks pass.
+  No containing-frame gain is claimed. The signal
+  remains active until the reviewed change lands, per the intake rule.
+- **Signal:** An actual-workload-only Gravitas profile attributes **15.666% of
+  exclusive samples** to `Voxel.TryGetPartition<T>`. This is a sampled share,
+  not isolated lookup cost or a predicted frame speedup.
+- **Cause and bounded candidate:** Native assembly shows the monitored voxel
+  lookup calling the generic provider lookup through a generic-context hop.
+  Resolve `typeof(T)` through the existing type-key provider inside the same
+  monitor, retaining the typed-value guard and default miss result.
+  `HasPartition<T>` and `GetPartitionOrDefault<T>` share that lookup owner.
+  Exact type keys, boxed value copies, callback ordering, reset and pooling
+  semantics remain the contract; no unlocked read or new cache is introduced.
+- **Initial measurement:** `VoxelPartitionLookupBenchmarks` uses the same
+  populated payload references in voxels and raw providers. Each invocation
+  performs 256 checked lookups; setup verifies all 15 row checksums. First-slot
+  rows use either one voxel or 256 voxels. A local Windows x64/.NET 8.0.29 run
+  uses two launches, five warmups, 15 actual iterations of 500 ms and requested
+  affinity `3` (BDN displays `11`), with `DOTNET_PROCESSOR_COUNT=2` and
+  BelowNormal process priority.
+
+  | First-slot path | Voxel count | Before mean ± error | After mean ± error |
+  | --------------- | ----------: | ------------------: | -----------------: |
+  | Voxel generic | 1 | 19.550 ± 0.268 ns | 18.682 ± 0.251 ns |
+  | Voxel generic | 256 | 19.555 ± 0.211 ns | 18.516 ± 0.205 ns |
+  | Provider generic control | 1 | 6.599 ± 0.088 ns | 6.358 ± 0.061 ns |
+  | Provider generic control | 256 | 6.509 ± 0.071 ns | 6.346 ± 0.068 ns |
+  | Provider type-key control | 1 | 2.014 ± 0.025 ns | 2.011 ± 0.026 ns |
+  | Provider type-key control | 256 | 2.009 ± 0.023 ns | 2.005 ± 0.023 ns |
+
+  Errors are the half-width of BDN's 99.9% confidence intervals. All six rows
+  report **0 B allocated**. Generic controls also shift roughly 3%, while
+  type-key controls remain around 2 ns, so this initial capture alone does not
+  establish attribution. After assembly removes the nested
+  generic call but grows the native voxel body **191 → 416 B** and BDN's
+  reachable code total **733–736 → 1,003 B** through inlining. This is not a
+  code-size improvement.
+- **Matched repetition and retention:** With only `Voxel.cs` runtime changes
+  toggled and the same 2-launch/5-warmup/15-iteration/500-ms protocol, the
+  256-voxel lookup and both aliases improve with disjoint 99.9% intervals;
+  the type-key control remains stable. All rows report **0 B allocated**, with
+  zero Gen0/Gen1/Gen2 collections in both launches.
+
+  | Repeated path | Before mean ± error | After mean ± error |
+  | ------------- | ------------------: | -----------------: |
+  | Voxel first slot | 19.627 ± 0.2135 ns | 18.680 ± 0.1832 ns |
+  | Voxel Has first slot | 20.051 ± 0.2773 ns | 18.510 ± 0.2138 ns |
+  | Voxel default first slot | 19.480 ± 0.2300 ns | 18.922 ± 0.2364 ns |
+  | Provider type-key control | 2.008 ± 0.0230 ns | 2.015 ± 0.0224 ns |
+  | Gravitas reset + full simulation, 1,024 diagonal circle pairs | 34.02 ± 0.439 ms | 34.00 ± 0.485 ms |
+  | Gravitas automatic ground probes after response, 1,024 pairs | 9.730 ± 0.1491 ms | 9.716 ± 0.1252 ms |
+
+  The containing-workload intervals overlap: the result supports retaining
+  the bounded lookup improvement without a measured regression, not a frame
+  speedup. Both consumer rows report **0 B allocated** and zero collection
+  counts in each launch. All four micro rows and both consumer rows completed
+  both launches with successful child exits before and after. Local Windows
+  results do not replace cross-platform or released-package validation.
+- **Runner hardening:** Two generated-child failures exposed shared-output
+  parallel writes and unversioned transitive sibling rediscovery. The benchmark
+  runner now passes `/p:UseLocalLsfStack=true`,
+  `/p:DisableTransitiveProjectReferences=true` and `/p:BuildInParallel=false`
+  explicitly in source-stack builds. Its build-only job mutator preserves the
+  parent Release/ReleaseLean configuration and CLI jobs, including Dry. No
+  environment overrides beyond `UseLocalLsfStack=true` are needed for these
+  child build properties. Failed captures remain separate from valid results.
+- **Focused verification:** Nine new cases characterize first/second/overflow
+  identity, exact-key misses, mismatched provider payloads, boxed mutable
+  structs and removal/reset callback ordering. The 46 voxel tests pass in
+  Release and ReleaseLean. The runner builds without warnings/errors; a fresh
+  Dry smoke run executes exactly six rows successfully and logs all three
+  explicit properties on child restore and build. These checks do not replace
+  the full validation matrix below.
+- **Fresh full validation:** With `UseLocalLsfStack=true`, both Release and
+  ReleaseLean solution builds cover `netstandard2.1` and `net8.0` with zero
+  warnings/errors. Each configuration passes **1,171 tests**, with none failed
+  or skipped. Each raw OpenCover report has exact **9,333/9,333 sequence
+  points**, **4,171/4,171 branches** and **1,145/1,145 methods**, with no method
+  coverage gaps. Rendered reports independently confirm 100% lines, branches
+  and fully covered methods with the same counts. All 30 lookup fixture smoke
+  cases and one Lean Dry runner case pass with successful child exits and exact
+  zero raw allocated bytes/GC collections. The Lean child retains configuration
+  and all three explicit source-stack build properties. These are local source-stack
+  results; released-package and cross-platform validation remain separate.
+  DocFX passes with warnings as errors; API resources, branding, repository
+  actions and local links are verified in `refinement4-GridForge-docfx.log`.
+- **Reproduction:** Build with `-p:UseLocalLsfStack=true`, then run the compiled
+  benchmark DLL with `all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*'
+  --launchCount 2 --warmupCount 5 --iterationCount 15 --iterationTime 500
+  --affinity 3 --disasm --disasmDepth 3 --exporters json`. See the
+  [Testing and Benchmarking](../wiki/Testing-and-Benchmarking.md) for source-stack
+  setup and other lookup filters.
+- **Evidence and next step:** Gravitas retains the profile and captures under
+  `artifacts/grv-benchmark-023`: `refinement4-full-profile-actual-only.json`,
+  `refinement4-grid-lookup-before`, `refinement4-grid-lookup-after-serialized`
+  and `refinement4-grid-lookup-runner-dry`, with failed build/binding logs
+  preserved separately. The matched repeat is retained as
+  `refinement4-grid-repeat-{before,after}` and
+  `refinement4-grid-consumer-{before,after}`, with the restoration script
+  `refinement4-grid-repeat.ps1`. Final smoke captures are
+  `refinement4-grid-lookup-smoke` and `refinement4-grid-runner-lean-dry`;
+  `refinement4-coverage-summary.json` and `refinement4-benchmark-validation.json`
+  retain report and raw child audit results. The bounded release follow-up is
+  validation against released upstream packages; no additional lookup
+  microbenchmark experiment is required for this retained change.
 
 ## Closed Signals
 

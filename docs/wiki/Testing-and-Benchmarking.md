@@ -148,6 +148,24 @@ whole-footprint rejection and serve as a control for changes inside the later
 edge loop. These are geometry microbenchmarks, not complete world traces or
 simulation frames; use a consuming workload before claiming a host-frame gain.
 
+The `VoxelPartitionLookupBenchmarks` class isolates monitored voxel lookup from
+generic and type-key provider reads. All paths use the same populated payload
+references; setup verifies every checksum before measurement. Each invocation
+performs 256 lookups across one or 256 voxels. Select it with
+`all --filter '*VoxelPartitionLookupBenchmarks*'`, or narrow the suffix to
+`FirstSlot*`, `SecondSlot*`, `Overflow*` or `Miss*` for six rows each.
+`HasFirst*` and `DefaultFirst*` cover the aliases with four and two rows.
+For matched timing, choose an explicit protocol such as `--launchCount 2
+--warmupCount 5 --iterationCount 15 --iterationTime 500 --affinity 3 --disasm
+--disasmDepth 3 --exporters json`, and keep it identical in separate before,
+after and confirmation artifact roots. These lookup microbenchmarks do not
+establish simulation-frame improvements. The retained lookup improvement has
+stable containing-workload controls, with overlapping before/after intervals;
+no simulation-frame speedup is claimed. Fresh local-stack Release and Lean
+builds and raw/rendered full coverage pass, along with all 30 lookup smoke
+cases and the Lean generated-runner Dry check. Its measurements and verification gates are tracked in
+[`GF-Benchmark-013`](../feature-work/benchmark-signal-hardening-backlog.md#gf-benchmark-013--repeated-typed-voxel-partition-lookup).
+
 ## Benchmarking Unreleased Sibling Libraries
 
 The `grid-planar-navigation-body-trace` alias measures bounded native planar
@@ -157,44 +175,33 @@ physical evidence, and exact output counts before measurement. These are full
 single-leg GridForge traces, not navigation search or complete simulation frames.
 Use the `grid-navigation-body-trace` alias as the unchanged 3D coverage control.
 
-Package references are the default. For unreleased sibling changes, the direct
-benchmark host supports source-stack builds, but the extra generated
-BenchmarkDotNet project can still select published math package assets. The
-local-stack flags alone do not prove which DLL a generated child executes.
-
-For a bounded new-API smoke test, use the verified direct host in process. In a
-dedicated PowerShell session, build and compare the math DLL hashes first:
+Package references are the default. For unreleased sibling changes, set
+`UseLocalLsfStack=true` in a dedicated PowerShell session and explicitly select
+it on the initial build:
 
 ```powershell
 $env:UseLocalLsfStack = 'true'
-$env:DisableTransitiveProjectReferences = 'true'
-dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0
-Get-FileHash ../FixedMathSharp/src/FixedMathSharp/bin/Release/net8.0/FixedMathSharp.dll
-Get-FileHash tests/GridForge.Benchmarks/bin/Release/net8.0/FixedMathSharp.dll
+dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -p:UseLocalLsfStack=true -m:1 -p:BuildInParallel=false
+dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --job Dry --artifacts artifacts/voxel-lookup-smoke
 ```
 
-Require matching hashes before running the smoke test:
+The source-stack runner explicitly passes `/p:UseLocalLsfStack=true`,
+`/p:DisableTransitiveProjectReferences=true` and `/p:BuildInParallel=false` to
+generated child restore and build commands. This avoids unversioned transitive
+sibling rediscovery and parallel writes into the shared benchmark output
+directory. No additional environment overrides are required for these build
+properties. A build-only job mutator preserves CLI job settings, including Dry,
+and the parent assembly configuration. To measure Lean, build with
+`-c ReleaseLean` and run the compiled `ReleaseLean/net8.0` DLL.
 
-```powershell
-dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll grid-planar-navigation-body-trace grid-navigation-body-trace --job Short --inProcess --filter '*' --artifacts artifacts/planar-body-smoke
-```
-
-For out-of-process runs, passing `-p:UseLocalLsfStack=true` only to the first
-build does not configure the later generated build. Disabling transitive project
-rediscovery prevents an extra unversioned sibling build beside its explicitly
-versioned counterpart; it does not settle package-asset selection. Close the
-dedicated session before returning to normal
-package-backed validation. These build properties do not change runtime math or
-benchmark work.
-
-The direct test/benchmark hosts exclude competing package assets, but those
-exclusions do not propagate through the generated top-level project. For an
-out-of-process source-stack measurement, independently verify the child's full
-dependency manifest and DLL hashes against the intended local stack. Prefer
-normal out-of-process package-backed captures once the dependencies are released.
-The in-process run above is observational/smoke evidence, not a substitute for
-canonical isolated performance evidence. Do not inject DLLs into failed children
-or treat successful older-API controls as proof that new local APIs were loaded.
+Inspect the generated commands in the retained log and independently verify
+child dependency manifests and DLL hashes against the intended source stack
+when auditing attribution. The local-stack flag alone does not prove which
+binary a child executes. A Dry run verifies the fixture/build path, not timing.
+Do not inject DLLs into failed children or treat successful older-API controls
+as proof that new local APIs were loaded. Close the dedicated session before
+returning to package-backed validation; prefer package-backed captures once
+dependencies are released.
 
 The `grid-navigation-body-segment` cases measure interior anchor/sweep checks
 and portal, blocked-corner, clipped-entry and hex controls. They are geometry

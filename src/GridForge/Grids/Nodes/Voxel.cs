@@ -451,8 +451,7 @@ public class Voxel : IEquatable<Voxel>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasPartition<T>() where T : IVoxelPartition
     {
-        lock (_partitionLock)
-            return _partitionProvider.Has<T>();
+        return TryGetPartition<T>(out _);
     }
 
     /// <summary>
@@ -462,7 +461,20 @@ public class Voxel : IEquatable<Voxel>
     public bool TryGetPartition<T>(out T? partition) where T : IVoxelPartition
     {
         lock (_partitionLock)
-            return _partitionProvider.TryGet(out partition);
+        {
+            // Resolve the exact key through the existing provider without a
+            // nested generic lookup. Keep typed materialization under the lock:
+            // reset callbacks can mutate or pool payloads, including boxed structs.
+            if (_partitionProvider.TryGet(typeof(T), out IVoxelPartition? candidate)
+                && candidate is T typedPartition)
+            {
+                partition = typedPartition;
+                return true;
+            }
+
+            partition = default;
+            return false;
+        }
     }
 
     /// <summary>
@@ -471,10 +483,7 @@ public class Voxel : IEquatable<Voxel>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T? GetPartitionOrDefault<T>() where T : class, IVoxelPartition
     {
-        lock (_partitionLock)
-            return _partitionProvider.TryGet(out T? partition)
-                ? partition
-                : null;
+        return TryGetPartition(out T? partition) ? partition : null;
     }
 
     #endregion

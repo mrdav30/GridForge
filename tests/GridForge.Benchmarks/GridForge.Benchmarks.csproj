@@ -12,6 +12,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Configurations>Debug;Release;ReleaseLean</Configurations>
     <DisableTransitiveProjectReferences Condition="'$(UseLocalLsfStack)' == 'true'">true</DisableTransitiveProjectReferences>
+    <DefineConstants Condition="'$(UseLocalLsfStack)' == 'true'">$(DefineConstants);USE_LOCAL_LSF_STACK</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'ReleaseLean'">
     <DisableMemoryPack>true</DisableMemoryPack>
