@@ -163,7 +163,9 @@ establish simulation-frame improvements. The retained lookup improvement has
 stable containing-workload controls, with overlapping before/after intervals;
 no simulation-frame speedup is claimed. Fresh local-stack Release and Lean
 builds and raw/rendered full coverage pass, along with all 30 lookup smoke
-cases and the Lean generated-runner Dry check. Its measurements and verification gates are tracked in
+cases and the Lean generated-runner Dry check. The change is committed as
+`3f34f8b`; released-package validation remains a future release gate. Its
+measurements are archived in
 [`GF-Benchmark-013`](../feature-work/benchmark-signal-hardening-backlog.md#gf-benchmark-013--repeated-typed-voxel-partition-lookup).
 
 ## Benchmarking Unreleased Sibling Libraries

@@ -49,15 +49,35 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 
 ## Active Signals
 
+- None currently.
+
+## Closed Signals
+
+| Signal | Status | Priority | Tracking |
+| ------ | ------ | -------- | -------- |
+| [GF-Benchmark-013 — Repeated typed voxel partition lookup](#gf-benchmark-013--repeated-typed-voxel-partition-lookup) | Closed locally; committed `3f34f8b` | Medium | Matched lookup benefit; containing-frame controls stable, no frame speedup claimed |
+| GF-Benchmark-012 — Repeated scan and cell-geometry work | Closed locally; runtime candidates withdrawn | Medium | Matched full-frame improvement gates fail; exact behavior tests retained |
+| GF-Benchmark-011 — Radius scans compute already-rejected distance components | Closed locally; runtime candidate withdrawn | Medium | Full-frame tail gate failed; retained exact arithmetic tests |
+| GF-Benchmark-010 — Interior body sweeps still test every wall | Closed locally; runtime candidate withdrawn | Medium | Mixed containing-frame results; Trailblazer `TRB-Benchmark-005` remains active |
+| GF-Benchmark-009 — Rectangular contacts use general polygon containment | Closed locally | Medium | Reuse existing rectangle predicate; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
+| GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
+| GF-Benchmark-007 — Ordered trace sorting repeatedly copies full interval payloads | Closed locally | Medium | Smaller heap-sort data movement; Trailblazer `TRB-Benchmark-005` remains active, with short/long protocol results retained |
+| GF-Benchmark-006 — Rectangular traces enumerate and solve unnecessary geometry | Closed locally | High | Exact candidate pruning/slab intervals; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
+| GF-Benchmark-005 — Strictly separated edges still enter exact interval solving | Closed locally; runtime candidate withdrawn | High | Mixed measured benefit; Trailblazer `TRB-Benchmark-005` remains active |
+| GF-Benchmark-004 — Disjoint segment candidates reach expensive planar intersection | Closed locally | High | Trailblazer `TRB-Benchmark-005` remains active for remaining guided-frame costs |
+| GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
+| GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
+| GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
+
 ### GF-Benchmark-013 — Repeated typed voxel partition lookup
 
 - **Discovered:** 2026-10-04 during Gravitas `GRV-Benchmark-023` refinement.
-- **Status:** Implemented locally and ready for review; unstaged/uncommitted.
-  The runtime candidate is retained after matched repetition confirms lookup
+- **Status:** Closed locally; committed as `3f34f8b` on 2026-10-04.
+  The runtime change is retained after matched repetition confirms lookup
   benefit without a measured containing-workload regression. Fresh full
   builds, raw/rendered full coverage and benchmark smoke checks pass.
-  No containing-frame gain is claimed. The signal
-  remains active until the reviewed change lands, per the intake rule.
+  No containing-frame gain or simulation-budget acceptance is claimed.
+  Released-package validation remains a future release gate.
 - **Signal:** An actual-workload-only Gravitas profile attributes **15.666% of
   exclusive samples** to `Voxel.TryGetPartition<T>`. This is a sampled share,
   not isolated lookup cost or a predicted frame speedup.
@@ -160,23 +180,6 @@ dotnet test GridForge.slnx --configuration ReleaseLean
   retain report and raw child audit results. The bounded release follow-up is
   validation against released upstream packages; no additional lookup
   microbenchmark experiment is required for this retained change.
-
-## Closed Signals
-
-| Signal | Status | Priority | Tracking |
-| ------ | ------ | -------- | -------- |
-| GF-Benchmark-012 — Repeated scan and cell-geometry work | Closed locally; runtime candidates withdrawn | Medium | Matched full-frame improvement gates fail; exact behavior tests retained |
-| GF-Benchmark-011 — Radius scans compute already-rejected distance components | Closed locally; runtime candidate withdrawn | Medium | Full-frame tail gate failed; retained exact arithmetic tests |
-| GF-Benchmark-010 — Interior body sweeps still test every wall | Closed locally; runtime candidate withdrawn | Medium | Mixed containing-frame results; Trailblazer `TRB-Benchmark-005` remains active |
-| GF-Benchmark-009 — Rectangular contacts use general polygon containment | Closed locally | Medium | Reuse existing rectangle predicate; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
-| GF-Benchmark-008 — Rectangular candidate probes calculate unused coordinates | Closed locally | Medium | Axis-only arithmetic; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
-| GF-Benchmark-007 — Ordered trace sorting repeatedly copies full interval payloads | Closed locally | Medium | Smaller heap-sort data movement; Trailblazer `TRB-Benchmark-005` remains active, with short/long protocol results retained |
-| GF-Benchmark-006 — Rectangular traces enumerate and solve unnecessary geometry | Closed locally | High | Exact candidate pruning/slab intervals; Trailblazer `TRB-Benchmark-005` remains active for full-frame budgets |
-| GF-Benchmark-005 — Strictly separated edges still enter exact interval solving | Closed locally; runtime candidate withdrawn | High | Mixed measured benefit; Trailblazer `TRB-Benchmark-005` remains active |
-| GF-Benchmark-004 — Disjoint segment candidates reach expensive planar intersection | Closed locally | High | Trailblazer `TRB-Benchmark-005` remains active for remaining guided-frame costs |
-| GF-Benchmark-003 — Debug cursor/contact allocation guards fail | Closed locally | Medium | SwiftDictionary value-key boxing fixed and verified downstream |
-| GF-Benchmark-002 — Disjoint swept-body prisms reach expensive exact overlap | Closed locally | High | Trailblazer `TRB-Benchmark-003` |
-| GF-Benchmark-001 — Top-level grid indexing scales with covered hash-cell volume | Closed | High | [`Two-Tier Grid Spatial Index`](done/2026-08-03-two-tier-grid-spatial-index-plan.md) |
 
 ### GF-Benchmark-012 - Repeated scan and cell-geometry work
 
