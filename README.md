@@ -3,7 +3,7 @@
 ![GridForge Icon](https://raw.githubusercontent.com/mrdav30/GridForge/main/icon.png)
 
 [![Build](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/mrdav30/GridForge/actions/workflows/build-and-test.yml)
-[![Branch Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmrdav30.github.io%2FGridForge%2Fcoverage%2FSummary.json&query=%24.summary.branchcoverage&suffix=%25&label=branch%20coverage&color=brightgreen)](https://mrdav30.github.io/GridForge/coverage/)
+[![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmrdav30.github.io%2FGridForge%2Fcoverage%2FSummary.json&query=%24.summary.branchcoverage&suffix=%25&label=coverage&color=brightgreen)](https://mrdav30.github.io/GridForge/coverage/)
 [![NuGet](https://img.shields.io/nuget/v/GridForge.svg)](https://www.nuget.org/packages/GridForge)
 [![License](https://img.shields.io/github/license/mrdav30/GridForge.svg)](LICENSE)
 [![API](https://img.shields.io/badge/docs-API-00a9d6)](https://mrdav30.github.io/GridForge/)
@@ -27,8 +27,8 @@ diagnostic geometry—without tying the core runtime to a game engine.
   where only selected cells exist.
 - **Queries and state built in.** Trace lines and bounds, scan nearby occupants,
   observe bounded exact segment intervals, completed rectangular slabs, and
-  native planar circle/capsule coverage on explicitly selected layers,
-  stack blockers, attach typed partitions, and observe dirty diagnostic regions.
+  native planar circle/capsule coverage on explicitly selected layers, stack
+  blockers, attach typed partitions, and observe dirty diagnostic regions.
 - **Engine-agnostic by design.** Unity authoring and visualization live in the
   separate [GridForge-Unity](https://github.com/mrdav30/GridForge-Unity)
   packages.
