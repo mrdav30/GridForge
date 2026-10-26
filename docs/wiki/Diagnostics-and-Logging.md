@@ -24,7 +24,7 @@ needs to emit messages.
 ## What `GridForgeLogger` Is
 
 `GridForgeLogger` is a static logging facade built on top of
-`SwiftCollections.Diagnostics.DiagnosticChannel`.
+`Chronicler.Diagnostics.DiagnosticChannel`.
 
 It gives the library one place to control:
 
@@ -87,7 +87,7 @@ another diagnostic channel.
 messages remain disabled even when their diagnostic level would be emitted on
 the standard channel.
 
-All logger entry points use the SwiftCollections diagnostic string handler, so
+All logger entry points use the Chronicler diagnostic string handler, so
 formatted expressions are not evaluated when the requested level is disabled.
 This means call sites should pass interpolated strings, even for literal
 messages:
@@ -180,7 +180,7 @@ Temporarily set:
 
 ```csharp
 using GridForge;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 
 GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 ```
@@ -218,7 +218,7 @@ and callers can override or suppress output centrally.
 
 ```csharp
 using GridForge;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 
 GridForgeLogger.MinimumLevel = DiagnosticLevel.Info;
 GridForgeLogger.LogFilePath = "gridforge.log";

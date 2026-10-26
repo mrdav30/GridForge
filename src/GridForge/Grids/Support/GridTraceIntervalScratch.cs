@@ -26,8 +26,8 @@ public sealed class GridTraceIntervalScratch
     /// <summary>Creates trace scratch with optional expected grid and address counts.</summary>
     public GridTraceIntervalScratch(int gridCapacity = 0, int addressCapacity = 0)
     {
-        SwiftThrowHelper.ThrowIfNegative(gridCapacity, nameof(gridCapacity));
-        SwiftThrowHelper.ThrowIfNegative(addressCapacity, nameof(addressCapacity));
+        ChronicleGuard.ThrowIfNegative(gridCapacity, nameof(gridCapacity));
+        ChronicleGuard.ThrowIfNegative(addressCapacity, nameof(addressCapacity));
 
         CandidateGrids = new SwiftList<ushort>(gridCapacity);
         AddressCandidates = new SwiftList<GridTraceAddressCandidate>(addressCapacity);
@@ -53,7 +53,7 @@ public sealed class GridTraceIntervalScratch
         _isActive = false;
     }
 
-    private void ThrowIfActive() => SwiftThrowHelper.ThrowIfTrue(
+    private void ThrowIfActive() => ChronicleGuard.ThrowIfTrue(
         _isActive, nameof(GridTraceIntervalScratch), "Interval trace scratch is already in use.");
 
     private void ClearCore()

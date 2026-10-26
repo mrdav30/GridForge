@@ -21,9 +21,9 @@ public readonly struct GridPlanarLayer
     /// <summary>Creates one explicit layer selection.</summary>
     public GridPlanarLayer(GridCoveredAddressGeneration generation, int layerIndex)
     {
-        SwiftThrowHelper.ThrowIfArgumentOutOfRange(generation.GridSpawnToken <= 0,
+        ChronicleGuard.ThrowIfArgumentOutOfRange(generation.GridSpawnToken <= 0,
             actualValue: null, paramName: nameof(generation));
-        SwiftThrowHelper.ThrowIfNegative(layerIndex, nameof(layerIndex));
+        ChronicleGuard.ThrowIfNegative(layerIndex, nameof(layerIndex));
         Generation = generation;
         LayerIndex = layerIndex;
     }

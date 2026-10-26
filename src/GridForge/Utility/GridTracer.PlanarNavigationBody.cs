@@ -52,12 +52,12 @@ public static partial class GridTracer
         GridNavigationBodyTraceScratch scratch, int gridCandidateLimit, int addressCandidateLimit,
         int outputLimit, long candidateWorkLimit)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
-        SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
-        SwiftThrowHelper.ThrowIfArgumentOutOfRange(candidateWorkLimit < 0L,
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfArgumentOutOfRange(candidateWorkLimit < 0L,
             actualValue: null, paramName: nameof(candidateWorkLimit));
         results.Clear();
         scratch.Clear();

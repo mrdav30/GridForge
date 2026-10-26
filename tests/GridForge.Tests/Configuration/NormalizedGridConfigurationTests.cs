@@ -4,7 +4,7 @@ using GridForge.Grids;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 using Xunit;
 
 namespace GridForge.Configuration.Tests;

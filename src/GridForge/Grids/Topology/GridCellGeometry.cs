@@ -30,7 +30,7 @@ public static partial class GridCellGeometry
         VoxelIndex index,
         out GridCellPrism prism)
     {
-        SwiftThrowHelper.ThrowIfNull(grid, nameof(grid));
+        ChronicleGuard.ThrowIfNull(grid, nameof(grid));
 
         if (!grid.IsActive || !grid.TryGetVoxel(index, out Voxel? voxel))
         {
@@ -340,10 +340,10 @@ public static partial class GridCellGeometry
         SwiftList<VoxelContactManifold> results,
         GridContactQueryScratch scratch)
     {
-        SwiftThrowHelper.ThrowIfNull(sourceGrid, nameof(sourceGrid));
-        SwiftThrowHelper.ThrowIfNull(targetGrid, nameof(targetGrid));
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(sourceGrid, nameof(sourceGrid));
+        ChronicleGuard.ThrowIfNull(targetGrid, nameof(targetGrid));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         scratch.Clear();

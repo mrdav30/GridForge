@@ -49,7 +49,7 @@ public sealed class GridDiagnosticSession : IDisposable
     /// </summary>
     public int GetDirtyChangesInto(SwiftList<GridDiagnosticChange> results)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         lock (_syncRoot)

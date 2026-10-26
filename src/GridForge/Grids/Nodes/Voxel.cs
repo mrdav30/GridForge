@@ -504,7 +504,7 @@ public class Voxel : IEquatable<Voxel>
         VoxelNeighborScope scope = VoxelNeighborScope.All,
         Fixed64? tolerance = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (!IsValidOwnerGrid(ownerGrid))
@@ -578,7 +578,7 @@ public class Voxel : IEquatable<Voxel>
         VoxelGrid ownerGrid,
         SwiftList<(RectangularDirection Direction, Voxel Voxel)> results)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (!IsValidOwnerGrid(ownerGrid))
@@ -596,7 +596,7 @@ public class Voxel : IEquatable<Voxel>
         VoxelGrid ownerGrid,
         SwiftList<(HexDirection Direction, Voxel Voxel)> results)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (!IsValidOwnerGrid(ownerGrid))

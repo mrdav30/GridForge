@@ -92,10 +92,10 @@ public sealed partial class GridWorld
         out int generationInputsConsumed,
         out int outputCount)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
-        SwiftThrowHelper.ThrowIfNegative(lookupProbeLimit, nameof(lookupProbeLimit));
-        SwiftThrowHelper.ThrowIfNegative(addressProbeLimit, nameof(addressProbeLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNegative(lookupProbeLimit, nameof(lookupProbeLimit));
+        ChronicleGuard.ThrowIfNegative(addressProbeLimit, nameof(addressProbeLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
         if (outputLimit > results.Length)
             throw new ArgumentOutOfRangeException(nameof(outputLimit));
 
@@ -140,7 +140,7 @@ public sealed partial class GridWorld
         bool hasConfigurationFilter,
         GridConfigurationKey configurationFilter)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
         ThrowIfNavigationMaintenanceUnavailable();
 
         Vector3d queryMinimum = new Vector3d(

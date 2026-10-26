@@ -95,7 +95,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -116,7 +116,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -137,8 +137,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -160,8 +160,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -181,7 +181,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -202,7 +202,7 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -223,8 +223,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -246,8 +246,8 @@ public static class GridScanManager
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupCondition = null) where T : IVoxelOccupant
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)

@@ -134,11 +134,11 @@ public readonly struct GridNavigationPortal
         out Vector3d sourceFootAnchor,
         out Vector3d targetFootAnchor)
     {
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             horizontalRadius < Fixed64.Zero,
             nameof(horizontalRadius),
             "Horizontal radius must be nonnegative.");
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             bodyHeight <= Fixed64.Zero,
             nameof(bodyHeight),
             "Body height must be positive.");

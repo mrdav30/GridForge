@@ -439,3 +439,11 @@ an ID after resolution, closure, promotion, or removal.
 
 Keep this document current when solution layout, build flow, package variants,
 wiki publishing, storage/topology boundaries, or core architecture changes.
+
+## Shared Diagnostics Ownership
+
+Use the independent `Chronicler.Diagnostics` package for diagnostic channels,
+lazy logging handlers, and `ChronicleGuard` guards. It does not depend on
+`Chronicler.Core`. Keep library-specific channels, formatters, and logger facades
+in their owning library. `UseLocalLsfStack=true` selects the sibling diagnostics
+project; standard and Lean builds use the same diagnostics package.

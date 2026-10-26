@@ -12,7 +12,7 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 using Xunit;
 
 namespace GridForge.Grids.Tests;
@@ -308,7 +308,7 @@ public class GridWorldTests
     [Fact]
     public void DiagnosticsDisabled_ShouldSkipGridWorldErrorGuardFormatting()
     {
-        using DiagnosticCaptureScope diagnostics = new(SwiftCollections.Diagnostics.DiagnosticLevel.None);
+        using DiagnosticCaptureScope diagnostics = new(Chronicler.Diagnostics.DiagnosticLevel.None);
         GridConfiguration configuration = new(Vector3d.Zero, Vector3d.Zero);
 
         GridWorld inactiveWorld = GridWorldTestFactory.CreateWorld();

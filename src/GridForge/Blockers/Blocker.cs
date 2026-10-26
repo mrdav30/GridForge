@@ -100,7 +100,7 @@ public abstract class Blocker : IBlocker
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels that are blocked.</param>
     protected Blocker(GridWorld world, bool active = true, bool cacheCoveredVoxels = false)
     {
-        SwiftThrowHelper.ThrowIfNull(world, nameof(world));
+        ChronicleGuard.ThrowIfNull(world, nameof(world));
         World = world;
         IsActive = active;
         CacheCoveredVoxels = cacheCoveredVoxels;

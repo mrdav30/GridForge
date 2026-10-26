@@ -28,8 +28,8 @@ public sealed class GridContactQueryScratch
     /// </summary>
     public GridContactQueryScratch(int sourceCapacity = 0, int candidateCapacity = 0)
     {
-        SwiftThrowHelper.ThrowIfNegative(sourceCapacity, nameof(sourceCapacity));
-        SwiftThrowHelper.ThrowIfNegative(candidateCapacity, nameof(candidateCapacity));
+        ChronicleGuard.ThrowIfNegative(sourceCapacity, nameof(sourceCapacity));
+        ChronicleGuard.ThrowIfNegative(candidateCapacity, nameof(candidateCapacity));
 
         SourceVoxels = new SwiftList<Voxel>(sourceCapacity);
         CandidateVoxels = new SwiftList<Voxel>(candidateCapacity);

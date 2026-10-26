@@ -88,7 +88,7 @@ public struct GridTraversalState
     public Fixed64 GetCellEdge(Voxel voxel)
     {
         bool isCurrent = TryResolveGrid(voxel.WorldIndex, out VoxelGrid? grid);
-        SwiftThrowHelper.ThrowIfTrue(
+        ChronicleGuard.ThrowIfTrue(
             !isCurrent,
             nameof(voxel),
             "The voxel does not belong to an active grid generation in this traversal's world.");

@@ -419,7 +419,7 @@ public sealed partial class GridWorld : IDisposable
     /// </remarks>
     public void ExecuteNavigationMaintenanceSnapshot(Action maintenance)
     {
-        SwiftThrowHelper.ThrowIfNull(maintenance, nameof(maintenance));
+        ChronicleGuard.ThrowIfNull(maintenance, nameof(maintenance));
         ThrowIfNavigationMaintenanceUnavailable();
 
         while (true)
@@ -447,7 +447,7 @@ public sealed partial class GridWorld : IDisposable
     /// <param name="cursor">The caller-owned cursor to reset and bind.</param>
     public void BeginBoundaryContacts(GridBoundaryContactCursor cursor)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
         ThrowIfNavigationMaintenanceUnavailable();
 
         while (true)
@@ -479,7 +479,7 @@ public sealed partial class GridWorld : IDisposable
         GridConfigurationKey configurationKey,
         GridBoundaryContactCursor cursor)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
         ThrowIfNavigationMaintenanceUnavailable();
 
         while (true)
@@ -537,9 +537,9 @@ public sealed partial class GridWorld : IDisposable
         out int candidateProbesConsumed,
         out int outputCount)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
-        SwiftThrowHelper.ThrowIfNegative(candidateProbeLimit, nameof(candidateProbeLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNegative(candidateProbeLimit, nameof(candidateProbeLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
         if (outputLimit > results.Length)
             throw new ArgumentOutOfRangeException(nameof(outputLimit));
 
@@ -576,9 +576,9 @@ public sealed partial class GridWorld : IDisposable
         out int candidateProbesConsumed,
         out int outputCount)
     {
-        SwiftThrowHelper.ThrowIfNull(cursor, nameof(cursor));
-        SwiftThrowHelper.ThrowIfNegative(candidateProbeLimit, nameof(candidateProbeLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
+        ChronicleGuard.ThrowIfNegative(candidateProbeLimit, nameof(candidateProbeLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
         if (outputLimit > results.Length)
             throw new ArgumentOutOfRangeException(nameof(outputLimit));
 
@@ -1040,10 +1040,10 @@ public sealed partial class GridWorld : IDisposable
 
     private void ThrowIfNavigationMaintenanceUnavailable()
     {
-        SwiftThrowHelper.ThrowIfTrue(
+        ChronicleGuard.ThrowIfTrue(
             !IsActive,
             message: "Cannot capture navigation maintenance state from an inactive world.");
-        SwiftThrowHelper.ThrowIfTrue(
+        ChronicleGuard.ThrowIfTrue(
             Volatile.Read(ref _committedPublicationOwnerThreadId)
                 == Environment.CurrentManagedThreadId,
             message: "Cannot enter navigation maintenance from a committed-change notification handler.");
@@ -1748,7 +1748,7 @@ public sealed partial class GridWorld : IDisposable
         SwiftList<ushort> candidates,
         int candidateLimit)
     {
-        SwiftThrowHelper.ThrowIfNegative(candidateLimit, nameof(candidateLimit));
+        ChronicleGuard.ThrowIfNegative(candidateLimit, nameof(candidateLimit));
         candidates.Clear();
         if (ActiveGrids.Count == 0)
             return true;
@@ -2258,8 +2258,8 @@ public sealed partial class GridWorld : IDisposable
     /// <param name="results">Caller-owned storage cleared and filled in ascending grid-slot order.</param>
     public void FindOverlappingGridsInto(VoxelGrid targetGrid, SwiftList<VoxelGrid> results)
     {
-        SwiftThrowHelper.ThrowIfNull(targetGrid, nameof(targetGrid));
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(targetGrid, nameof(targetGrid));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
 

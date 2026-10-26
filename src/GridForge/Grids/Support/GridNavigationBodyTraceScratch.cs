@@ -24,8 +24,8 @@ public sealed class GridNavigationBodyTraceScratch
     /// <summary>Creates scratch with expected grid and address counts.</summary>
     public GridNavigationBodyTraceScratch(int gridCapacity = 0, int addressCapacity = 0)
     {
-        SwiftThrowHelper.ThrowIfNegative(gridCapacity, nameof(gridCapacity));
-        SwiftThrowHelper.ThrowIfNegative(addressCapacity, nameof(addressCapacity));
+        ChronicleGuard.ThrowIfNegative(gridCapacity, nameof(gridCapacity));
+        ChronicleGuard.ThrowIfNegative(addressCapacity, nameof(addressCapacity));
 
         CandidateGrids = new SwiftList<ushort>(gridCapacity);
         AddressCandidates = new SwiftList<GridNavigationBodyTraceCandidate>(addressCapacity);

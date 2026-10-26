@@ -55,7 +55,7 @@ using FixedMathSharp;
 using GridForge;
 using GridForge.Configuration;
 using GridForge.Grids;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 ```
 
 ## 1. Create A World

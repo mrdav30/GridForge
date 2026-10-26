@@ -29,7 +29,7 @@ public static class GridDiagnostics
         SwiftList<GridDiagnosticCell> results,
         GridDiagnosticScratch? scratch = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
 

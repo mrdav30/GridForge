@@ -32,11 +32,11 @@ public static partial class GridCellGeometry
         out Fixed64 sourceParameter,
         out Fixed64 targetParameter)
     {
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             horizontalRadius < Fixed64.Zero,
             nameof(horizontalRadius),
             "Horizontal radius must be nonnegative.");
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             bodyHeight <= Fixed64.Zero,
             nameof(bodyHeight),
             "Body height must be positive.");
@@ -176,11 +176,11 @@ public static partial class GridCellGeometry
         in GridNavigationPortal outgoingPortal,
         GridNavigationBodySegmentEndpointAllowance endpointAllowance)
     {
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             horizontalRadius < Fixed64.Zero,
             nameof(horizontalRadius),
             "Horizontal radius must be nonnegative.");
-        SwiftThrowHelper.ThrowIfArgument(
+        ChronicleGuard.ThrowIfArgument(
             bodyHeight <= Fixed64.Zero,
             nameof(bodyHeight),
             "Body height must be positive.");

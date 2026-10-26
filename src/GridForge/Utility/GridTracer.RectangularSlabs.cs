@@ -39,8 +39,8 @@ public static partial class GridTracer
         long candidateWorkLimit, out GridTraceIntervalReport report)
     {
         ValidateTraceArguments(results, scratch, gridCandidateLimit, addressCandidateLimit, outputLimit, candidateWorkLimit);
-        SwiftThrowHelper.ThrowIfNull(continueTrace, nameof(continueTrace));
-        SwiftThrowHelper.ThrowIfArgument(intervalSourceOrdinals.Length < outputLimit,
+        ChronicleGuard.ThrowIfNull(continueTrace, nameof(continueTrace));
+        ChronicleGuard.ThrowIfArgument(intervalSourceOrdinals.Length < outputLimit,
             nameof(intervalSourceOrdinals), "Source ordinals must fit the output limit.");
 
         report = default;

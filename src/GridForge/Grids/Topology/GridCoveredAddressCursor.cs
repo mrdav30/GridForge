@@ -81,7 +81,7 @@ public sealed class GridCoveredAddressCursor
     /// <summary>Initializes reusable storage for at most <paramref name="generationCapacity"/> eligible grids.</summary>
     public GridCoveredAddressCursor(int generationCapacity)
     {
-        SwiftThrowHelper.ThrowIfNegative(generationCapacity, nameof(generationCapacity));
+        ChronicleGuard.ThrowIfNegative(generationCapacity, nameof(generationCapacity));
         Generations = generationCapacity == 0
             ? Array.Empty<BoundGeneration>()
             : new BoundGeneration[generationCapacity];

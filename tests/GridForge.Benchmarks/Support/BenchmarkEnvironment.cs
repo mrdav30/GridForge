@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using GridForge.Grids;
 using GridForge.Spatial;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 using SwiftCollections.Pool;
 
 namespace GridForge.Benchmarks;

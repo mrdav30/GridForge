@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 
 namespace GridForge.Grids.Tests;
 

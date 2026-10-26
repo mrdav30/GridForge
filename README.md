@@ -84,6 +84,11 @@ That same `GridWorld` can own multiple conjoined grids, mix rectangular and hex
 topologies, and combine dense and sparse storage. Higher-level regions, sectors,
 or streaming policy remain yours to shape above the voxel layer.
 
+Shared logging and exception guards come from the independent
+`Chronicler.Diagnostics` package. See the
+[migration guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md)
+for the updated imports and guard names.
+
 ## Learn more
 
 - [Getting started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)

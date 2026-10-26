@@ -1,4 +1,4 @@
-﻿using SwiftCollections.Diagnostics;
+using Chronicler.Diagnostics;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

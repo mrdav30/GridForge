@@ -88,7 +88,7 @@ public static partial class GridTracer
         Fixed64? padding = null,
         bool includeEnd = true)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -136,8 +136,8 @@ public static partial class GridTracer
         Fixed64? padding = null,
         bool includeEnd = true)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -303,7 +303,7 @@ public static partial class GridTracer
         SwiftList<Voxel> results,
         Fixed64? padding = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -368,8 +368,8 @@ public static partial class GridTracer
         GridTraceScratch scratch,
         Fixed64? padding = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -488,7 +488,7 @@ public static partial class GridTracer
         SwiftList<ScanCell> results,
         Fixed64? padding = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
 
         results.Clear();
         if (world == null || !world.IsActive)
@@ -536,8 +536,8 @@ public static partial class GridTracer
         GridScanScratch scratch,
         Fixed64? padding = null)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
 
         results.Clear();
         if (world == null || !world.IsActive)

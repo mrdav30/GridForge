@@ -58,12 +58,12 @@ public static partial class GridTracer
     private static void ValidateTraceArguments(SwiftList<GridTraceInterval> results, GridTraceIntervalScratch scratch,
         int gridCandidateLimit, int addressCandidateLimit, int outputLimit, long candidateWorkLimit)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
-        SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
-        SwiftThrowHelper.ThrowIfArgumentOutOfRange(candidateWorkLimit < 0L, null, nameof(candidateWorkLimit));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfArgumentOutOfRange(candidateWorkLimit < 0L, null, nameof(candidateWorkLimit));
     }
 
     private static GridTraceIntervalReport TraceIntervalsCore(GridWorld world, Vector3d start, Vector3d end,

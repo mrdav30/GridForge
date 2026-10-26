@@ -43,11 +43,11 @@ public static partial class GridTracer
         int outputLimit,
         long candidateWorkLimit)
     {
-        SwiftThrowHelper.ThrowIfNull(results, nameof(results));
-        SwiftThrowHelper.ThrowIfNull(scratch, nameof(scratch));
-        SwiftThrowHelper.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
-        SwiftThrowHelper.ThrowIfNegative(outputLimit, nameof(outputLimit));
+        ChronicleGuard.ThrowIfNull(results, nameof(results));
+        ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
+        ChronicleGuard.ThrowIfNegative(gridCandidateLimit, nameof(gridCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(addressCandidateLimit, nameof(addressCandidateLimit));
+        ChronicleGuard.ThrowIfNegative(outputLimit, nameof(outputLimit));
         if (candidateWorkLimit < 0L)
             throw new ArgumentOutOfRangeException(nameof(candidateWorkLimit));
 

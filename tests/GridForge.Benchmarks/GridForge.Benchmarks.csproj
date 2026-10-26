@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <LangVersion>11.0</LangVersion>
     <OutputType>Exe</OutputType>
@@ -40,5 +40,13 @@
   <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true' And ('$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true')">
     <ProjectReference Include="..\..\..\Chronicler\src\Chronicler.MemoryPackShim\Chronicler.MemoryPackShim.csproj"
                       AdditionalProperties="Configuration=$(Configuration);SemVer=0.4.0;AssemblySemVer=0.4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseLocalLsfStack)' != 'true'">
+    <PackageReference Include="Chronicler.Diagnostics" Version="1.0.0" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
+    <ProjectReference Include="..\..\..\Chronicler\src\Chronicler.Diagnostics\Chronicler.Diagnostics.csproj"
+                      AdditionalProperties="Configuration=$(Configuration);SemVer=1.0.0;AssemblySemVer=1.0.0.0" />
   </ItemGroup>
 </Project>
