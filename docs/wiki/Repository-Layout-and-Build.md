@@ -51,7 +51,7 @@ at `tests/GridForge.Tests/coverlet.runsettings`.
 The library project in `src/GridForge/GridForge.csproj` establishes a few
 important build behaviors:
 
-- language version is C# 11
+- language version defaults to C# 14, with C# 11 for `netstandard2.1`
 - target frameworks are `netstandard2.1` and `net10.0`
 - `ImplicitUsings` is disabled
 - `Nullable` is enabled in the library project

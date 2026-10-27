@@ -117,7 +117,7 @@ about build artifacts:
 
 ## Technology And Build Facts
 
-- Language: C# 11
+- Language: C# 14 by default; C# 11 for `netstandard2.1`
 - Library target frameworks: `netstandard2.1`, `net10.0`
 - Validation target framework: `net10.0`
 - Test framework: xUnit v3
