@@ -825,14 +825,16 @@ public class GridWorldTests
         Assert.True(GridOccupantManager.TryGetOccupancyTicket(firstWorld, firstOccupant, firstVoxel.WorldIndex, out OccupantTicket firstTicket));
         Assert.True(GridOccupantManager.TryGetOccupancyTicket(secondWorld, secondOccupant, secondVoxel.WorldIndex, out OccupantTicket secondTicket));
         Assert.False(GridOccupantManager.TryGetOccupancyTicket(firstWorld, secondOccupant, secondVoxel.WorldIndex, out _));
-        Assert.Equal(firstTicket.Slot, secondTicket.Slot);
-        Assert.NotEqual(firstTicket, secondTicket);
+        // Bucket slots depend on pool history; registration generations must differ.
+        Assert.NotEqual(firstTicket.Generation, secondTicket.Generation);
 
         Assert.Same(firstOccupant, GridScanManager.ScanRadius(firstWorld, new Vector3d(1, 0, 1), Fixed64.One).Single());
         Assert.Same(secondOccupant, GridScanManager.ScanRadius(secondWorld, new Vector3d(1, 0, 1), Fixed64.One).Single());
         Assert.True(GridScanManager.TryGetVoxelOccupant(firstWorld, firstVoxel.WorldIndex, firstTicket, out IVoxelOccupant resolvedFirst));
         Assert.True(GridScanManager.TryGetVoxelOccupant(secondWorld, secondVoxel.WorldIndex, secondTicket, out IVoxelOccupant resolvedSecond));
         Assert.False(GridScanManager.TryGetVoxelOccupant(secondWorld, secondVoxel.WorldIndex, firstTicket, out _));
+        OccupantTicket foreignGenerationAtLocalSlot = new(secondTicket.Slot, firstTicket.Generation);
+        Assert.False(GridScanManager.TryGetVoxelOccupant(secondWorld, secondVoxel.WorldIndex, foreignGenerationAtLocalSlot, out _));
         Assert.Same(firstOccupant, resolvedFirst);
         Assert.Same(secondOccupant, resolvedSecond);
         Assert.Empty(GridOccupantManager.GetOccupiedIndices(firstWorld, secondOccupant));
