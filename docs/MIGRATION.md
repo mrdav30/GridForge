@@ -194,7 +194,7 @@ The short version:
 
 ### Package And Build Notes
 
-GridForge still targets `netstandard2.1` and `net8.0`.
+GridForge still targets `netstandard2.1` and `net10.0`.
 
 Package dependencies moved to the v5 lower-stack family:
 

@@ -89,7 +89,7 @@ rewrite.
 
 | Path                                                           | Purpose                                                                           | Notes                                                   |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`src/GridForge`](src/GridForge)                               | Main library project                                                              | Multi-targets `netstandard2.1` and `net8.0`.            |
+| [`src/GridForge`](src/GridForge)                               | Main library project                                                              | Multi-targets `netstandard2.1` and `net10.0`.            |
 | [`src/GridForge/Configuration`](src/GridForge/Configuration)   | Grid creation input and bounds identity                                           | `GridConfiguration` is normalized by the owning world.  |
 | [`src/GridForge/Grids`](src/GridForge/Grids)                   | Core world, grid, voxel, scan-cell, manager, storage, topology, and pool logic    | Highest-risk runtime area.                              |
 | [`src/GridForge/Grids/Storage`](src/GridForge/Grids/Storage)   | Dense and sparse physical voxel storage                                           | Keep storage-specific layout behind `VoxelGrid`.        |
@@ -118,8 +118,8 @@ about build artifacts:
 ## Technology And Build Facts
 
 - Language: C# 11
-- Library target frameworks: `netstandard2.1`, `net8.0`
-- Validation target framework: `net8.0`
+- Library target frameworks: `netstandard2.1`, `net10.0`
+- Validation target framework: `net10.0`
 - Test framework: xUnit v3
 - Benchmark framework: BenchmarkDotNet
 - Main dependencies: `FixedMathSharp`, `SwiftCollections`, and optional
@@ -351,7 +351,7 @@ GitHub wiki publishing.
 The DocFX site under [`docs/api`](docs/api) is the branded API and discovery
 surface. Keep its GridForge icon, blue/cyan custom template, GitHub header link,
 namespace overviews, Unity adapter links, and landing-page routes intact. Build
-it from the Release `net8.0` assembly with warnings treated as errors; generated
+it from the Release `net10.0` assembly with warnings treated as errors; generated
 content under `docs/api/obj` is disposable.
 
 [`docs/feature-work/issue-tracker.md`](docs/feature-work/issue-tracker.md) and

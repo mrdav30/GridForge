@@ -86,9 +86,9 @@ internal static class Program
     private static void WriteUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0");
-        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all --list flat");
-        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-navigation-body-trace --job Dry");
+        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0");
+        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- all --list flat");
+        Console.WriteLine("  dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-navigation-body-trace --job Dry");
         Console.WriteLine();
         Console.WriteLine("Leading arguments that do not start with '-' are treated as benchmark selections.");
         Console.WriteLine("Remaining arguments are forwarded to BenchmarkDotNet.");

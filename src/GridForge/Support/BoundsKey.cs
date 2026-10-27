@@ -5,7 +5,7 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-#if !NET8_0_OR_GREATER
+#if !NET10_0_OR_GREATER
 using System;
 using SwiftCollections;
 #endif
@@ -18,11 +18,11 @@ namespace GridForge;
 /// <summary>
 /// Exact identity key for a grid's snapped bounds.
 /// </summary>
-#if NET8_0_OR_GREATER
+#if NET10_0_OR_GREATER
 public readonly record struct BoundsKey(Vector3d BoundsMin, Vector3d BoundsMax);
 #endif
 
-#if !NET8_0_OR_GREATER
+#if !NET10_0_OR_GREATER
 public readonly struct BoundsKey : IEquatable<BoundsKey>
 {
     /// <summary>

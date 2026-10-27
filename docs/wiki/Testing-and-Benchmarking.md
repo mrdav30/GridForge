@@ -103,15 +103,15 @@ Good GridForge tests usually:
 ## Benchmark Runner Basics
 
 ```bash
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- list
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- all
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-spatial-index --filter '*GridSpatialIndex*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- all
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-spatial-index --filter '*GridSpatialIndex*'
 
-dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -- grid-planar-interval --filter '*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-planar-interval --filter '*'
 ```
 
 The `sparse-voxel-grid` alias covers sparse construction density, configured and
@@ -136,7 +136,7 @@ and rectangular/hex direction-labeled caller-owned result paths.
 
 The `grid-spatial-index` alias covers threshold selection, grid-footprint
 scaling, mixed ordinary/oversized lookup, and many-oversized-grid scaling. For
-matched evidence, build once and run the compiled `Release/net8.0` benchmark DLL
+matched evidence, build once and run the compiled `Release/net10.0` benchmark DLL
 with the same aliases and filters, changing only `--artifacts` between the
 baseline, after, and confirmation roots.
 
@@ -183,8 +183,8 @@ it on the initial build:
 
 ```powershell
 $env:UseLocalLsfStack = 'true'
-dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net8.0 -p:UseLocalLsfStack=true -m:1 -p:BuildInParallel=false
-dotnet tests/GridForge.Benchmarks/bin/Release/net8.0/GridForge.Benchmarks.dll all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --job Dry --artifacts artifacts/voxel-lookup-smoke
+dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -p:UseLocalLsfStack=true -m:1 -p:BuildInParallel=false
+dotnet tests/GridForge.Benchmarks/bin/Release/net10.0/GridForge.Benchmarks.dll all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --job Dry --artifacts artifacts/voxel-lookup-smoke
 ```
 
 The source-stack runner explicitly passes `/p:UseLocalLsfStack=true`,
@@ -194,7 +194,7 @@ sibling rediscovery and parallel writes into the shared benchmark output
 directory. No additional environment overrides are required for these build
 properties. A build-only job mutator preserves CLI job settings, including Dry,
 and the parent assembly configuration. To measure Lean, build with
-`-c ReleaseLean` and run the compiled `ReleaseLean/net8.0` DLL.
+`-c ReleaseLean` and run the compiled `ReleaseLean/net10.0` DLL.
 
 Inspect the generated commands in the retained log and independently verify
 child dependency manifests and DLL hashes against the intended source stack

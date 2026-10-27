@@ -49,7 +49,7 @@ Choose one package variant:
 | `GridForge`      | You want the default package with MemoryPack serialization support.   |
 | `GridForge.Lean` | You want the same grid API without the MemoryPack runtime dependency. |
 
-Both variants target `netstandard2.1` and `net8.0`.
+Both variants target `netstandard2.1` and `net10.0`.
 
 ## Quick start
 

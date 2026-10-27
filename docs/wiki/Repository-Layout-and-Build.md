@@ -52,7 +52,7 @@ The library project in `src/GridForge/GridForge.csproj` establishes a few
 important build behaviors:
 
 - language version is C# 11
-- target frameworks are `netstandard2.1` and `net8.0`
+- target frameworks are `netstandard2.1` and `net10.0`
 - `ImplicitUsings` is disabled
 - `Nullable` is enabled in the library project
 - XML documentation files are generated
@@ -119,7 +119,7 @@ can look surprising the first time you notice it.
 
 The test project:
 
-- targets `net8.0`
+- targets `net10.0`
 - is marked as a test project and not packable
 - references the main library project directly
 - supports `Debug`, `Release`, and `ReleaseLean`
@@ -134,7 +134,7 @@ the report measures maintained source.
 
 The benchmark project:
 
-- targets `net8.0`
+- targets `net10.0`
 - is an executable
 - references the main library project directly
 - supports `Debug`, `Release`, and `ReleaseLean`
@@ -202,7 +202,7 @@ At a high level it:
 - triggers on pushes except `dependabot/**`, `gh-pages`, and version tags like
   `v*`
 - triggers on pull requests targeting `main` or `develop`
-- installs .NET 8 and .NET 10
+- installs .NET 10
 - installs and executes GitVersion
 - restores dependencies
 - builds the solution in both `Release` and `ReleaseLean`

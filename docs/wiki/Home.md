@@ -94,7 +94,7 @@ a convenience over the same 3D runtime, not a separate grid implementation.
 
 ## Packages and compatibility
 
-GridForge targets `netstandard2.1` and `net8.0` and is published in two
+GridForge targets `netstandard2.1` and `net10.0` and is published in two
 variants:
 
 | Package          | Profile                                                  |

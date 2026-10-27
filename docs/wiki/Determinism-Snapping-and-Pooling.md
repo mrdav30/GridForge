@@ -15,7 +15,7 @@ In practice that means:
 
 - core spatial math uses `Fixed64`, `Vector2d`, and `Vector3d`
 - grid creation and tracing logic work from snapped fixed-point bounds
-- behavior must stay stable across both `netstandard2.1` and `net8.0`
+- behavior must stay stable across both `netstandard2.1` and `net10.0`
 
 `Vector2d` APIs use the same fixed-point math as the 3D APIs. They project XZ
 coordinates onto a chosen `layerY` and then flow through the same world, grid,

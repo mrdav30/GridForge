@@ -10,7 +10,7 @@ with the project.
 
 ## Development setup
 
-Install the SDK selected by `global.json` and the .NET 8 runtime used by the
+Install the SDK selected by `global.json` and the .NET 10 runtime used by the
 tests and benchmarks. Then restore and run the normal Debug workflow:
 
 ```powershell
@@ -19,7 +19,7 @@ dotnet build GridForge.slnx --configuration Debug --no-restore
 dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
-GridForge targets `netstandard2.1` and `net8.0`. Keep shared runtime code
+GridForge targets `netstandard2.1` and `net10.0`. Keep shared runtime code
 compatible with both targets and free of game-engine dependencies.
 
 ## Pull Request Process
