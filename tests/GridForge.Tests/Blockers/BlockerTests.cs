@@ -933,7 +933,7 @@ public class BlockerTests : IDisposable
             .GetField("_cachedCoveredVoxels", BindingFlags.Instance | BindingFlags.NonPublic)
             ?.GetValue(blocker)
             ?? throw new InvalidOperationException("Could not find Blocker._cachedCoveredVoxels.");
-        cachedCoveredVoxels.GetType().GetMethod("Clear")
+        cachedCoveredVoxels.GetType().GetMethod("Clear", Type.EmptyTypes)
             ?.Invoke(cachedCoveredVoxels, Array.Empty<object>());
 
         blocker.RemoveBlockage();

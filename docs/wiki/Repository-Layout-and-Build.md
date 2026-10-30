@@ -155,10 +155,13 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 ```
 
 When iterating across sibling LSF repositories, set
-`$env:UseLocalLsfStack = 'true'` before restoring and building. The library,
-tests, and benchmarks then use sibling FixedMathSharp, SwiftCollections, and
-Chronicler projects, plus the local `Chronicler.MemoryPackShim` in Lean builds. Without
-that switch, normal package references and versions remain authoritative.
+`$env:UseLocalLsfStack = 'true'` and pass
+`-p:DisableTransitiveProjectReferences=true` on restore, build and test commands.
+The global property preserves explicit dependency identities in sibling projects.
+Library, test and benchmark projects then use sibling FixedMathSharp,
+SwiftCollections and Chronicler projects, plus the local
+`Chronicler.MemoryPackShim` in Lean builds. Without that switch, normal package
+references and versions remain authoritative.
 
 When you specifically want release-like library artifacts:
 

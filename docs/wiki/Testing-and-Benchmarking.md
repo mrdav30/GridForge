@@ -183,7 +183,7 @@ it on the initial build:
 
 ```powershell
 $env:UseLocalLsfStack = 'true'
-dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -p:UseLocalLsfStack=true -m:1 -p:BuildInParallel=false
+dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1 -p:BuildInParallel=false
 dotnet tests/GridForge.Benchmarks/bin/Release/net10.0/GridForge.Benchmarks.dll all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --job Dry --artifacts artifacts/voxel-lookup-smoke
 ```
 
