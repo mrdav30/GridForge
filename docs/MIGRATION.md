@@ -2,6 +2,17 @@
 
 ## Upcoming release
 
+### Chronicler v1.0.0 dependency alignment
+
+The Lean shim package reference now uses Chronicler v1.0.0. Coordinated
+Chronicler and shim source references use `SemVer=1.0.0;AssemblySemVer=1.0.0.0`
+across the library, tests, and benchmarks. Keep sibling references aligned to
+prevent runtime assembly-load failures. After the SwiftCollections alignment is
+committed and pushed, refresh the immutable SwiftCollections, FixedMathSharp,
+and Chronicler CI pins together. Validate both configurations against released
+upstream packages before publishing; source-mode packages remain development
+artifacts.
+
 ### Shared diagnostics extraction
 
 Shared logging and exception guards now come from the independent
