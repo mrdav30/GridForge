@@ -1,7 +1,7 @@
 //=======================================================================
 // Blocker.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -54,7 +54,7 @@ public abstract class Blocker : IBlocker
     public bool IsBlocking { get; protected set; }
 
     /// <summary>
-    /// Flags whether or not to hold onto a reference of the voxels this blocker covers.
+    /// Whether to cache world-scoped voxel identities for covered voxels.
     /// </summary>
     public bool CacheCoveredVoxels { get; protected set; }
 
@@ -107,9 +107,8 @@ public abstract class Blocker : IBlocker
     }
 
     /// <summary>
-    /// Toggles the blocker from inactive to active or active to inactive state
-    /// If object is currently blocking, the blocker will be removed.
-    /// If object is not active and not blocking, the blocker will be applied.
+    /// Sets the requested blocker state. False removes the blockage and deactivates
+    /// the blocker; true applies the blockage if it is not already blocking.
     /// </summary>
     public virtual void ToggleStatus(bool status)
     {

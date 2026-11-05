@@ -1,26 +1,71 @@
 items:
   - name: Home
     href: index.md
+  - name: Guides
+    href: guides/Home.md
+    items:
+      - name: Start here
+        items:
+          - name: Getting Started
+            href: guides/Getting-Started.md
+          - name: Core Concepts
+            href: guides/Core-Concepts.md
+          - name: Common Workflows
+            href: guides/Common-Workflows.md
+          - name: FAQ and Troubleshooting
+            href: guides/FAQ-and-Troubleshooting.md
+      - name: Worlds and runtime state
+        items:
+          - name: VoxelGrid and Voxel Model
+            href: guides/VoxelGrid-and-Voxel-Model.md
+          - name: Sparse Grid Storage
+            href: guides/Sparse-Grid-Storage.md
+          - name: Architecture Overview
+            href: guides/Architecture-Overview.md
+          - name: Determinism, Snapping, and Pooling
+            href: guides/Determinism-Snapping-and-Pooling.md
+      - name: Queries and mutations
+        items:
+          - name: GridTracer and Coverage
+            href: guides/GridTracer-and-Coverage.md
+          - name: Scan Cells and Query Flow
+            href: guides/Scan-Cells-and-Query-Flow.md
+          - name: Blockers and Obstacles
+            href: guides/Blockers-and-Obstacles.md
+          - name: Occupants and Partitions
+            href: guides/Occupants-and-Partitions.md
+          - name: Recipes
+            href: guides/Recipes.md
+      - name: Exact geometry and integration
+        items:
+          - name: Cell Geometry and Navigation
+            href: guides/Cell-Geometry-and-Navigation.md
+          - name: Segment Intervals and Slabs
+            href: guides/Segment-Intervals-and-Slabs.md
+          - name: Navigation Body Coverage
+            href: guides/Navigation-Body-Coverage.md
+          - name: World Changes and Composition
+            href: guides/World-Changes-and-Composition.md
+      - name: Tools and development
+        items:
+          - name: Grid Diagnostics and Geometry
+            href: guides/Grid-Diagnostics-and-Geometry.md
+          - name: Diagnostics and Logging
+            href: guides/Diagnostics-and-Logging.md
+          - name: Repository Layout and Build
+            href: guides/Repository-Layout-and-Build.md
+          - name: Testing and Benchmarking
+            href: guides/Testing-and-Benchmarking.md
   - name: API Reference
     href: obj/api/
     homepage: obj/api/GridForge.yml
-  - name: Guides
-    items:
-      - name: Getting Started
-        href: https://github.com/mrdav30/GridForge/wiki/Getting-Started
-      - name: Core Concepts
-        href: https://github.com/mrdav30/GridForge/wiki/Core-Concepts
-      - name: Common Workflows
-        href: https://github.com/mrdav30/GridForge/wiki/Common-Workflows
-      - name: Migration Guide
-        href: https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md
   - name: Resources
     items:
-      - name: Wiki
-        href: https://github.com/mrdav30/GridForge/wiki
+      - name: Migration Guide
+        href: https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md
       - name: Unity Packages
         href: https://github.com/mrdav30/GridForge-Unity
       - name: Source
         href: https://github.com/mrdav30/GridForge
-      - name: Core Test Coverage
+      - name: Test Coverage
         href: https://mrdav30.github.io/GridForge/coverage/

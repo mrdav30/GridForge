@@ -10,20 +10,7 @@ using GridForge.Spatial;
 
 namespace GridForge.Grids.Topology;
 
-/// <summary>
-/// Describes the state of a resumable exact boundary-contact query.
-/// </summary>
-public enum GridBoundaryContactCursorStatus : byte
-{
-    /// <summary>The bound world or grid generation changed and all prior output must be discarded.</summary>
-    Stale = 0,
 
-    /// <summary>More bounded candidate work is required.</summary>
-    More = 1,
-
-    /// <summary>All bound spatial pairs and topology addresses were examined.</summary>
-    Complete = 2
-}
 
 /// <summary>
 /// Stores caller-owned scalar progress for a bounded exact boundary-contact query.
@@ -34,14 +21,9 @@ public enum GridBoundaryContactCursorStatus : byte
 /// live grid or voxel reference. If it becomes <see cref="GridBoundaryContactCursorStatus.Stale"/>,
 /// discard every contact returned since the last begin and restart the cursor.
 /// </remarks>
-public sealed class GridBoundaryContactCursor
+public sealed partial class GridBoundaryContactCursor
 {
-    internal enum TraversalStage : byte
-    {
-        Pair,
-        Source,
-        Target
-    }
+
 
     internal long WorldSpawnToken;
     internal uint WorldVersion;

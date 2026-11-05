@@ -12,8 +12,8 @@ applications.
 and missing-address evidence, plus synchronous completed-X-slab observation for
 qualified single-layer rectangular traces. Partial slab output is not a
 canonical ray prefix; see the
-[tracing guide](https://github.com/mrdav30/GridForge/wiki/GridTracer-and-Coverage)
-for ceilings, source ordinals, and observer lifetime rules.
+[tracing guide](../guides/Segment-Intervals-and-Slabs.md) for ceilings, source
+ordinals, and observer lifetime rules.
 
 Unity projects should use the maintained
 [GridForge-Unity packages](https://github.com/mrdav30/GridForge-Unity) for scene

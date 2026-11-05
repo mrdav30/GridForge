@@ -1,7 +1,7 @@
-﻿//=======================================================================
+//=======================================================================
 // Pools.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -61,10 +61,10 @@ internal static class Pools
 
     #region Node Pooling
 
-    public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftBucket<OccupantEntry>> VoxelOccupantDictionaryPool = new();
+    public static readonly SwiftDictionaryPool<WorldVoxelIndex, SwiftSlotMap<OccupantEntry>> VoxelOccupantDictionaryPool = new();
 
-    public static readonly SwiftObjectPool<SwiftBucket<OccupantEntry>> VoxelOccupantBucketPool = new(
-        createFunc: () => new SwiftBucket<OccupantEntry>(),
+    public static readonly SwiftObjectPool<SwiftSlotMap<OccupantEntry>> VoxelOccupantBucketPool = new(
+        createFunc: () => new SwiftSlotMap<OccupantEntry>(),
         actionOnRelease: bucket => bucket.Clear()
     );
 

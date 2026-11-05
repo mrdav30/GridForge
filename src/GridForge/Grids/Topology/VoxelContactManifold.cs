@@ -10,35 +10,9 @@ using GridForge.Spatial;
 
 namespace GridForge.Grids.Topology;
 
-/// <summary>
-/// Classifies the exact shared geometry of two closed cell prisms.
-/// </summary>
-public enum VoxelContactKind : byte
-{
-    /// <summary>The prisms do not intersect.</summary>
-    Separated,
-    /// <summary>The prisms share one point.</summary>
-    Point,
-    /// <summary>The prisms share a positive-length line.</summary>
-    Edge,
-    /// <summary>The prisms share a positive-area face.</summary>
-    Face,
-    /// <summary>The prism interiors overlap in three dimensions.</summary>
-    VolumeOverlap
-}
 
-/// <summary>
-/// Identifies the world-plane orientation of a face contact.
-/// </summary>
-public enum VoxelContactFaceKind : byte
-{
-    /// <summary>The manifold is not a face.</summary>
-    None,
-    /// <summary>A horizontal footprint segment extruded through a vertical interval.</summary>
-    Vertical,
-    /// <summary>A convex XZ polygon on a shared Y plane.</summary>
-    Horizontal
-}
+
+
 
 /// <summary>
 /// Describes exact point, edge, face, or volume contact between two cell prisms.

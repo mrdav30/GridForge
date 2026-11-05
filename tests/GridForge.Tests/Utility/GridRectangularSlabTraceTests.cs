@@ -172,34 +172,34 @@ public sealed class GridRectangularSlabTraceTests : IDisposable
         Fixed64 distance = Fixed64.FromRaw(1L << 62);
         Fixed64 gap = Fixed64.FromRaw(gapRaw);
         foreach (bool endSide in new[] { false, true })
-        foreach (bool reverse in new[] { false, true })
-        {
-            // Literal unit cell X=1 has faces .5 and 1.5; the raw parameter gap is gapRaw / 2^30.
-            Fixed64 startX = endSide ? Fixed64.FromFraction(3, 2) + gap - distance : Fixed64.Half - gap;
-            Fixed64 endX = endSide ? Fixed64.FromFraction(3, 2) + gap : startX + distance;
-            Vector3d start = new Vector3d(startX, -Fixed64.Half, Fixed64.Zero);
-            Vector3d end = new Vector3d(endX, -Fixed64.Half, Fixed64.Quarter);
-            if (reverse) (start, end) = (end, start);
-            bool observed = false;
-            Assert.True(Trace(start, end, Generation(grid), slab =>
+            foreach (bool reverse in new[] { false, true })
             {
-                if (slab.XIndex != 1) return true;
-                observed = true;
-                Assert.Equal(separates, slab.SeparatesEndpoints);
-                GridTraceInterval cut = _results.Single(value => value.Cell.VoxelIndex == new VoxelIndex(1, 0, 0));
-                if (gapRaw == 536870912L)
-                    Assert.Equal(!endSide ^ reverse ? 0 : Fixed64.One.m_rawValue,
-                        !endSide ^ reverse ? cut.TEnter.m_rawValue : cut.TExit.m_rawValue);
-                if (separates)
+                // Literal unit cell X=1 has faces .5 and 1.5; the raw parameter gap is gapRaw / 2^30.
+                Fixed64 startX = endSide ? Fixed64.FromFraction(3, 2) + gap - distance : Fixed64.Half - gap;
+                Fixed64 endX = endSide ? Fixed64.FromFraction(3, 2) + gap : startX + distance;
+                Vector3d start = new Vector3d(startX, -Fixed64.Half, Fixed64.Zero);
+                Vector3d end = new Vector3d(endX, -Fixed64.Half, Fixed64.Quarter);
+                if (reverse) (start, end) = (end, start);
+                bool observed = false;
+                Assert.True(Trace(start, end, Generation(grid), slab =>
                 {
-                    Assert.True(cut.TEnter > Fixed64.Zero);
-                    Assert.True(cut.TExit < Fixed64.One);
-                }
-                return false;
-            }, out var report));
-            Assert.True(observed);
-            Assert.Equal(GridTraceIntervalStatus.StoppedAfterCompleteSlab, report.Status);
-        }
+                    if (slab.XIndex != 1) return true;
+                    observed = true;
+                    Assert.Equal(separates, slab.SeparatesEndpoints);
+                    GridTraceInterval cut = _results.Single(value => value.Cell.VoxelIndex == new VoxelIndex(1, 0, 0));
+                    if (gapRaw == 536870912L)
+                        Assert.Equal(!endSide ^ reverse ? 0 : Fixed64.One.m_rawValue,
+                            !endSide ^ reverse ? cut.TEnter.m_rawValue : cut.TExit.m_rawValue);
+                    if (separates)
+                    {
+                        Assert.True(cut.TEnter > Fixed64.Zero);
+                        Assert.True(cut.TExit < Fixed64.One);
+                    }
+                    return false;
+                }, out var report));
+                Assert.True(observed);
+                Assert.Equal(GridTraceIntervalStatus.StoppedAfterCompleteSlab, report.Status);
+            }
     }
 
     [Theory]

@@ -11,7 +11,7 @@ description: API reference and guides for deterministic rectangular and hex-pris
   diagnostic geometry.</p>
   <div class="gf-actions">
     <a href="xref:GridForge">Browse the API</a>
-    <a href="https://github.com/mrdav30/GridForge/wiki/Getting-Started">Get started</a>
+    <a href="guides/Getting-Started.md">Get started</a>
   </div>
 </div>
 
@@ -68,14 +68,37 @@ Unity projects can use the maintained
 [GridForge-Unity packages](https://github.com/mrdav30/GridForge-Unity) for scene
 authoring, inspectors, gizmos, logging, and samples.
 
+## Guides
+
+- [Get started](guides/Getting-Started.md) with a world and a first voxel.
+- [Choose topology and storage](guides/Core-Concepts.md) for your spatial model.
+- [Trace coverage](guides/GridTracer-and-Coverage.md), apply
+  [blockers](guides/Blockers-and-Obstacles.md), and
+  [scan occupants](guides/Scan-Cells-and-Query-Flow.md).
+- [Integrate exact geometry and navigation](guides/Cell-Geometry-and-Navigation.md)
+  with explicit budgets, identities, and revision checks.
+- [Build diagnostic tools](guides/Grid-Diagnostics-and-Geometry.md) without an
+  engine dependency.
+
+## Part of the LSF ecosystem
+
+GridForge provides voxel worlds, spatial queries, and cell-level state for the
+Lockstep Simulation Framework ecosystem:
+
+- [Chronicler](https://github.com/mrdav30/Chronicler)
+- [FixedMathSharp](https://github.com/mrdav30/FixedMathSharp)
+- [SwiftCollections](https://github.com/mrdav30/SwiftCollections)
+- [Gravitas](https://github.com/mrdav30/Gravitas)
+- [Trailblazer](https://github.com/mrdav30/Trailblazer)
+
 ## Resources
 
-- [Wiki](https://github.com/mrdav30/GridForge/wiki)
+- [All guides](guides/Home.md)
 - [Migration guide](https://github.com/mrdav30/GridForge/blob/main/docs/MIGRATION.md)
 - [Source, issues, and releases](https://github.com/mrdav30/GridForge)
 - [Unity packages and adapter API](https://mrdav30.github.io/GridForge-Unity/)
 - [Core test-suite coverage](https://mrdav30.github.io/GridForge/coverage/)
 
-The API reference is generated from the library XML documentation. The wiki
-explains ownership, topology, storage, pooling, query lifetimes, and common
+The API reference is generated from the library XML documentation. The guides
+explain ownership, topology, storage, pooling, query lifetimes, and common
 workflows in task-oriented prose.

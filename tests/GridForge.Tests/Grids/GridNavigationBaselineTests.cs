@@ -232,7 +232,8 @@ public sealed class GridNavigationBaselineTests
             {
                 snapshotError = exception;
             }
-        }) { IsBackground = true };
+        })
+        { IsBackground = true };
 
         try
         {

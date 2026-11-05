@@ -1,10 +1,9 @@
+using Chronicler.Diagnostics;
 using FixedMathSharp;
-using GridForge.Diagnostics;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using Chronicler.Diagnostics;
 using Xunit;
 
 namespace GridForge.Configuration.Tests;

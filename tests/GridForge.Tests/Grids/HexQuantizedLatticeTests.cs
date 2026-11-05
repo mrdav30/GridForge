@@ -19,20 +19,20 @@ public class HexQuantizedLatticeTests
     {
         Vector3d min = new Vector3d(-1000, 0, 1000);
         for (int radiusRaw = 1; radiusRaw <= 32; radiusRaw++)
-        for (int xRaw = 797; xRaw <= 800; xRaw++)
-        for (int zRaw = 597; zRaw <= 600; zRaw++)
-        {
-            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
-            Vector3d max = min + new Vector3d(Fixed64.FromRaw(xRaw), Fixed64.Zero, Fixed64.FromRaw(zRaw));
-            GridConfiguration input = new GridConfiguration(min, max, topologyKind: GridTopologyKind.HexPrism,
-                topologyMetrics: metrics, storageKind: GridStorageKind.Sparse);
-            Assert.True(input.TryNormalize(out NormalizedGridConfiguration first));
-            Assert.True(first.Configuration.BoundsMax.X >= max.X);
-            Assert.True(first.Configuration.BoundsMax.Z >= max.Z);
-            Assert.True(first.Configuration.TryNormalize(out NormalizedGridConfiguration second));
-            Assert.Equal(first.Key, second.Key);
-            Assert.Equal(first.AddressCount, second.AddressCount);
-        }
+            for (int xRaw = 797; xRaw <= 800; xRaw++)
+                for (int zRaw = 597; zRaw <= 600; zRaw++)
+                {
+                    GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
+                    Vector3d max = min + new Vector3d(Fixed64.FromRaw(xRaw), Fixed64.Zero, Fixed64.FromRaw(zRaw));
+                    GridConfiguration input = new GridConfiguration(min, max, topologyKind: GridTopologyKind.HexPrism,
+                        topologyMetrics: metrics, storageKind: GridStorageKind.Sparse);
+                    Assert.True(input.TryNormalize(out NormalizedGridConfiguration first));
+                    Assert.True(first.Configuration.BoundsMax.X >= max.X);
+                    Assert.True(first.Configuration.BoundsMax.Z >= max.Z);
+                    Assert.True(first.Configuration.TryNormalize(out NormalizedGridConfiguration second));
+                    Assert.Equal(first.Key, second.Key);
+                    Assert.Equal(first.AddressCount, second.AddressCount);
+                }
     }
 
     [Theory]
@@ -61,21 +61,21 @@ public class HexQuantizedLatticeTests
         Vector3d min = new Vector3d(new Fixed64(-1000) + Fixed64.FromRaw(7), Fixed64.Zero,
             new Fixed64(1000) + Fixed64.FromRaw(11));
         for (int radiusRaw = 1; radiusRaw <= 32; radiusRaw++)
-        for (int q = 99; q <= 102; q++)
-        for (int r = 99; r <= 102; r++)
-        {
-            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
-            Vector3d max = min + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(q, 0, r), metrics);
-            GridConfiguration input = new GridConfiguration(min, max, topologyKind: GridTopologyKind.HexPrism,
-                topologyMetrics: metrics, storageKind: GridStorageKind.Sparse);
-            Assert.True(input.TryNormalize(out NormalizedGridConfiguration first));
-            Assert.Equal(max, first.Configuration.BoundsMax);
-            Assert.Equal(q + 1, first.Width);
-            Assert.Equal(r + 1, first.Length);
-            Assert.True(first.Configuration.TryNormalize(out NormalizedGridConfiguration second));
-            Assert.Equal(first.Key, second.Key);
-            Assert.Equal(first.AddressCount, second.AddressCount);
-        }
+            for (int q = 99; q <= 102; q++)
+                for (int r = 99; r <= 102; r++)
+                {
+                    GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
+                    Vector3d max = min + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(q, 0, r), metrics);
+                    GridConfiguration input = new GridConfiguration(min, max, topologyKind: GridTopologyKind.HexPrism,
+                        topologyMetrics: metrics, storageKind: GridStorageKind.Sparse);
+                    Assert.True(input.TryNormalize(out NormalizedGridConfiguration first));
+                    Assert.Equal(max, first.Configuration.BoundsMax);
+                    Assert.Equal(q + 1, first.Width);
+                    Assert.Equal(r + 1, first.Length);
+                    Assert.True(first.Configuration.TryNormalize(out NormalizedGridConfiguration second));
+                    Assert.Equal(first.Key, second.Key);
+                    Assert.Equal(first.AddressCount, second.AddressCount);
+                }
     }
 
     [Theory]

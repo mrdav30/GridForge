@@ -654,7 +654,7 @@ public static partial class GridTracer
         VoxelGrid grid,
         VoxelIndex index)
     {
-        for (int i = 0;; i++)
+        for (int i = 0; ; i++)
         {
             GridNavigationBodyTraceCandidate candidate = candidates[i];
             if (candidate.Grid == grid && candidate.Index == index)

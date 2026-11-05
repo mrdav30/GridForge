@@ -1,8 +1,8 @@
 using System;
 using System.Reflection;
+using Chronicler.Diagnostics;
 using GridForge.Grids;
 using GridForge.Spatial;
-using Chronicler.Diagnostics;
 using SwiftCollections.Pool;
 
 namespace GridForge.Benchmarks;

@@ -1,17 +1,16 @@
 # GridForge Migration Guide
 
-## Upcoming release
+## Chronicler dependency and diagnostics migration
 
 ### Chronicler v1.0.0 dependency alignment
 
 The Lean shim package reference now uses Chronicler v1.0.0. Coordinated
-Chronicler and shim source references use `SemVer=1.0.0;AssemblySemVer=1.0.0.0`
-across the library, tests, and benchmarks. Keep sibling references aligned to
-prevent runtime assembly-load failures. After the SwiftCollections alignment is
-committed and pushed, refresh the immutable SwiftCollections, FixedMathSharp,
-and Chronicler CI pins together. Validate both configurations against released
-upstream packages before publishing; source-mode packages remain development
-artifacts.
+Chronicler and shim source references use the evergreen identities centralized
+in `Directory.Build.props` across the library, tests, and benchmarks. Keep sibling
+references aligned to prevent runtime assembly-load failures. Keep immutable
+sibling CI pins aligned with the source APIs used by GridForge. Validate both
+configurations against released upstream packages before publishing; source-mode
+packages remain development artifacts.
 
 ### Shared diagnostics extraction
 
@@ -801,8 +800,8 @@ reconstructing the world.
 
 ### Related Documentation
 
-- [Sparse Grid Storage](wiki/Sparse-Grid-Storage.md)
-- [VoxelGrid and Voxel Model](wiki/VoxelGrid-and-Voxel-Model.md)
-- [GridTracer and Coverage](wiki/GridTracer-and-Coverage.md)
-- [Scan Cells and Query Flow](wiki/Scan-Cells-and-Query-Flow.md)
-- [Grid Diagnostics and Geometry](wiki/Grid-Diagnostics-and-Geometry.md)
+- [Sparse Grid Storage](api/guides/Sparse-Grid-Storage.md)
+- [VoxelGrid and Voxel Model](api/guides/VoxelGrid-and-Voxel-Model.md)
+- [GridTracer and Coverage](api/guides/GridTracer-and-Coverage.md)
+- [Scan Cells and Query Flow](api/guides/Scan-Cells-and-Query-Flow.md)
+- [Grid Diagnostics and Geometry](api/guides/Grid-Diagnostics-and-Geometry.md)

@@ -1,7 +1,7 @@
 //=======================================================================
 // GridVoxelSet.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -11,8 +11,13 @@ using SwiftCollections;
 namespace GridForge;
 
 /// <summary>
-/// Used to group query results on a grid to voxel level
+/// Groups the matching voxels for one grid.
 /// </summary>
+/// <remarks>
+/// Query iterators lend pooled <see cref="Voxels"/> lists until their enumeration
+/// completes or is disposed. Consume them inside the enumeration, or copy the
+/// contents into caller-owned storage before retaining results.
+/// </remarks>
 public readonly struct GridVoxelSet
 {
     /// <summary>

@@ -30,13 +30,13 @@ public class HexCoordinateUtilityTests
         {
             GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(radiusRaw), Fixed64.One, orientation);
             foreach (int qIndex in new[] { -1000001, -101, -1, 0, 1, 100, 1000001 })
-            foreach (int rIndex in new[] { -1000001, -101, -1, 0, 1, 100, 1000001 })
-            {
-                VoxelIndex expected = new VoxelIndex(qIndex, 0, rIndex);
-                Vector3d center = HexCoordinateUtility.AxialToWorldOffset(expected, metrics);
-                HexCoordinateUtility.WorldOffsetToAxial(center.X, center.Z, metrics, out Fixed64 q, out Fixed64 r);
-                Assert.Equal(expected, HexCoordinateUtility.RoundAxial(q, Fixed64.Zero, r));
-            }
+                foreach (int rIndex in new[] { -1000001, -101, -1, 0, 1, 100, 1000001 })
+                {
+                    VoxelIndex expected = new VoxelIndex(qIndex, 0, rIndex);
+                    Vector3d center = HexCoordinateUtility.AxialToWorldOffset(expected, metrics);
+                    HexCoordinateUtility.WorldOffsetToAxial(center.X, center.Z, metrics, out Fixed64 q, out Fixed64 r);
+                    Assert.Equal(expected, HexCoordinateUtility.RoundAxial(q, Fixed64.Zero, r));
+                }
         }
     }
 

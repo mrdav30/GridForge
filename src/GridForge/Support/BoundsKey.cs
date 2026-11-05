@@ -1,22 +1,21 @@
-﻿//=======================================================================
+//=======================================================================
 // BoundsKey.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
 #if !NET10_0_OR_GREATER
 using System;
-using SwiftCollections;
+using SwiftCollections.Utility;
 #endif
 
 using FixedMathSharp;
-using SwiftCollections.Utility;
 
 namespace GridForge;
 
 /// <summary>
-/// Exact identity key for a grid's snapped bounds.
+/// Exact value key for the supplied bounds.
 /// </summary>
 #if NET10_0_OR_GREATER
 public readonly record struct BoundsKey(Vector3d BoundsMin, Vector3d BoundsMax);

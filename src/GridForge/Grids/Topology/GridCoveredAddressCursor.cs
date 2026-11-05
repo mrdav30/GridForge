@@ -9,22 +9,10 @@ using System;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Spatial;
-using SwiftCollections.Utility;
 
 namespace GridForge.Grids.Topology;
 
-/// <summary>Describes the state of a resumable covered-address query.</summary>
-public enum GridCoveredAddressCursorStatus : byte
-{
-    /// <summary>The bound revision or an eligible grid generation changed; discard the run.</summary>
-    Stale = 0,
 
-    /// <summary>More generation-input, lookup, address, or output work is required.</summary>
-    More = 1,
-
-    /// <summary>Every eligible covered topology address was examined.</summary>
-    Complete = 2
-}
 
 /// <summary>Stores caller-owned bounded progress for a value-only covered-address query.</summary>
 /// <remarks>
@@ -32,31 +20,13 @@ public enum GridCoveredAddressCursorStatus : byte
 /// supply the next canonical generation-input slice to each advance call until it is consumed. Once all
 /// declared generations are bound, pass an empty input span. The cursor retains no live grid or voxel.
 /// </remarks>
-public sealed class GridCoveredAddressCursor
+public sealed partial class GridCoveredAddressCursor
 {
     private const long LogicalStateBytes = 512L;
     private const long ArrayHeaderBytes = 24L;
     private const long BoundGenerationBytes = 160L;
 
-    internal readonly struct BoundGeneration
-    {
-        internal BoundGeneration(
-            GridCoveredAddressGeneration generation,
-            VoxelIndex minimum,
-            VoxelIndex maximum,
-            bool hasRange)
-        {
-            Generation = generation;
-            Minimum = minimum;
-            Maximum = maximum;
-            HasRange = hasRange;
-        }
 
-        internal GridCoveredAddressGeneration Generation { get; }
-        internal VoxelIndex Minimum { get; }
-        internal VoxelIndex Maximum { get; }
-        internal bool HasRange { get; }
-    }
 
     internal readonly BoundGeneration[] Generations;
     internal long WorldSpawnToken;

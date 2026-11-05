@@ -26,7 +26,7 @@ Priorities:
 6. Prefer proven lower-stack primitives from `FixedMathSharp` and
    `SwiftCollections` before adding local math, collection, pool, or helper
    implementations.
-7. Keep README, wiki pages, tests, benchmarks, package metadata, and workflow
+7. Keep README, DocFX guides, tests, benchmarks, package metadata, and workflow
    behavior aligned when architecture or public API changes.
 
 ## Start Here
@@ -35,8 +35,8 @@ Read these in order before making non-trivial changes:
 
 1. [`README.md`](README.md) for package orientation and the public-facing mental
    model.
-2. [`docs/wiki/Home.md`](docs/wiki/Home.md), then the matching wiki page for the
-   area being changed.
+2. [`docs/api/guides/Home.md`](docs/api/guides/Home.md), then the matching guide
+   for the area being changed.
 3. [`src/GridForge/GridForge.csproj`](src/GridForge/GridForge.csproj) for target
    frameworks, package variants, dependencies, and build behavior.
 4. [`src/GridForge/Grids/Managers/GridWorld.cs`](src/GridForge/Grids/Managers/GridWorld.cs),
@@ -60,36 +60,35 @@ repositories:
 
 ## Source Of Truth
 
-When code, README, and wiki content disagree, prefer the code, project files,
+When code, README, and guide content disagree, prefer the code, project files,
 and tests. Then update the docs that drifted.
 
 Keep these aligned whenever behavior, public API, package shape, or developer
 workflow changes:
 
 - [`README.md`](README.md)
-- [`docs/wiki`](docs/wiki), especially pages covering world ownership, tracing,
-  scan cells, blockers, occupants, partitions, determinism, testing, and build
-  workflow.
-- [`docs/api`](docs/api) for the DocFX landing page, navigation, and API build
-  configuration.
+- [`docs/api/guides`](docs/api/guides), especially pages covering world
+  ownership, tracing, scan cells, blockers, occupants, partitions, determinism,
+  testing, and build workflow.
+- [`docs/api`](docs/api) for the DocFX landing page, guides, navigation, and API
+  build configuration.
 - [`AGENTS.md`](AGENTS.md)
 - [`src/GridForge/GridForge.csproj`](src/GridForge/GridForge.csproj)
 - [`tests/GridForge.Tests`](tests/GridForge.Tests)
 - [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks) when performance
   claims or hot paths change.
 - Workflow files under [`.github/workflows`](.github/workflows), especially
-  `build-and-test.yml`, `coverage.yml`, `sync-wiki.yml`, and
-  `publish-nuget.yml`.
+  `build-and-test.yml`, `coverage.yml`, and `publish-nuget.yml`.
 
-`docs/wiki` is the source content for the GitHub wiki. Keep source Markdown
-repo-friendly and let the publish helper perform the narrow GitHub wiki link
-rewrite.
+Conceptual documentation lives in `docs/api/guides` and publishes alongside the
+API reference. The repository is the source of truth. There is no wiki
+synchronization workflow; keep Markdown links relative and include `.md`.
 
 ## Repository Map
 
 | Path                                                           | Purpose                                                                           | Notes                                                   |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| [`src/GridForge`](src/GridForge)                               | Main library project                                                              | Multi-targets `netstandard2.1` and `net10.0`.            |
+| [`src/GridForge`](src/GridForge)                               | Main library project                                                              | Multi-targets `netstandard2.1` and `net10.0`.           |
 | [`src/GridForge/Configuration`](src/GridForge/Configuration)   | Grid creation input and bounds identity                                           | `GridConfiguration` is normalized by the owning world.  |
 | [`src/GridForge/Grids`](src/GridForge/Grids)                   | Core world, grid, voxel, scan-cell, manager, storage, topology, and pool logic    | Highest-risk runtime area.                              |
 | [`src/GridForge/Grids/Storage`](src/GridForge/Grids/Storage)   | Dense and sparse physical voxel storage                                           | Keep storage-specific layout behind `VoxelGrid`.        |
@@ -100,10 +99,10 @@ rewrite.
 | [`src/GridForge/Utility`](src/GridForge/Utility)               | `GridTracer` and `GridForgeLogger`                                                | Tracing changes can affect many systems.                |
 | [`tests/GridForge.Tests`](tests/GridForge.Tests)               | xUnit v3 test project                                                             | Mirrors subsystem boundaries.                           |
 | [`tests/GridForge.Benchmarks`](tests/GridForge.Benchmarks)     | BenchmarkDotNet project                                                           | Covers allocation and throughput-sensitive scenarios.   |
-| [`docs/wiki`](docs/wiki)                                       | Developer-facing usage and architecture documentation                             | Keep aligned with public API and workflow changes.      |
+| [`docs/api/guides`](docs/api/guides)                           | Developer-facing usage and architecture documentation                             | Keep aligned with public API and workflow changes.      |
 | [`docs/api`](docs/api)                                         | DocFX landing page, navigation, and API build configuration                       | Generated output stays under `docs/api/obj`.            |
 | [`.assets/scripts`](.assets/scripts)                           | PowerShell release packaging helpers                                              | Requires `GitVersion.Tool` for versioned archives.      |
-| [`.github/workflows`](.github/workflows)                       | CI, coverage, wiki sync, release, and publish automation                          | Keep workflow names in sync across triggers.            |
+| [`.github/workflows`](.github/workflows)                       | CI, coverage, release, and publish automation                                     | Keep workflow names in sync across triggers.            |
 
 Ignore generated output when reviewing or editing unless the task is explicitly
 about build artifacts:
@@ -147,7 +146,10 @@ Package variants:
 Versioning:
 
 - CI and release workflows use GitVersion.
-- Local builds without GitVersion fall back to version `0.0.0`.
+- Package-mode builds without GitVersion fall back to version `0.0.0`.
+- `Directory.Build.props` centralizes runtime version selection and per-library
+  source identities. Local GridForge uses `0.0.0-gf-local-lsf` with assembly/file
+  version `0.0.0.0`, independently of GitVersion or release versions.
 
 Build CI selects pinned sibling sources on develop pushes and PRs targeting
 develop; main and other branches validate released packages. A develop -> main
@@ -191,9 +193,9 @@ The runtime is built around explicit world ownership:
 - `GridObstacleManager` mutates obstacle state and emits obstacle events.
 - `GridOccupantManager` manages each world's lazily created occupant registry,
   add/remove flows, ticket lookup, and occupant events. Ordinary reset clears
-  records for reuse; deactivation atomically detaches the registry before clearing
-  it. Preserve grid occupant lock -> registry lock ordering and captured-reference
-  semantics during publication and release.
+  records for reuse; deactivation atomically detaches the registry before
+  clearing it. Preserve grid occupant lock -> registry lock ordering and
+  captured-reference semantics during publication and release.
 - `GridScanManager` performs radius and typed scans through the scan-cell
   overlay.
 - `Blocker`, `BoundsBlocker`, and `AreaBlocker` translate world-space boxes or
@@ -289,6 +291,13 @@ Match the surrounding file style instead of imposing a new one.
 - Keep interfaces small, deterministic, and engine-agnostic.
 - Do not add compatibility adapters or wrapper APIs just to avoid fixing a weak
   design.
+- Give each namespace-level type/delegate its own file. Public/internal nested
+  types use companion files while retaining nested CLR identities and generic
+  constraints; private nested helpers may remain with their owner.
+- Authored C# files under `src` carry the MIT header with the current filename.
+  Test and benchmark files under `tests` do not carry license headers.
+- Use the explicit cleanup/check commands in [CONTRIBUTING.md](CONTRIBUTING.md);
+  exclude generated output and validate both target frameworks after formatting.
 
 ## Testing Expectations
 
@@ -335,27 +344,27 @@ shape, or workflow behavior changes.
 
 High-value pages:
 
-- [`docs/wiki/Home.md`](docs/wiki/Home.md)
-- [`docs/wiki/Getting-Started.md`](docs/wiki/Getting-Started.md)
-- [`docs/wiki/Core-Concepts.md`](docs/wiki/Core-Concepts.md)
-- [`docs/wiki/Architecture-Overview.md`](docs/wiki/Architecture-Overview.md)
-- [`docs/wiki/Sparse-Grid-Storage.md`](docs/wiki/Sparse-Grid-Storage.md)
-- [`docs/wiki/GridTracer-and-Coverage.md`](docs/wiki/GridTracer-and-Coverage.md)
-- [`docs/wiki/Scan-Cells-and-Query-Flow.md`](docs/wiki/Scan-Cells-and-Query-Flow.md)
-- [`docs/wiki/Blockers-and-Obstacles.md`](docs/wiki/Blockers-and-Obstacles.md)
-- [`docs/wiki/Occupants-and-Partitions.md`](docs/wiki/Occupants-and-Partitions.md)
-- [`docs/wiki/Repository-Layout-and-Build.md`](docs/wiki/Repository-Layout-and-Build.md)
-- [`docs/wiki/Testing-and-Benchmarking.md`](docs/wiki/Testing-and-Benchmarking.md)
+- [`docs/api/guides/Home.md`](docs/api/guides/Home.md)
+- [`docs/api/guides/Getting-Started.md`](docs/api/guides/Getting-Started.md)
+- [`docs/api/guides/Core-Concepts.md`](docs/api/guides/Core-Concepts.md)
+- [`docs/api/guides/Architecture-Overview.md`](docs/api/guides/Architecture-Overview.md)
+- [`docs/api/guides/Sparse-Grid-Storage.md`](docs/api/guides/Sparse-Grid-Storage.md)
+- [`docs/api/guides/GridTracer-and-Coverage.md`](docs/api/guides/GridTracer-and-Coverage.md)
+- [`docs/api/guides/Scan-Cells-and-Query-Flow.md`](docs/api/guides/Scan-Cells-and-Query-Flow.md)
+- [`docs/api/guides/Blockers-and-Obstacles.md`](docs/api/guides/Blockers-and-Obstacles.md)
+- [`docs/api/guides/Occupants-and-Partitions.md`](docs/api/guides/Occupants-and-Partitions.md)
+- [`docs/api/guides/Repository-Layout-and-Build.md`](docs/api/guides/Repository-Layout-and-Build.md)
+- [`docs/api/guides/Testing-and-Benchmarking.md`](docs/api/guides/Testing-and-Benchmarking.md)
 
-Keep README engaging and concise; push deep subsystem detail into the wiki. Keep
-wiki source links repo-relative and let the sync helper adapt copied pages for
-GitHub wiki publishing.
+Keep README engaging and concise; put deep subsystem detail in the DocFX guides.
+Use diagrams and short sections where they clarify ownership or query flow. Keep
+completed feature-work records historical and current guides evergreen.
 
 The DocFX site under [`docs/api`](docs/api) is the branded API and discovery
 surface. Keep its GridForge icon, blue/cyan custom template, GitHub header link,
 namespace overviews, Unity adapter links, and landing-page routes intact. Build
-it from the Release `net10.0` assembly with warnings treated as errors; generated
-content under `docs/api/obj` is disposable.
+it from the Release `net10.0` assembly with warnings treated as errors;
+generated content under `docs/api/obj` is disposable.
 
 [`docs/feature-work/issue-tracker.md`](docs/feature-work/issue-tracker.md) and
 [`docs/feature-work/benchmark-signal-hardening-backlog.md`](docs/feature-work/benchmark-signal-hardening-backlog.md)
@@ -403,9 +412,8 @@ an ID after resolution, closure, promotion, or removal.
   package artifact, and publishes `.nupkg` files to NuGet.
 - `.github/workflows/coverage.yml` builds the DocFX site and publishes coverage
   beneath `/coverage` in the same GitHub Pages artifact.
-- `.github/workflows/sync-wiki.yml` publishes `docs/wiki` to the GitHub Wiki.
-  Both workflows depend on the `build-and-test` workflow name; update their
-  triggers and README badges if that name changes.
+- Coverage deployment depends on the `build-and-test` workflow name; update its
+  trigger and README badges if that name changes.
 
 ## Pitfalls To Avoid
 
@@ -427,8 +435,8 @@ an ID after resolution, closure, promotion, or removal.
 
 ## Recommended Workflow
 
-1. Read the README, the relevant wiki page, the project file, and nearby source
-   and tests.
+1. Read the README, the relevant guide, the project file, and nearby source and
+   tests.
 2. Decide whether the change affects determinism, global state, identity,
    pooling, storage, topology, package variants, or docs.
 3. Make the smallest coherent change that fits existing architecture.
@@ -441,12 +449,17 @@ an ID after resolution, closure, promotion, or removal.
    untested edge cases in the handoff.
 
 Keep this document current when solution layout, build flow, package variants,
-wiki publishing, storage/topology boundaries, or core architecture changes.
+documentation publishing, storage/topology boundaries, or core architecture
+changes.
 
 ## Shared Diagnostics Ownership
 
 Use the independent `Chronicler.Diagnostics` package for diagnostic channels,
 lazy logging handlers, and `ChronicleGuard` guards. It does not depend on
-`Chronicler.Core`. Keep library-specific channels, formatters, and logger facades
-in their owning library. `UseLocalLsfStack=true` selects the sibling diagnostics
-project; standard and Lean builds use the same diagnostics package.
+`Chronicler.Core`. Keep library-specific channels, formatters, and logger
+facades in their owning library. `UseLocalLsfStack=true` selects the sibling
+diagnostics project; standard and Lean builds use the same diagnostics package.
+
+Do not stage, commit, tag, push, publish packages, change repository settings,
+or create releases unless explicitly requested. Preserve unrelated dirty files
+and leave cleanup changes unstaged for review.

@@ -1,7 +1,7 @@
 //=======================================================================
 // ScanCell.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -15,20 +15,7 @@ using SwiftCollections.Utility;
 
 namespace GridForge.Grids;
 
-/// <summary>
-/// Stores one occupant registration and the generation that owns its bucket slot.
-/// </summary>
-internal readonly struct OccupantEntry
-{
-    public readonly IVoxelOccupant Occupant;
-    public readonly long Generation;
 
-    public OccupantEntry(IVoxelOccupant occupant, long generation)
-    {
-        Occupant = occupant;
-        Generation = generation;
-    }
-}
 
 /// <summary>
 /// Represents a spatial partition within a grid, managing occupants at a finer granularity than grid voxels.
@@ -56,7 +43,7 @@ public class ScanCell
     /// <summary>
     /// Maps a <see cref="Voxel.WorldIndex"/> to a bucket of associated <see cref="IVoxelOccupant"/> instances.
     /// </summary>
-    private SwiftDictionary<WorldVoxelIndex, SwiftBucket<OccupantEntry>>? _voxelOccupants;
+    private SwiftDictionary<WorldVoxelIndex, SwiftSlotMap<OccupantEntry>>? _voxelOccupants;
 
     private object? _occupantSyncRoot;
 
@@ -110,7 +97,7 @@ public class ScanCell
             {
                 foreach (var kvp in _voxelOccupants)
                 {
-                    SwiftBucket<OccupantEntry> bucket = kvp.Value;
+                    SwiftSlotMap<OccupantEntry> bucket = kvp.Value;
                     foreach (OccupantEntry entry in bucket)
                         GridOccupantManager.ForgetTrackedOccupancy(World, entry.Occupant, kvp.Key);
 
@@ -145,7 +132,7 @@ public class ScanCell
     {
         long generation = RuntimeIdentityAllocator.Allocate(ref s_occupantGenerationCounter);
         _voxelOccupants ??= Pools.VoxelOccupantDictionaryPool.Rent();
-        if (!_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> bucket))
+        if (!_voxelOccupants.TryGetValue(index, out SwiftSlotMap<OccupantEntry> bucket))
         {
             bucket = Pools.VoxelOccupantBucketPool.Rent();
             _voxelOccupants[index] = bucket;
@@ -205,7 +192,7 @@ public class ScanCell
         if (_voxelOccupants == null)
             yield break;
 
-        foreach (SwiftBucket<OccupantEntry> bucket in _voxelOccupants.Values)
+        foreach (SwiftSlotMap<OccupantEntry> bucket in _voxelOccupants.Values)
         {
             foreach (OccupantEntry entry in bucket)
                 yield return entry.Occupant;
@@ -254,7 +241,7 @@ public class ScanCell
 
         foreach (var kvp in _voxelOccupants)
         {
-            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            SwiftSlotMap<OccupantEntry> bucket = kvp.Value;
             foreach (OccupantEntry entry in bucket)
             {
                 IVoxelOccupant occupant = entry.Occupant;
@@ -286,7 +273,7 @@ public class ScanCell
             if (kvp.Key.VoxelIndex.y != localLayerY)
                 continue;
 
-            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            SwiftSlotMap<OccupantEntry> bucket = kvp.Value;
             foreach (OccupantEntry entry in bucket)
             {
                 IVoxelOccupant occupant = entry.Occupant;
@@ -314,7 +301,7 @@ public class ScanCell
 
         foreach (var kvp in _voxelOccupants)
         {
-            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            SwiftSlotMap<OccupantEntry> bucket = kvp.Value;
             foreach (OccupantEntry entry in bucket)
             {
                 IVoxelOccupant occupant = entry.Occupant;
@@ -346,7 +333,7 @@ public class ScanCell
             if (kvp.Key.VoxelIndex.y != localLayerY)
                 continue;
 
-            SwiftBucket<OccupantEntry> bucket = kvp.Value;
+            SwiftSlotMap<OccupantEntry> bucket = kvp.Value;
             foreach (OccupantEntry entry in bucket)
             {
                 IVoxelOccupant occupant = entry.Occupant;
@@ -394,13 +381,13 @@ public class ScanCell
     }
 
     /// <summary>
-    /// Retrieves all occupants associated with a specific voxel spawn token within this scan cell.
+    /// Retrieves all occupants associated with a world-scoped voxel identity within this scan cell.
     /// </summary>
-    /// <param name="index">The global index of the voxel.</param>
+    /// <param name="index">The voxel identity including world and grid generations and its local index.</param>
     /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
     public IEnumerable<IVoxelOccupant> GetOccupantsFor(WorldVoxelIndex index)
     {
-        if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> voxelOccupants))
+        if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftSlotMap<OccupantEntry> voxelOccupants))
             yield break;
 
         foreach (OccupantEntry entry in voxelOccupants)
@@ -408,9 +395,9 @@ public class ScanCell
     }
 
     /// <summary>
-    /// Attempts to retrieve a specific occupant in this scan cell using a voxel's spawn key and occupant ticket.
+    /// Attempts to retrieve a specific occupant in this scan cell using a world-scoped voxel identity and occupant ticket.
     /// </summary>
-    /// <param name="index">The global index of the voxel the occupant belongs to.</param>
+    /// <param name="index">The world-scoped identity of the voxel the occupant belongs to.</param>
     /// <param name="occupantTicket">The unique ticket identifying the occupant.</param>
     /// <param name="voxelOccupant">The retrieved occupant if found.</param>
     /// <returns>True if the occupant was found, otherwise false.</returns>
@@ -428,7 +415,7 @@ public class ScanCell
         {
             if (!ReferenceEquals(syncRoot, Volatile.Read(ref _occupantSyncRoot))
                 || _voxelOccupants == null
-                || !_voxelOccupants.TryGetValue(index, out SwiftBucket<OccupantEntry> voxelOccupants)
+                || !_voxelOccupants.TryGetValue(index, out SwiftSlotMap<OccupantEntry> voxelOccupants)
                 || !occupantTicket.IsValid
                 || !voxelOccupants.TryGetValue(occupantTicket.Slot, out OccupantEntry entry)
                 || entry.Generation != occupantTicket.Generation)

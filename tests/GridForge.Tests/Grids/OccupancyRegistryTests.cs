@@ -126,7 +126,8 @@ public class OccupancyRegistryTests
                 {
                     errors[index] = error;
                 }
-            }) { IsBackground = true };
+            })
+            { IsBackground = true };
         }
     }
 

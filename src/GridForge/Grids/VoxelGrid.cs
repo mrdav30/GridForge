@@ -1,7 +1,7 @@
 //=======================================================================
 // VoxelGrid.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -123,7 +123,8 @@ public class VoxelGrid
     /// Stores topology-local neighbor slots for neighboring grids based on their relative positions.
     /// </summary>
     /// <remarks>
-    /// Unlike voxel adjacency (which is always 1:1), grids can share multiple neighbors in the same direction.
+    /// Each topology-local slot can contain multiple neighboring grid IDs. Contact
+    /// queries can also return multiple voxel contacts across different grid cell sizes.
     /// </remarks>
     public SwiftSparseMap<SwiftHashSet<int>>? Neighbors { get; private set; }
 

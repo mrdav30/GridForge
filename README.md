@@ -6,7 +6,7 @@
 [![Coverage](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fmrdav30.github.io%2FGridForge%2Fcoverage%2FSummary.json&query=%24.summary.branchcoverage&suffix=%25&label=coverage&color=brightgreen)](https://mrdav30.github.io/GridForge/coverage/)
 [![NuGet](https://img.shields.io/nuget/v/GridForge.svg)](https://www.nuget.org/packages/GridForge)
 [![License](https://img.shields.io/github/license/mrdav30/GridForge.svg)](LICENSE)
-[![API](https://img.shields.io/badge/docs-API-00a9d6)](https://mrdav30.github.io/GridForge/)
+[![Docs](https://img.shields.io/badge/docs-guides%20%26%20API-00a9d6)](https://mrdav30.github.io/GridForge/)
 [![Discord](https://img.shields.io/badge/discord-join%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/mhwK2QFNBA)
 
 **Deterministic voxel worlds for .NET games, simulations, tools, and server
@@ -91,16 +91,16 @@ for the updated imports and guard names.
 
 ## Learn more
 
-- [Getting started](https://github.com/mrdav30/GridForge/wiki/Getting-Started)
-- [Core concepts](https://github.com/mrdav30/GridForge/wiki/Core-Concepts)
-- [Common workflows](https://github.com/mrdav30/GridForge/wiki/Common-Workflows)
+- [Getting started](https://mrdav30.github.io/GridForge/guides/Getting-Started.html)
+- [Core concepts](https://mrdav30.github.io/GridForge/guides/Core-Concepts.html)
+- [Common workflows](https://mrdav30.github.io/GridForge/guides/Common-Workflows.html)
 - [API reference](https://mrdav30.github.io/GridForge/api/GridForge.html)
 - [Migration guide](docs/MIGRATION.md)
 - [Contributing and local validation](CONTRIBUTING.md)
 
-The [GridForge wiki](https://github.com/mrdav30/GridForge/wiki) covers topology,
-sparse storage, tracing, scan cells, blockers, occupants, diagnostics,
-determinism, testing, and benchmarks in depth.
+The [GridForge guides](https://mrdav30.github.io/GridForge/guides/Home.html)
+cover topology, sparse storage, tracing, scan cells, blockers, occupants,
+diagnostics, determinism, testing, and benchmarks in depth.
 
 Questions and discussion are welcome in the
 [Discord community](https://discord.gg/mhwK2QFNBA). GridForge is available under

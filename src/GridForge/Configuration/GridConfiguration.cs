@@ -1,7 +1,7 @@
 //=======================================================================
 // GridConfiguration.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -132,13 +132,15 @@ public readonly partial struct GridConfiguration
     #endregion
 
     /// <summary>
-    /// Creates an exact identity key for this configuration's snapped bounds.
+    /// Creates an exact identity key for this configuration's current bounds.
     /// </summary>
+    /// <remarks>Use <see cref="TryNormalize"/> before deriving a normalized bounds key.</remarks>
     public readonly BoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
 
     /// <summary>
-    /// Creates an exact identity key for this configuration's snapped bounds and topology.
+    /// Creates an exact identity key for this configuration's current bounds and topology.
     /// </summary>
+    /// <remarks>Use the descriptor from <see cref="TryNormalize"/> for normalized registration identity.</remarks>
     public readonly GridConfigurationKey ToGridKey() =>
         new(BoundsMin, BoundsMax, TopologyKind, TopologyMetrics);
 

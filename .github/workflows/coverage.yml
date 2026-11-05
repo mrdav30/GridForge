@@ -66,6 +66,9 @@ jobs:
           test -f src/GridForge/bin/Release/net10.0/GridForge.xml
           dotnet tool run docfx docs/api/docfx.json --warningsAsErrors
           test -f docs/api/obj/_site/index.html
+          for guide in Home Getting-Started Core-Concepts Common-Workflows Recipes Architecture-Overview VoxelGrid-and-Voxel-Model Sparse-Grid-Storage GridTracer-and-Coverage Segment-Intervals-and-Slabs Navigation-Body-Coverage Cell-Geometry-and-Navigation World-Changes-and-Composition Scan-Cells-and-Query-Flow Blockers-and-Obstacles Occupants-and-Partitions Grid-Diagnostics-and-Geometry Diagnostics-and-Logging Determinism-Snapping-and-Pooling Repository-Layout-and-Build Testing-and-Benchmarking FAQ-and-Troubleshooting; do
+            test -f "docs/api/obj/_site/guides/${guide}.html"
+          done
           test -f docs/api/obj/_site/api/GridForge.html
           test -f docs/api/obj/_site/api/GridForge.Diagnostics.html
           test -f docs/api/obj/_site/assets/icon_128x128.png
@@ -150,6 +153,7 @@ jobs:
           cp -a docs/api/obj/_site/. artifacts/pages/
           cp -a artifacts/coverage-report/. artifacts/pages/coverage/
           test -f artifacts/pages/index.html
+          test -f artifacts/pages/guides/Home.html
           test -f artifacts/pages/api/GridForge.html
           test -f artifacts/pages/assets/icon_128x128.png
           test -f artifacts/pages/public/main.css

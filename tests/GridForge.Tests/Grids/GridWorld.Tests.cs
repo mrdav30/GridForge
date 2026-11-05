@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
+using Chronicler.Diagnostics;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
 using GridForge.Blockers;
@@ -12,7 +12,6 @@ using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using GridForge.Utility;
 using SwiftCollections;
-using Chronicler.Diagnostics;
 using Xunit;
 
 namespace GridForge.Grids.Tests;

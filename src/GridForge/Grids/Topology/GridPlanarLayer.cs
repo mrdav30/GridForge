@@ -5,8 +5,6 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using SwiftCollections;
-
 namespace GridForge.Grids.Topology;
 
 /// <summary>Identifies one selected planar layer in an exact grid generation.</summary>

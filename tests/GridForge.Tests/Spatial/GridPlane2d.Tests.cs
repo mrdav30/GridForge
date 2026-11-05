@@ -1,4 +1,4 @@
-﻿using FixedMathSharp;
+using FixedMathSharp;
 using Xunit;
 
 namespace GridForge.Spatial.Tests;

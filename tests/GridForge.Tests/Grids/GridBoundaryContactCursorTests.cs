@@ -608,7 +608,8 @@ public sealed class GridBoundaryContactCursorTests
             {
                 beginError = exception;
             }
-        }) { IsBackground = true };
+        })
+        { IsBackground = true };
         Thread filteredThread = new(() =>
         {
             try
@@ -621,7 +622,8 @@ public sealed class GridBoundaryContactCursorTests
             {
                 filteredError = exception;
             }
-        }) { IsBackground = true };
+        })
+        { IsBackground = true };
         Thread advanceThread = new(() =>
         {
             try
@@ -638,7 +640,8 @@ public sealed class GridBoundaryContactCursorTests
             {
                 advanceError = exception;
             }
-        }) { IsBackground = true };
+        })
+        { IsBackground = true };
 
         try
         {

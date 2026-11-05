@@ -1,7 +1,7 @@
 //=======================================================================
 // GridWorld.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -64,7 +64,7 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// Collection of all active grids owned by this world.
     /// </summary>
-    public SwiftBucket<VoxelGrid> ActiveGrids { get; }
+    public SwiftSlotMap<VoxelGrid> ActiveGrids { get; }
 
     /// <summary>
     /// Dictionary mapping exact grid configuration keys to grid indices to prevent duplicate grids.
@@ -234,7 +234,7 @@ public sealed partial class GridWorld : IDisposable
     /// <param name="spatialGridCellSize">Optional ordinary-grid lookup cell size for this world.</param>
     public GridWorld(int spatialGridCellSize = DefaultSpatialGridCellSize)
     {
-        ActiveGrids = new SwiftBucket<VoxelGrid>();
+        ActiveGrids = new SwiftSlotMap<VoxelGrid>();
         BoundsTracker = new SwiftDictionary<GridConfigurationKey, ushort>();
 
         SpatialGridCellSize = ResolveSpatialGridCellSize(spatialGridCellSize);

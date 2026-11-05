@@ -1,7 +1,7 @@
 //=======================================================================
 // GridTracer.cs
 //=======================================================================
-// MIT License, Copyright (c) 2024–present David Oravsky (mrdav30)
+// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
@@ -49,15 +49,17 @@ public static partial class GridTracer
     /// The traced points are returned as grid voxels.
     /// </summary>
     /// <remarks>
-    /// Uses a fractional step algorithm inspired by Bresenham’s line algorithm.
+    /// Uses a fractional step algorithm inspired by Bresenham's line algorithm.
     /// This implementation leverages fixed-point math to maintain precision across a deterministic grid.
+    /// Consume each pooled voxel list inside the enumeration or copy its contents
+    /// to caller-owned storage. Retained results should use <c>TraceLineInto</c>.
     /// </remarks>
     /// <param name="world">The world whose grids should be traced.</param>
     /// <param name="start">Starting position in world space.</param>
     /// <param name="end">Ending position in world space.</param>
     /// <param name="padding">Value applied to the start/end positions before snapping.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
-    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the traced path.</returns>
+    /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> TraceLine(
         GridWorld world,
         Vector3d start,
@@ -169,7 +171,7 @@ public static partial class GridTracer
     /// <param name="padding">Value applied to the start/end positions before snapping.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
-    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the traced path.</returns>
+    /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> TraceLine(
         GridWorld world,
         Vector2d start,
@@ -239,6 +241,10 @@ public static partial class GridTracer
     /// <summary>
     /// Retrieves all grid voxels covered by the given bounding area in the supplied world.
     /// </summary>
+    /// <remarks>
+    /// Each result lends a pooled voxel list until enumeration completes or is
+    /// disposed. Copy contents before retaining them, or use <c>GetCoveredVoxelsInto</c>.
+    /// </remarks>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
         Vector3d boundsMin,
@@ -259,7 +265,7 @@ public static partial class GridTracer
     /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
     /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
-    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the covered voxels.</returns>
+    /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
         Vector2d boundsMin,
@@ -278,7 +284,7 @@ public static partial class GridTracer
     /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
     /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
-    /// <returns>A collection of <see cref="GridVoxelSet"/> objects representing the covered voxels.</returns>
+    /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
         FixedBoundArea area,

@@ -1,10 +1,3 @@
-//=======================================================================
-// GridPlanarNavigationBodyTraceTests.Validation.cs
-//=======================================================================
-// MIT License, Copyright (c) 2024-present David Oravsky (mrdav30)
-// See LICENSE file in the project root for full license information.
-//=======================================================================
-
 using System;
 using FixedMathSharp;
 using GridForge.Grids.Topology;
@@ -33,8 +26,17 @@ public sealed partial class GridPlanarNavigationBodyTraceTests
     }
 
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)]
-    [InlineData(6)] [InlineData(7)] [InlineData(8)] [InlineData(9)] [InlineData(10)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
     public void InvalidIdentityLayerOrContact_IsRejectedBeforeAddressWork(int bad)
     {
         VoxelGrid grid = Add(Vector3d.Zero, Vector3d.Zero);
@@ -81,7 +83,11 @@ public sealed partial class GridPlanarNavigationBodyTraceTests
     }
 
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
     public void CheckedBounds_RejectEachUnrepresentableExtent(int edge)
     {
         VoxelGrid grid = Add(Vector3d.Zero, Vector3d.Zero);

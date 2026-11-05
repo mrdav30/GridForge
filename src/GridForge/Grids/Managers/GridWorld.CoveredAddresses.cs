@@ -10,7 +10,6 @@ using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using SwiftCollections.Utility;
 
 namespace GridForge.Grids;
 

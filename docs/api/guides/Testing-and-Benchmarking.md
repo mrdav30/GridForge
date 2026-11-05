@@ -1,0 +1,236 @@
+# Testing and Benchmarking
+
+This page explains how GridForge validates behavior and performance.
+
+The short version is:
+
+- use the xUnit suite to protect correctness
+- use the benchmark project when changing performance-sensitive or
+  allocation-sensitive code
+- treat `GridWorld` boundaries as part of the validation story
+
+## The Two Validation Tracks
+
+| Track      | Project                      | Best for                                                                       |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| Tests      | `tests/GridForge.Tests`      | Behavioral correctness, regressions, edge cases, and event semantics           |
+| Benchmarks | `tests/GridForge.Benchmarks` | Allocation trends, warm-vs-cold pool effects, and throughput-sensitive changes |
+
+## Test Harness Shape
+
+The test suite uses xUnit v3 and a shared collection fixture:
+
+- `GridForgeFixture` sets `GridForgeLogger.MinimumLevel` to `Error`
+- `GridForgeFixture` does not create a runtime world
+- `[Collection("GridForgeCollection")]` is used where tests share the
+  fixture-managed logger configuration
+
+New tests should prefer explicit `GridWorld` creation. The test project includes
+helpers such as `GridWorldTestFactory` to keep that setup small and consistent.
+
+## What The Tests Cover
+
+The test folders mirror the main subsystem boundaries:
+
+- `tests/GridForge.Tests/Grids` covers world behavior, manager behavior,
+  voxel/grid state, scan cells, and neighbor logic
+- `tests/GridForge.Tests/Blockers` covers blocker application, stacking,
+  removal, and reapply behavior
+- `tests/GridForge.Tests/Diagnostics` covers diagnostic contracts, geometry,
+  physical queries, and dirty sessions
+- `tests/GridForge.Tests/Utility` covers tracing and logging
+- `tests/GridForge.Tests/Spatial` covers index and provider semantics
+
+Isolation coverage includes:
+
+- multiple worlds loaded simultaneously with overlapping local coordinates
+- stale identity rejection after world teardown
+- blockers, occupants, tracing, and scans staying inside their owning world
+
+Sparse storage coverage includes:
+
+- dense storage behavior after storage extraction
+- sparse construction from configured indices and masks
+- sparse hex construction from topology-local axial `(q, layer, r)` indices
+- missing in-bounds sparse voxel lookup
+- storage-neutral tracing, blockers, occupants, partitions, scans, and neighbor
+  lookup
+- explicit runtime sparse voxel add/remove safety rules
+
+Hex-prism topology coverage includes:
+
+- flat-top and pointy-top projection and inverse projection
+- exact cube-coordinate rounding at hex boundaries
+- mixed rectangular/hex world lookup
+- unified voxel contact queries across source-grid, same-topology, and
+  mixed-topology scopes
+- exact topology-specific directed neighbor overloads for rectangular and hex
+  grids
+- mixed-topology voxel contact queries for pointy-top and flat-top hex grids
+- hex line tracing and conservative bounds coverage
+- hex blocker apply/remove behavior
+- hex occupant registration and radius scans
+- sparse hex tracing, scan-cell coverage, blockers, occupants, scans, and
+  runtime mutation
+
+## Standard Test Commands
+
+```bash
+dotnet restore GridForge.slnx
+dotnet build GridForge.slnx --configuration Debug
+dotnet test GridForge.slnx --configuration Debug --no-build
+```
+
+## Coverage Notes
+
+```bash
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
+```
+
+The main-branch coverage workflow enforces full line, branch, and method
+coverage and publishes the report at
+[GridForge coverage](https://mrdav30.github.io/GridForge/coverage/).
+
+## Test Design Expectations
+
+Good GridForge tests usually:
+
+- create their own `GridWorld`
+- use deterministic positions and explicit expectations
+- assert exact snapped values instead of fuzzy tolerances
+- dispose or reset the world when the scenario finishes
+
+## Benchmark Runner Basics
+
+```bash
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- list
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- all
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- sparse-voxel-grid --filter '*SparseVoxelGridBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- hex-prism-topology --filter '*HexPrismTopologyBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-diagnostics --filter '*GridDiagnosticsBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- neighbor-lookup --filter '*NeighborLookupBenchmarks*'
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-spatial-index --filter '*GridSpatialIndex*'
+
+dotnet run --project tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -- grid-planar-interval --filter '*'
+```
+
+The `sparse-voxel-grid` alias covers sparse construction density, configured and
+missing lookup, empty and clustered coverage, blocker apply/remove, occupant
+registration, radius scans, neighbor lookup, and dense comparison scenarios.
+
+The `hex-prism-topology` alias covers rectangular baseline lookup, pointy/flat
+hex lookup, projection, construction, line tracing, bounds coverage, blockers,
+occupants, radius scans, and mixed rectangular/hex world lookup.
+
+The `grid-diagnostics` alias covers dense and sparse rectangular physical
+queries, dense and sparse hex physical queries, bounded sparse missing-address
+queries, and `GetCellsInto` versus `VisitCells` traversal paths. See
+[Grid Diagnostics and Geometry](Grid-Diagnostics-and-Geometry.md) for the API
+surface those benchmarks protect.
+
+The `neighbor-lookup` alias covers stateless directed boundary lookup plus the
+unified neighbor resolver matrix: source-grid contacts, same-topology conjoined
+contacts, no mixed candidates nearby, pointy-top and flat-top mixed contacts,
+many nearby candidate grids, sparse targets with mostly missing candidate cells,
+and rectangular/hex direction-labeled caller-owned result paths.
+
+The `grid-spatial-index` alias covers threshold selection, grid-footprint
+scaling, mixed ordinary/oversized lookup, and many-oversized-grid scaling. For
+matched evidence, build once and run the compiled `Release/net10.0` benchmark
+DLL with the same aliases and filters, changing only `--artifacts` between the
+baseline, after, and confirmation roots.
+
+The `grid-planar-interval` alias isolates exact planar interval solving on
+rectangular, pointy-top hex and flat-top hex cell footprints. Each layout has a
+crossing, a closed vertex touch and a one-raw-unit strict miss; setup verifies
+the exact Boolean and interval results. Strict misses exercise the early
+whole-footprint rejection and serve as a control for changes inside the later
+edge loop. These are geometry microbenchmarks, not complete world traces or
+simulation frames; use a consuming workload before claiming a host-frame gain.
+
+The `VoxelPartitionLookupBenchmarks` class isolates monitored voxel lookup from
+generic and type-key provider reads. All paths use the same populated payload
+references; setup verifies every checksum before measurement. Each invocation
+performs 256 lookups across one or 256 voxels. Select it with
+`all --filter '*VoxelPartitionLookupBenchmarks*'`, or narrow the suffix to
+`FirstSlot*`, `SecondSlot*`, `Overflow*` or `Miss*` for six rows each.
+`HasFirst*` and `DefaultFirst*` cover the aliases with four and two rows. For
+matched timing, choose an explicit protocol such as
+`--launchCount 2 --warmupCount 5 --iterationCount 15 --iterationTime 500 --affinity 3 --disasm --disasmDepth 3 --exporters json`,
+and keep it identical in separate before, after and confirmation artifact roots.
+These lookup microbenchmarks do not establish simulation-frame improvements.
+Historical measurements and validation evidence are recorded in
+[`GF-Benchmark-013`](https://github.com/mrdav30/GridForge/blob/main/docs/feature-work/benchmark-signal-hardening-backlog.md#gf-benchmark-013--repeated-typed-voxel-partition-lookup).
+Use fresh captures from the intended source and dependency revisions when
+assessing a release; a previous passing capture does not validate a new build.
+
+## Benchmarking Unreleased Sibling Libraries
+
+The `grid-planar-navigation-body-trace` alias measures bounded native planar
+coverage with pre-sized caller storage: a nine-cell circle and a three-cell
+upright capsule. Setup checks complete status, generation/address/work counts,
+physical evidence, and exact output counts before measurement. These are full
+single-leg GridForge traces, not navigation search or complete simulation
+frames. Use the `grid-navigation-body-trace` alias as the unchanged 3D coverage
+control.
+
+Package references are the default. For unreleased sibling changes, set
+`UseLocalLsfStack=true` in a dedicated PowerShell session and explicitly select
+it on the initial build:
+
+```powershell
+$env:UseLocalLsfStack = 'true'
+dotnet build tests/GridForge.Benchmarks/GridForge.Benchmarks.csproj -c Release -f net10.0 -p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1 -p:BuildInParallel=false
+dotnet tests/GridForge.Benchmarks/bin/Release/net10.0/GridForge.Benchmarks.dll all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --job Dry --artifacts artifacts/voxel-lookup-smoke
+```
+
+The source-stack runner explicitly passes `/p:UseLocalLsfStack=true`,
+`/p:DisableTransitiveProjectReferences=true` and `/p:BuildInParallel=false` to
+generated child restore and build commands. This avoids unversioned transitive
+sibling rediscovery and parallel writes into the shared benchmark output
+directory. No additional environment overrides are required for these build
+properties. A build-only job mutator preserves CLI job settings, including Dry,
+and the parent assembly configuration. To measure Lean, build with
+`-c ReleaseLean` and run the compiled `ReleaseLean/net10.0` DLL.
+
+Inspect the generated commands in the retained log and independently verify
+child dependency manifests and DLL hashes against the intended source stack when
+auditing attribution. The local-stack flag alone does not prove which binary a
+child executes. A Dry run verifies the fixture/build path, not timing. Do not
+inject DLLs into failed children or treat successful older-API controls as proof
+that new local APIs were loaded. Close the dedicated session before returning to
+package-backed validation; prefer package-backed captures once dependencies are
+released.
+
+The `grid-navigation-body-segment` cases measure interior anchor/sweep checks
+and portal, blocked-corner, clipped-entry and hex controls. They are geometry
+microbenchmarks; use a consuming workload to establish a host-frame improvement.
+
+## Accepting A Benchmark Capture
+
+Keep the full log and verify every expected case and child launch completed,
+with successful child exits and the expected measurement stages. A populated
+summary can contain results from an earlier launch even when a later launch
+fails. The launcher returns `1` for critical validation errors, failed
+reports/builds, and failed or unknown exits in returned child executions.
+Successful help/list commands return `0`.
+
+A zero exit is not a complete capture audit: BenchmarkDotNet does not include
+extra diagnoser executions in its returned reports, and empty summaries can
+represent informational or invalid/no-match requests. Check the full log too.
+
+Exclude incomplete cases from comparisons. Missing allocation diagnostics are
+unknown, not zero; a later successful replay does not complete an earlier failed
+capture. Preserve the actual executed child binaries, generated source and
+runtime configuration when investigating an exception. Inspect diagnostic
+launches as well as timed launches before accepting a result.
+
+## Benchmark Environment Behavior
+
+`BenchmarkEnvironment`:
+
+- suppresses logging by setting `GridForgeLogger.MinimumLevel` to `None`
+- creates or resets an explicit `GridWorld` between iterations
+- optionally clears GridForge and shared SwiftCollections pools
+- configures the world with the benchmark's requested voxel and ordinary-lookup
+  settings
