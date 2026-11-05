@@ -10,6 +10,8 @@
     <File Path=".gitignore" />
     <File Path="AGENTS.md" />
     <File Path="CONTRIBUTING.md" />
+    <File Path="CODE_OF_CONDUCT.md" />
+    <File Path="SECURITY.md" />
     <File Path="COPYRIGHT" />
     <File Path="LICENSE" />
     <File Path="NOTICE" />

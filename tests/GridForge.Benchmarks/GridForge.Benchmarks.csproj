@@ -19,27 +19,29 @@
     <DefineConstants>$(DefineConstants);GRIDFORGE_DISABLE_MEMORYPACK</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GridForge\GridForge.csproj" />
+    <ProjectReference Include="..\..\src\GridForge\GridForge.csproj">
+      <AdditionalProperties Condition="'$(UseLocalLsfStack)' == 'true'">Configuration=$(Configuration);$(LocalLsfGridForgeProperties)</AdditionalProperties>
+    </ProjectReference>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
     <ProjectReference Include="..\..\..\Chronicler\src\Chronicler\Chronicler.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=1.0.0;AssemblySemVer=1.0.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfChroniclerProperties)" />
     <!-- Suppress competing transitive package binaries at the executable host. -->
     <PackageReference Include="FixedMathSharp" Version="7.1.0"
                       Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
     <PackageReference Include="FixedMathSharp.Lean" Version="7.1.0"
                       Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
     <ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfFixedMathSharpProperties)" />
     <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.0.0;AssemblySemVer=7.0.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfSwiftCollectionsProperties)" />
     <ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=7.1.0;AssemblySemVer=7.1.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfSwiftCollectionsProperties)" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true' And ('$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true')">
     <ProjectReference Include="..\..\..\Chronicler\src\Chronicler.MemoryPackShim\Chronicler.MemoryPackShim.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=1.0.0;AssemblySemVer=1.0.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfChroniclerProperties)" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UseLocalLsfStack)' != 'true'">
@@ -47,6 +49,6 @@
   </ItemGroup>
   <ItemGroup Condition="'$(UseLocalLsfStack)' == 'true'">
     <ProjectReference Include="..\..\..\Chronicler\src\Chronicler.Diagnostics\Chronicler.Diagnostics.csproj"
-                      AdditionalProperties="Configuration=$(Configuration);SemVer=1.0.0;AssemblySemVer=1.0.0.0" />
+                      AdditionalProperties="Configuration=$(Configuration);$(LocalLsfChroniclerProperties)" />
   </ItemGroup>
 </Project>
