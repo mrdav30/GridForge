@@ -1,8 +1,35 @@
 # GridForge Migration Guide
 
-## Chronicler dependency and diagnostics migration
+## Migrating From GridForge v9 To v10
 
-### Chronicler v1.0.0 dependency alignment
+This section covers upgrades from the v9 release line, including v9.1, to v10.
+Update the lower-stack packages together and rebuild consumers and adapters for
+the new collection and diagnostics type identities. Projects upgrading from v8
+or earlier should also apply the historical sections below.
+
+### Package And Framework Alignment
+
+Use the following dependency versions with GridForge v10:
+
+| Dependency              | Standard                          | Lean                                   | Version        |
+| ----------------------- | --------------------------------- | -------------------------------------- | -------------- |
+| Math                    | `FixedMathSharp`                  | `FixedMathSharp.Lean`                  | `8.0.0`        |
+| Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `8.0.0`        |
+| Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `8.0.0`        |
+| Shared diagnostics      | `Chronicler.Diagnostics`          | `Chronicler.Diagnostics`               | `1.0.0`        |
+| MemoryPack annotations  | Included with `MemoryPack`        | `Chronicler.MemoryPackShim`            | `1.0.0` (shim) |
+
+Update any direct references in consuming projects to match the selected package
+variant. `Chronicler.Diagnostics` is independent of `Chronicler.Core`; the
+diagnostics dependency does not require adopting Chronicler serialization.
+
+The library now targets `netstandard2.1` and `net10.0`, replacing the `net8.0`
+target. Compatible consumers can continue using the `netstandard2.1` asset.
+Building this repository requires the .NET 10 SDK selected by `global.json`;
+tests and benchmarks require the .NET 10 runtime. Source builds use C# 14 for
+`net10.0` and C# 11 for `netstandard2.1`.
+
+### Source Build Dependencies
 
 The Lean shim package reference now uses Chronicler v1.0.0. Coordinated
 Chronicler and shim source references use the evergreen identities centralized
@@ -11,6 +38,22 @@ references aligned to prevent runtime assembly-load failures. Keep immutable
 sibling CI pins aligned with the source APIs used by GridForge. Validate both
 configurations against released upstream packages before publishing; source-mode
 packages remain development artifacts.
+
+The FixedMathSharp references with `ExcludeAssets="compile;runtime"` in the
+library, tests, and benchmarks now also use `8.0.0`. These suppress competing
+package binaries in source mode; keep them aligned with the released dependency
+version while retaining the sibling project references. Pass
+`-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1` through
+source-mode restore, build, and test commands. For release validation, use
+`-p:UseLocalLsfStack=false` to select published packages explicitly.
+
+### Active Grid Collection
+
+`GridWorld.ActiveGrids` now returns `SwiftSlotMap<VoxelGrid>` instead of
+`SwiftBucket<VoxelGrid>`. Update explicitly typed variables and helper signatures
+that receive this collection, and migrate direct uses of `SwiftBucket<T>` to
+SwiftCollections v8's `SwiftSlotMap<T>`. Grid slots remain recyclable; continue
+using `WorldVoxelIndex` for exact runtime voxel identity.
 
 ### Shared diagnostics extraction
 
@@ -25,9 +68,22 @@ SwiftCollections; library-specific logger facades and channel names stay intact.
 Rebuild consumers and adapters together: moved types have new CLR identities,
 including types exposed in logger signatures. There are no forwarding wrappers.
 This extraction does not change recorded fields or record-hash identities.
-Publish Chronicler.Diagnostics before dependent packages, then validate against
-the coordinated released versions; local-stack builds alone do not prove the
-published package graph is compatible.
+Chronicler v1 and the v8 math/collection packages are the upstream baseline;
+validate against these released packages before publishing GridForge v10.
+Local-stack builds alone do not prove the published package graph is compatible.
+
+### Bounded Tracing Additions
+
+Existing interval and 3D body coverage APIs remain available. The new
+`TryTraceRectangularSlabsInto(...)` observer path and
+`TracePlanarNavigationBodyInto(...)` explicit-layer coverage API are optional.
+Planar tracing treats existing scratch and output capacities as hard ceilings;
+pre-size them and inspect the returned status before consuming coverage.
+See [Segment Intervals and Slabs](api/guides/Segment-Intervals-and-Slabs.md) and
+[Navigation Body Coverage](api/guides/Navigation-Body-Coverage.md) for the exact
+budget, lifetime, and locking contracts.
+
+---
 
 ## Migrating From GridForge v8 To v9
 
@@ -204,7 +260,7 @@ The short version:
 
 ### Package And Build Notes
 
-GridForge still targets `netstandard2.1` and `net10.0`.
+At the v7 release, GridForge targeted `netstandard2.1` and `net8.0`.
 
 Package dependencies moved to the v5 lower-stack family:
 

@@ -86,6 +86,12 @@ The lean package is built by `ReleaseLean` or `DisableMemoryPack=true` and uses:
 Both package variants also reference `System.Text.Json` for the `netstandard2.1`
 target only and expose the same core voxel-grid API.
 
+The v10 dependency baseline is FixedMathSharp `8.0.0`, SwiftCollections and its
+FixedMathSharp integration `8.0.0`, and Chronicler diagnostics/shim `1.0.0`.
+The source-mode FixedMathSharp package exclusions in the library, tests, and
+benchmarks use the same `8.0.0` version; compilation and runtime assets come from
+the sibling projects in that mode.
+
 Packaging also includes the root `README.md`, `LICENSE`, `NOTICE`, `COPYRIGHT`,
 and `icon.png`.
 

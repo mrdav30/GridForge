@@ -43,8 +43,8 @@
 		<ProjectReference Include="..\..\..\Chronicler\src\Chronicler\Chronicler.csproj"
 			AdditionalProperties="Configuration=$(Configuration);$(LocalLsfChroniclerProperties)" />
 		<!-- Suppress competing transitive package binaries at the executable host. -->
-		<PackageReference Include="FixedMathSharp" Version="7.1.0" Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
-		<PackageReference Include="FixedMathSharp.Lean" Version="7.1.0" Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
+		<PackageReference Include="FixedMathSharp" Version="8.0.0" Condition="'$(Configuration)' != 'ReleaseLean' And '$(DisableMemoryPack)' != 'true'" ExcludeAssets="compile;runtime" />
+		<PackageReference Include="FixedMathSharp.Lean" Version="8.0.0" Condition="'$(Configuration)' == 'ReleaseLean' Or '$(DisableMemoryPack)' == 'true'" ExcludeAssets="compile;runtime" />
 		<ProjectReference Include="..\..\..\FixedMathSharp\src\FixedMathSharp\FixedMathSharp.csproj" AdditionalProperties="Configuration=$(Configuration);$(LocalLsfFixedMathSharpProperties)" />
 		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections\SwiftCollections.csproj" AdditionalProperties="Configuration=$(Configuration);$(LocalLsfSwiftCollectionsProperties)" />
 		<ProjectReference Include="..\..\..\SwiftCollections\src\SwiftCollections.FixedMathSharp\SwiftCollections.FixedMathSharp.csproj" AdditionalProperties="Configuration=$(Configuration);$(LocalLsfSwiftCollectionsProperties)" />
