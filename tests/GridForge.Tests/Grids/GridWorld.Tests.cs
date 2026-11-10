@@ -984,9 +984,11 @@ public class GridWorldTests
 
         Assert.Same(originalGrid, replacementGrid);
         Assert.Same(originalScanCell, replacementScanCell);
-        Assert.Equal(staleTicket.Slot, currentTicket.Slot);
-        Assert.NotEqual(staleTicket, currentTicket);
+        Assert.NotEqual(staleTicket.Generation, currentTicket.Generation);
         Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleTicket, out _));
+        // Exercise the same-slot alias even when the pool returns a different slot.
+        OccupantTicket staleGenerationAtCurrentSlot = new(currentTicket.Slot, staleTicket.Generation);
+        Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleGenerationAtCurrentSlot, out _));
         Assert.True(replacementGrid.TryGetVoxelOccupant(
             replacementVoxel,
             currentTicket,
@@ -1057,9 +1059,10 @@ public class GridWorldTests
             replacementVoxel.WorldIndex,
             out OccupantTicket currentTicket));
 
-        Assert.Equal(staleTicket.Slot, currentTicket.Slot);
-        Assert.NotEqual(staleTicket, currentTicket);
+        Assert.NotEqual(staleTicket.Generation, currentTicket.Generation);
         Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleTicket, out _));
+        OccupantTicket staleGenerationAtCurrentSlot = new(currentTicket.Slot, staleTicket.Generation);
+        Assert.False(replacementGrid.TryGetVoxelOccupant(replacementVoxel, staleGenerationAtCurrentSlot, out _));
         Assert.True(replacementGrid.TryGetVoxelOccupant(replacementVoxel, currentTicket, out _));
         Assert.Single(GridOccupantManager.GetOccupiedIndices(world, replacementOccupant));
     }

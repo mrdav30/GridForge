@@ -1648,6 +1648,102 @@ public sealed class GridNavigationBodyTraceTests : IDisposable
             results.Select(value => value.Cell.VoxelIndex));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ExcludedGeneration_ShouldNeitherShadowNorSupplyCongruentCoverage(bool hasSpatialCell)
+    {
+        GridConfiguration spatial = new GridConfiguration(new Vector3d(-1, 1, -1), new Vector3d(1, 1, 1),
+            storageKind: GridStorageKind.Sparse);
+        GridConfiguration excluded = new GridConfiguration(new Vector3d(-2, 0, -1), new Vector3d(1, 1, 1));
+        VoxelIndex missing = new VoxelIndex(2, 0, 1);
+        VoxelIndex[] present = (from x in Enumerable.Range(0, 3)
+                                from z in Enumerable.Range(0, 3)
+                                let index = new VoxelIndex(x, 0, z)
+                                where hasSpatialCell || index != missing
+                                select index).ToArray();
+        Assert.True(_world.TryAddGrid(spatial, present, out ushort sourceGridIndex));
+        Assert.True(_world.TryAddGrid(excluded, out ushort excludedGridIndex));
+        VoxelGrid sourceGrid = _world.ActiveGrids[sourceGridIndex];
+        VoxelGrid excludedGrid = _world.ActiveGrids[excludedGridIndex];
+        long excludedToken = excludedGrid.SpawnToken;
+        WorldVoxelIndex source = Address(sourceGrid, new VoxelIndex(1, 0, 1));
+        Vector3d foot = new Vector3d(Fixed64.Zero, Fixed64.Half, Fixed64.Zero);
+        SwiftList<GridNavigationBodyTraceCell> results = new SwiftList<GridNavigationBodyTraceCell>(9);
+        GridNavigationBodyTraceScratch scratch = new GridNavigationBodyTraceScratch(2, 32);
+        SwiftList<GridConfigurationKey> excludedCandidates = new SwiftList<GridConfigurationKey>(2);
+
+        GridNavigationBodyTraceReport unfiltered = Trace(null, 2, 64, 66);
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, unfiltered.Status);
+        Assert.Contains(results, cell => cell.Cell.GridSpawnToken == excludedToken);
+
+        SwiftPackedSet<long> exclusions = new SwiftPackedSet<long> { excludedToken };
+        GridNavigationBodyTraceReport filtered = Trace(exclusions, 2, 9, 11);
+        Assert.Equal(hasSpatialCell ? GridNavigationBodyTraceStatus.Complete :
+            GridNavigationBodyTraceStatus.IncompletePhysicalCoverage, filtered.Status);
+        Assert.Equal(2, filtered.GridCandidateCount);
+        Assert.Equal(9, filtered.AddressCandidateCount);
+        Assert.Equal(11, filtered.CandidateWorkCount);
+        Assert.Equal(9, filtered.CellCount);
+        Assert.Equal(excluded.ToGridKey(), Assert.Single(excludedCandidates));
+        Assert.All(results, cell => Assert.Equal(source.GridSpawnToken, cell.Cell.GridSpawnToken));
+        if (!hasSpatialCell)
+            Assert.Equal(missing, Assert.Single(results, cell => !cell.IsPhysicallyPresent).Cell.VoxelIndex);
+        Assert.Equal(filtered.Status, GridTracer.TraceNavigationBodyInto(
+            _world, source, source, foot, foot, Fixed64.FromFraction(3, 4), Fixed64.One,
+            results, scratch, 2, 9, 9, 11, exclusions).Status);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.GridCandidateLimitExceeded, Trace(exclusions, 1, 9, 11).Status);
+        Assert.Empty(results);
+        Assert.Empty(excludedCandidates);
+        Assert.Equal(GridNavigationBodyTraceStatus.CandidateWorkLimitExceeded, Trace(exclusions, 2, 9, 10).Status);
+        Assert.Empty(results);
+
+        WorldVoxelIndex excludedTarget = Address(excludedGrid, new VoxelIndex(2, 1, 1));
+        GridNavigationBodyTraceReport blockedTarget = GridTracer.TraceNavigationBodyInto(
+            _world, source, excludedTarget, foot, foot, Fixed64.FromFraction(3, 4), Fixed64.One,
+            results, scratch, 2, 9, 9, 11, exclusions);
+        Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, blockedTarget.Status);
+        Assert.Equal(0, blockedTarget.CandidateWorkCount);
+
+        Assert.True(_world.TryRemoveGrid(excludedGridIndex));
+        Assert.True(_world.TryAddGrid(excluded, out ushort replacementIndex));
+        long replacementToken = _world.ActiveGrids[replacementIndex].SpawnToken;
+        Assert.NotEqual(excludedToken, replacementToken);
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, Trace(exclusions, 2, 64, 66).Status);
+        Assert.Contains(results, cell => cell.Cell.GridSpawnToken == replacementToken);
+        Assert.Empty(excludedCandidates);
+
+        GridNavigationBodyTraceReport Trace(SwiftPackedSet<long> skip, int grids, int addresses, long work) =>
+            GridTracer.TraceNavigationBodyInto(_world, source, source, foot, foot,
+                Fixed64.FromFraction(3, 4), Fixed64.One, results, scratch, grids, addresses, 9, work, skip,
+                excludedCandidates);
+    }
+
+    [Fact]
+    public void ExcludedSource_ShouldClearCoverageAndChargeNoCandidateWork()
+    {
+        Assert.True(_world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.One), out ushort gridIndex));
+        VoxelGrid grid = _world.ActiveGrids[gridIndex];
+        WorldVoxelIndex source = Address(grid, default);
+        WorldVoxelIndex target = Address(grid, new VoxelIndex(1, 0, 0));
+        Vector3d start = new Vector3d(Fixed64.Zero, -Fixed64.Half, Fixed64.Zero);
+        Vector3d end = new Vector3d(Fixed64.One, -Fixed64.Half, Fixed64.Zero);
+        SwiftList<GridNavigationBodyTraceCell> results = new SwiftList<GridNavigationBodyTraceCell>(2);
+        GridNavigationBodyTraceScratch scratch = new GridNavigationBodyTraceScratch(1, 8);
+
+        Assert.Equal(GridNavigationBodyTraceStatus.Complete, Trace(null).Status);
+        Assert.NotEmpty(results);
+        GridNavigationBodyTraceReport filtered = Trace(new SwiftPackedSet<long> { grid.SpawnToken });
+        Assert.Equal(GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry, filtered.Status);
+        Assert.Equal(0, filtered.CandidateWorkCount);
+        Assert.Empty(results);
+
+        GridNavigationBodyTraceReport Trace(SwiftPackedSet<long> skip) =>
+            GridTracer.TraceNavigationBodyInto(_world, source, target, start, end, Fixed64.Zero, Fixed64.One,
+                results, scratch, 1, 8, 2, 9, skip);
+    }
+
     private WorldVoxelIndex Address(VoxelGrid grid, VoxelIndex index) =>
         new WorldVoxelIndex(_world.SpawnToken, grid.GridIndex, grid.SpawnToken, index);
 

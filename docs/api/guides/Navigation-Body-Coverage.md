@@ -66,6 +66,21 @@ therefore gives callers a reusable negative proof whose complete per-grid
 evidence stales when any satisfying alternative changes without staling a trace
 that depends only on an unrelated grid.
 
+Pass `excludedGridSpawnTokens` when a caller needs to keep exact grid
+generations out of a 3D proof. Supply spawn tokens from the trace's world
+and keep the caller-owned set unchanged during the trace. An excluded
+generation supplies neither required coverage nor alternative cell evidence.
+Its broad-phase grid inspection still counts
+against the grid and combined budgets. A replacement grid has a new token,
+so a stale exclusion cannot hide it. Source and target grids must remain
+eligible.
+
+Pass a reusable `excludedGridCandidates` list to collect the configuration
+keys of excluded grids encountered by the same candidate traversal. The trace
+clears the list before writing. It retains the list for a coverage miss so the
+caller can track its exclusion dependencies. A budget or other early abort
+can leave a prefix and carries no complete proof.
+
 ### Budgets and terminal outcomes
 
 Grid, address, output, and combined candidate-work ceilings are exact and

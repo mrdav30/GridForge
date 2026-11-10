@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
+using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
@@ -41,7 +42,36 @@ public static partial class GridTracer
         int gridCandidateLimit,
         int addressCandidateLimit,
         int outputLimit,
-        long candidateWorkLimit)
+        long candidateWorkLimit) =>
+        TraceNavigationBodyInto(world, source, target, startFoot, endFoot, horizontalRadius, bodyHeight,
+            results, scratch, gridCandidateLimit, addressCandidateLimit, outputLimit, candidateWorkLimit,
+            excludedGridSpawnTokens: null);
+
+    /// <summary>Writes upright-body coverage while excluding the supplied exact grid generations.</summary>
+    /// <remarks>
+    /// Supply <see cref="VoxelGrid.SpawnToken"/> values from the given world and keep the set unchanged until the trace returns.
+    /// An excluded generation cannot provide prism coverage or cell dependency evidence. Its broad-phase
+    /// candidate still counts toward the grid and combined limits, with no address work charged.
+    /// An excluded source or target invalidates the trace. An old token never excludes a replacement grid.
+    /// The optional `excludedGridCandidates` list is cleared first and receives the configuration keys
+    /// of excluded grids encountered during candidate traversal. An aborted trace can leave only a prefix.
+    /// </remarks>
+    public static GridNavigationBodyTraceReport TraceNavigationBodyInto(
+        GridWorld world,
+        WorldVoxelIndex source,
+        WorldVoxelIndex target,
+        Vector3d startFoot,
+        Vector3d endFoot,
+        Fixed64 horizontalRadius,
+        Fixed64 bodyHeight,
+        SwiftList<GridNavigationBodyTraceCell> results,
+        GridNavigationBodyTraceScratch scratch,
+        int gridCandidateLimit,
+        int addressCandidateLimit,
+        int outputLimit,
+        long candidateWorkLimit,
+        SwiftPackedSet<long>? excludedGridSpawnTokens,
+        SwiftList<GridConfigurationKey>? excludedGridCandidates = null)
     {
         ChronicleGuard.ThrowIfNull(results, nameof(results));
         ChronicleGuard.ThrowIfNull(scratch, nameof(scratch));
@@ -53,10 +83,14 @@ public static partial class GridTracer
 
         results.Clear();
         scratch.Clear();
+        excludedGridCandidates?.Clear();
         if (world == null
             || !world.IsActive
             || horizontalRadius < Fixed64.Zero
-            || bodyHeight <= Fixed64.Zero)
+            || bodyHeight <= Fixed64.Zero
+            || (excludedGridSpawnTokens != null
+                && (excludedGridSpawnTokens.Contains(source.GridSpawnToken)
+                    || excludedGridSpawnTokens.Contains(target.GridSpawnToken))))
         {
             return CreateNavigationBodyTraceReport(
                 GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry,
@@ -204,6 +238,11 @@ public static partial class GridTracer
             for (int gridOrdinal = 0; gridOrdinal < scratch.CandidateGrids.Count; gridOrdinal++)
             {
                 VoxelGrid grid = world.ActiveGrids[scratch.CandidateGrids[gridOrdinal]];
+                if (excludedGridSpawnTokens != null && excludedGridSpawnTokens.Contains(grid.SpawnToken))
+                {
+                    excludedGridCandidates?.Add(grid.Configuration.ToGridKey());
+                    continue;
+                }
                 if (!TopologyVoxelRangeUtility.TryGetPrismCandidateRange(
                         grid,
                         queryMin,
