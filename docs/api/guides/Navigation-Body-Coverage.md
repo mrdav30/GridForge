@@ -120,6 +120,13 @@ selected layer heights differ. Incompatible or unaligned footprints cannot fill
 a required source-lattice cell. Virtual positive-overlap neighbors outside all
 eligible bounds invalidate the proof instead of silently clipping the body.
 
+`GridTracer.ArePlanarCoverageNeighborsOrCoincident(...)` checks the same
+exact footprint relationship between two grid addresses. Use it to classify
+an additional closed contact against a retained coverage member. It uses the
+source topology's forward neighbor offsets and ignores vertical layers and
+physical voxel presence. Callers still validate generation, layer, and contact
+before treating an address as evidence.
+
 Results reuse the navigation-body evidence contract above: canonical identities,
 physical presence, committed grid revisions, pinned endpoints, and missing
 `PhysicalAlternativeDependency` OR evidence. A complete negative proof returns

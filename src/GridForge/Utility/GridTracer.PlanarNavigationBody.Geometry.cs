@@ -8,6 +8,7 @@
 using System;
 using FixedMathSharp;
 using FixedMathSharp.Geometry;
+using GridForge.Configuration;
 using GridForge.Grids;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
@@ -18,6 +19,32 @@ namespace GridForge.Utility;
 /// <content>Owns planar-only footprint geometry and finite lattice-union closure.</content>
 public static partial class GridTracer
 {
+    /// <summary>Tests whether two cell footprints are coincident or exact planar coverage neighbors.</summary>
+    /// <remarks>Uses the source grid's quantized forward topology. Vertical layers and physical voxel presence are ignored.</remarks>
+    public static bool ArePlanarCoverageNeighborsOrCoincident(in NormalizedGridConfiguration sourceGrid, VoxelIndex source,
+        in NormalizedGridConfiguration targetGrid, VoxelIndex target)
+    {
+        if (!TryGetPlanarProofPrism(sourceGrid, source, out GridCellPrism from)
+            || !TryGetPlanarProofPrism(targetGrid, target, out GridCellPrism to))
+            return false;
+
+        Span<GridCellPrism> closure = stackalloc GridCellPrism[4];
+        return GetPlanarNavigationClosure(sourceGrid.Topology!, from, to, closure) != 0;
+    }
+
+    private static bool TryGetPlanarProofPrism(in NormalizedGridConfiguration grid, VoxelIndex index, out GridCellPrism prism)
+    {
+        index = new VoxelIndex(index.x, 0, index.z);
+        if (!grid.IsValidIndex(index))
+        {
+            prism = default;
+            return false;
+        }
+
+        IGridTopology topology = grid.Topology!;
+        return TryCreatePlanarProofPrism(topology, topology.GetWorldPosition(grid.Configuration.BoundsMin, index), out prism);
+    }
+
     private static bool MatchesPlanarEndpoint(GridWorld world, VoxelGrid grid, int layer, WorldVoxelIndex endpoint) =>
         endpoint.WorldSpawnToken == world.SpawnToken && endpoint.GridIndex == grid.GridIndex
         && endpoint.GridSpawnToken == grid.SpawnToken && endpoint.VoxelIndex.y == layer
@@ -58,13 +85,13 @@ public static partial class GridTracer
         return true;
     }
 
-    private static bool TryCreatePlanarProofPrism(VoxelGrid grid, Vector3d center, out GridCellPrism prism)
+    private static bool TryCreatePlanarProofPrism(IGridTopology topology, Vector3d center, out GridCellPrism prism)
     {
-        GridTopologyMetrics metrics = grid.Configuration.TopologyMetrics;
+        GridTopologyMetrics metrics = topology.Metrics;
         // This is an internal footprint key, not a physical prism or a rotated world.
         // Removing Y and thickness lets the existing exact-alternative proof compare planar geometry.
         GridTopologyMetrics planar = new GridTopologyMetrics(metrics.CellRadius, metrics.CellWidth, Fixed64.One, metrics.CellLength, metrics.HexOrientation);
-        return GridCellGeometry.TryCreatePrism(grid.Configuration.TopologyKind, planar,
+        return GridCellGeometry.TryCreatePrism(topology.Kind, planar,
             new Vector3d(center.X, Fixed64.Zero, center.Z), default, out prism);
     }
 
@@ -87,28 +114,28 @@ public static partial class GridTracer
         return FixedConvex2dRelations.IntersectsSweptUprightCapsuleStrict(start, end, axis, radius, origin, offsets[..prism.FootprintVertexCount]);
     }
 
-    private static int GetPlanarNavigationClosure(VoxelGrid grid, in GridCellPrism source, in GridCellPrism target, Span<GridCellPrism> closure)
+    private static int GetPlanarNavigationClosure(IGridTopology topology, in GridCellPrism source, in GridCellPrism target, Span<GridCellPrism> closure)
     {
         closure[0] = source;
         if (AreSameNavigationBodyPrism(source, target))
             return 1;
-        for (int slot = 0; slot < grid.Topology.NeighborSlotCount; slot++)
+        for (int slot = 0; slot < topology.NeighborSlotCount; slot++)
         {
-            VoxelIndex offset = grid.Topology.GetNeighborOffset(slot);
+            VoxelIndex offset = topology.GetNeighborOffset(slot);
             if (offset.y != 0)
                 continue;
-            if (!Vector3d.TryAdd(source.Center, grid.Topology.GetWorldOffset((offset.x, 0, offset.z)), out Vector3d center)
-                || !TryCreatePlanarProofPrism(grid, center, out GridCellPrism neighbor))
+            if (!Vector3d.TryAdd(source.Center, topology.GetWorldOffset((offset.x, 0, offset.z)), out Vector3d center)
+                || !TryCreatePlanarProofPrism(topology, center, out GridCellPrism neighbor))
                 return 0;
             if (!AreSameNavigationBodyPrism(neighbor, target))
                 continue;
             closure[1] = target;
-            if (grid.Configuration.TopologyKind != GridTopologyKind.RectangularPrism || offset.x == 0 || offset.z == 0)
+            if (topology.Kind != GridTopologyKind.RectangularPrism || offset.x == 0 || offset.z == 0)
                 return 2;
             // Each rectangular axis bound is already represented by source or target.
             // Their Cartesian combinations add no new arithmetic or topology dimension.
-            _ = TryCreatePlanarProofPrism(grid, new Vector3d(source.Center.X, Fixed64.Zero, target.Center.Z), out closure[2]);
-            _ = TryCreatePlanarProofPrism(grid, new Vector3d(target.Center.X, Fixed64.Zero, source.Center.Z), out closure[3]);
+            _ = TryCreatePlanarProofPrism(topology, new Vector3d(source.Center.X, Fixed64.Zero, target.Center.Z), out closure[2]);
+            _ = TryCreatePlanarProofPrism(topology, new Vector3d(target.Center.X, Fixed64.Zero, source.Center.Z), out closure[3]);
             return 4;
         }
         return 0;
@@ -139,7 +166,7 @@ public static partial class GridTracer
                 if (offset.y != 0)
                     continue;
                 if (!Vector3d.TryAdd(member.Center, sourceGrid.Topology.GetWorldOffset((offset.x, 0, offset.z)), out Vector3d center)
-                    || !TryCreatePlanarProofPrism(sourceGrid, center, out GridCellPrism neighbor))
+                    || !TryCreatePlanarProofPrism(sourceGrid.Topology, center, out GridCellPrism neighbor))
                     return GridNavigationBodyTraceStatus.InvalidOrUnrepresentableGeometry;
                 int match = FindBestMatchingNavigationBodyPrism(candidates, neighbor, sourceCandidate, targetCandidate);
                 bool overlap = match >= 0 ? candidates[match].HasPositiveOverlap : HasStrictPlanarBodyOverlap(neighbor, start, end, axis, radius);

@@ -12,6 +12,32 @@ namespace GridForge.Grids.Tests;
 public sealed partial class GridPlanarNavigationBodyTraceTests
 {
     [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void PlanarCoverageNeighborhoodUsesExactForwardFootprints(HexOrientation orientation)
+    {
+        var metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, orientation);
+        var offset = HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(1, 0, 0), metrics);
+        var shiftedCenter = offset + new Vector3d(Fixed64.MinIncrement, Fixed64.Zero, Fixed64.Zero);
+        var source = Bind(Vector3d.Zero, offset);
+        var aligned = Bind(offset, offset);
+        var shifted = Bind(shiftedCenter, shiftedCenter);
+        Assert.True(GridTracer.ArePlanarCoverageNeighborsOrCoincident(source, default, aligned, default));
+        Assert.True(GridTracer.ArePlanarCoverageNeighborsOrCoincident(source, new VoxelIndex(1, 3, 0), aligned, default));
+        Assert.False(GridTracer.ArePlanarCoverageNeighborsOrCoincident(source, default, shifted, default));
+        Assert.False(GridTracer.ArePlanarCoverageNeighborsOrCoincident(source, new VoxelIndex(-1, 0, 0), aligned, default));
+        Assert.False(GridTracer.ArePlanarCoverageNeighborsOrCoincident(source, default, aligned, new VoxelIndex(0, 0, 1)));
+
+        Configuration.NormalizedGridConfiguration Bind(Vector3d min, Vector3d max)
+        {
+            var configuration = new Configuration.GridConfiguration(min, max,
+                topologyKind: GridTopologyKind.HexPrism, topologyMetrics: metrics);
+            Assert.True(configuration.TryNormalize(out var binding));
+            return binding;
+        }
+    }
+
+    [Theory]
     [InlineData(0, 4, 4, 5, GridNavigationBodyTraceStatus.GridCandidateLimitExceeded, 0, 0)]
     [InlineData(1, 3, 4, 5, GridNavigationBodyTraceStatus.AddressLimitExceeded, 1, 3)]
     [InlineData(1, 4, 3, 5, GridNavigationBodyTraceStatus.OutputLimitExceeded, 1, 4)]

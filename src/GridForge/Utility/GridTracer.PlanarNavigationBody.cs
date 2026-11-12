@@ -106,14 +106,14 @@ public static partial class GridTracer
                         targetGrid = grid;
                 }
                 if (sourceGrid == null || targetGrid == null
-                    || !TryCreatePlanarProofPrism(sourceGrid, sourceGrid.GetWorldPosition(source.VoxelIndex), out GridCellPrism sourcePrism)
-                    || !TryCreatePlanarProofPrism(targetGrid, targetGrid.GetWorldPosition(target.VoxelIndex), out GridCellPrism targetPrism)
+                    || !TryCreatePlanarProofPrism(sourceGrid.Topology, sourceGrid.GetWorldPosition(source.VoxelIndex), out GridCellPrism sourcePrism)
+                    || !TryCreatePlanarProofPrism(targetGrid.Topology, targetGrid.GetWorldPosition(target.VoxelIndex), out GridCellPrism targetPrism)
                     || !HasClosedPlanarBodyContact(sourcePrism, startCenter, axisLength, radius)
                     || !HasClosedPlanarBodyContact(targetPrism, endCenter, axisLength, radius))
                     return FailNavigationBodyTrace(results, invalid, gridCount, addressCount, default);
 
                 Span<GridCellPrism> closure = stackalloc GridCellPrism[4];
-                int closureCount = GetPlanarNavigationClosure(sourceGrid, sourcePrism, targetPrism, closure);
+                int closureCount = GetPlanarNavigationClosure(sourceGrid.Topology, sourcePrism, targetPrism, closure);
                 if (closureCount == 0)
                     return FailNavigationBodyTrace(results, invalid, gridCount, addressCount, default);
 
@@ -136,7 +136,7 @@ public static partial class GridTracer
                                     gridCount, addressCount, default);
                             addressCount++;
                             VoxelIndex index = new VoxelIndex(x, layer, z);
-                            if (!TryCreatePlanarProofPrism(grid, grid.GetWorldPosition(index), out GridCellPrism prism))
+                            if (!TryCreatePlanarProofPrism(grid.Topology, grid.GetWorldPosition(index), out GridCellPrism prism))
                                 return FailNavigationBodyTrace(results, invalid, gridCount, addressCount, default);
                             bool overlaps = HasStrictPlanarBodyOverlap(prism, startCenter, endCenter, axisLength, radius);
                             bool isClosure = IsNavigationClosurePrism(prism, closure, closureCount);
