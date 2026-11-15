@@ -72,7 +72,7 @@ public sealed class GridWorldBoundedVoxelTests
     }
 
     [Fact]
-    public void CollectionChargesVacantGridSlotsAndChecksPublicationWithoutWaiting()
+    public void CollectionChecksPublicationWithoutWaiting()
     {
         using var world = GridWorldTestFactory.CreateWorld();
         Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
@@ -88,9 +88,9 @@ public sealed class GridWorldBoundedVoxelTests
         Assert.Equal(GridBoundedVoxelStatus.WorldNotReady, duringPublish);
         Assert.Equal(GridBoundedVoxelStatus.Stale, world.CheckBoundedVoxelSnapshot(oldSequence));
 
-        Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded, world.CollectCoveredVoxelsBounded(
-            Vector3d.One, Vector3d.One, false, 1, Span<Voxel>.Empty, out ulong work, out int count, out _));
-        Assert.Equal(1UL, work);
+        Assert.Equal(GridBoundedVoxelStatus.CapacityExceeded, world.CollectCoveredVoxelsBounded(
+            Vector3d.One, Vector3d.One, false, 2, Span<Voxel>.Empty, out ulong work, out int count, out _));
+        Assert.Equal(2UL, work);
         Assert.Equal(0, count);
 
         world.Reset(deactivate: true);
@@ -100,20 +100,62 @@ public sealed class GridWorldBoundedVoxelTests
     }
 
     [Fact]
-    public void OverlappingGridsKeepDistinctVoxelsInGridSlotOrder()
+    public void OverlappingGridsReplayAcrossReorderedSlotsAndRemovedGrids()
+    {
+        using var live = GridWorldTestFactory.CreateWorld();
+        using var rebuilt = GridWorldTestFactory.CreateWorld();
+        var lower = new GridConfiguration(-Vector3d.One, Vector3d.Zero);
+        var upper = new GridConfiguration(Vector3d.Zero, Vector3d.One);
+        Assert.True(live.TryAddGrid(new GridConfiguration(Vector3d.One, Vector3d.One), out ushort removed));
+        Assert.True(live.TryAddGrid(upper, out ushort liveUpper));
+        Assert.True(live.TryAddGrid(lower, out ushort liveLower));
+        Assert.True(live.TryRemoveGrid(removed));
+        Assert.True(rebuilt.TryAddGrid(lower, out ushort rebuiltLower));
+        Assert.True(rebuilt.TryAddGrid(upper, out ushort rebuiltUpper));
+
+        foreach (ulong limit in new[] { 3UL, 5UL, 6UL })
+        {
+            Voxel[] liveResults = new Voxel[2];
+            Voxel[] rebuiltResults = new Voxel[2];
+            var expected = limit == 6 ? GridBoundedVoxelStatus.Completed : GridBoundedVoxelStatus.WorkBudgetExceeded;
+            Assert.Equal(expected, live.CollectCoveredVoxelsBounded(
+                Vector3d.Zero, Vector3d.Zero, false, limit, liveResults, out ulong liveWork, out int liveCount, out _));
+            Assert.Equal(expected, rebuilt.CollectCoveredVoxelsBounded(
+                Vector3d.Zero, Vector3d.Zero, false, limit, rebuiltResults, out ulong rebuiltWork, out int rebuiltCount, out _));
+            Assert.Equal(limit, liveWork);
+            Assert.Equal(liveWork, rebuiltWork);
+            Assert.Equal(limit == 6 ? 2 : 1, liveCount);
+            Assert.Equal(liveCount, rebuiltCount);
+            Assert.Equal(liveLower, liveResults[0].GridIndex);
+            Assert.Equal(rebuiltLower, rebuiltResults[0].GridIndex);
+            if (liveCount == 2)
+            {
+                Assert.Equal(liveUpper, liveResults[1].GridIndex);
+                Assert.Equal(rebuiltUpper, rebuiltResults[1].GridIndex);
+                Assert.NotSame(liveResults[0], liveResults[1]);
+            }
+        }
+    }
+
+    [Fact]
+    public void CollectionReleasesItsGridOrderOnResetBeforeSlotReuse()
     {
         using var world = GridWorldTestFactory.CreateWorld();
-        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.One), out ushort first));
-        Assert.True(world.TryAddGrid(new GridConfiguration(-Vector3d.One, Vector3d.Zero), out ushort second));
-        Voxel[] results = new Voxel[2];
-
+        Assert.True(world.TryAddGrid(new GridConfiguration(-Vector3d.One, Vector3d.Zero), out ushort removed));
+        world.Reset();
         Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
-            Vector3d.Zero, Vector3d.Zero, false, 6, results, out ulong work, out int count, out _));
-        Assert.Equal(6UL, work);
-        Assert.Equal(2, count);
-        Assert.Equal(first, results[0].GridIndex);
-        Assert.Equal(second, results[1].GridIndex);
-        Assert.NotSame(results[0], results[1]);
+            Vector3d.Zero, Vector3d.Zero, false, 0, Span<Voxel>.Empty, out ulong work, out int count, out _));
+        Assert.Equal(0UL, work);
+        Assert.Equal(0, count);
+
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.One), out ushort replacement));
+        Assert.Equal(removed, replacement);
+        Voxel[] results = new Voxel[1];
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            Vector3d.Zero, Vector3d.Zero, false, 3, results, out work, out count, out _));
+        Assert.Equal(3UL, work);
+        Assert.Equal(1, count);
+        Assert.Equal(replacement, results[0].GridIndex);
     }
 
     [Fact]

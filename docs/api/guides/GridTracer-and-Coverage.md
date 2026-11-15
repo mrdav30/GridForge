@@ -123,8 +123,10 @@ and revalidate it through the owning world.
 
 For dense rectangular grids, `GridWorld.CollectCoveredVoxelsBounded(...)`
 collects physical voxels into a fixed span without waiting on world publication.
-It charges each inspected grid slot or voxel address, and reserves one more
-unit for clearing each written reference. Planar mode also applies the X/Z
+It visits live grids in normalized configuration order and charges each grid
+or voxel address inspected. Removed slots and recycled slot IDs have no effect
+on that order or charge. It reserves one more unit for clearing each written
+reference. Planar mode also applies the X/Z
 center filter, using the grid's planar cell edge and the supplied Y layer.
 An intersecting unsupported grid, insufficient work, or a full span makes the
 result incomplete. Discard the incomplete results and clear the written prefix.

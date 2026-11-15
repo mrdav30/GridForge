@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using FixedMathSharp;
 using GridForge.Grids.Storage;
@@ -18,11 +19,15 @@ namespace GridForge.Grids;
 
 public sealed partial class GridWorld
 {
+    private static readonly IComparer<VoxelGrid> BoundedGridOrder = Comparer<VoxelGrid>.Create(static (left, right) =>
+        GridCoveredAddressGeneration.CompareConfigurationKeys(left.Configuration.ToGridKey(), right.Configuration.ToGridKey()));
+    private readonly List<VoxelGrid> _boundedGrids = new();
+
     /// <summary>Collects covered physical voxels under a work and output limit.</summary>
     /// <remarks>
-    /// Visits grid slots in index order and covers dense rectangular grids. An intersecting
-    /// unsupported grid invalidates the whole result. One unit pays for inspecting each grid
-    /// slot or voxel address. A separate unit reserves clearing each output reference.
+    /// Visits registered grids in normalized configuration order and covers dense rectangular grids.
+    /// An intersecting unsupported grid invalidates the whole result. One unit pays for inspecting
+    /// each live grid or voxel address. A separate unit reserves clearing each output reference.
     /// Planar coverage also applies the X/Z center filter using each grid's planar cell edge.
     /// Set both Y coordinates to the selected layer for an X/Z plane.
     /// On any incomplete result, discard and clear the written prefix. Voxel references are
@@ -90,17 +95,12 @@ public sealed partial class GridWorld
         }
 
         FixedBoundVolume broadBounds = new(broadMin, broadMax);
-        int remainingGrids = ActiveGrids.Count;
-        for (int gridIndex = 0; remainingGrids != 0; gridIndex++)
+        for (int i = 0; i < _boundedGrids.Count; i++)
         {
             if (discoveryWork == discoveryLimit)
                 return GridBoundedVoxelStatus.WorkBudgetExceeded;
             discoveryWork++;
-            if (!ActiveGrids.IsAllocated(gridIndex))
-                continue;
-            remainingGrids--;
-
-            VoxelGrid grid = ActiveGrids[gridIndex];
+            VoxelGrid grid = _boundedGrids[i];
             if (!broadBounds.Intersects(new FixedBoundVolume(grid.BoundsMin, grid.BoundsMax)))
                 continue;
 

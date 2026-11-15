@@ -64,6 +64,7 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// Collection of all active grids owned by this world.
     /// </summary>
+    /// <remarks>Use the world's registration methods to change membership.</remarks>
     public SwiftSlotMap<VoxelGrid> ActiveGrids { get; }
 
     /// <summary>
@@ -334,6 +335,7 @@ public sealed partial class GridWorld : IDisposable
     {
         _spatialIndex.Clear();
         ReleaseBoundaryContactPairs();
+        _boundedGrids.Clear();
 
         foreach (VoxelGrid grid in ActiveGrids)
             Pools.GridPool.Release(grid);
@@ -1232,6 +1234,7 @@ public sealed partial class GridWorld : IDisposable
                 newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
                 UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
                 RegisterGrid(newGrid, allocatedIndex);
+                _boundedGrids.Insert(~_boundedGrids.BinarySearch(newGrid, BoundedGridOrder), newGrid);
 
                 Version++;
                 addedGridInfo = CreateGridEventInfo(
@@ -1276,6 +1279,7 @@ public sealed partial class GridWorld : IDisposable
                 gridToRemove = ActiveGrids[removeIndex];
                 Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
                 UnregisterGrid(gridToRemove, removeIndex);
+                _boundedGrids.Remove(gridToRemove);
                 BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
                 ActiveGrids.RemoveAt(removeIndex);
                 RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);
