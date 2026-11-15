@@ -7,6 +7,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using FixedMathSharp;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
@@ -474,6 +475,39 @@ public class Voxel : IEquatable<Voxel>
 
             partition = default;
             return false;
+        }
+    }
+
+    /// <summary>Resolves a partition type without waiting, within the supplied inspection allowance.</summary>
+    /// <remarks>
+    /// Conservatively charges one unit for each retained partition, including overflow storage.
+    /// A completed lookup can return a null partition. Use the borrowed partition within
+    /// the caller's serialized world phase.
+    /// </remarks>
+    public GridBoundedVoxelStatus TryGetPartitionBounded<T>(
+        ulong discoveryLimit, out ulong discoveryWork, out T? partition)
+        where T : class, IVoxelPartition
+    {
+        partition = null;
+        discoveryWork = 0;
+        if (!Monitor.TryEnter(_partitionLock))
+            return GridBoundedVoxelStatus.WorldNotReady;
+
+        try
+        {
+            ulong upperBound = (ulong)_partitionProvider.Count;
+            if (upperBound > discoveryLimit)
+                return GridBoundedVoxelStatus.WorkBudgetExceeded;
+
+            discoveryWork = upperBound;
+            if (_partitionProvider.TryGet(typeof(T), out IVoxelPartition? candidate))
+                partition = candidate as T;
+
+            return GridBoundedVoxelStatus.Completed;
+        }
+        finally
+        {
+            Monitor.Exit(_partitionLock);
         }
     }
 

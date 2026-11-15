@@ -121,6 +121,19 @@ pooled grouped-list lifetime costs while still resolving the owning grid from
 recyclable slot; longer-lived runtime references should copy `voxel.WorldIndex`
 and revalidate it through the owning world.
 
+For dense rectangular grids, `GridWorld.CollectCoveredVoxelsBounded(...)`
+collects physical voxels into a fixed span without waiting on world publication.
+It charges each inspected grid slot or voxel address, and reserves one more
+unit for clearing each written reference. Planar mode also applies the X/Z
+center filter, using the grid's planar cell edge and the supplied Y layer.
+An intersecting unsupported grid, insufficient work, or a full span makes the
+result incomplete. Discard the incomplete results and clear the written prefix.
+
+Use `Voxel.TryGetPartitionBounded<T>(...)` to resolve a typed partition with
+an inspection allowance and a non-waiting lock. Keep voxel and partition
+references within a serialized world phase. `CheckBoundedVoxelSnapshot(...)`
+checks the sequence captured by collection without waiting.
+
 ## Traversal Padding And Duplicate Suppression
 
 Consumers that build their own GridForge-backed broad phases can use
