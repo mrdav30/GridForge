@@ -132,9 +132,12 @@ An intersecting unsupported grid, insufficient work, or a full span makes the
 result incomplete. Discard the incomplete results and clear the written prefix.
 
 Use `Voxel.TryGetPartitionBounded<T>(...)` to resolve a typed partition with
-an inspection allowance and a non-waiting lock. Keep voxel and partition
-references within a serialized world phase. `CheckBoundedVoxelSnapshot(...)`
-checks the sequence captured by collection without waiting.
+an inspection allowance and a non-waiting lock. The lookup reserves one unit
+for the requested type and one per other attached partition, including
+overflow entries. A missing requested type and an attached requested type cost
+the same with the same other payloads. An exhausted lookup charges the supplied
+allowance. Keep voxel and partition references within a serialized world phase.
+`CheckBoundedVoxelSnapshot(...)` checks the collected sequence without waiting.
 
 ## Traversal Padding And Duplicate Suppression
 

@@ -480,8 +480,9 @@ public class Voxel : IEquatable<Voxel>
 
     /// <summary>Resolves a partition type without waiting, within the supplied inspection allowance.</summary>
     /// <remarks>
-    /// Conservatively charges one unit for each retained partition, including overflow storage.
-    /// A completed lookup can return a null partition. Use the borrowed partition within
+    /// Reserves one unit for the requested type and one for each other attached partition.
+    /// An exhausted lookup charges the supplied allowance. A completed lookup can return
+    /// a null partition. Use the borrowed partition within
     /// the caller's serialized world phase.
     /// </remarks>
     public GridBoundedVoxelStatus TryGetPartitionBounded<T>(
@@ -495,14 +496,24 @@ public class Voxel : IEquatable<Voxel>
 
         try
         {
-            ulong upperBound = (ulong)_partitionProvider.Count;
-            if (upperBound > discoveryLimit)
+            discoveryWork = (ulong)_partitionProvider.Count;
+            if (discoveryWork > discoveryLimit)
+            {
+                discoveryWork = discoveryLimit;
+                return GridBoundedVoxelStatus.WorkBudgetExceeded;
+            }
+
+            if (_partitionProvider.TryGet(typeof(T), out IVoxelPartition? candidate))
+            {
+                partition = candidate as T;
+                return GridBoundedVoxelStatus.Completed;
+            }
+
+            // Reserve the requested type even when its payload has never been attached.
+            if (discoveryWork == discoveryLimit)
                 return GridBoundedVoxelStatus.WorkBudgetExceeded;
 
-            discoveryWork = upperBound;
-            if (_partitionProvider.TryGet(typeof(T), out IVoxelPartition? candidate))
-                partition = candidate as T;
-
+            discoveryWork++;
             return GridBoundedVoxelStatus.Completed;
         }
         finally

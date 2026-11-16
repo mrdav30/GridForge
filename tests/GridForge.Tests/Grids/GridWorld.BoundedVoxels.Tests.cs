@@ -1,4 +1,7 @@
 using System;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using FixedMathSharp;
 using GridForge.Configuration;
 using GridForge.Grids.Storage;
@@ -178,28 +181,75 @@ public sealed class GridWorldBoundedVoxelTests
     }
 
     [Fact]
-    public void PartitionLookupReservesOverflowInspectionsAndReturnsAnExactMatch()
+    public async Task PartitionLookupUnderContentionReturnsWithoutSpendingAllowance()
     {
         using var world = GridWorldTestFactory.CreateWorld();
         Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
         Assert.True(world.TryGetGridAndVoxel(Vector3d.Zero, out _, out Voxel voxel));
-        Assert.Equal(GridBoundedVoxelStatus.Completed, voxel.TryGetPartitionBounded<TestPartition>(
-            0, out ulong work, out TestPartition absent));
-        Assert.Equal(0UL, work);
-        Assert.Null(absent);
+        object partitionLock = typeof(Voxel)
+            .GetField("_partitionLock", BindingFlags.Instance | BindingFlags.NonPublic)
+            .GetValue(voxel);
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        TimeSpan timeout = TimeSpan.FromSeconds(5);
+        CancellationToken cancellation = TestContext.Current.CancellationToken;
+        Task owner = Task.Run(() =>
+        {
+            lock (partitionLock)
+            {
+                entered.Set();
+                release.Wait(timeout, cancellation);
+            }
+        }, cancellation);
 
-        Assert.True(voxel.TryAddPartition(new PartitionFamilyA.SharedPartition()));
-        Assert.True(voxel.TryAddPartition(new PartitionFamilyB.SharedPartition()));
-        TestPartition expected = new();
-        Assert.True(voxel.TryAddPartition(expected));
+        try
+        {
+            Assert.True(entered.Wait(timeout, cancellation));
+            Assert.Equal(GridBoundedVoxelStatus.WorldNotReady,
+                voxel.TryGetPartitionBounded<TestPartition>(4, out ulong work, out var hit));
+            Assert.Equal(0UL, work);
+            Assert.Null(hit);
+        }
+        finally
+        {
+            release.Set();
+            await owner;
+        }
+    }
 
-        Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded, voxel.TryGetPartitionBounded<TestPartition>(
-            2, out work, out absent));
-        Assert.Equal(0UL, work);
-        Assert.Null(absent);
-        Assert.Equal(GridBoundedVoxelStatus.Completed, voxel.TryGetPartitionBounded<TestPartition>(
-            3, out work, out TestPartition present));
-        Assert.Equal(3UL, work);
-        Assert.Same(expected, present);
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PartitionLookupReplaysRequestedTypeWorkAcrossAbsentAndAttachedPayloads(bool overflow)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Right), out _));
+        Assert.True(world.TryGetGridAndVoxel(Vector3d.Zero, out _, out Voxel absent));
+        Assert.True(world.TryGetGridAndVoxel(Vector3d.Right, out _, out Voxel attached));
+        if (overflow)
+        {
+            foreach (Voxel voxel in new[] { absent, attached })
+            {
+                Assert.True(voxel.TryAddPartition(new PartitionFamilyA.SharedPartition()));
+                Assert.True(voxel.TryAddPartition(new PartitionFamilyB.SharedPartition()));
+            }
+        }
+
+        var expectedPartition = new TestPartition();
+        Assert.True(attached.TryAddPartition(expectedPartition));
+        ulong exact = overflow ? 3UL : 1UL;
+        for (ulong limit = 0; limit <= exact; limit++)
+        {
+            var expectedStatus = limit == exact
+                ? GridBoundedVoxelStatus.Completed : GridBoundedVoxelStatus.WorkBudgetExceeded;
+            Assert.Equal(expectedStatus,
+                absent.TryGetPartitionBounded<TestPartition>(limit, out ulong absentWork, out var missing));
+            Assert.Equal(expectedStatus,
+                attached.TryGetPartitionBounded<TestPartition>(limit, out ulong attachedWork, out var found));
+            Assert.Equal(limit, absentWork);
+            Assert.Equal(absentWork, attachedWork);
+            Assert.Null(missing);
+            Assert.Same(limit == exact ? expectedPartition : null, found);
+        }
     }
 }
