@@ -491,5 +491,56 @@ public sealed class GridWorldBoundedVoxelTests
             Assert.Null(missing);
             Assert.Same(limit == exact ? expectedPartition : null, found);
         }
+
+        Assert.Equal(GridBoundedVoxelStatus.Completed,
+            absent.TryGetPartitionBounded<TestPartition, PartitionFamilyA.SharedPartition, PartitionFamilyB.SharedPartition>(
+                1, out ulong missingWork, out var missingWithExclusions));
+        Assert.Equal(1UL, missingWork);
+        Assert.Null(missingWithExclusions);
+        Assert.Equal(GridBoundedVoxelStatus.Completed,
+            attached.TryGetPartitionBounded<TestPartition, PartitionFamilyA.SharedPartition, PartitionFamilyB.SharedPartition>(
+                1, out ulong foundWork, out var foundWithExclusions));
+        Assert.Equal(1UL, foundWork);
+        Assert.Same(expectedPartition, foundWithExclusions);
     }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void PartitionLookupExcludesExactCacheTypesWhileChargingOtherPayloads(bool requestedAttached, bool hostInOverflow)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Right), out _));
+        Assert.True(world.TryGetGridAndVoxel(Vector3d.Zero, out _, out Voxel fresh));
+        Assert.True(world.TryGetGridAndVoxel(Vector3d.Right, out _, out Voxel retained));
+
+        Assert.True(fresh.TryAddPartition(new HostPartition()));
+        Assert.True(retained.TryAddPartition(new PartitionFamilyB.SharedPartition()));
+        if (!hostInOverflow)
+            Assert.True(retained.TryAddPartition(new HostPartition()));
+        Assert.True(retained.TryAddPartition(new TestPartition()));
+        if (hostInOverflow)
+            Assert.True(retained.TryAddPartition(new HostPartition()));
+        foreach (Voxel voxel in new[] { fresh, retained })
+        {
+            var requested = requestedAttached ? new PartitionFamilyA.SharedPartition() : null;
+            if (requested != null)
+                Assert.True(voxel.TryAddPartition(requested));
+
+            Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded,
+                voxel.TryGetPartitionBounded<PartitionFamilyA.SharedPartition, PartitionFamilyB.SharedPartition, TestPartition>(
+                    1, out ulong work, out var found));
+            Assert.Equal(1UL, work);
+            Assert.Null(found);
+
+            Assert.Equal(GridBoundedVoxelStatus.Completed,
+                voxel.TryGetPartitionBounded<PartitionFamilyA.SharedPartition, PartitionFamilyB.SharedPartition, TestPartition>(
+                    2, out work, out found));
+            Assert.Equal(2UL, work);
+            Assert.Same(requested, found);
+        }
+    }
+
+    private sealed class HostPartition : TestPartition { }
 }

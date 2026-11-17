@@ -487,6 +487,27 @@ public class Voxel : IEquatable<Voxel>
     /// </remarks>
     public GridBoundedVoxelStatus TryGetPartitionBounded<T>(
         ulong discoveryLimit, out ulong discoveryWork, out T? partition)
+        where T : class, IVoxelPartition =>
+        TryGetPartitionBounded(discoveryLimit, null, null, out discoveryWork, out partition);
+
+    /// <summary>Resolves a partition type with up to two exact types excluded from the work allowance.</summary>
+    /// <remarks>
+    /// Use the excluded types for caller-owned partition caches that have no bearing on this lookup.
+    /// Inspecting these types adds at most two inspections to the supplied allowance. The requested
+    /// type always reserves one unit. Each other attached, nonexcluded partition reserves one unit.
+    /// Exhaustion charges the supplied allowance. Use the borrowed partition within the caller's
+    /// serialized world phase.
+    /// </remarks>
+    public GridBoundedVoxelStatus TryGetPartitionBounded<T, TFirstExcluded, TSecondExcluded>(
+        ulong discoveryLimit, out ulong discoveryWork, out T? partition)
+        where T : class, IVoxelPartition
+        where TFirstExcluded : class, IVoxelPartition
+        where TSecondExcluded : class, IVoxelPartition =>
+        TryGetPartitionBounded(discoveryLimit, typeof(TFirstExcluded), typeof(TSecondExcluded), out discoveryWork, out partition);
+
+    private GridBoundedVoxelStatus TryGetPartitionBounded<T>(
+        ulong discoveryLimit, Type? firstExcludedType, Type? secondExcludedType,
+        out ulong discoveryWork, out T? partition)
         where T : class, IVoxelPartition
     {
         partition = null;
@@ -496,24 +517,11 @@ public class Voxel : IEquatable<Voxel>
 
         try
         {
-            discoveryWork = (ulong)_partitionProvider.Count;
-            if (discoveryWork > discoveryLimit)
-            {
-                discoveryWork = discoveryLimit;
-                return GridBoundedVoxelStatus.WorkBudgetExceeded;
-            }
-
-            if (_partitionProvider.TryGet(typeof(T), out IVoxelPartition? candidate))
-            {
-                partition = candidate as T;
-                return GridBoundedVoxelStatus.Completed;
-            }
-
-            // Reserve the requested type even when its payload has never been attached.
-            if (discoveryWork == discoveryLimit)
+            if (!_partitionProvider.TryGetWithinInspectionLimit(typeof(T), firstExcludedType, secondExcludedType,
+                    discoveryLimit, out discoveryWork, out IVoxelPartition? candidate))
                 return GridBoundedVoxelStatus.WorkBudgetExceeded;
 
-            discoveryWork++;
+            partition = candidate as T;
             return GridBoundedVoxelStatus.Completed;
         }
         finally

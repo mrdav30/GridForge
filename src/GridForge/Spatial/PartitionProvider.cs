@@ -171,6 +171,75 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
         return true;
     }
 
+    internal bool TryGetWithinInspectionLimit(
+        Type partitionType, Type? firstExcludedType, Type? secondExcludedType,
+        ulong limit, out ulong work, out TPartitionBase? partition)
+    {
+        work = limit;
+        partition = null;
+        ulong attached = (ulong)Count;
+        ulong maximumExclusions = firstExcludedType == null ? 0UL : 2UL;
+        if (limit == 0 || (attached > maximumExclusions && attached - maximumExclusions > limit))
+            return false;
+
+        if (firstExcludedType == null)
+        {
+            if (TryGet(partitionType, out partition))
+            {
+                work = attached;
+                return true;
+            }
+
+            if (attached == limit)
+                return false;
+
+            work = attached + 1;
+            return true;
+        }
+
+        if (attached == 0 || (attached == 1 && _firstPartitionType == partitionType))
+        {
+            work = 1;
+            partition = _firstPartition;
+            return true;
+        }
+
+        // Reserve the requested type independently of whether it is attached.
+        ulong inspected = 1;
+        TPartitionBase? found = null;
+        if (!Inspect(_firstPartitionType, _firstPartition) || !Inspect(_secondPartitionType, _secondPartition))
+            return false;
+
+        if (_overflowPartitions != null)
+        {
+            OverflowPartition[] overflow = _overflowPartitions.InnerArray;
+            for (int i = 0; i < _overflowPartitions.Count; i++)
+            {
+                if (!Inspect(overflow[i].Type, overflow[i].Partition))
+                    return false;
+            }
+        }
+
+        work = inspected;
+        partition = found;
+        return true;
+
+        bool Inspect(Type? type, TPartitionBase? value)
+        {
+            if (type == partitionType)
+                found = value;
+            else if (type != null && type != firstExcludedType && type != secondExcludedType)
+            {
+                if (inspected == limit)
+                    return false;
+
+                inspected++;
+            }
+
+            return true;
+        }
+    }
+
     /// <summary>
     /// Determines whether the provider contains a partition associated with the specified concrete type.
     /// </summary>

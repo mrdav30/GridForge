@@ -144,6 +144,13 @@ the same with the same other payloads. An exhausted lookup charges the supplied
 allowance. Keep voxel and partition references within a serialized world phase.
 `CheckBoundedVoxelSnapshot(...)` checks the collected sequence without waiting.
 
+If the caller owns independent partition caches, use
+`Voxel.TryGetPartitionBounded<T, TFirstExcluded, TSecondExcluded>(...)` to exclude
+up to two exact cache types from the allowance. Each excluded type can add at
+most one fixed inspection. The requested type and all other attached payloads
+keep their usual discovery charges. This allows equivalent queries to reuse the
+same allowance regardless of which of those caches are attached.
+
 ## Traversal Padding And Duplicate Suppression
 
 Consumers that build their own GridForge-backed broad phases can use
