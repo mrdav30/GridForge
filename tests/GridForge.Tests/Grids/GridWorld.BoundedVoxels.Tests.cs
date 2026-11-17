@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -141,6 +142,37 @@ public sealed class GridWorldBoundedVoxelTests
     }
 
     [Fact]
+    public void CollectionOrdersAndRemovesIdenticalBoundsByExactTopology()
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        GridConfiguration flat = new(Vector3d.Zero, Vector3d.Zero, topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, HexOrientation.FlatTop));
+        GridConfiguration pointy = new(Vector3d.Zero, Vector3d.Zero, topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, HexOrientation.PointyTop));
+        Assert.True(world.TryAddGrid(pointy, out ushort pointyIndex));
+        Assert.True(world.TryAddGrid(flat, out ushort flatIndex));
+        Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out ushort rectangularIndex));
+        Assert.False(world.TryAddGrid(flat, out _));
+
+        var results = new Voxel[3];
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            Vector3d.Zero, Vector3d.Zero, false, 9, results, out ulong work, out int count, out _));
+        Assert.Equal(9UL, work);
+        Assert.Equal(3, count);
+        Assert.Equal(new[] { rectangularIndex, flatIndex, pointyIndex }, results.Select(voxel => voxel.GridIndex));
+
+        Array.Clear(results);
+        Assert.True(world.TryRemoveGrid(flatIndex));
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            Vector3d.Zero, Vector3d.Zero, false, 6, results, out work, out count, out _));
+        Assert.Equal(6UL, work);
+        Assert.Equal(2, count);
+        Assert.Equal(rectangularIndex, results[0].GridIndex);
+        Assert.Equal(pointyIndex, results[1].GridIndex);
+        Assert.Null(results[2]);
+    }
+
+    [Fact]
     public void CollectionReleasesItsGridOrderOnResetBeforeSlotReuse()
     {
         using var world = GridWorldTestFactory.CreateWorld();
@@ -161,23 +193,213 @@ public sealed class GridWorldBoundedVoxelTests
         Assert.Equal(replacement, results[0].GridIndex);
     }
 
-    [Fact]
-    public void CollectionRejectsUnrepresentableBoundsAndUnsupportedIntersectingStorage()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CollectionRejectsUnrepresentableBoundsBeforeInspectingStorage(bool positive)
     {
         using var world = GridWorldTestFactory.CreateWorld();
         Assert.True(world.TryAddGrid(new GridConfiguration(
             Vector3d.Zero, Vector3d.One, storageKind: GridStorageKind.Sparse), out _));
 
-        Vector3d maximum = Vector3d.One * Fixed64.MaxValue;
+        Vector3d extreme = Vector3d.One * (positive ? Fixed64.MaxValue : Fixed64.MinValue);
         Assert.Equal(GridBoundedVoxelStatus.Unrepresentable, world.CollectCoveredVoxelsBounded(
-            maximum, maximum, false, 1, Span<Voxel>.Empty, out ulong work, out int count, out _));
+            extreme, extreme, false, 1, Span<Voxel>.Empty, out ulong work, out int count, out _));
         Assert.Equal(0UL, work);
         Assert.Equal(0, count);
 
-        Assert.Equal(GridBoundedVoxelStatus.UnsupportedGrid, world.CollectCoveredVoxelsBounded(
+        Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded, world.CollectCoveredVoxelsBounded(
             Vector3d.Zero, Vector3d.Zero, false, 1, Span<Voxel>.Empty, out work, out count, out _));
         Assert.Equal(1UL, work);
         Assert.Equal(0, count);
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            Vector3d.Zero, Vector3d.Zero, false, 2, Span<Voxel>.Empty, out work, out count, out _));
+        Assert.Equal(2UL, work);
+        Assert.Equal(0, count);
+    }
+
+    [Theory]
+    [InlineData(GridStorageKind.Sparse, GridTopologyKind.RectangularPrism, HexOrientation.PointyTop)]
+    [InlineData(GridStorageKind.Dense, GridTopologyKind.HexPrism, HexOrientation.PointyTop)]
+    [InlineData(GridStorageKind.Sparse, GridTopologyKind.HexPrism, HexOrientation.PointyTop)]
+    [InlineData(GridStorageKind.Dense, GridTopologyKind.HexPrism, HexOrientation.FlatTop)]
+    [InlineData(GridStorageKind.Sparse, GridTopologyKind.HexPrism, HexOrientation.FlatTop)]
+    public void NativeCoverageMatchesConventionalResultsAndReplaysAtExactLimits(
+        GridStorageKind storage, GridTopologyKind topology, HexOrientation orientation)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        GridTopologyMetrics metrics = topology == GridTopologyKind.HexPrism
+            ? GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, orientation)
+            : GridTopologyMetrics.Rectangular(Fixed64.One);
+        Vector3d max = topology == GridTopologyKind.HexPrism
+            ? HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(3, 1, 3), metrics)
+            : new Vector3d(3, 1, 3);
+        GridConfiguration configuration = new(Vector3d.Zero, max,
+            topologyKind: topology, topologyMetrics: metrics, storageKind: storage);
+        VoxelIndex[] authored = [new(0, 0, 0), new(1, 0, 1), new(2, 0, 1), new(1, 1, 1), new(2, 1, 2)];
+        Assert.True(storage == GridStorageKind.Sparse
+            ? world.TryAddGrid(configuration, authored, out ushort gridIndex)
+            : world.TryAddGrid(configuration, out gridIndex));
+        Assert.True(world.TryGetGrid(gridIndex, out VoxelGrid grid));
+
+        foreach (bool planar in new[] { false, true })
+        {
+            Vector3d minimum = Vector3d.Zero;
+            Vector3d maximum = grid.GetWorldPosition(new VoxelIndex(2, planar ? 0 : 1, 2));
+            SwiftList<Voxel> conventional = new();
+            GridTracer.GetCoveredVoxelsInto(world, minimum, maximum, conventional);
+            Voxel[] expected = conventional.Where(voxel => !planar || GridTraversal.IsPlanarPositionInPaddedBounds(
+                    GridPlane2d.FromWorld(minimum), GridPlane2d.FromWorld(maximum),
+                    GridTopologyMetricUtility.GetPlanarMaxCellEdge(grid), voxel.WorldPosition))
+                .OrderBy(voxel => voxel.Index).ToArray();
+            Assert.True(expected.Length > 1);
+
+            var results = new Voxel[expected.Length];
+            Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+                minimum, maximum, planar, ulong.MaxValue, results, out ulong fullWork, out int fullCount, out _));
+            Assert.Equal(expected.Length, fullCount);
+            Assert.Equal(expected, results);
+
+            if (storage == GridStorageKind.Sparse)
+            {
+                VoxelIndex removed = new(3, 1, 3);
+                Assert.True(grid.TryAddVoxel(removed, out _));
+                Assert.True(grid.TryRemoveVoxel(removed));
+            }
+
+            Array.Clear(results);
+            Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+                minimum, maximum, planar, fullWork, results, out ulong exactWork, out int exactCount, out _));
+            Assert.Equal(fullWork, exactWork);
+            Assert.Equal(fullCount, exactCount);
+            Assert.Equal(expected, results);
+
+            Array.Clear(results);
+            Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded, world.CollectCoveredVoxelsBounded(
+                minimum, maximum, planar, fullWork - 1, results, out ulong shortWork, out int written, out _));
+            Assert.InRange(shortWork, 1UL, fullWork - 1);
+            Assert.Equal(expected.AsSpan(0, written).ToArray(), results.AsSpan(0, written).ToArray());
+            Assert.All(results.AsSpan(written).ToArray(), Assert.Null);
+
+            Array.Clear(results);
+            Assert.Equal(GridBoundedVoxelStatus.CapacityExceeded, world.CollectCoveredVoxelsBounded(
+                minimum, maximum, planar, fullWork, results.AsSpan(0, fullCount - 1),
+                out _, out int capacityCount, out _));
+            Assert.Equal(fullCount - 1, capacityCount);
+            Assert.Null(results[capacityCount]);
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 5UL, 4UL, true)]
+    [InlineData(1, 4UL, 2UL, false)]
+    [InlineData(8, 2UL, 1UL, false)]
+    public void SparseAddressChargesSourceComparisonsOnlyForItsLiveBlock(
+        int x, ulong expectedWork, ulong expectedShortWork, bool containsVoxel)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        Vector3d maximum = new(8, 0, 0);
+        GridConfiguration config = new(Vector3d.Zero, maximum, storageKind: GridStorageKind.Sparse);
+        VoxelIndex[] authored = [new(0, 0, 0), new(2, 0, 0), new(4, 0, 0)];
+        Assert.True(world.TryAddGrid(config, authored, out _));
+
+        Vector3d point = new(x, 0, 0);
+        Voxel[] results = new Voxel[1];
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            point, point, false, expectedWork, results, out ulong work, out int count, out _));
+        Assert.Equal(expectedWork, work);
+        Assert.Equal(containsVoxel ? 1 : 0, count);
+
+        Array.Clear(results);
+        Assert.Equal(GridBoundedVoxelStatus.WorkBudgetExceeded, world.CollectCoveredVoxelsBounded(
+            point, point, false, expectedWork - 1, results, out work, out count, out _));
+        Assert.Equal(expectedShortWork, work);
+        Assert.Equal(0, count);
+        Assert.Null(results[0]);
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop)]
+    [InlineData(HexOrientation.FlatTop)]
+    public void HexCoverageRejectsAnEmptyAxialRangeInsideCoarseBounds(HexOrientation orientation)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.One, Fixed64.One, orientation);
+        bool pointy = orientation == HexOrientation.PointyTop;
+        Vector3d maximum = HexCoordinateUtility.AxialToWorldOffset(
+            new VoxelIndex(pointy ? 3 : 10, 0, pointy ? 10 : 3), metrics);
+        GridConfiguration config = new(Vector3d.Zero, maximum,
+            topologyKind: GridTopologyKind.HexPrism, topologyMetrics: metrics);
+        Assert.True(world.TryAddGrid(config, out _));
+
+        Vector3d point = pointy
+            ? new Vector3d(maximum.X, Fixed64.Zero, Fixed64.Zero)
+            : new Vector3d(Fixed64.Zero, Fixed64.Zero, maximum.Z);
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            point, point, false, 1, Span<Voxel>.Empty, out ulong work, out int count, out _));
+        Assert.Equal(1UL, work);
+        Assert.Equal(0, count);
+    }
+
+    [Theory]
+    [InlineData(HexOrientation.PointyTop, -1000)]
+    [InlineData(HexOrientation.FlatTop, 1000)]
+    public void TinyHexCoverageIncludesTheActualForwardLatticeCenter(HexOrientation orientation, int translation)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        GridTopologyMetrics metrics = GridTopologyMetrics.Hex(Fixed64.FromRaw(6), Fixed64.One, orientation);
+        Vector3d min = new(translation, 0, translation);
+        Vector3d max = min + HexCoordinateUtility.AxialToWorldOffset(new VoxelIndex(120, 0, 120), metrics);
+        GridConfiguration config = new(min, max, topologyKind: GridTopologyKind.HexPrism,
+            topologyMetrics: metrics, storageKind: GridStorageKind.Sparse);
+        VoxelIndex target = new(100, 0, 100);
+        Assert.True(world.TryAddGrid(config, new[] { target }, out ushort gridIndex));
+        Assert.True(world.TryGetGrid(gridIndex, out VoxelGrid grid));
+        Assert.True(grid.TryGetVoxel(target, out Voxel expected));
+
+        Vector3d center = expected.WorldPosition;
+        SwiftList<Voxel> conventional = new();
+        GridTracer.GetCoveredVoxelsInto(world, center, center, conventional);
+        Assert.Same(expected, Assert.Single(conventional));
+        Voxel[] results = new Voxel[1];
+        Assert.Equal(GridBoundedVoxelStatus.Completed, world.CollectCoveredVoxelsBounded(
+            center, center, false, 150, results, out _, out int count, out _));
+        Assert.Equal(1, count);
+        Assert.Same(expected, results[0]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CollectionRejectsNestedGridAccess(bool write)
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        var gridLock = Assert.IsType<ReaderWriterLockSlim>(typeof(GridWorld)
+            .GetField("_gridLock", BindingFlags.Instance | BindingFlags.NonPublic)
+            .GetValue(world));
+        if (write)
+            gridLock.EnterWriteLock();
+        else
+            gridLock.EnterReadLock();
+
+        try
+        {
+            AssertNoWorldSnapshot(world);
+        }
+        finally
+        {
+            if (write)
+                gridLock.ExitWriteLock();
+            else
+                gridLock.ExitReadLock();
+        }
+    }
+
+    [Fact]
+    public async Task CollectionRejectsContendedPublication()
+    {
+        using var world = GridWorldTestFactory.CreateWorld();
+        await CheckUnderContention(world.ChangeSyncRoot, () => AssertNoWorldSnapshot(world));
     }
 
     [Fact]
@@ -189,13 +411,34 @@ public sealed class GridWorldBoundedVoxelTests
         object partitionLock = typeof(Voxel)
             .GetField("_partitionLock", BindingFlags.Instance | BindingFlags.NonPublic)
             .GetValue(voxel);
+
+        await CheckUnderContention(partitionLock, () =>
+        {
+            Assert.Equal(GridBoundedVoxelStatus.WorldNotReady,
+                voxel.TryGetPartitionBounded<TestPartition>(4, out ulong work, out var hit));
+            Assert.Equal(0UL, work);
+            Assert.Null(hit);
+        });
+    }
+
+    private static void AssertNoWorldSnapshot(GridWorld world)
+    {
+        Assert.Equal(GridBoundedVoxelStatus.WorldNotReady, world.CollectCoveredVoxelsBounded(
+            Vector3d.Zero, Vector3d.Zero, false, 1, Span<Voxel>.Empty, out ulong work, out int count, out ulong sequence));
+        Assert.Equal(0UL, work);
+        Assert.Equal(0, count);
+        Assert.Equal(0UL, sequence);
+    }
+
+    private static async Task CheckUnderContention(object syncRoot, Action assertLookup)
+    {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         TimeSpan timeout = TimeSpan.FromSeconds(5);
         CancellationToken cancellation = TestContext.Current.CancellationToken;
         Task owner = Task.Run(() =>
         {
-            lock (partitionLock)
+            lock (syncRoot)
             {
                 entered.Set();
                 release.Wait(timeout, cancellation);
@@ -205,10 +448,7 @@ public sealed class GridWorldBoundedVoxelTests
         try
         {
             Assert.True(entered.Wait(timeout, cancellation));
-            Assert.Equal(GridBoundedVoxelStatus.WorldNotReady,
-                voxel.TryGetPartitionBounded<TestPartition>(4, out ulong work, out var hit));
-            Assert.Equal(0UL, work);
-            Assert.Null(hit);
+            assertLookup();
         }
         finally
         {

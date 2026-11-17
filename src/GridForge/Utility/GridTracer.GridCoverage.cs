@@ -5,7 +5,6 @@
 // See LICENSE file in the project root for full license information.
 //=======================================================================
 
-using System.Runtime.CompilerServices;
 using FixedMathSharp;
 using GridForge.Grids;
 using GridForge.Grids.Topology;
@@ -135,12 +134,8 @@ public static partial class GridTracer
             return;
         }
 
-        Fixed64 horizontalExpansion =
-            currentGrid.Topology.Metrics.CellRadius;
-        Fixed64 coverageMinX = queryMin.X - horizontalExpansion;
-        Fixed64 coverageMaxX = queryMax.X + horizontalExpansion;
-        Fixed64 coverageMinZ = queryMin.Z - horizontalExpansion;
-        Fixed64 coverageMaxZ = queryMax.Z + horizontalExpansion;
+        TopologyVoxelRangeUtility.GetHorizontalCoverageBounds(queryMin, queryMax, currentGrid.Topology.Metrics.CellRadius,
+            out Vector2d coverageMin, out Vector2d coverageMax);
 
         for (long x = minIndex.x; x <= maxIndex.x; x++)
         {
@@ -153,12 +148,7 @@ public static partial class GridTracer
                             (int)y,
                             (int)z,
                             out Voxel? voxel)
-                        && IsHexVoxelCenterInHorizontalCoverage(
-                            voxel!,
-                            coverageMinX,
-                            coverageMaxX,
-                            coverageMinZ,
-                            coverageMaxZ))
+                        && TopologyVoxelRangeUtility.ContainsHorizontalCenter(coverageMin, coverageMax, voxel!.WorldPosition))
                     {
                         voxelList.Add(voxel!);
                     }
@@ -193,20 +183,5 @@ public static partial class GridTracer
             maxIndex.z / currentGrid.ScanCellSize,
             scanCells,
             scanCellRedundancyCheck);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool IsHexVoxelCenterInHorizontalCoverage(
-        Voxel voxel,
-        Fixed64 coverageMinX,
-        Fixed64 coverageMaxX,
-        Fixed64 coverageMinZ,
-        Fixed64 coverageMaxZ)
-    {
-        Vector3d position = voxel.WorldPosition;
-        return position.X >= coverageMinX
-            && position.X <= coverageMaxX
-            && position.Z >= coverageMinZ
-            && position.Z <= coverageMaxZ;
     }
 }

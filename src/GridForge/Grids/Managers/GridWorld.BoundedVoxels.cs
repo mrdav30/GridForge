@@ -9,10 +9,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using FixedMathSharp;
-using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
-using GridForge.Utility;
+using SwiftCollections;
 using SwiftCollections.Query;
 
 namespace GridForge.Grids;
@@ -21,13 +20,15 @@ public sealed partial class GridWorld
 {
     private static readonly IComparer<VoxelGrid> BoundedGridOrder = Comparer<VoxelGrid>.Create(static (left, right) =>
         GridCoveredAddressGeneration.CompareConfigurationKeys(left.Configuration.ToGridKey(), right.Configuration.ToGridKey()));
-    private readonly List<VoxelGrid> _boundedGrids = new();
+    private readonly SwiftSortedList<VoxelGrid> _boundedGrids = new(BoundedGridOrder);
 
     /// <summary>Collects covered physical voxels under a work and output limit.</summary>
     /// <remarks>
-    /// Visits registered grids in normalized configuration order and covers dense rectangular grids.
-    /// An intersecting unsupported grid invalidates the whole result. One unit pays for inspecting
-    /// each live grid or voxel address. A separate unit reserves clearing each output reference.
+    /// Visits dense and sparse rectangular and hexagonal grids in normalized configuration order.
+    /// One unit pays for inspecting each live grid, including fixed topology range setup, or each
+    /// voxel address, including its storage-block lookup. Sparse block lookups reserve additional
+    /// units for the maximum comparisons over the block's live voxels. A separate unit reserves
+    /// clearing each output reference.
     /// Planar coverage also applies the X/Z center filter using each grid's planar cell edge.
     /// Set both Y coordinates to the selected layer for an X/Z plane.
     /// On any incomplete result, discard and clear the written prefix. Voxel references are
@@ -104,9 +105,6 @@ public sealed partial class GridWorld
             if (!broadBounds.Intersects(new FixedBoundVolume(grid.BoundsMin, grid.BoundsMax)))
                 continue;
 
-            if (grid.Topology.Kind != GridTopologyKind.RectangularPrism || grid.StorageKind != GridStorageKind.Dense)
-                return GridBoundedVoxelStatus.UnsupportedGrid;
-
             if (!TopologyVoxelRangeUtility.TryGetCandidateRange(grid, queryMin, queryMax, out var minimum, out var maximum))
                 continue;
 
@@ -125,17 +123,27 @@ public sealed partial class GridWorld
         bool planar, Vector3d queryMin, Vector3d queryMax,
         ulong discoveryLimit, Span<Voxel?> results, ref ulong discoveryWork, ref int voxelCount)
     {
-        Fixed64 cellEdge = planar ? GridTopologyMetricUtility.GetPlanarMaxCellEdge(grid) : Fixed64.Zero;
-        Vector2d planarMin = GridPlane2d.FromWorld(queryMin);
-        Vector2d planarMax = GridPlane2d.FromWorld(queryMax);
+        bool filterCenter = planar || grid.Topology.Kind == GridTopologyKind.HexPrism;
+        Vector2d centerMin = default;
+        Vector2d centerMax = default;
+        if (filterCenter)
+        {
+            Fixed64 padding = planar ? GridTopologyMetricUtility.GetPlanarMaxCellEdge(grid) * Fixed64.Half
+                : grid.Topology.Metrics.CellRadius;
+            TopologyVoxelRangeUtility.GetHorizontalCoverageBounds(queryMin, queryMax, padding, out centerMin, out centerMax);
+        }
+
         VoxelIndex address = minimum;
         do
         {
             if (discoveryWork == discoveryLimit)
                 return GridBoundedVoxelStatus.WorkBudgetExceeded;
             discoveryWork++;
-            if (!grid.TryGetVoxel(address, out Voxel? voxel)
-                || (planar && !GridTraversal.IsPlanarPositionInPaddedBounds(planarMin, planarMax, cellEdge, voxel!.WorldPosition)))
+            if (!grid.TryInspectVoxel(address, discoveryLimit, ref discoveryWork, out Voxel? voxel))
+                return GridBoundedVoxelStatus.WorkBudgetExceeded;
+
+            if (voxel == null
+                || (filterCenter && !TopologyVoxelRangeUtility.ContainsHorizontalCenter(centerMin, centerMax, voxel.WorldPosition)))
                 continue;
 
             if (voxelCount == results.Length)

@@ -2037,61 +2037,17 @@ public class GridTracerTests : IDisposable
         }
     }
 
-    [Fact]
-    public void HexCoveragePredicate_ShouldRejectCentersOutsideEachHorizontalBoundary()
+    [Theory]
+    [InlineData(0, 0, true)]
+    [InlineData(1, 0, false)]
+    [InlineData(-1, 0, false)]
+    [InlineData(0, 1, false)]
+    [InlineData(0, -1, false)]
+    public void CoveragePredicateRejectsCentersOutsideEachHorizontalBoundary(int x, int z, bool covered)
     {
-        ResetWorld(spatialGridCellSize: 64);
-
-        try
-        {
-            GridTopologyMetrics metrics = GridTopologyMetrics.Hex(
-                new Fixed64(2),
-                Fixed64.One,
-                HexOrientation.PointyTop);
-            GridConfiguration configuration = CreateHexConfiguration(metrics, new VoxelIndex(1, 0, 1));
-
-            Assert.True(_world.TryAddGrid(configuration, out ushort gridIndex));
-
-            VoxelGrid grid = _world.ActiveGrids[gridIndex];
-            Assert.True(grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel));
-
-            Vector3d center = voxel.WorldPosition;
-
-            Assert.True(InvokeIsHexVoxelCenterInHorizontalCoverage(
-                voxel,
-                center.X,
-                center.X,
-                center.Z,
-                center.Z));
-            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
-                voxel,
-                center.X + Fixed64.One,
-                center.X + Fixed64.One,
-                center.Z,
-                center.Z));
-            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
-                voxel,
-                center.X - Fixed64.One,
-                center.X - Fixed64.One,
-                center.Z,
-                center.Z));
-            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
-                voxel,
-                center.X,
-                center.X,
-                center.Z + Fixed64.One,
-                center.Z + Fixed64.One));
-            Assert.False(InvokeIsHexVoxelCenterInHorizontalCoverage(
-                voxel,
-                center.X,
-                center.X,
-                center.Z - Fixed64.One,
-                center.Z - Fixed64.One));
-        }
-        finally
-        {
-            ResetWorld();
-        }
+        Vector3d center = new(2, 7, 3);
+        Vector2d bounds = new(2 + x, 3 + z);
+        Assert.Equal(covered, TopologyVoxelRangeUtility.ContainsHorizontalCenter(bounds, bounds, center));
     }
 
     private void ResetWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
@@ -2220,23 +2176,6 @@ public class GridTracerTests : IDisposable
             ?? throw new InvalidOperationException("Could not find GridTracer.AddTraceVoxelByIndex.");
 
         method.Invoke(null, new object[] { grid, index, voxels, redundancy });
-    }
-
-    private static bool InvokeIsHexVoxelCenterInHorizontalCoverage(
-        Voxel voxel,
-        Fixed64 coverageMinX,
-        Fixed64 coverageMaxX,
-        Fixed64 coverageMinZ,
-        Fixed64 coverageMaxZ)
-    {
-        MethodInfo method = typeof(GridTracer).GetMethod(
-            "IsHexVoxelCenterInHorizontalCoverage",
-            BindingFlags.Static | BindingFlags.NonPublic)
-            ?? throw new InvalidOperationException("Could not find GridTracer.IsHexVoxelCenterInHorizontalCoverage.");
-
-        return (bool)method.Invoke(
-            null,
-            new object[] { voxel, coverageMinX, coverageMaxX, coverageMinZ, coverageMaxZ });
     }
 
     private static GridConfiguration CreateSparseConfig(

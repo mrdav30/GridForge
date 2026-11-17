@@ -62,7 +62,7 @@ public readonly struct GridCoveredAddressGeneration : IComparable<GridCoveredAdd
         if (value != 0) return value;
         value = left.BoundsMax.Z.CompareTo(right.BoundsMax.Z);
         if (value != 0) return value;
-        value = left.TopologyKind.CompareTo(right.TopologyKind);
+        value = ((int)left.TopologyKind).CompareTo((int)right.TopologyKind);
         if (value != 0) return value;
         value = left.TopologyMetrics.CellRadius.CompareTo(right.TopologyMetrics.CellRadius);
         if (value != 0) return value;
@@ -73,6 +73,6 @@ public readonly struct GridCoveredAddressGeneration : IComparable<GridCoveredAdd
         value = left.TopologyMetrics.CellLength.CompareTo(right.TopologyMetrics.CellLength);
         return value != 0
             ? value
-            : left.TopologyMetrics.HexOrientation.CompareTo(right.TopologyMetrics.HexOrientation);
+            : ((int)left.TopologyMetrics.HexOrientation).CompareTo((int)right.TopologyMetrics.HexOrientation);
     }
 }

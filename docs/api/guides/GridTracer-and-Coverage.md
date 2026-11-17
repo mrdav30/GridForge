@@ -121,15 +121,20 @@ pooled grouped-list lifetime costs while still resolving the owning grid from
 recyclable slot; longer-lived runtime references should copy `voxel.WorldIndex`
 and revalidate it through the owning world.
 
-For dense rectangular grids, `GridWorld.CollectCoveredVoxelsBounded(...)`
-collects physical voxels into a fixed span without waiting on world publication.
-It visits live grids in normalized configuration order and charges each grid
-or voxel address inspected. Removed slots and recycled slot IDs have no effect
-on that order or charge. It reserves one more unit for clearing each written
-reference. Planar mode also applies the X/Z
-center filter, using the grid's planar cell edge and the supplied Y layer.
-An intersecting unsupported grid, insufficient work, or a full span makes the
-result incomplete. Discard the incomplete results and clear the written prefix.
+`GridWorld.CollectCoveredVoxelsBounded(...)` collects physical voxels into a fixed
+span without waiting on world publication. It supports dense and sparse
+rectangular, pointy-top hex, and flat-top hex grids. It charges one unit per
+live grid in normalized configuration order, including fixed range setup, and
+one per voxel address. Sparse addresses also reserve the maximum binary-search
+comparisons based on the live voxel count of the storage block. Vacant blocks
+need only the address inspection. Removed slots and recycled slot IDs have
+no effect on that order or charge.
+
+Hex coverage uses the same X/Z center bounds as conventional voxel coverage.
+Planar mode also applies the grid's planar cell-edge padding at the supplied
+Y layer. One additional unit per written reference reserves clearing it.
+Insufficient work or a full span makes the result incomplete. Discard the
+incomplete results and clear the written prefix.
 
 Use `Voxel.TryGetPartitionBounded<T>(...)` to resolve a typed partition with
 an inspection allowance and a non-waiting lock. The lookup reserves one unit

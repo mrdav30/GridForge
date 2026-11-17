@@ -553,7 +553,7 @@ public static partial class GridTracer
         comparison = second.TExit.CompareTo(first.TExit);
         if (comparison != 0)
             return comparison;
-        comparison = CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
+        comparison = GridCoveredAddressGeneration.CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
         if (comparison != 0)
             return comparison;
         return first.Cell.VoxelIndex.CompareTo(second.Cell.VoxelIndex);
@@ -561,7 +561,7 @@ public static partial class GridTracer
 
     private static int CompareGridIdentity(VoxelGrid first, VoxelGrid second)
     {
-        return CompareConfigurationKeys(
+        return GridCoveredAddressGeneration.CompareConfigurationKeys(
             first.Configuration.ToGridKey(),
             second.Configuration.ToGridKey());
     }
@@ -576,43 +576,4 @@ public static partial class GridTracer
             CompareGridIdentity(_world.ActiveGrids[first], _world.ActiveGrids[second]);
     }
 
-    private static int CompareConfigurationKeys(
-        GridConfigurationKey first,
-        GridConfigurationKey second)
-    {
-        int comparison = CompareVectors(first.BoundsMin, second.BoundsMin);
-        if (comparison != 0)
-            return comparison;
-        comparison = CompareVectors(first.BoundsMax, second.BoundsMax);
-        if (comparison != 0)
-            return comparison;
-        comparison = ((int)first.TopologyKind).CompareTo((int)second.TopologyKind);
-        if (comparison != 0)
-            return comparison;
-
-        GridTopologyMetrics firstMetrics = first.TopologyMetrics;
-        GridTopologyMetrics secondMetrics = second.TopologyMetrics;
-        comparison = firstMetrics.CellRadius.CompareTo(secondMetrics.CellRadius);
-        if (comparison != 0)
-            return comparison;
-        comparison = firstMetrics.CellWidth.CompareTo(secondMetrics.CellWidth);
-        if (comparison != 0)
-            return comparison;
-        comparison = firstMetrics.LayerHeight.CompareTo(secondMetrics.LayerHeight);
-        if (comparison != 0)
-            return comparison;
-        comparison = firstMetrics.CellLength.CompareTo(secondMetrics.CellLength);
-        return comparison != 0
-            ? comparison
-            : ((int)firstMetrics.HexOrientation).CompareTo((int)secondMetrics.HexOrientation);
-    }
-
-    private static int CompareVectors(Vector3d first, Vector3d second)
-    {
-        int comparison = first.X.CompareTo(second.X);
-        if (comparison != 0)
-            return comparison;
-        comparison = first.Y.CompareTo(second.Y);
-        return comparison != 0 ? comparison : first.Z.CompareTo(second.Z);
-    }
 }

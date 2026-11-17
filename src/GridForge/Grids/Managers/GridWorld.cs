@@ -1234,7 +1234,8 @@ public sealed partial class GridWorld : IDisposable
                 newGrid.Initialize(this, allocatedIndex, gridGeneration, normalizedConfiguration, topology, preparedVoxels);
                 UpdateMaxTopologyCellEdge(newGrid.Topology.MaxCellEdge);
                 RegisterGrid(newGrid, allocatedIndex);
-                _boundedGrids.Insert(~_boundedGrids.BinarySearch(newGrid, BoundedGridOrder), newGrid);
+                bool indexed = _boundedGrids.TryAddUnique(newGrid);
+                Debug.Assert(indexed);
 
                 Version++;
                 addedGridInfo = CreateGridEventInfo(
@@ -1279,7 +1280,8 @@ public sealed partial class GridWorld : IDisposable
                 gridToRemove = ActiveGrids[removeIndex];
                 Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
                 UnregisterGrid(gridToRemove, removeIndex);
-                _boundedGrids.Remove(gridToRemove);
+                bool removed = _boundedGrids.Remove(gridToRemove);
+                Debug.Assert(removed);
                 BoundsTracker.Remove(gridToRemove.Configuration.ToGridKey());
                 ActiveGrids.RemoveAt(removeIndex);
                 RecalculateMaxTopologyCellEdgeIfNeeded(removedMaxCellEdge);

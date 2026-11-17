@@ -1007,7 +1007,7 @@ public static partial class GridTracer
         GridNavigationBodyTraceCell first,
         GridNavigationBodyTraceCell second)
     {
-        int comparison = CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
+        int comparison = GridCoveredAddressGeneration.CompareConfigurationKeys(first.ConfigurationKey, second.ConfigurationKey);
         return comparison != 0
             ? comparison
             : first.Cell.VoxelIndex.CompareTo(second.Cell.VoxelIndex);

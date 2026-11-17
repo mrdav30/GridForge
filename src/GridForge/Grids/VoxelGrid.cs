@@ -806,6 +806,18 @@ public class VoxelGrid
     public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result) =>
          TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
 
+    // The caller already reserved the address inspection against a stable world snapshot.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryInspectVoxel(VoxelIndex index, ulong limit, ref ulong work, out Voxel? result)
+    {
+        if (ReferenceEquals(_storage, _sparseStorage))
+            return _sparseStorage.TryInspectVoxel(index, limit, ref work, out result);
+
+        // Candidate ranges contain valid local indices and dense storage has no holes.
+        _denseStorage.TryGetVoxel(index.x, index.y, index.z, out result);
+        return true;
+    }
+
     /// <summary>
     /// Retrieve <see cref="Voxel"/> from world <see cref="Vector3d"/> points
     /// </summary>

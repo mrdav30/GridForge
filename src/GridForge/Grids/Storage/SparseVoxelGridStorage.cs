@@ -97,15 +97,40 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
     public bool TryGetVoxel(int x, int y, int z, out Voxel? result)
     {
         result = null;
+        SparseVoxelBlock? block = FindBlock(x, y, z);
+        return block != null && block.TryGetVoxel(new VoxelIndex(x, y, z), out result);
+    }
 
-        if (_blocks == null)
+    internal bool TryInspectVoxel(VoxelIndex index, ulong limit, ref ulong work, out Voxel? result)
+    {
+        result = null;
+        SparseVoxelBlock? block = FindBlock(index.x, index.y, index.z);
+        if (block == null)
+            return true;
+
+        // Every comparison removes at least half the remaining entries, rounded up.
+        // Reserve from the sorted block's live count before inspecting any voxel.
+        ulong comparisons = 0;
+        for (int remaining = block.Count; remaining != 0; remaining >>= 1)
+            comparisons++;
+
+        if (comparisons > limit - work)
             return false;
 
-        VoxelIndex index = new(x, y, z);
-        int cellKey = GetScanCellKey(x, y, z);
-        return cellKey >= 0
-            && _blocks.TryGetValue(cellKey, out SparseVoxelBlock? block)
-            && block.TryGetVoxel(index, out result);
+        work += comparisons;
+        if (!block.TryGetVoxel(index, out result))
+            result = null;
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private SparseVoxelBlock? FindBlock(int x, int y, int z)
+    {
+        if (_blocks == null)
+            return null;
+
+        _blocks.TryGetValue(GetScanCellKey(x, y, z), out SparseVoxelBlock? block);
+        return block;
     }
 
     public bool TryGetClosestVoxel(

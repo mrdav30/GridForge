@@ -101,16 +101,10 @@ internal static class TopologyVoxelRangeUtility
         maxIndex = default;
 
         GridTopologyMetrics metrics = grid.Topology.Metrics;
-        Fixed64 horizontalExpansion = metrics.CellRadius;
         Fixed64 layerHeight = metrics.LayerHeight;
-        Vector3d candidateMin = new(
-            queryMin.X - horizontalExpansion,
-            queryMin.Y,
-            queryMin.Z - horizontalExpansion);
-        Vector3d candidateMax = new(
-            queryMax.X + horizontalExpansion,
-            queryMax.Y,
-            queryMax.Z + horizontalExpansion);
+        GetHorizontalCoverageBounds(queryMin, queryMax, metrics.CellRadius, out Vector2d horizontalMin, out Vector2d horizontalMax);
+        Vector3d candidateMin = GridPlane2d.ToWorld(horizontalMin, queryMin.Y);
+        Vector3d candidateMax = GridPlane2d.ToWorld(horizontalMax, queryMax.Y);
 
         if (!TryClipBoundsToGrid(grid, candidateMin, candidateMax, out Vector3d clippedMin, out Vector3d clippedMax))
             return false;
@@ -125,10 +119,15 @@ internal static class TopologyVoxelRangeUtility
         IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMin.Z, ref qMin, ref qMax, ref rMin, ref rMax);
         IncludeHexAxialCorner(grid.BoundsMin, metrics, clippedMax.X, clippedMax.Z, ref qMin, ref qMax, ref rMin, ref rMax);
 
-        int xMin = System.Math.Max(0, qMin.FloorToInt() - 1);
-        int xMax = System.Math.Min(grid.Width - 1, qMax.CeilToInt() + 1);
-        int zMin = System.Math.Max(0, rMin.FloorToInt() - 1);
-        int zMax = System.Math.Min(grid.Length - 1, rMax.CeilToInt() + 1);
+        // Axial values come from the quantized forward basis. Keep one address
+        // of padding for rounding, widening before the integer addition.
+        int xMin = (int)System.Math.Max(0L, (long)qMin.FloorToInt() - 1);
+        int xMax = (int)System.Math.Min(grid.Width - 1L, (long)qMax.CeilToInt() + 1);
+        int zMin = (int)System.Math.Max(0L, (long)rMin.FloorToInt() - 1);
+        int zMax = (int)System.Math.Min(grid.Length - 1L, (long)rMax.CeilToInt() + 1);
+        if (xMin > xMax || zMin > zMax)
+            return false;
+
         int yMin = System.Math.Max(
             0,
             ((clippedMin.Y - grid.BoundsMin.Y) / layerHeight).FloorToInt());
@@ -140,6 +139,20 @@ internal static class TopologyVoxelRangeUtility
         maxIndex = new VoxelIndex(xMax, yMax, zMax);
         return true;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void GetHorizontalCoverageBounds(
+        Vector3d queryMin, Vector3d queryMax, Fixed64 padding,
+        out Vector2d minimum, out Vector2d maximum)
+    {
+        minimum = new Vector2d(queryMin.X - padding, queryMin.Z - padding);
+        maximum = new Vector2d(queryMax.X + padding, queryMax.Z + padding);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool ContainsHorizontalCenter(Vector2d minimum, Vector2d maximum, Vector3d position) =>
+        position.X >= minimum.X && position.X <= maximum.X
+        && position.Z >= minimum.Y && position.Z <= maximum.Y;
 
     internal static bool TryClipBoundsToGrid(
         VoxelGrid grid,
