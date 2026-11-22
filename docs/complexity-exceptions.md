@@ -6,10 +6,13 @@ cyclomatic-complexity review threshold.
 ## Policy
 
 - Review threshold: cyclomatic complexity greater than 10.
+- Register only methods above that threshold. Entries justify complexity, never
+  uncovered code or an exception to the coverage gate.
 - Risk threshold: CRAP score greater than 30 requires immediate test hardening
   or refactoring.
-- Registered methods must retain 100% line and branch coverage. Re-run the
-  repository coverage and CRAP analysis when an exception changes.
+- Registered methods must retain 100% reported line, branch and executable-method
+  coverage in Release and ReleaseLean. Re-run the repository coverage gate and
+  CRAP analysis when an exception changes.
 
 Complexity exceptions are acceptable for compiler-generated iterator machinery,
 deterministic fixed-order comparison, cohesive validation/construction/state
@@ -53,6 +56,9 @@ benchmarks show a different bottleneck.
 
 ## Review Notes
 
+- A reported coverage gap fails acceptance even for a registered method. Add
+  focused behavioral tests for reachable paths; prove and remove unreachable
+  runtime branches instead of retaining uncovered guards or adding exclusions.
 - Coverage and CRAP reports are generated artifacts rather than repository
   inputs. Recreate them from the test project's coverage settings before
   reviewing this register.

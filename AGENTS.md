@@ -281,6 +281,13 @@ Rules:
 
 Match the surrounding file style instead of imposing a new one.
 
+For parity across planar and spatial queries, topologies, or storage kinds,
+first reuse existing types and logic whose contracts match. Share enums,
+policies, validation, and traversal logic at their common owner when semantics
+match. Keep specialized code where geometry, storage, or lifecycle requires it.
+Dimensional naming or matching file structure alone does not justify duplication.
+Verify shared changes through the affected query, topology, and storage callers.
+
 - Add explicit `using` directives. `ImplicitUsings` is disabled.
 - The library project enables nullable analysis; tests and benchmarks disable
   it. Follow the project being edited.
@@ -315,6 +322,17 @@ CI validates both `Release` and `ReleaseLean` on Ubuntu and Windows:
 dotnet test GridForge.slnx --configuration Release
 dotnet test GridForge.slnx --configuration ReleaseLean
 ```
+
+Require 100% reported line, branch and executable-method coverage of the
+`GridForge` assembly in both configurations. Collect coverage from
+`tests/GridForge.Tests/GridForge.Tests.csproj` using its `coverlet.runsettings`,
+then run `.assets/scripts/assert-full-coverage.ps1` against fresh results for
+each configuration. The gate runs in every Windows/Linux build/test lane and
+before Pages publication; sibling assemblies remain outside this coverage scope.
+The complexity exception register justifies complexity only and cannot waive
+reported coverage gaps. Add behavioral tests for reachable paths, or prove and
+remove unreachable runtime branches; do not retain uncovered guards or add
+exclusions. See [coverage validation](CONTRIBUTING.md#coverage-validation).
 
 Run benchmarks when changing pooling, tracing, scan cells, occupant
 registration, blocker application, grid registration, neighbor caching, or other

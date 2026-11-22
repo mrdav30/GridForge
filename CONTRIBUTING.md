@@ -42,6 +42,29 @@ compatible with both targets and free of game-engine dependencies.
 6. Keep generated `bin`, `obj`, `TestResults`, DocFX, coverage, and benchmark
    artifacts out of the pull request.
 
+## Coverage validation
+
+Require 100% reported line, branch and executable-method coverage of the
+`GridForge` assembly in `Release` and `ReleaseLean`. The core test project
+collects this scope; sibling assemblies are not included. Use a fresh results
+directory for each configuration:
+
+```powershell
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj -c Release --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage/Release
+./.assets/scripts/assert-full-coverage.ps1 -CoverageDirectory artifacts/coverage/Release
+```
+
+Repeat with `ReleaseLean` in both configuration and output path. Preserve the
+source-mode flags described below when validating coordinated sibling sources.
+The same raw Cobertura gate runs in every Windows/Linux build/test lane and
+before Pages publication. It requires the expected assembly, meaningful coverage
+data and zero uncovered lines, branch outcomes or executable methods. The
+existing Pages summary gate remains in place.
+
+Complexity exceptions justify complexity only. Add behavioral tests for
+reachable paths, or prove and remove unreachable runtime branches; do not waive
+reported gaps through the register or new exclusions.
+
 ## Documentation
 
 The root README is the concise product introduction. Deeper usage and

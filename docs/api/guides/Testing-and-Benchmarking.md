@@ -83,12 +83,19 @@ dotnet test GridForge.slnx --configuration Debug --no-build
 
 ## Coverage Notes
 
-```bash
-dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
+```powershell
+dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage/Release
+./.assets/scripts/assert-full-coverage.ps1 -CoverageDirectory artifacts/coverage/Release
 ```
 
-The main-branch coverage workflow enforces full line, branch, and method
-coverage and publishes the report at
+Use a fresh results directory and repeat with `ReleaseLean` in both the
+configuration and output path. The raw Cobertura gate requires 100% reported
+line, branch and executable-method coverage of the `GridForge` assembly in every
+Windows/Linux build/test lane and before Pages publication. Sibling assemblies
+remain outside this scope. Complexity exceptions never waive reported gaps.
+
+The main-branch coverage workflow also checks the generated summary and
+publishes the report at
 [GridForge coverage](https://mrdav30.github.io/GridForge/coverage/).
 
 ## Test Design Expectations

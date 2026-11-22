@@ -41,36 +41,7 @@ resolutions or documented investigation closures.
 
 ## Active Issues
 
-### GF-Issue-012 — Published math dependency lacks planar capsule predicates
-
-- **Discovered:** 2026-11-02, during release preparation.
-- **Status/priority:** Confirmed pre-existing package-build blocker; release
-  validation pending a compatible published FixedMathSharp version.
-- **Owners:** `src/GridForge/GridForge.csproj` package references and
-  `GridTracer.PlanarNavigationBody.Geometry.cs` calls to
-  `FixedConvex2dRelations.IntersectsUprightCapsule` and
-  `IntersectsSweptUprightCapsuleStrict`.
-- **Source revision:** GridForge `50d55404138a74c9d87d3abbdf4bd3d30417774d`
-  before release cleanup. Reproduced with .NET SDK 10.0.302 (selected through
-  `global.json` roll-forward) on Windows, using the default released-package
-  dependency graph.
-- **Reproducer:** Clear `UseLocalLsfStack`, then run
-  `dotnet build GridForge.slnx -c Release` (also check `ReleaseLean`). The
-  referenced FixedMathSharp 7.1.0 package does not expose either method,
-  producing CS0117 for both calls and both library target frameworks.
-- **Control:** The sibling-source Release build succeeds and all 1,171 baseline
-  tests pass. The predicates were added in FixedMathSharp commit
-  `45fd98b7b2716fe1c8b8b52f6a708932b3bc4511`, which is contained in the existing
-  develop CI pin. This control establishes the source/package gap; it does not
-  establish released-package compatibility.
-- **Impact:** Default main/release package builds cannot compile this source. No
-  capsule algorithm or forwarding workaround is needed in GridForge.
-- **Next action:** Publish a FixedMathSharp Standard/Lean pair containing the
-  predicates, align the direct/transitive lower-stack package requirements with
-  that released version, then build/test GridForge in both package profiles.
-  Keep current pins until a real published version is selected. Close this issue
-  only after the package-mode commands pass; source-mode packages are not
-  release artifacts.
+None.
 
 ## Performance Investigation Queue
 

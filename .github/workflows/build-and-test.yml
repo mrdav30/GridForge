@@ -95,5 +95,12 @@ jobs:
           echo "Assembly Version: ${{ steps.gitversion.outputs.assemblySemFileVer }}"
           dotnet build GridForge.slnx --configuration ${{ matrix.configuration }} --no-restore -p:UseLocalLsfStack=${{ env.UseLocalLsfStack }} -p:DisableTransitiveProjectReferences=${{ env.UseLocalLsfStack }} -m:1 -p:BuildInParallel=false
 
-      - name: Run Tests
-        run: dotnet test GridForge.slnx --configuration ${{ matrix.configuration }} --no-build --no-restore -p:UseLocalLsfStack=${{ env.UseLocalLsfStack }} -p:DisableTransitiveProjectReferences=${{ env.UseLocalLsfStack }} -m:1 --verbosity normal
+      - name: Run Tests with Coverage
+        shell: pwsh
+        run: |
+          dotnet test tests/GridForge.Tests/GridForge.Tests.csproj --configuration ${{ matrix.configuration }} --no-build --no-restore -p:UseLocalLsfStack=${{ env.UseLocalLsfStack }} -p:DisableTransitiveProjectReferences=${{ env.UseLocalLsfStack }} -m:1 --verbosity normal --collect:"XPlat Code Coverage" --settings tests/GridForge.Tests/coverlet.runsettings --results-directory artifacts/coverage
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Enforce Full Coverage
+        shell: pwsh
+        run: ./.assets/scripts/assert-full-coverage.ps1 -CoverageDirectory artifacts/coverage
