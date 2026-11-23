@@ -20,6 +20,9 @@ public sealed class GridNavigationBodyTraceScratch
     internal SwiftList<int> UnionMembers { get; }
 
     /// <summary>Creates scratch with expected grid and address counts.</summary>
+    /// <param name="gridCapacity">Initial grid-candidate capacity; must be nonnegative.</param>
+    /// <param name="addressCapacity">Initial address-candidate capacity; must be nonnegative.</param>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="gridCapacity"/>, <paramref name="addressCapacity"/> is negative.</exception>
     public GridNavigationBodyTraceScratch(int gridCapacity = 0, int addressCapacity = 0)
     {
         ChronicleGuard.ThrowIfNegative(gridCapacity, nameof(gridCapacity));

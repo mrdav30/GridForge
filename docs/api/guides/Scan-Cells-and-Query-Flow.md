@@ -52,6 +52,27 @@ retrieval straightforward.
 That last point matters a lot: a scan cell is not just a flat bag of occupants.
 It preserves which voxel each occupant came from.
 
+### Current retrieval scope
+
+`GridScanManager.GetOccupants`, `GetVoxelOccupantsByType<T>`, and
+`GetConditionalOccupants` currently use the requested voxel to select a scan
+cell, then enumerate that cell's buckets. The requested voxel must itself be
+occupied, but the result can also include occupants from neighboring voxels in
+the same scan cell. Their position/address/world overloads share this behavior.
+This is a confirmed exact-voxel lookup defect tracked as
+[GF-Issue-013](https://github.com/mrdav30/GridForge/blob/develop/docs/feature-work/issue-tracker.md#gf-issue-013--voxel-occupant-enumeration-includes-neighboring-buckets).
+`TryGetVoxelOccupant` with an exact ticket still selects the requested voxel
+bucket. `ScanCell.GetOccupants` intentionally enumerates the whole scan cell.
+
+Radius scans apply a squared-distance filter, including the radius boundary.
+Planar scans select a Y layer and compare world X/Z distances. Supply a
+nonnegative radius and representable arithmetic; negative radii are not rejected
+and currently undergo squared-distance filtering after signed broad-phase bounds
+are formed. Results are not distance-sorted or globally deduplicated across an
+occupant's registrations. Caller-owned `Into` lists are cleared before filling;
+predicate exceptions propagate and leave already-appended matches in the list.
+Finish live enumeration before changing occupancy.
+
 ## The Occupant Registration Flow
 
 When an occupant is added through `GridOccupantManager`, the flow looks like

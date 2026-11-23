@@ -31,16 +31,19 @@ public class VoxelGrid
     /// Nonzero 64-bit world-local allocation generation identifying this active grid instance.
     /// Zero indicates an inactive or unallocated grid.
     /// </summary>
+    /// <value>Nonzero 64-bit world-local allocation generation identifying this active grid instance. Zero indicates an inactive or unallocated grid.</value>
     public long SpawnToken { get; private set; }
 
     /// <summary>
     /// World-local index of the grid within its owning world.
     /// </summary>
+    /// <value>World-local index of the grid within its owning world.</value>
     public ushort GridIndex { get; private set; }
 
     /// <summary>
     /// The world that owns this grid instance.
     /// </summary>
+    /// <value>The world that owns this grid instance.</value>
     public GridWorld? World { get; private set; }
 
     /// <summary>
@@ -53,48 +56,57 @@ public class VoxelGrid
     /// </summary>
     internal object OccupantSyncRoot { get; } = new object();
 
-    /// <inheritdoc cref="GridConfiguration"/>
+    /// <summary>Gets the normalized configuration of this grid generation.</summary>
+    /// <value>A copied value containing snapped world-space bounds, topology metrics, storage kind, and scan-cell size. Reset replaces it with the default value.</value>
     public GridConfiguration Configuration { get; private set; }
 
     /// <summary>
     /// Minimum bounds of the grid in world coordinates.
     /// </summary>
+    /// <value>Minimum bounds of the grid in world coordinates.</value>
     public Vector3d BoundsMin => Configuration.BoundsMin;
 
     /// <summary>
     /// Maximum bounds of the grid in world coordinates.
     /// </summary>
+    /// <value>Maximum bounds of the grid in world coordinates.</value>
     public Vector3d BoundsMax => Configuration.BoundsMax;
 
     /// <summary>
     /// Center position of the grid in world space.
     /// </summary>
+    /// <value>Center position of the grid in world space.</value>
     public Vector3d BoundsCenter => Configuration.GridCenter;
 
     /// <summary>
     /// Grid width in number of voxels.
     /// </summary>
+    /// <value>Grid width in number of voxels.</value>
     public int Width { get; private set; }
 
     /// <summary>
     /// Grid height in number of voxels.
     /// </summary>
+    /// <value>Grid height in number of voxels.</value>
     public int Height { get; private set; }
 
     /// <summary>
     /// Grid length in number of voxels.
     /// </summary>
+    /// <value>Grid length in number of voxels.</value>
     public int Length { get; private set; }
 
     /// <summary>
     /// Total addressable voxel count within the grid bounds.
     /// </summary>
+    /// <value>Total addressable voxel count within the grid bounds.</value>
     public int Size { get; private set; }
 
     /// <summary>
     /// The number of physical voxels configured in the grid storage.
     /// Dense grids report <see cref="Size"/>; sparse grids report configured voxels only.
     /// </summary>
+    /// <value>The number of physical voxels configured in the grid storage. Dense grids report <see cref="P:GridForge.Grids.VoxelGrid.Size" />; sparse grids report configured voxels only.</value>
     public int ConfiguredVoxelCount
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -104,6 +116,7 @@ public class VoxelGrid
     /// <summary>
     /// The physical voxel storage strategy used by this grid.
     /// </summary>
+    /// <value>The physical voxel storage strategy used by this grid.</value>
     public GridStorageKind StorageKind
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -126,11 +139,13 @@ public class VoxelGrid
     /// Each topology-local slot can contain multiple neighboring grid IDs. Contact
     /// queries can also return multiple voxel contacts across different grid cell sizes.
     /// </remarks>
+    /// <value>Grid-owned live lookup storage, or null when unavailable. Inspect only; direct edits bypass manager invariants. Grid mutation can invalidate enumeration, and reset releases this storage for pooling.</value>
     public SwiftSparseMap<SwiftHashSet<int>>? Neighbors { get; private set; }
 
     /// <summary>
     /// Count of currently linked neighboring grids.
     /// </summary>
+    /// <value>Count of currently linked neighboring grids.</value>
     public byte NeighborCount { get; private set; }
 
     /// <summary>
@@ -146,11 +161,13 @@ public class VoxelGrid
     /// <summary>
     /// Determines whether this grid has any linked neighbors.
     /// </summary>
+    /// <value>Determines whether this grid has any linked neighbors.</value>
     public bool IsConjoined => Neighbors != null && NeighborCount > 0;
 
     /// <summary>
     /// Size of a scan cell used for spatial partitioning.
     /// </summary>
+    /// <value>Size of a scan cell used for spatial partitioning.</value>
     public int ScanCellSize => Configuration.ScanCellSize;
 
     /// <summary>
@@ -165,26 +182,31 @@ public class VoxelGrid
     /// <summary>
     /// Stores currently active (occupied) scan cells within the grid.
     /// </summary>
+    /// <value>Grid-owned live lookup storage, or null when unavailable. Inspect only; direct edits bypass manager invariants. Grid mutation can invalidate enumeration, and reset releases this storage for pooling.</value>
     public SwiftHashSet<int>? ActiveScanCells { get; internal set; }
 
     /// <summary>
     /// Indicates whether the grid is currently active.
     /// </summary>
+    /// <value>Indicates whether the grid is currently active.</value>
     public bool IsActive { get; private set; }
 
     /// <summary>
     /// Determines whether the grid is occupied (active and containing occupants).
     /// </summary>
+    /// <value>Determines whether the grid is occupied (active and containing occupants).</value>
     public bool IsOccupied => ActiveScanCells?.Count > 0;
 
     /// <summary>
     /// Tracks the number of obstacles currently registered in the grid.
     /// </summary>
+    /// <value>The total obstacle-token attachments across physical voxels. A stacked blocker contributes one attachment per covered voxel; this is not a distinct-blocker count.</value>
     public int ObstacleCount { get; internal set; }
 
     /// <summary>
     /// Tracks the version of the grid, incremented when a <see cref="Voxel"/> is modified.
     /// </summary>
+    /// <value>Tracks the version of the grid, incremented when a <see cref="T:GridForge.Grids.Voxel" /> is modified.</value>
     public uint Version { get; private set; }
 
     internal ulong LastChangeSequence { get; set; }
@@ -512,6 +534,8 @@ public class VoxelGrid
     /// Determines if a voxel coordinate is at the boundary of the grid.
     /// Used to determine if a voxel should update when a neighboring grid is added/removed.
     /// </summary>
+    /// <param name="coord">The topology-local coordinate to inspect.</param>
+    /// <returns>True when any local component is zero or its final address; this does not validate the other components.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsOnBoundary(VoxelIndex coord) =>
          coord.x == 0 || coord.x == Width - 1
@@ -521,6 +545,8 @@ public class VoxelGrid
     /// <summary>
     /// Checks whether a given position falls within the grid bounds.
     /// </summary>
+    /// <param name="target">The fixed-point position in world coordinates.</param>
+    /// <returns>True when the topology admits the world position within this grid address space. This does not require sparse physical presence.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsInBounds(Vector3d target) =>
         IsActive && Topology.IsInBounds(BoundsMin, BoundsMax, Width, Height, Length, target);
@@ -553,6 +579,10 @@ public class VoxelGrid
     /// <summary>
     /// Determines whether the given voxel coordinates are within the valid range of the grid.
     /// </summary>
+    /// <param name="x">The local X or axial Q address component.</param>
+    /// <param name="y">The local Y or vertical layer address component.</param>
+    /// <param name="z">The local Z or axial R address component.</param>
+    /// <returns>True when every component lies within the grid dimensions; sparse physical presence is not required.</returns>
     public bool IsValidVoxelIndex(int x, int y, int z)
     {
         if (!IsActive)
@@ -578,6 +608,9 @@ public class VoxelGrid
     /// <summary>
     /// Determines if a topology-local voxel index is facing the rectangular-prism boundary in the supplied direction.
     /// </summary>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="direction">The topology-local neighbor direction.</param>
+    /// <returns>True when the selected topology direction faces the addressed boundary; false for an unsupported direction.</returns>
     public bool IsFacingBoundary(VoxelIndex voxelIndex, RectangularDirection direction) =>
         TryGetNeighborSlot(direction, out int slot)
         && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
@@ -585,6 +618,9 @@ public class VoxelGrid
     /// <summary>
     /// Determines if a topology-local voxel index is facing the hex-prism boundary in the supplied direction.
     /// </summary>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="direction">The topology-local neighbor direction.</param>
+    /// <returns>True when the selected topology direction faces the addressed boundary; false for an unsupported direction.</returns>
     public bool IsFacingBoundary(VoxelIndex voxelIndex, HexDirection direction) =>
         TryGetNeighborSlot(direction, out int slot)
         && _topology!.IsFacingBoundary(voxelIndex, slot, Width, Height, Length);
@@ -593,6 +629,9 @@ public class VoxelGrid
     /// Converts a world position to a topology-local voxel index within the grid.
     /// Rectangular-prism grids return X/Y/Z coordinates; hex-prism grids return axial Q, layer, and axial R in X/Y/Z fields.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="result">The resolved value on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the world position maps to an in-bounds address; otherwise false and the result is default. Sparse presence is not required.</returns>
     public bool TryGetVoxelIndex(Vector3d position, out VoxelIndex result)
     {
         result = default;
@@ -637,6 +676,10 @@ public class VoxelGrid
     /// <summary>
     /// Checks if a voxel at the given topology-local coordinates is allocated within the grid.
     /// </summary>
+    /// <param name="x">The local X or axial Q address component.</param>
+    /// <param name="y">The local Y or vertical layer address component.</param>
+    /// <param name="z">The local Z or axial R address component.</param>
+    /// <returns>True when the address contains a physical voxel; false for out-of-bounds or missing sparse addresses.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsVoxelAllocated(int x, int y, int z) =>
         IsValidVoxelIndex(x, y, z) && _storage!.TryGetVoxel(x, y, z, out _);
@@ -770,6 +813,11 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the <see cref="Voxel"/> at the specified topology-local coordinates, if allocated.
     /// </summary>
+    /// <param name="x">The local X or axial Q address component.</param>
+    /// <param name="y">The local Y or vertical layer address component.</param>
+    /// <param name="z">The local Z or axial R address component.</param>
+    /// <param name="result">The resolved value on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when a physical voxel is found; otherwise false and result is null.</returns>
     public bool TryGetVoxel(int x, int y, int z, out Voxel? result)
     {
         result = null;
@@ -783,6 +831,7 @@ public class VoxelGrid
     /// <summary>
     /// Enumerates physical voxels configured in this grid in deterministic storage order.
     /// </summary>
+    /// <returns>A lazy storage traversal of physical voxels only. References are borrowed and invalidated by grid mutation, removal, reset, or pooled reuse.</returns>
     public IEnumerable<Voxel> EnumerateVoxels() =>
         _storage?.EnumerateVoxels() ?? Array.Empty<Voxel>();
 
@@ -802,6 +851,9 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves a grid voxel from a topology-local coordinate.
     /// </summary>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="result">The resolved value on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when a physical voxel is found; otherwise false and result is null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result) =>
          TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
@@ -822,6 +874,8 @@ public class VoxelGrid
     /// Retrieve <see cref="Voxel"/> from world <see cref="Vector3d"/> points
     /// </summary>
     /// <returns><see cref="Voxel"/> at the given position or null if the position is not valid.</returns>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="result">The resolved value on success; default on failure. Use it only when the operation succeeds.</param>
     public bool TryGetVoxel(Vector3d position, out Voxel? result)
     {
         result = null;
@@ -909,6 +963,8 @@ public class VoxelGrid
     /// <summary>
     /// Computes the scan cell key for a given world position.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <returns>The flattened scan-cell key computed from this position/address. Callers must supply an in-bounds address; this method does not validate it.</returns>
     public int GetScanCellKey(Vector3d position)
     {
         if (!TryGetVoxelIndex(position, out VoxelIndex voxelIndex))
@@ -920,6 +976,8 @@ public class VoxelGrid
     /// <summary>
     /// Calculates the spatial cell index for a given position.
     /// </summary>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <returns>The flattened scan-cell key computed from this position/address. Callers must supply an in-bounds address; this method does not validate it.</returns>
     public int GetScanCellKey(VoxelIndex voxelIndex)
     {
         (int x, int y, int z) = (
@@ -957,6 +1015,9 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves a scan cell from the grid using its key.
     /// </summary>
+    /// <param name="key">The grid-local scan-cell key.</param>
+    /// <param name="outScanCell">The resolved scan cell on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the computed key resolves to an existing scan cell; otherwise false and the output is null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(int key, out ScanCell? outScanCell)
     {
@@ -967,6 +1028,9 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the scan cell corresponding to a given world position.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="outScanCell">The resolved scan cell on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the computed key resolves to an existing scan cell; otherwise false and the output is null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(Vector3d position, out ScanCell? outScanCell)
     {
@@ -977,6 +1041,9 @@ public class VoxelGrid
     /// <summary>
     /// Retrieves the scan cell associated with the given voxel index.
     /// </summary>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="outScanCell">The resolved scan cell on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the computed key resolves to an existing scan cell; otherwise false and the output is null.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetScanCell(VoxelIndex voxelIndex, out ScanCell? outScanCell)
     {
@@ -1009,6 +1076,7 @@ public class VoxelGrid
     /// <summary>
     /// Enumerates all currently active scan cells within the grid.
     /// </summary>
+    /// <returns>A lazy view of scan cells currently containing occupants. Occupancy mutation invalidates enumeration; cells are borrowed until grid reset.</returns>
     public IEnumerable<ScanCell> GetActiveScanCells()
     {
         if (!IsActive || !IsOccupied)
@@ -1024,6 +1092,8 @@ public class VoxelGrid
     /// <summary>
     /// Helper function to ceil snap a <see cref="Vector3d"/> through this grid's topology, ensuring it stays within grid bounds.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <returns>For rectangular grids, the ceiling world-space cell origin on each axis, clamped to the address space. For hex grids, both floor and ceiling methods return the same rounded axial cell with a floored vertical layer, clamped to dimensions.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d CeilToGrid(Vector3d position) =>
          Topology.CeilToGrid(BoundsMin, BoundsMax, Width, Height, Length, position);
@@ -1031,6 +1101,8 @@ public class VoxelGrid
     /// <summary>
     /// Helper function to floor snap a <see cref="Vector3d"/> through this grid's topology, ensuring it stays within grid bounds.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <returns>For rectangular grids, the floor world-space cell origin on each axis, clamped to the address space. For hex grids, both floor and ceiling methods return the same rounded axial cell with a floored vertical layer, clamped to dimensions.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector3d FloorToGrid(Vector3d position) =>
         Topology.FloorToGrid(BoundsMin, BoundsMax, Width, Height, Length, position);
@@ -1038,6 +1110,8 @@ public class VoxelGrid
     /// <summary>
     /// Snaps a given position to the topology-local scan cell in the grid.
     /// </summary>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <returns>The topology-local scan-cell (x, y, z) coordinate; this is not a voxel index or world position.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (int x, int y, int z) SnapToScanCell(Vector3d position) =>
         Topology.SnapToScanCell(BoundsMin, position, ScanCellSize);
@@ -1047,7 +1121,7 @@ public class VoxelGrid
     /// </summary>
     /// <param name="min">The first world-space bounds corner.</param>
     /// <param name="max">The second world-space bounds corner.</param>
-    /// <param name="padding">Optional non-negative padding applied before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>Topology-aligned minimum and maximum bounds suitable for deterministic coverage scans.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (Vector3d min, Vector3d max) NormalizeBounds(Vector3d min, Vector3d max, Fixed64? padding = null) =>

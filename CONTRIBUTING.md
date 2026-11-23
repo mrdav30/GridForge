@@ -85,6 +85,46 @@ dotnet tool run docfx docs/api/docfx.json --warningsAsErrors
 The generated site is disposable under `docs/api/obj`. Do not edit or commit
 generated API metadata or HTML.
 
+### Public XML contracts
+
+Document authored public and protected APIs, including overloads, operators,
+indexers, nested types, and declarations selected only on another shipped
+target. Give members a concise summary and applicable parameter, type-parameter,
+return, and property-value text. Explain coordinate spaces, defaults, failure
+outputs, mutation, borrowed storage, invalidation, ordering, and caller-visible
+exceptions. Use `inheritdoc` only when the generated page actually resolves the
+shared contract, including its parameter names and exceptions. Private-field
+inheritance does not populate public event summaries in the current assembly
+metadata build; document those events directly.
+
+The site selects only `src/GridForge/bin/Release/net10.0/GridForge.dll` and its
+adjacent `GridForge.xml`. It does not build from C# source or automatically
+include sibling assemblies, Lean output, or `netstandard2.1`. Build both Release
+variants and inspect all four `GridForge.xml` outputs. On develop, retain the
+source-mode flags from the coordinated workflow below throughout restore, build,
+and test. Do not substitute a stale package-mode assembly for the site input.
+Build the site with `--warningsAsErrors` and run the local-link and
+required-page checks in `.github/workflows/coverage.yml`.
+
+Reconcile source declarations, emitted XML, assembly symbols, and generated
+DocFX members. Count partial shells once per API identity, and account
+separately for implicit constructors, record synthesis, and MemoryPack-generated
+APIs. Start inventory verification with a fresh `docs/api/obj` directory: move
+any old generated output aside before rebuilding. DocFX can otherwise retain
+metadata and pages for types removed from the current assembly. Compiler
+warnings alone do not detect missing return text or unresolved inherited
+comments. Inspect representative HTML for every family and documentation
+pattern. The
+[XML documentation verification record](docs/feature-work/done/2026-11-22-public-api-xml-documentation.md)
+records the checked inputs, inventory, decisions, and known generated
+exclusions.
+
+Keep documentation passes behavior-preserving. Record confirmed implementation
+defects in the [issue tracker](docs/feature-work/issue-tracker.md) with a
+portable reproducer and source revision; put runtime fixes and maintained
+regression tests in separate work. Preserve existing CI policy and do not stage
+generated output.
+
 ## Source layout and cleanup
 
 Give each namespace-level type or delegate its own file. Public/internal nested

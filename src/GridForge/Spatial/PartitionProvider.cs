@@ -19,6 +19,7 @@ namespace GridForge.Spatial;
 /// storage that is cleared and retained after compaction so a later promotion can reuse it.
 /// Enumeration and compaction preserve registration order.
 /// </remarks>
+/// <typeparam name="TPartitionBase">The reference-type base accepted for retained partitions.</typeparam>
 public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBase : class
 {
     /// <summary>
@@ -47,15 +48,14 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// </summary>
     private SwiftList<OverflowPartition>? _overflowPartitions;
 
-    /// <summary>
-    /// Indicates whether the provider currently contains any partitions.
-    /// Returns true if empty; otherwise, false.
-    /// </summary>
+    /// <summary>Indicates whether no partitions are stored.</summary>
+    /// <value>True when empty; otherwise false.</value>
     public bool IsEmpty => _firstPartition == null;
 
     /// <summary>
     /// Gets the current number of partitions stored in the provider.
     /// </summary>
+    /// <value>Gets the current number of partitions stored in the provider.</value>
     public int Count =>
         (_firstPartition != null ? 1 : 0)
         + (_secondPartition != null ? 1 : 0)
@@ -65,6 +65,10 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// Attempts to add a partition to the provider with the specified type key.
     /// Returns true if the partition was added; false if a partition with the same type already exists.
     /// </summary>
+    /// <param name="partitionType">The exact type key to query. Lookup does not search base classes or interfaces.</param>
+    /// <param name="partition">The partition instance to retain under its exact type key.</param>
+    /// <returns>True when the exact key was absent and the reference was retained; false for null arguments or an existing key.</returns>
+    /// <remarks>The supplied Type is an explicit key. The provider does not check that it equals, or is assignable from, the object runtime type. Use a matching concrete type key when you need generic lookup to find the value.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryAdd(Type partitionType, TPartitionBase partition)
     {
@@ -100,6 +104,9 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// If successful, the removed partition is returned in the out parameter.
     /// Returns true if the partition was removed; otherwise, false.
     /// </summary>
+    /// <param name="partitionType">The exact type key to query. Lookup does not search base classes or interfaces.</param>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact key was removed and the detached reference is returned; otherwise false with a null output.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryRemove(Type partitionType, out TPartitionBase? partition)
     {
@@ -132,6 +139,9 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// <summary>
     /// Attempts to retrieve a partition associated with the specified concrete type.
     /// </summary>
+    /// <param name="partitionType">The exact type key to query. Lookup does not search base classes or interfaces.</param>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact supplied key is stored, returning its retained base-type reference; otherwise false and the output is null. No agreement between the key and runtime object type is checked.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGet(Type partitionType, out TPartitionBase? partition)
     {
@@ -159,6 +169,9 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// Attempts to retrieve a partition of the specified type.
     /// Returns true and sets the out parameter if the partition exists and is of the requested type; otherwise, returns false.
     /// </summary>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>True when the exact key resolves and the output has the requested type; otherwise false with a default output.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGet<T>(out T? partition) where T : TPartitionBase
     {
@@ -243,6 +256,8 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// <summary>
     /// Determines whether the provider contains a partition associated with the specified concrete type.
     /// </summary>
+    /// <param name="partitionType">The exact type key to query. Lookup does not search base classes or interfaces.</param>
+    /// <returns>True when the exact type key is stored; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Has(Type partitionType)
     {
@@ -253,6 +268,8 @@ public sealed partial class PartitionProvider<TPartitionBase> where TPartitionBa
     /// Determines whether the provider contains a partition of the specified type.
     /// Returns true if such a partition exists; otherwise, false.
     /// </summary>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>True when the exact type key is stored; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Has<T>() where T : TPartitionBase
     {

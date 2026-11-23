@@ -31,36 +31,43 @@ public readonly struct GridCellPrism
     /// <summary>
     /// The exact runtime cell identity represented by this prism.
     /// </summary>
+    /// <value>The exact runtime cell identity represented by this prism.</value>
     public WorldVoxelIndex Cell { get; }
 
     /// <summary>
     /// The topology that produced the footprint.
     /// </summary>
+    /// <value>The topology that produced the footprint.</value>
     public GridTopologyKind TopologyKind { get; }
 
     /// <summary>
     /// The world-space cell center.
     /// </summary>
+    /// <value>The world-space cell center.</value>
     public Vector3d Center { get; }
 
     /// <summary>
     /// The inclusive lower Y bound.
     /// </summary>
+    /// <value>The inclusive lower Y bound.</value>
     public Fixed64 VerticalMin { get; }
 
     /// <summary>
     /// The inclusive upper Y bound.
     /// </summary>
+    /// <value>The inclusive upper Y bound.</value>
     public Fixed64 VerticalMax { get; }
 
     /// <summary>
     /// The largest radius that can be inset from every horizontal footprint edge.
     /// </summary>
+    /// <value>The largest radius that can be inset from every horizontal footprint edge.</value>
     public Fixed64 PlanarInradius { get; }
 
     /// <summary>
     /// The number of boundary-ordered footprint vertices.
     /// </summary>
+    /// <value>The number of boundary-ordered footprint vertices.</value>
     public int FootprintVertexCount { get; }
 
     internal GridCellPrism(
@@ -93,6 +100,9 @@ public readonly struct GridCellPrism
     /// <summary>
     /// Gets one boundary-ordered XZ footprint vertex.
     /// </summary>
+    /// <param name="index">Zero-based vertex index, less than the stored vertex count.</param>
+    /// <returns>The selected boundary-ordered world X/Z vertex; the vector Y component represents world Z.</returns>
+    /// <exception cref="System.ArgumentOutOfRangeException">The index is negative or is not less than the vertex count.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector2d GetFootprintVertex(int index) => index switch
     {
@@ -108,6 +118,8 @@ public readonly struct GridCellPrism
     /// <summary>
     /// Copies the boundary-ordered XZ footprint into caller-owned storage.
     /// </summary>
+    /// <param name="destination">Caller-owned destination. The vertex prefix is overwritten and the remaining elements are unchanged.</param>
+    /// <exception cref="System.ArgumentException">The destination span is shorter than the vertex count. No elements are written.</exception>
     public void CopyFootprintTo(Span<Vector2d> destination)
     {
         if (destination.Length < FootprintVertexCount)
@@ -120,6 +132,8 @@ public readonly struct GridCellPrism
     /// <summary>
     /// Determines whether a world-space point lies inside or on this closed prism.
     /// </summary>
+    /// <param name="point">The world-space point to test, including the closed prism boundary.</param>
+    /// <returns>True for points inside or on the closed prism; false outside it or for a default prism.</returns>
     public bool Contains(Vector3d point)
     {
         if (FootprintVertexCount is not 4 and not 6

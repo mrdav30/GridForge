@@ -25,6 +25,8 @@ public class BoundsBlocker : Blocker
     /// <param name="blockBounds">The bounding box to block.</param>
     /// <param name="isActive">Flag whether or not blocker is active.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
+    /// <exception cref="System.ArgumentNullException">The supplied world is null.</exception>
+    /// <remarks>The world reference is retained. Bounds/area inputs are copied by value; construction does not apply the blockage. Call ApplyBlockage or ToggleStatus to apply it.</remarks>
     public BoundsBlocker(
         GridWorld world,
         FixedBoundBox blockBounds,
@@ -42,6 +44,8 @@ public class BoundsBlocker : Blocker
     /// <param name="boundsMax">The world-space maximum bound.</param>
     /// <param name="isActive">Flag whether or not blocker is active.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
+    /// <exception cref="System.ArgumentNullException">The supplied world is null.</exception>
+    /// <remarks>The world reference is retained. Bounds/area inputs are copied by value; construction does not apply the blockage. Call ApplyBlockage or ToggleStatus to apply it.</remarks>
     public BoundsBlocker(
         GridWorld world,
         Vector3d boundsMin,

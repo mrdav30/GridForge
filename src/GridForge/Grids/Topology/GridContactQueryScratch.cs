@@ -26,6 +26,9 @@ public sealed class GridContactQueryScratch
     /// <summary>
     /// Initializes scratch storage with optional expected source and per-source candidate counts.
     /// </summary>
+    /// <param name="sourceCapacity">Initial source-voxel capacity; must be nonnegative.</param>
+    /// <param name="candidateCapacity">Initial target-candidate capacity; must be nonnegative.</param>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="sourceCapacity"/>, <paramref name="candidateCapacity"/> is negative.</exception>
     public GridContactQueryScratch(int sourceCapacity = 0, int candidateCapacity = 0)
     {
         ChronicleGuard.ThrowIfNegative(sourceCapacity, nameof(sourceCapacity));

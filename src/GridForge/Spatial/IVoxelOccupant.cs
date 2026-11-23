@@ -21,11 +21,13 @@ public interface IVoxelOccupant
     /// <summary>
     /// A globally unique identifier for the occupant.
     /// </summary>
+    /// <value>A globally unique identifier for the occupant.</value>
     Guid GlobalId { get; }
 
     /// <summary>
     /// The absolute world-space position of the occupant, representing its precise location in the environment.
     /// </summary>
+    /// <value>The absolute world-space position of the occupant, representing its precise location in the environment.</value>
     Vector3d Position { get; }
 
     /// <summary>
@@ -33,5 +35,6 @@ public interface IVoxelOccupant
     /// Occupants with the same group Id belong to the same logical group.
     /// This allows efficient retrieval of related occupants in spatial queries.
     /// </summary>
+    /// <value>The group Id used for grouping occupants within a scan cell. Occupants with the same group Id belong to the same logical group. This allows efficient retrieval of related occupants in spatial queries.</value>
     byte OccupantGroupId { get; }
 }

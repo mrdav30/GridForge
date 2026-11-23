@@ -25,6 +25,12 @@ public static class GridTraversal
     /// <summary>
     /// Gets a voxel partition once per exact world-scoped voxel identity.
     /// </summary>
+    /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
+    /// <param name="visited">Caller-owned identity set used for duplicate suppression. Existing entries are preserved and new visits are added.</param>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <typeparam name="TPartition">The exact reference partition type to retrieve.</typeparam>
+    /// <returns>True when the identity was newly visited and the requested partition exists. An absent partition still leaves the identity in visited.</returns>
+    /// <remarks>The identity is added before partition lookup. A missing partition still marks the voxel visited. This helper does not itself validate world liveness.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool TryGetUniquePartition<TPartition>(
         Voxel voxel,
@@ -40,6 +46,11 @@ public static class GridTraversal
     /// <summary>
     /// Tests whether a 3D world position lies inside bounds expanded by half of a cell edge.
     /// </summary>
+    /// <param name="min">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="max">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="cellEdge">The selected cell edge in world units. Use nonnegative representable geometry; no range normalization is performed.</param>
+    /// <param name="worldPosition">The fixed-point position in world units.</param>
+    /// <returns>True when all world components are within the inclusively expanded bounds; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsWorldPositionInPaddedBounds(
         Vector3d min,
@@ -59,6 +70,11 @@ public static class GridTraversal
     /// <summary>
     /// Tests whether a world position's X/Z projection lies inside bounds expanded by half of a cell edge.
     /// </summary>
+    /// <param name="min">The minimum world X/Z corner: vector Y represents world Z.</param>
+    /// <param name="max">The maximum world X/Z corner: vector Y represents world Z.</param>
+    /// <param name="cellEdge">The selected cell edge in world units. Use nonnegative representable geometry; no range normalization is performed.</param>
+    /// <param name="worldPosition">The fixed-point position in world units.</param>
+    /// <returns>True when world X/Z lies within the inclusively expanded planar bounds; world Y is ignored.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPlanarPositionInPaddedBounds(
         Vector2d min,

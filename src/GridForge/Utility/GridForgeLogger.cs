@@ -22,16 +22,19 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets the diagnostic channel used by GridForge logging.
     /// </summary>
+    /// <value>Gets the diagnostic channel used by GridForge logging.</value>
     public static DiagnosticChannel Channel => _logger.Channel;
 
     /// <summary>
     /// Gets the diagnostic channel used for verbose debug diagnostics.
     /// </summary>
+    /// <value>Gets the diagnostic channel used for verbose debug diagnostics.</value>
     public static DiagnosticChannel DebugChannel => _logger.DebugChannel;
 
     /// <summary>
     /// Gets or sets a value indicating whether verbose debug diagnostics should be emitted.
     /// </summary>
+    /// <value>Gets or sets a value indicating whether verbose debug diagnostics should be emitted.</value>
     public static bool EnableDebugLogging
     {
         get => _logger.EnableDebugLogging;
@@ -42,6 +45,7 @@ public static class GridForgeLogger
     /// Gets or sets the delegate used to write formatted log messages.
     /// Assigning <see langword="null"/> restores <see cref="DefaultLogHandler"/>.
     /// </summary>
+    /// <value>Gets or sets the delegate used to write formatted log messages. Assigning <see langword="null" /> restores <see cref="M:GridForge.GridForgeLogger.DefaultLogHandler(Chronicler.Diagnostics.DiagnosticLevel,System.String,System.String)" />.</value>
     public static Action<DiagnosticLevel, string, string> LogHandler
     {
         get => _logger.LogHandler;
@@ -52,6 +56,7 @@ public static class GridForgeLogger
     /// Gets or sets the formatter used to transform log arguments into a final log entry.
     /// Assigning <see langword="null"/> restores <see cref="DefaultLogFormatter"/>.
     /// </summary>
+    /// <value>Gets or sets the formatter used to transform log arguments into a final log entry. Assigning <see langword="null" /> restores <see cref="M:GridForge.GridForgeLogger.DefaultLogFormatter(Chronicler.Diagnostics.DiagnosticLevel,System.String,System.String)" />.</value>
     public static Func<DiagnosticLevel, string, string, string> CustomFormatter
     {
         get => _logger.CustomFormatter;
@@ -61,6 +66,7 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets or sets the file path for logging. If null, file logging is disabled.
     /// </summary>
+    /// <value>Gets or sets the file path for logging. If null, file logging is disabled.</value>
     public static string? LogFilePath
     {
         get => _logger.LogFilePath;
@@ -70,6 +76,7 @@ public static class GridForgeLogger
     /// <summary>
     /// Gets or sets the minimum log level required for messages to be logged.
     /// </summary>
+    /// <value>Gets or sets the minimum log level required for messages to be logged.</value>
     public static DiagnosticLevel MinimumLevel
     {
         get => _logger.MinimumLevel;

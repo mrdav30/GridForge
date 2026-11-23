@@ -29,6 +29,7 @@ public static partial class GridCellGeometry
     /// <param name="portalWaypoints">Caller-owned storage with capacity for twice the portal count.</param>
     /// <param name="portalWaypointCount">The number of canonical portal waypoints written.</param>
     /// <param name="geometricCost">The checked fixed-point length of the canonical polyline.</param>
+    /// <returns>True when a representable anchor chain and clearance proof fit the supplied storage; otherwise false. Use the reported anchor prefix only on success.</returns>
     public static bool TryValidateNavigationCorridor(
         ReadOnlySpan<GridCellPrism> orderedCells,
         Vector3d entryAnchor,

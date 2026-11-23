@@ -27,6 +27,14 @@ public static class GridScanManager
     /// <summary>
     /// Scans for occupants within a given radius from a specified position in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy sequence of matching occupant references. Null or inactive worlds yield no results. Consume it before mutating the world.</returns>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Enumeration materializes matches into a temporary pooled list before the first yield, then releases that list when enumeration completes or is disposed. Predicate exceptions propagate after cleanup. Copy references if needed; do not retain pooled storage.
+    /// </remarks>
     public static IEnumerable<IVoxelOccupant> ScanRadius(
         GridWorld world,
         Vector3d position,
@@ -43,6 +51,15 @@ public static class GridScanManager
     /// <summary>
     /// Scans for occupants within a 2D XZ radius on the supplied world Y layer.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy sequence of matching occupant references. Null or inactive worlds yield no results. Consume it before mutating the world.</returns>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Enumeration materializes matches into a temporary pooled list before the first yield, then releases that list when enumeration completes or is disposed. Predicate exceptions propagate after cleanup. Copy references if needed; do not retain pooled storage.
+    /// </remarks>
     public static IEnumerable<IVoxelOccupant> ScanRadius(
         GridWorld world,
         Vector2d position,
@@ -60,6 +77,15 @@ public static class GridScanManager
     /// <summary>
     /// Scans for occupants of a specific type within a given radius in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy sequence of matching occupant references. Null or inactive worlds yield no results. Consume it before mutating the world.</returns>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Enumeration materializes matches into a temporary pooled list before the first yield, then releases that list when enumeration completes or is disposed. Predicate exceptions propagate after cleanup. Copy references if needed; do not retain pooled storage.
+    /// </remarks>
     public static IEnumerable<T> ScanRadius<T>(
         GridWorld world,
         Vector3d position,
@@ -73,6 +99,16 @@ public static class GridScanManager
     /// <summary>
     /// Scans for occupants of a specific type within a 2D XZ radius on the supplied world Y layer.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy sequence of matching occupant references. Null or inactive worlds yield no results. Consume it before mutating the world.</returns>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Enumeration materializes matches into a temporary pooled list before the first yield, then releases that list when enumeration completes or is disposed. Predicate exceptions propagate after cleanup. Copy references if needed; do not retain pooled storage.
+    /// </remarks>
     public static IEnumerable<T> ScanRadius<T>(
         GridWorld world,
         Vector2d position,
@@ -87,6 +123,15 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned storage with occupants within the supplied radius.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto(
         GridWorld world,
         Vector3d position,
@@ -107,6 +152,16 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned storage with occupants within a 2D XZ radius on the supplied world Y layer.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto(
         GridWorld world,
         Vector2d position,
@@ -128,6 +183,16 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned storage using caller-owned scratch collections.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto(
         GridWorld world,
         Vector3d position,
@@ -150,6 +215,17 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned storage using caller-owned scratch collections for a 2D XZ radius.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto(
         GridWorld world,
         Vector2d position,
@@ -173,6 +249,16 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned storage with typed occupants within the supplied radius.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto<T>(
         GridWorld world,
         Vector3d position,
@@ -193,6 +279,17 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned typed storage with occupants within a 2D XZ radius on the supplied world Y layer.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto<T>(
         GridWorld world,
         Vector2d position,
@@ -214,6 +311,17 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned typed storage using caller-owned scratch collections.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto<T>(
         GridWorld world,
         Vector3d position,
@@ -236,6 +344,18 @@ public static class GridScanManager
     /// <summary>
     /// Clears and fills caller-owned typed storage using caller-owned scratch collections for a 2D XZ radius.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="position">The world X/Z position: vector X maps to world X, vector Y to world Z.</param>
+    /// <param name="radius">The search radius in fixed-point world units. Squared-distance filtering includes the boundary.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
+    /// <remarks>The radius is squared without a sign check: negative radii currently use their magnitude for distance filtering. Broad-phase bounds use the signed radius. Prefer nonnegative radii and representable coordinate/radius arithmetic. Results follow grid/scan-cell/bucket traversal order; no distance sort or global occupant deduplication is promised. One occupant registered in multiple voxels may appear more than once.Predicate exceptions propagate. Matches already appended remain in caller storage; the operation does not roll them back.
+    /// </remarks>
     public static void ScanRadiusInto<T>(
         GridWorld world,
         Vector2d position,
@@ -260,9 +380,12 @@ public static class GridScanManager
 
     #region Occupant Registration & Retrieval
 
-    /// <summary>
-    /// Retrieves all occupants of a specific type at a given world-scoped voxel identity in the supplied world.
-    /// </summary>
+    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(GridWorld world, WorldVoxelIndex index) where T : IVoxelOccupant
     {
         return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
@@ -270,9 +393,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>
-    /// Retrieves all occupants of a specific type at a given world position.
-    /// </summary>
+    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Vector3d position) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
@@ -280,9 +406,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>
-    /// Retrieves all occupants of a specific type at a given voxel coordinate.
-    /// </summary>
+    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="index">The topology-local voxel address.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex index) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(index, out Voxel? voxel)
@@ -290,9 +419,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>
-    /// Retrieves all occupants of a specific type at a given voxel.
-    /// </summary>
+    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
+    /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
+    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Voxel voxel) where T : IVoxelOccupant
     {
         return voxel == null
@@ -303,6 +435,11 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant at a given world-scoped voxel identity using an occupant ticket in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="ticket">The exact occupant registration ticket, including its generation.</param>
+    /// <param name="occupant">The resolved occupant on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact ticket resolves in the requested voxel; otherwise false and the occupant output is null.</returns>
     public static bool TryGetVoxelOccupant(
         GridWorld world,
         WorldVoxelIndex index,
@@ -318,6 +455,11 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant at a given world position using an occupant ticket.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="ticket">The exact occupant registration ticket, including its generation.</param>
+    /// <param name="occupant">The resolved occupant on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact ticket resolves in the requested voxel; otherwise false and the occupant output is null.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Vector3d position,
@@ -332,6 +474,11 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant at a given voxel coordinate using an occupant ticket.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="index">The topology-local voxel address.</param>
+    /// <param name="ticket">The exact occupant registration ticket, including its generation.</param>
+    /// <param name="occupant">The resolved occupant on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact ticket resolves in the requested voxel; otherwise false and the occupant output is null.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         VoxelIndex index,
@@ -346,6 +493,11 @@ public static class GridScanManager
     /// <summary>
     /// Retrieves a specific occupant from a given voxel using an occupant ticket.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
+    /// <param name="ticket">The exact occupant registration ticket, including its generation.</param>
+    /// <param name="occupant">The resolved occupant on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the exact ticket resolves in the requested voxel; otherwise false and the occupant output is null.</returns>
     public static bool TryGetVoxelOccupant(
         this VoxelGrid grid,
         Voxel voxel,
@@ -359,9 +511,11 @@ public static class GridScanManager
             && scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out occupant);
     }
 
-    /// <summary>
-    /// Retrieves all occupants at a given world-scoped voxel identity in the supplied world.
-    /// </summary>
+    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(GridWorld world, WorldVoxelIndex index)
     {
         if (world == null)
@@ -373,9 +527,11 @@ public static class GridScanManager
         return grid!.GetOccupants(voxel!);
     }
 
-    /// <summary>
-    /// Retrieves all occupants at a given world position within the grid.
-    /// </summary>
+    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Vector3d position)
     {
         return grid.TryGetVoxel(position, out Voxel? targetVoxel)
@@ -383,9 +539,11 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>
-    /// Retrieves all occupants at a given voxel coordinate within the grid.
-    /// </summary>
+    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="index">The topology-local voxel address.</param>
+    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex index)
     {
         return grid.TryGetVoxel(index, out Voxel? targetVoxel)
@@ -393,9 +551,11 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>
-    /// Retrieves all occupants at a given voxel.
-    /// </summary>
+    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
+    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Voxel voxel)
     {
         if (!voxel.IsOccupied)
@@ -409,9 +569,13 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>
-    /// Retrieves occupants whose group Ids match a given condition at a world-scoped voxel identity in the supplied world.
-    /// </summary>
+    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         GridWorld world,
         WorldVoxelIndex index,
@@ -427,9 +591,13 @@ public static class GridScanManager
         return grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition);
     }
 
-    /// <summary>
-    /// Retrieves occupants whose group Ids match a given condition.
-    /// </summary>
+    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         Vector3d position,
@@ -441,9 +609,13 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>
-    /// Retrieves occupants whose group Ids match a given condition.
-    /// </summary>
+    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="index">The topology-local voxel address.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         VoxelIndex index,
@@ -455,9 +627,13 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>
-    /// Retrieves occupants at a given voxel that match a specified group condition.
-    /// </summary>
+    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         Voxel targetVoxel,

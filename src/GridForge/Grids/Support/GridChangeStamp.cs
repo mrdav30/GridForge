@@ -29,6 +29,7 @@ public readonly struct GridChangeStamp : IEquatable<GridChangeStamp>
     /// <summary>
     /// Whether this value identifies a committed world mutation.
     /// </summary>
+    /// <value>Whether this value identifies a committed world mutation.</value>
     public bool IsValid
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -38,28 +39,42 @@ public readonly struct GridChangeStamp : IEquatable<GridChangeStamp>
     /// <summary>
     /// Initializes a change stamp.
     /// </summary>
+    /// <param name="sequence">The world-local commit order. Zero is reserved for an invalid or default value.</param>
+    /// <param name="causeId">The world-local logical cause shared by notifications emitted for one mutation.</param>
     public GridChangeStamp(ulong sequence, ulong causeId)
     {
         Sequence = sequence;
         CauseId = causeId;
     }
 
-    /// <inheritdoc />
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public bool Equals(GridChangeStamp other) =>
         Sequence == other.Sequence && CauseId == other.CauseId;
 
-    /// <inheritdoc />
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="obj">The object to compare; null and other types compare unequal.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public override bool Equals(object? obj) => obj is GridChangeStamp other && Equals(other);
 
-    /// <inheritdoc />
+    /// <summary>Computes a hash of the equality components.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
     public override int GetHashCode() => SwiftHashTools.CombineHashCodes(Sequence, CauseId);
 
-    /// <inheritdoc />
+    /// <summary>Formats this value for diagnostics.</summary>
+    /// <returns>Diagnostic text; do not use it as a persistence format.</returns>
     public override string ToString() => $"{Sequence}:{CauseId}";
 
-    /// <inheritdoc />
+    /// <summary>Tests whether two values are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public static bool operator ==(GridChangeStamp left, GridChangeStamp right) => left.Equals(right);
 
-    /// <inheritdoc />
+    /// <summary>Tests whether two values differ.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>True when any equality component differs; otherwise false.</returns>
     public static bool operator !=(GridChangeStamp left, GridChangeStamp right) => !left.Equals(right);
 }

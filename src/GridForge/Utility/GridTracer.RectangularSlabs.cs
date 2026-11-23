@@ -30,6 +30,24 @@ public static partial class GridTracer
     /// exceptions propagate after cleanup. World stamps are captured before qualification, not refreshed by
     /// callbacks; concurrent obstacle changes remain possible and consumers own their final freshness fence.
     /// </remarks>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="start">The segment start in fixed-point world coordinates.</param>
+    /// <param name="end">The segment end in fixed-point world coordinates.</param>
+    /// <param name="expectedGeneration">The exact grid generation and change sequence required for the specialized trace.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="intervalSourceOrdinals">Caller-owned ordinal buffer with at least outputLimit entries. Used entries follow interval moves and are cleared on failure.</param>
+    /// <param name="continueTrace">Synchronous completed-slab observer. Return false to stop observation. Do not mutate the world, output, or scratch, or reenter tracing.</param>
+    /// <param name="gridCandidateLimit">Nonnegative maximum admitted grid candidates. Zero permits no candidates.</param>
+    /// <param name="addressCandidateLimit">Nonnegative maximum admitted topology-local address candidates, including missing sparse addresses.</param>
+    /// <param name="outputLimit">Nonnegative maximum output elements. Zero permits no output.</param>
+    /// <param name="candidateWorkLimit">Nonnegative combined grid/address candidate-work ceiling, independent of the other limits.</param>
+    /// <param name="report">The status and evidence for a qualified trace. Interpret this output only when the method returns true; the default report on false has a zero status that is not a completion proof.</param>
+    /// <returns>True when the specialization qualified, including reports of budget failure; false means no specialized proof. Inspect report.Status separately. Observer cancellation retains emission-order output as described in the remarks.</returns>
+    /// <exception cref="System.ArgumentNullException">results or scratch is null, or continueTrace is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">Any grid, address, output, or combined work limit is negative.</exception>
+    /// <exception cref="System.InvalidOperationException">The interval scratch is already active, including reentrant tracing.</exception>
+    /// <exception cref="System.ArgumentException">The ordinal span is shorter than outputLimit.</exception>
     public static bool TryTraceRectangularSlabsInto(
         GridWorld world, Vector3d start, Vector3d end,
         in GridCoveredAddressGeneration expectedGeneration,

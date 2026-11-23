@@ -32,6 +32,9 @@ public readonly struct NavigationBaselineVoxelState
     /// <summary>
     /// Initializes a navigation baseline address state.
     /// </summary>
+    /// <param name="voxelIndex">The requested topology-local address.</param>
+    /// <param name="isPresent">Whether a physical voxel is present at the requested address.</param>
+    /// <param name="obstacleCount">The physical voxel obstacle count, or zero when no voxel is present.</param>
     public NavigationBaselineVoxelState(VoxelIndex voxelIndex, bool isPresent, byte obstacleCount)
     {
         VoxelIndex = voxelIndex;

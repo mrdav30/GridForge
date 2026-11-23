@@ -31,6 +31,19 @@ public static partial class GridTracer
     /// then exact rectangular or hexagonal prisms reject all broad-phase false positives.
     /// The supplied scratch must not already be active in another trace; reentrant use throws before clearing results.
     /// </remarks>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="start">The segment start in fixed-point world coordinates.</param>
+    /// <param name="end">The segment end in fixed-point world coordinates.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="gridCandidateLimit">Nonnegative maximum admitted grid candidates. Zero permits no candidates.</param>
+    /// <param name="addressCandidateLimit">Nonnegative maximum admitted topology-local address candidates, including missing sparse addresses.</param>
+    /// <param name="outputLimit">Nonnegative maximum output elements. Zero permits no output.</param>
+    /// <param name="candidateWorkLimit">Nonnegative combined grid/address candidate-work ceiling, independent of the other limits.</param>
+    /// <returns>The bounded trace status, candidate counts, and interval evidence. Only Complete establishes a full trace; incomplete proofs clear output.</returns>
+    /// <exception cref="System.ArgumentNullException">results or scratch is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">Any grid, address, output, or combined work limit is negative.</exception>
+    /// <exception cref="System.InvalidOperationException">The interval scratch is already active, including reentrant tracing.</exception>
     public static GridTraceIntervalReport TraceIntervalsInto(
         GridWorld world,
         Vector3d start,

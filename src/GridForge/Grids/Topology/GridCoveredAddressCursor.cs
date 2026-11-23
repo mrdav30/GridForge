@@ -49,6 +49,8 @@ public sealed partial class GridCoveredAddressCursor
     internal GridCoveredAddressCursorStatus CurrentStatus;
 
     /// <summary>Initializes reusable storage for at most <paramref name="generationCapacity"/> eligible grids.</summary>
+    /// <param name="generationCapacity">The maximum eligible generation count accepted by this cursor.</param>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="generationCapacity"/> is negative.</exception>
     public GridCoveredAddressCursor(int generationCapacity)
     {
         ChronicleGuard.ThrowIfNegative(generationCapacity, nameof(generationCapacity));
@@ -58,10 +60,12 @@ public sealed partial class GridCoveredAddressCursor
     }
 
     /// <summary>The maximum eligible generation count accepted by this cursor.</summary>
+    /// <value>The maximum eligible generation count accepted by this cursor.</value>
     public int GenerationCapacity => Generations.Length;
 
     /// <summary>The deterministic logical bytes retained by this cursor and its owned generation storage.</summary>
     /// <remarks>Shared empty-array storage is not charged.</remarks>
+    /// <value>The deterministic logical bytes retained by this cursor and its owned generation storage.</value>
     public long RetainedBytes => checked(
         LogicalStateBytes
         + (Generations.Length == 0
@@ -69,18 +73,23 @@ public sealed partial class GridCoveredAddressCursor
             : ArrayHeaderBytes + ((long)Generations.Length * BoundGenerationBytes)));
 
     /// <summary>The current query state.</summary>
+    /// <value>The current query state.</value>
     public GridCoveredAddressCursorStatus Status => CurrentStatus;
 
     /// <summary>The cumulative number of generation validation and spatial lookup probes.</summary>
+    /// <value>The cumulative number of generation validation and spatial lookup probes.</value>
     public ulong LookupProbeOrdinal { get; internal set; }
 
     /// <summary>The cumulative number of topology-address probes.</summary>
+    /// <value>The cumulative number of topology-address probes.</value>
     public ulong AddressProbeOrdinal { get; internal set; }
 
     /// <summary>The cumulative number of covered addresses emitted.</summary>
+    /// <value>The cumulative number of covered addresses emitted.</value>
     public ulong OutputOrdinal { get; internal set; }
 
     /// <summary>The exact committed world revision bound by this cursor.</summary>
+    /// <value>The exact committed world revision bound by this cursor.</value>
     public GridCoveredAddressRunStamp RunStamp =>
         CurrentStatus == GridCoveredAddressCursorStatus.Stale
             ? default

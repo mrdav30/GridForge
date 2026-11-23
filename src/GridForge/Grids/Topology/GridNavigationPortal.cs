@@ -25,27 +25,35 @@ public readonly struct GridNavigationPortal
     public const int SizeInBytes = 104;
 
     /// <summary>The orientation of the shared positive-area face.</summary>
+    /// <value>The orientation of the shared positive-area face.</value>
     public VoxelContactFaceKind FaceKind { get; }
 
     /// <summary>The exact target-center displacement from the source center.</summary>
+    /// <value>The exact target-center displacement from the source center.</value>
     public Vector3d SourceToTarget { get; }
 
     /// <summary>The canonical foot crossing on the shared face.</summary>
+    /// <value>The canonical foot crossing on the shared face.</value>
     public Vector3d CanonicalFacePoint { get; }
 
     /// <summary>The greatest conservatively representable horizontal body radius at the crossing.</summary>
+    /// <value>The greatest conservatively representable horizontal body radius at the crossing.</value>
     public Fixed64 MaximumHorizontalRadius { get; }
 
     /// <summary>The greatest body height supported by both directed sides of the crossing.</summary>
+    /// <value>The greatest body height supported by both directed sides of the crossing.</value>
     public Fixed64 MaximumBodyHeight { get; }
 
     /// <summary>The first exact XZ endpoint certifying a compiled vertical face.</summary>
+    /// <value>The first exact XZ endpoint certifying a compiled vertical face.</value>
     public Vector2d VerticalFaceSegmentStart { get; }
 
     /// <summary>The second exact XZ endpoint certifying a compiled vertical face.</summary>
+    /// <value>The second exact XZ endpoint certifying a compiled vertical face.</value>
     public Vector2d VerticalFaceSegmentEnd { get; }
 
     /// <summary>Whether this value contains a compiled positive-area navigation face.</summary>
+    /// <value>Whether this value contains a compiled positive-area navigation face.</value>
     public bool IsValid =>
         ((FaceKind == VoxelContactFaceKind.Vertical
                 && VerticalFaceSegmentStart != VerticalFaceSegmentEnd)
@@ -127,6 +135,7 @@ public readonly struct GridNavigationPortal
     /// <param name="sourceFootAnchor">The last canonical foot anchor on the source side.</param>
     /// <param name="targetFootAnchor">The first canonical foot anchor on the target side.</param>
     /// <returns><see langword="true"/> when the profile fits and both anchors are representable.</returns>
+    /// <exception cref="System.ArgumentException">The horizontal radius is negative or body height is not positive.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryResolveProfile(
         Fixed64 horizontalRadius,

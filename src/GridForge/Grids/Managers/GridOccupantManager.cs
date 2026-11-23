@@ -31,7 +31,8 @@ public static class GridOccupantManager
     /// </summary>
     private static Action<OccupantEventInfo>? _onOccupantAdded;
 
-    /// <inheritdoc cref="_onOccupantAdded"/>
+    /// <summary>Raised when an occupant registration is added.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<OccupantEventInfo> OnOccupantAdded
     {
         add => _onOccupantAdded += value;
@@ -43,7 +44,8 @@ public static class GridOccupantManager
     /// </summary>
     private static Action<OccupantEventInfo>? _onOccupantRemoved;
 
-    /// <inheritdoc cref="_onOccupantRemoved"/>
+    /// <summary>Raised when an occupant registration is removed.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<OccupantEventInfo> OnOccupantRemoved
     {
         add => _onOccupantRemoved += value;
@@ -76,6 +78,9 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to register the occupant with the current voxel it is on in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True when a new registration was created at the occupant position; false for invalid context, blocked/full cells, or duplicate registration.</returns>
     public static bool TryRegister(GridWorld world, IVoxelOccupant occupant)
     {
         return occupant != null
@@ -129,6 +134,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to add an occupant from the given world-scoped voxel identity in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True when the registration was created; false for invalid context, blocked/full cells, or duplicate registration.</returns>
     public static bool TryAddVoxelOccupant(
         GridWorld world,
         WorldVoxelIndex index,
@@ -143,6 +152,9 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to add an occupant at the given world position.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True when the registration was created; false for invalid context, blocked/full cells, or duplicate registration.</returns>
     public static bool TryAddVoxelOccupant(this VoxelGrid grid, IVoxelOccupant occupant)
     {
         return occupant != null
@@ -153,6 +165,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to add an occupant at the specified voxel index.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True when the registration was created; false for invalid context, blocked/full cells, or duplicate registration.</returns>
     public static bool TryAddVoxelOccupant(
         this VoxelGrid grid,
         VoxelIndex voxelIndex,
@@ -166,6 +182,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Adds an occupant to the grid.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True when the registration was created; false for invalid context, blocked/full cells, or duplicate registration.</returns>
     public static bool TryAddVoxelOccupant(
         this VoxelGrid grid,
         Voxel targetVoxel,
@@ -203,6 +223,9 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to de-register the occupant from every voxel currently tracked in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True if any tracked registration was removed or stale tracking entry forgotten; false when none could be removed. Earlier successful removals remain applied.</returns>
     public static bool TryDeregister(GridWorld world, IVoxelOccupant occupant)
     {
         TrackedOccupancy[] occupancies = GetTrackedOccupanciesSnapshot(world, occupant);
@@ -229,6 +252,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to remove an occupant from the given world-scoped voxel identity in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True if a live registration was removed or a stale tracking entry was forgotten; otherwise false. Successful earlier removals remain applied.</returns>
     public static bool TryRemoveVoxelOccupant(
         GridWorld world,
         WorldVoxelIndex index,
@@ -240,9 +267,10 @@ public static class GridOccupantManager
             && grid!.TryRemoveVoxelOccupant(voxel!, occupant);
     }
 
-    /// <summary>
-    /// Attempts to remove an occupant from the given world position.
-    /// </summary>
+    /// <summary>Removes all registrations tracked for this occupant in the supplied grid, independently of its current position.</summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True if a live registration was removed or a stale tracking entry was forgotten; otherwise false. Successful earlier removals remain applied.</returns>
     public static bool TryRemoveVoxelOccupant(
         this VoxelGrid grid,
         IVoxelOccupant occupant)
@@ -256,6 +284,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Attempts to remove an occupant at the specified voxel coordinates.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="voxelIndex">The topology-local X/Y/Z or Q/layer/R address.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True if a live registration was removed or a stale tracking entry was forgotten; otherwise false. Successful earlier removals remain applied.</returns>
     public static bool TryRemoveVoxelOccupant(
         this VoxelGrid grid,
         VoxelIndex voxelIndex,
@@ -269,6 +301,10 @@ public static class GridOccupantManager
     /// <summary>
     /// Removes an occupant from this grid.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
+    /// <param name="occupant">The occupant instance. Successful registration retains this reference until removal or world/grid reset.</param>
+    /// <returns>True if a live registration was removed or a stale tracking entry was forgotten; otherwise false. Successful earlier removals remain applied.</returns>
     public static bool TryRemoveVoxelOccupant(
         this VoxelGrid grid,
         Voxel targetVoxel,

@@ -25,6 +25,8 @@ public readonly struct GridDiagnosticEdge
     /// <summary>
     /// Initializes a diagnostic edge descriptor.
     /// </summary>
+    /// <param name="start">The start vertex index in the topology vertex buffer, copied without validation.</param>
+    /// <param name="end">The end vertex index in the topology vertex buffer, copied without validation.</param>
     public GridDiagnosticEdge(byte start, byte end)
     {
         Start = start;

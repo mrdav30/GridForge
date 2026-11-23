@@ -22,6 +22,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// Predefined offsets for a rectangular-prism 3x3x3 neighbor structure, excluding the center position.
     /// </summary>
+    /// <value>Predefined offsets for a rectangular-prism 3x3x3 neighbor structure, excluding the center position.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<(int x, int y, int z)> Offsets => OffsetValues;
 
     private static readonly (int x, int y, int z)[] OffsetValues = new (int x, int y, int z)[26]
@@ -59,6 +61,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 26 neighbor directions excluding None.
     /// </summary>
+    /// <value>All 26 neighbor directions excluding None.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> All => AllValues;
 
     private static readonly RectangularDirection[] AllValues =
@@ -94,6 +98,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// The 6 face-adjacent rectangular-prism directions.
     /// </summary>
+    /// <value>The 6 face-adjacent rectangular-prism directions.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> Primary => PrimaryValues;
 
     private static readonly RectangularDirection[] PrimaryValues =
@@ -109,6 +115,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 6 perpendicular neighbor directions excluding None.
     /// </summary>
+    /// <value>All 6 perpendicular neighbor directions excluding None.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> Perpendicular => PerpendicularValues;
 
     private static readonly RectangularDirection[] PerpendicularValues =
@@ -124,6 +132,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 8 same-layer XZ-plane directions excluding None.
     /// </summary>
+    /// <value>All 8 same-layer XZ-plane directions excluding None.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> Planar => PlanarValues;
 
     private static readonly RectangularDirection[] PlanarValues =
@@ -141,6 +151,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 2 vertical directions.
     /// </summary>
+    /// <value>All 2 vertical directions.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> Vertical => VerticalValues;
 
     private static readonly RectangularDirection[] VerticalValues =
@@ -152,6 +164,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 9 neighbor directions on the layer below.
     /// </summary>
+    /// <value>All 9 neighbor directions on the layer below.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> BelowLayer => BelowLayerValues;
 
     private static readonly RectangularDirection[] BelowLayerValues =
@@ -170,6 +184,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 9 neighbor directions on the layer above.
     /// </summary>
+    /// <value>All 9 neighbor directions on the layer above.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> AboveLayer => AboveLayerValues;
 
     private static readonly RectangularDirection[] AboveLayerValues =
@@ -188,6 +204,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 16 non-vertical directions on the layers above and below.
     /// </summary>
+    /// <value>All 16 non-vertical directions on the layers above and below.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> VerticalDiagonal => VerticalDiagonalValues;
 
     private static readonly RectangularDirection[] VerticalDiagonalValues =
@@ -213,6 +231,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// All 20 diagonal neighbor directions excluding None.
     /// </summary>
+    /// <value>All 20 diagonal neighbor directions excluding None.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<RectangularDirection> Diagonal => DiagonalValues;
 
     private static readonly RectangularDirection[] DiagonalValues =
@@ -244,11 +264,15 @@ public static class RectangularDirectionUtility
     #region Methods
 
     /// <summary>True for pure axis-aligned directions.</summary>
+    /// <param name="dir">The rectangular neighbor direction.</param>
+    /// <returns>True for a single-axis rectangular direction; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPerpendicularNeighbor(RectangularDirection dir) =>
         (uint)dir <= (uint)RectangularDirection.Above;
 
     /// <summary>True for any diagonal step (multiple axes).</summary>
+    /// <param name="dir">The rectangular neighbor direction.</param>
+    /// <returns>True for a direction combining multiple axes; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsDiagonalNeighbor(RectangularDirection dir) =>
         (uint)((int)dir - (int)RectangularDirection.SouthWest) < Diagonal.Length;
@@ -256,6 +280,8 @@ public static class RectangularDirectionUtility
     /// <summary>
     /// Converts a rectangular local offset in the range [-1, 1] on each axis into a direction.
     /// </summary>
+    /// <param name="offset">The local (x, y, z) neighbor offset. Unsupported offsets return the <see cref="RectangularDirection.None"/>.</param>
+    /// <returns>The matching direction, or the <see cref="RectangularDirection.None"/> when the offset is unsupported.</returns>
     public static RectangularDirection GetDirectionFromOffset((int x, int y, int z) offset)
     {
         return TryGetOffsetLookupKey(offset, out int lookupKey)

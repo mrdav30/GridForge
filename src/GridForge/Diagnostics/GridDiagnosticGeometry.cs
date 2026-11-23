@@ -79,6 +79,8 @@ public static class GridDiagnosticGeometry
     /// <summary>
     /// Gets the number of vertices written for the supplied topology kind.
     /// </summary>
+    /// <returns>Eight for rectangular prisms, twelve for hex prisms, or zero for an unknown topology.</returns>
+    /// <param name="topologyKind">The rectangular-prism or hex-prism topology discriminator. Unknown values are unsupported.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetVertexCount(GridTopologyKind topologyKind) => topologyKind switch
     {
@@ -90,6 +92,8 @@ public static class GridDiagnosticGeometry
     /// <summary>
     /// Gets the number of edges exposed for the supplied topology kind.
     /// </summary>
+    /// <returns>Twelve for rectangular prisms, eighteen for hex prisms, or zero for an unknown topology.</returns>
+    /// <param name="topologyKind">The rectangular-prism or hex-prism topology discriminator. Unknown values are unsupported.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetEdgeCount(GridTopologyKind topologyKind) => topologyKind switch
     {
@@ -103,6 +107,8 @@ public static class GridDiagnosticGeometry
     /// storage.
     /// </summary>
     /// <returns>The number of vertices written, or <c>0</c> when the span is too small.</returns>
+    /// <param name="cell">The value descriptor to inspect; its stored identity is resolved only by explicit lookup.</param>
+    /// <param name="vertices">Caller-owned destination span. The required prefix is overwritten; a short span is left unchanged and returns zero.</param>
     public static int WriteVertices(
         in GridDiagnosticCell cell,
         Span<Vector3d> vertices) => cell.TopologyKind switch
@@ -115,6 +121,8 @@ public static class GridDiagnosticGeometry
     /// <summary>
     /// Gets immutable edge topology for the supplied cell topology kind.
     /// </summary>
+    /// <returns>A read-only view of library-owned static edge data, or an empty view for an unknown topology. The view is not invalidated by grid mutation.</returns>
+    /// <param name="topologyKind">The rectangular-prism or hex-prism topology discriminator. Unknown values are unsupported.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ReadOnlySpan<GridDiagnosticEdge> GetEdges(GridTopologyKind topologyKind) => topologyKind switch
     {

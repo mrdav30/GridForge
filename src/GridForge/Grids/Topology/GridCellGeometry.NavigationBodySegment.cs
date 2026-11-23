@@ -21,6 +21,17 @@ public static partial class GridCellGeometry
     /// Horizontal portals return the ordered parameters of the exact profile anchors. Both forms
     /// certify the body against the authored source/target prism pair.
     /// </remarks>
+    /// <param name="sourcePrism">The exact source cell prism.</param>
+    /// <param name="targetPrism">The exact target cell prism.</param>
+    /// <param name="portal">The selected exact face portal between source and target.</param>
+    /// <param name="footStart">The starting foot position in world space.</param>
+    /// <param name="footEnd">The ending foot position in world space.</param>
+    /// <param name="horizontalRadius">The nonnegative upright body radius in X/Z world units. Zero represents a point footprint.</param>
+    /// <param name="bodyHeight">The strictly positive upright body height in world units, extending upward from the foot.</param>
+    /// <param name="sourceParameter">On success, the source-side crossing parameter along the foot segment, in [0, 1]. Discard it on failure.</param>
+    /// <param name="targetParameter">On success, the target-side crossing parameter along the foot segment, in [0, 1]. Discard it on failure.</param>
+    /// <returns>True when representable body traversal parameters can be proved for the selected portal; otherwise false. Use parameter outputs only on success.</returns>
+    /// <exception cref="System.ArgumentException">The horizontal radius is negative or body height is not positive.</exception>
     public static bool TryGetNavigationPortalTraversalParameters(
         in GridCellPrism sourcePrism,
         in GridCellPrism targetPrism,
@@ -166,6 +177,17 @@ public static partial class GridCellGeometry
     /// endpoint allowance clips one exact directed footprint-edge crossing inside GridForge before
     /// validating the retained in-prism segment. The method retains no state and allocates nothing.
     /// </remarks>
+    /// <param name="prism">The exact cell prism. A default prism has no valid footprint.</param>
+    /// <param name="footStart">The starting foot position in world space.</param>
+    /// <param name="footEnd">The ending foot position in world space.</param>
+    /// <param name="horizontalRadius">The nonnegative upright body radius in X/Z world units. Zero represents a point footprint.</param>
+    /// <param name="bodyHeight">The strictly positive upright body height in world units, extending upward from the foot.</param>
+    /// <param name="incomingPortal">The selected entry portal; default means no entry portal.</param>
+    /// <param name="outgoingPortal">The selected exit portal; default means no exit portal.</param>
+    /// <param name="endpointAllowance">Which segment endpoints may use the selected portal clearance allowance.</param>
+    /// <returns>True when the entire continuous body segment satisfies prism and selected-portal clearance; otherwise false.</returns>
+    /// <exception cref="System.ArgumentException">The horizontal radius is negative or body height is not positive.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">The endpoint allowance is not one of the supported single allowance values.</exception>
     public static bool IsNavigationBodySegmentValid(
         in GridCellPrism prism,
         Vector3d footStart,

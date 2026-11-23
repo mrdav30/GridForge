@@ -21,6 +21,11 @@ public static partial class GridTracer
 {
     /// <summary>Tests whether two cell footprints are coincident or exact planar coverage neighbors.</summary>
     /// <remarks>Uses the source grid's quantized forward topology. Vertical layers and physical voxel presence are ignored.</remarks>
+    /// <param name="sourceGrid">The offline normalized source configuration; no live world is required.</param>
+    /// <param name="source">The source X/Q and Z/R local address. The Y/layer component is ignored.</param>
+    /// <param name="targetGrid">The offline normalized target configuration; no live world is required.</param>
+    /// <param name="target">The target X/Q and Z/R local address. The Y/layer component is ignored.</param>
+    /// <returns>True when the normalized selected cells coincide or share an admissible planar seam; false for unsupported or unrepresentable geometry.</returns>
     public static bool ArePlanarCoverageNeighborsOrCoincident(in NormalizedGridConfiguration sourceGrid, VoxelIndex source,
         in NormalizedGridConfiguration targetGrid, VoxelIndex target)
     {

@@ -18,6 +18,8 @@ public static class GridTopologyMetricUtility
     /// <summary>
     /// Gets the largest 3D cell edge for the supplied grid.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <returns>The largest topology cell edge in world units.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Fixed64 GetMaxCellEdge(VoxelGrid grid)
     {
@@ -32,6 +34,8 @@ public static class GridTopologyMetricUtility
     /// <summary>
     /// Gets the largest X/Z-plane cell edge for the supplied grid.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <returns>The largest horizontal topology extent in world units.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Fixed64 GetPlanarMaxCellEdge(VoxelGrid grid)
     {
@@ -44,6 +48,8 @@ public static class GridTopologyMetricUtility
     /// <summary>
     /// Gets a representative cell edge for a world, or the default rectangular cell size when no grid is active.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <returns>The maximum cell edge of the first active grid encountered, or one world unit when no grid is active.</returns>
     public static Fixed64 GetRepresentativeCellEdge(GridWorld world)
     {
         foreach (VoxelGrid grid in world.ActiveGrids)

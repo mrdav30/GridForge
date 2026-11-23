@@ -31,6 +31,9 @@ public readonly struct GridDiagnosticQueryResult
     /// <summary>
     /// Initializes a query result.
     /// </summary>
+    /// <param name="status">Status of the completed query pass.</param>
+    /// <param name="cellCount">Number of cells written or visited.</param>
+    /// <param name="skippedCellCount">Number of cells skipped because the query stopped before traversal completed.</param>
     public GridDiagnosticQueryResult(
         GridDiagnosticQueryStatus status,
         int cellCount,

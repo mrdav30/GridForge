@@ -84,26 +84,43 @@ public readonly struct GridEventInfo
     /// <summary>
     /// The world-local commit order of this event.
     /// </summary>
+    /// <value>The world-local commit order of this event.</value>
     public ulong ChangeSequence => ChangeStamp.Sequence;
 
     /// <summary>
     /// The logical cause shared with exact notifications for the same mutation.
     /// </summary>
+    /// <value>The logical cause shared with exact notifications for the same mutation.</value>
     public ulong CauseId => ChangeStamp.CauseId;
 
     /// <summary>
     /// The minimum snapped bounds of the grid.
     /// </summary>
+    /// <value>The minimum snapped bounds of the grid.</value>
     public readonly Vector3d BoundsMin => Configuration.BoundsMin;
 
     /// <summary>
     /// The maximum snapped bounds of the grid.
     /// </summary>
+    /// <value>The maximum snapped bounds of the grid.</value>
     public readonly Vector3d BoundsMax => Configuration.BoundsMax;
 
     /// <summary>
     /// Initializes a new immutable grid event snapshot.
     /// </summary>
+    /// <param name="worldSpawnToken">The process-unique 64-bit runtime allocation token of the owning <see cref="T:GridForge.Grids.GridWorld" /> instance.</param>
+    /// <param name="gridIndex">The stable slot index assigned to the grid within <see cref="P:GridForge.Grids.GridWorld.ActiveGrids" />.</param>
+    /// <param name="gridSpawnToken">The 64-bit world-local allocation generation for the grid occupying <see cref="F:GridForge.Grids.GridEventInfo.GridIndex" />.</param>
+    /// <param name="configuration">The snapped configuration for the grid when the notification was raised.</param>
+    /// <param name="gridVersion">The per-grid version recorded when the notification was raised.</param>
+    /// <param name="changeKind">The reason this grid event was raised.</param>
+    /// <param name="voxelIndex">The changed voxel index for voxel-scoped grid events.</param>
+    /// <param name="affectedBoundsMin">The minimum world-space bounds affected by this event.</param>
+    /// <param name="affectedBoundsMax">The maximum world-space bounds affected by this event.</param>
+    /// <param name="changeStamp">The world-owned ordering and cause identity for this committed mutation.</param>
+    /// <param name="hasVoxelState">Whether this event contains an exact post-mutation voxel state.</param>
+    /// <param name="isVoxelPresent">Whether the addressed physical voxel exists after the mutation.</param>
+    /// <param name="obstacleCount">The addressed voxel's obstacle count after the mutation.</param>
     public GridEventInfo(
         long worldSpawnToken,
         ushort gridIndex,
@@ -141,5 +158,6 @@ public readonly struct GridEventInfo
     /// <summary>
     /// Creates an exact bounds key from the stored grid configuration.
     /// </summary>
+    /// <returns>An exact copy of the current bounds as a key, without additional snapping.</returns>
     public readonly BoundsKey ToBoundsKey() => Configuration.ToBoundsKey();
 }

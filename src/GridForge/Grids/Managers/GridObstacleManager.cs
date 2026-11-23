@@ -30,7 +30,8 @@ public static class GridObstacleManager
     /// </summary>
     private static Action<ObstacleEventInfo>? _onObstacleAdded;
 
-    /// <inheritdoc cref="_onObstacleAdded"/>
+    /// <summary>Raised when an obstacle registration is added.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<ObstacleEventInfo> OnObstacleAdded
     {
         add => _onObstacleAdded += value;
@@ -42,7 +43,8 @@ public static class GridObstacleManager
     /// </summary>
     private static Action<ObstacleEventInfo>? _onObstacleRemoved;
 
-    /// <inheritdoc cref="_onObstacleRemoved"/>
+    /// <summary>Raised when an obstacle registration is removed.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<ObstacleEventInfo> OnObstacleRemoved
     {
         add => _onObstacleRemoved += value;
@@ -54,7 +56,8 @@ public static class GridObstacleManager
     /// </summary>
     private static Action<ObstacleClearEventInfo>? _onObstaclesCleared;
 
-    /// <inheritdoc cref="_onObstaclesCleared"/>
+    /// <summary>Raised when all obstacle registrations on a voxel are cleared.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<ObstacleClearEventInfo> OnObstaclesCleared
     {
         add => _onObstaclesCleared += value;
@@ -68,6 +71,10 @@ public static class GridObstacleManager
     /// <summary>
     /// Attempts to add an obstacle at the given world-scoped voxel identity in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
+    /// <returns>True when this token was newly attached and counts/version were updated; false for an invalid token, blocked capacity, occupied voxel, duplicate token, or unresolved location.</returns>
     public static bool TryAddObstacle(
         GridWorld world,
         WorldVoxelIndex index,
@@ -81,6 +88,10 @@ public static class GridObstacleManager
     /// <summary>
     /// Attempts to add an obstacle at the given world position.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
+    /// <returns>True when this token was newly attached and counts/version were updated; false for an invalid token, blocked capacity, occupied voxel, duplicate token, or unresolved location.</returns>
     public static bool TryAddObstacle(this VoxelGrid grid, Vector3d position, ObstacleToken obstacleToken)
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
@@ -115,10 +126,11 @@ public static class GridObstacleManager
     /// <summary>
     /// Adds an obstacle to this voxel.
     /// </summary>
-    /// <param name="grid"></param>
-    /// <param name="targetVoxel"></param>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
     /// <param name="obstacleToken">The process-unique obstacle registration token.</param>
-    /// <exception cref="Exception"></exception>
+    /// <returns>True when this token was newly attached and counts/version were updated; false for an invalid token, blocked capacity, occupied voxel, duplicate token, or unresolved location.</returns>
+    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
     public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
         if (!obstacleToken.IsValid || !targetVoxel.IsBlockable)
@@ -178,6 +190,10 @@ public static class GridObstacleManager
     /// <summary>
     /// Attempts to remove an obstacle at the given world-scoped voxel identity in the supplied world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
+    /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
+    /// <returns>True when this token was present and removed, updating counts/version; otherwise false.</returns>
     public static bool TryRemoveObstacle(
         GridWorld world,
         WorldVoxelIndex index,
@@ -191,6 +207,10 @@ public static class GridObstacleManager
     /// <summary>
     /// Attempts to remove an obstacle from the specified world position.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="position">The fixed-point position in world units.</param>
+    /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
+    /// <returns>True when this token was present and removed, updating counts/version; otherwise false.</returns>
     public static bool TryRemoveObstacle(this VoxelGrid grid, Vector3d position, ObstacleToken obstacleToken)
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
@@ -225,6 +245,11 @@ public static class GridObstacleManager
     /// <summary>
     /// Removes an obstacle from a given voxel.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
+    /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
+    /// <returns>True when this token was present and removed, updating counts/version; otherwise false.</returns>
+    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
     public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
         if (!obstacleToken.IsValid)
@@ -292,8 +317,9 @@ public static class GridObstacleManager
     /// <summary>
     /// Clears all obstacles from the specified voxel.
     /// </summary>
-    /// <param name="grid"></param>
-    /// <param name="targetVoxel"></param>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
+    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
     public static void ClearObstacles(this VoxelGrid grid, Voxel targetVoxel)
     {
         if (targetVoxel.ObstacleCount == 0)

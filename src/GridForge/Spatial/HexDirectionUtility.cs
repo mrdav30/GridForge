@@ -18,6 +18,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// Hex-prism neighbor offsets in deterministic direction order.
     /// </summary>
+    /// <value>Hex-prism neighbor offsets in deterministic direction order.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<VoxelIndex> Offsets => OffsetValues;
 
     private static readonly VoxelIndex[] OffsetValues =
@@ -47,6 +49,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 20 hex-prism neighbor directions excluding None.
     /// </summary>
+    /// <value>All 20 hex-prism neighbor directions excluding None.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> All => AllValues;
 
     private static readonly HexDirection[] AllValues =
@@ -76,6 +80,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// The 8 face-adjacent hex-prism directions.
     /// </summary>
+    /// <value>The 8 face-adjacent hex-prism directions.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> Primary => PrimaryValues;
 
     private static readonly HexDirection[] PrimaryValues =
@@ -93,6 +99,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 6 planar axial hex directions.
     /// </summary>
+    /// <value>All 6 planar axial hex directions.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> Planar => PlanarValues;
 
     private static readonly HexDirection[] PlanarValues =
@@ -108,6 +116,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 2 vertical hex-prism directions.
     /// </summary>
+    /// <value>All 2 vertical hex-prism directions.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> Vertical => VerticalValues;
 
     private static readonly HexDirection[] VerticalValues =
@@ -119,6 +129,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 7 neighbor directions on the layer below.
     /// </summary>
+    /// <value>All 7 neighbor directions on the layer below.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> BelowLayer => BelowLayerValues;
 
     private static readonly HexDirection[] BelowLayerValues =
@@ -135,6 +147,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 7 neighbor directions on the layer above.
     /// </summary>
+    /// <value>All 7 neighbor directions on the layer above.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> AboveLayer => AboveLayerValues;
 
     private static readonly HexDirection[] AboveLayerValues =
@@ -151,6 +165,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// All 12 non-vertical directions on the layers above and below.
     /// </summary>
+    /// <value>All 12 non-vertical directions on the layers above and below.</value>
+    /// <remarks>The returned span views library-owned static storage in deterministic declared direction order. Do not copy or retain it for ownership; world and grid mutation do not invalidate it.</remarks>
     public static ReadOnlySpan<HexDirection> VerticalDiagonal => VerticalDiagonalValues;
 
     private static readonly HexDirection[] VerticalDiagonalValues =
@@ -172,12 +188,17 @@ public static class HexDirectionUtility
     /// <summary>
     /// Gets the topology-local index offset for a hex direction.
     /// </summary>
+    /// <param name="direction">The topology-local neighbor direction.</param>
+    /// <returns>The topology-local neighbor offset. </returns>
+    /// <exception cref="System.IndexOutOfRangeException">The direction is not one of the defined hex neighbor slots, including None.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VoxelIndex GetOffset(HexDirection direction) => OffsetValues[(int)direction];
 
     /// <summary>
     /// True for planar axial directions.
     /// </summary>
+    /// <param name="direction">The topology-local neighbor direction.</param>
+    /// <returns>True for a direction with a zero layer offset; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPlanar(HexDirection direction) =>
         (uint)direction <= (uint)HexDirection.RPositive;
@@ -185,6 +206,8 @@ public static class HexDirectionUtility
     /// <summary>
     /// True for vertical layer directions.
     /// </summary>
+    /// <param name="direction">The topology-local neighbor direction.</param>
+    /// <returns>True for the pure up/down directions; otherwise false.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsVertical(HexDirection direction) =>
         direction == HexDirection.Below || direction == HexDirection.Above;

@@ -17,10 +17,8 @@ namespace GridForge.Grids;
 
 
 
-/// <summary>
-/// Represents a spatial partition within a grid, managing occupants at a finer granularity than grid voxels.
-/// Handles efficient tracking, retrieval, and removal of occupants within a designated scan cell area.
-/// </summary>
+/// <summary>Groups occupant buckets from multiple topology-local voxels into one coarser spatial scan cell.</summary>
+/// <remarks>Instances and their voxel buckets are grid-owned and pooled. Queries return live references rather than immutable snapshots; finish enumeration before occupancy mutation or grid reset.</remarks>
 public class ScanCell
 {
     #region Properties
@@ -28,16 +26,19 @@ public class ScanCell
     /// <summary>
     /// The world-local index of the grid this scan cell belongs to.
     /// </summary>
+    /// <value>The world-local index of the grid this scan cell belongs to.</value>
     public ushort GridIndex { get; private set; }
 
     /// <summary>
     /// The world that owns this scan cell through its parent grid.
     /// </summary>
+    /// <value>The world that owns this scan cell through its parent grid.</value>
     public GridWorld? World { get; private set; }
 
     /// <summary>
     /// A unique identifier for this scan cell in the grid.
     /// </summary>
+    /// <value>A unique identifier for this scan cell in the grid.</value>
     public int CellKey { get; private set; }
 
     /// <summary>
@@ -52,17 +53,20 @@ public class ScanCell
     /// <summary>
     /// The total number of occupants in this scan cell.
     /// </summary>
+    /// <value>The total number of occupants in this scan cell.</value>
     public int CellOccupantCount { get; private set; }
 
     /// <summary>
     /// Indicates whether this scan cell is currently allocated in the grid.
     /// </summary>
+    /// <value>Indicates whether this scan cell is currently allocated in the grid.</value>
     public bool IsAllocated { get; private set; }
 
     /// <summary>
     /// Determines whether this scan cell is occupied by any occupants.
     /// A scan cell is only considered occupied if it is allocated and contains at least one occupant.
     /// </summary>
+    /// <value>Determines whether this scan cell is occupied by any occupants. A scan cell is only considered occupied if it is allocated and contains at least one occupant.</value>
     public bool IsOccupied => IsAllocated && CellOccupantCount > 0;
 
     #endregion
@@ -202,6 +206,9 @@ public class ScanCell
     /// <summary>
     /// Retrieves occupants whose group Ids match a given condition.
     /// </summary>
+    /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
+    /// <param name="groupConditional">Optional group-ID predicate. Null accepts every group.</param>
+    /// <returns>A lazy filtered view of occupant references. Occupancy mutation invalidates enumeration; predicates may propagate exceptions.</returns>
     public IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         Func<IVoxelOccupant, bool>? occupantCondition = null,
         Func<byte, bool>? groupConditional = null)
@@ -430,6 +437,8 @@ public class ScanCell
 
     #endregion
 
-    /// <inheritdoc/>
+    /// <summary>Hashes the current grid slot and scan-cell key.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
+    /// <remarks>The hash can change when a pooled scan cell is reset/reused. Equality remains object reference equality; do not retain this object as a hash key across reuse.</remarks>
     public override int GetHashCode() => SwiftHashTools.CombineHashCodes(GridIndex, CellKey);
 }

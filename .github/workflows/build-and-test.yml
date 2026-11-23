@@ -48,14 +48,14 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: mrdav30/FixedMathSharp
-          ref: 3da3a8ad9964d3e0413080737fec12ba107b48e4
+          ref: 8fdf889322f1bb82501c2afec63d6bb2f304ace2
           path: FixedMathSharp
           persist-credentials: false
       - if: env.UseLocalLsfStack == 'true'
         uses: actions/checkout@v6
         with:
           repository: mrdav30/SwiftCollections
-          ref: 17307f1460313e64043da7995fbc4a4458da09a3
+          ref: dc4af55d4fbfeb1c7ebf08e4a3d26264bc5709e9
           path: SwiftCollections
           persist-credentials: false
 

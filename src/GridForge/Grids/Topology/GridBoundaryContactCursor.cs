@@ -67,12 +67,15 @@ public sealed partial class GridBoundaryContactCursor
     internal GridBoundaryContactCursorStatus CurrentStatus;
 
     /// <summary>The current query state.</summary>
+    /// <value>The current query state.</value>
     public GridBoundaryContactCursorStatus Status => CurrentStatus;
 
     /// <summary>The cumulative number of canonical pair, source-address, and target probes.</summary>
+    /// <value>The cumulative number of canonical pair, source-address, and target probes.</value>
     public ulong CandidateOrdinal { get; internal set; }
 
     /// <summary>The exact committed world revision bound by this cursor.</summary>
+    /// <value>The exact committed world revision bound by this cursor.</value>
     public GridBoundaryContactRunStamp RunStamp =>
         CurrentStatus == GridBoundaryContactCursorStatus.Stale
             ? default

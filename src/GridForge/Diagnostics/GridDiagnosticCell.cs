@@ -77,6 +77,17 @@ public readonly struct GridDiagnosticCell
     /// <summary>
     /// Initializes a diagnostic cell descriptor.
     /// </summary>
+    /// <param name="kind">Identifies whether this descriptor represents a physical voxel or a missing sparse address-space cell.</param>
+    /// <param name="worldSpawnToken">Runtime token of the owning world when the descriptor was created.</param>
+    /// <param name="gridIndex">World-local grid slot that owns this cell.</param>
+    /// <param name="gridSpawnToken">Runtime token of the grid instance when the descriptor was created.</param>
+    /// <param name="index">Topology-local cell index.</param>
+    /// <param name="worldPosition">Topology-projected world-space center for the cell.</param>
+    /// <param name="topologyKind">Topology kind used to interpret the local index and geometry.</param>
+    /// <param name="storageKind">Storage kind of the grid that owns this descriptor.</param>
+    /// <param name="topologyMetrics">Topology metrics used to derive diagnostic geometry.</param>
+    /// <param name="state">Diagnostic state flags for filtering and adapter overlays.</param>
+    /// <param name="worldIndex">World-scoped identity for the cell. Missing sparse address cells use a potential identity and do not resolve to a physical voxel.</param>
     public GridDiagnosticCell(
         GridDiagnosticCellKind kind,
         long worldSpawnToken,

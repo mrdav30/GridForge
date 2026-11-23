@@ -59,33 +59,39 @@ public sealed partial class GridWorld : IDisposable
     /// The cell size used to tune ordinary-grid lookup in this world.
     /// Oversized grids are indexed automatically outside this tier.
     /// </summary>
+    /// <value>The cell size used to tune ordinary-grid lookup in this world. Oversized grids are indexed automatically outside this tier.</value>
     public int SpatialGridCellSize { get; }
 
     /// <summary>
     /// Collection of all active grids owned by this world.
     /// </summary>
     /// <remarks>Use the world's registration methods to change membership.</remarks>
+    /// <value>World-owned live mutable storage, exposed for inspection. Do not modify it directly: use world registration/removal methods so spatial indexing, identity, versions, and events remain coherent. Reset clears the storage; borrowed grid references can then be pooled and reused.</value>
     public SwiftSlotMap<VoxelGrid> ActiveGrids { get; }
 
     /// <summary>
     /// Dictionary mapping exact grid configuration keys to grid indices to prevent duplicate grids.
     /// </summary>
+    /// <value>World-owned live mutable storage, exposed for inspection. Do not modify it directly: use world registration/removal methods so spatial indexing, identity, versions, and events remain coherent. Reset clears the storage; borrowed grid references can then be pooled and reused.</value>
     public SwiftDictionary<GridConfigurationKey, ushort> BoundsTracker { get; }
 
     /// <summary>
     /// Nonzero process-unique 64-bit runtime allocation token for this active world.
     /// Zero indicates an inactive world.
     /// </summary>
+    /// <value>Nonzero process-unique 64-bit runtime allocation token for this active world. Zero indicates an inactive world.</value>
     public long SpawnToken { get; private set; }
 
     /// <summary>
     /// The current version of the world, incremented on major changes.
     /// </summary>
+    /// <value>The current version of the world, incremented on major changes.</value>
     public uint Version { get; private set; }
 
     /// <summary>
     /// The most recent world-local committed change sequence.
     /// </summary>
+    /// <value>The most recent world-local committed change sequence.</value>
     public ulong ChangeSequence
     {
         get
@@ -98,6 +104,7 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// Indicates whether this world is currently active.
     /// </summary>
+    /// <value>Indicates whether this world is currently active.</value>
     public bool IsActive { get; private set; }
 
     internal Fixed64 MaxTopologyCellEdge { get; private set; }
@@ -251,6 +258,7 @@ public sealed partial class GridWorld : IDisposable
     /// Clears all grids and spatial data owned by this world.
     /// </summary>
     /// <param name="deactivate">If true, marks the world inactive and releases its event handlers.</param>
+    /// <remarks>OnReset runs before grid teardown. Ordinary reset keeps the world active and its allocation token, clears registrations and grids, and increments its version; all borrowed grid/voxel/scan-cell references become invalid. Deactivation also clears the world token and subscriptions and cannot be reversed on this instance.</remarks>
     public void Reset(bool deactivate = false)
     {
         if (!IsActive)
@@ -345,7 +353,8 @@ public sealed partial class GridWorld : IDisposable
         MaxTopologyCellEdge = Fixed64.Zero;
     }
 
-    /// <inheritdoc />
+    /// <summary>Deactivates this world, releases its grids and event handlers, and disposes its lock.</summary>
+    /// <remarks>Repeated disposal is harmless. Other operations must not race with disposal.</remarks>
     public void Dispose()
     {
         Reset(deactivate: true);
@@ -419,6 +428,8 @@ public sealed partial class GridWorld : IDisposable
     /// change notification handler. Those handlers remain outside the mutation lock and may enqueue
     /// represented events after this snapshot completes.
     /// </remarks>
+    /// <exception cref="System.ArgumentNullException"><paramref name="maintenance"/> is null.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the call is made from a committed-change notification.</exception>
     public void ExecuteNavigationMaintenanceSnapshot(Action maintenance)
     {
         ChronicleGuard.ThrowIfNull(maintenance, nameof(maintenance));
@@ -447,6 +458,8 @@ public sealed partial class GridWorld : IDisposable
     /// Begins or restarts a bounded exact boundary-contact query against the current committed world state.
     /// </summary>
     /// <param name="cursor">The caller-owned cursor to reset and bind.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="cursor"/> is null.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the call is made from a committed-change notification.</exception>
     public void BeginBoundaryContacts(GridBoundaryContactCursor cursor)
     {
         ChronicleGuard.ThrowIfNull(cursor, nameof(cursor));
@@ -477,6 +490,8 @@ public sealed partial class GridWorld : IDisposable
     /// <param name="configurationKey">The exact normalized configuration identity to resolve.</param>
     /// <param name="cursor">The caller-owned cursor to reset and bind.</param>
     /// <returns>True when the requested active grid was bound; otherwise false.</returns>
+    /// <exception cref="System.ArgumentNullException">cursor is null.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
     public bool TryBeginBoundaryContacts(
         GridConfigurationKey configurationKey,
         GridBoundaryContactCursor cursor)
@@ -520,7 +535,7 @@ public sealed partial class GridWorld : IDisposable
     /// Advances a bounded exact boundary-contact query under one short navigation-maintenance snapshot.
     /// </summary>
     /// <param name="cursor">The caller-owned cursor previously begun through this world.</param>
-    /// <param name="results">Caller-owned storage for contacts emitted by this chunk.</param>
+    /// <param name="results">Caller-owned destination. This call overwrites only the reported output prefix; the tail is unchanged. Discard earlier run results when the cursor becomes stale.</param>
     /// <param name="candidateProbeLimit">The maximum pair, source-address, and target probes for this chunk.</param>
     /// <param name="outputLimit">The maximum contacts to write during this chunk.</param>
     /// <param name="candidateProbesConsumed">The exact number of candidate probes consumed by this chunk.</param>
@@ -531,6 +546,9 @@ public sealed partial class GridWorld : IDisposable
     /// cursor ordinal. The caller must discard every contact returned since the preceding begin.
     /// Completed cursors remain bound and are revalidated on every later call, including zero-budget calls.
     /// </remarks>
+    /// <exception cref="System.ArgumentNullException"><paramref name="cursor"/> is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">A work/output limit is negative or outputLimit exceeds the destination span length.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
     public GridBoundaryContactCursorStatus AdvanceBoundaryContacts(
         GridBoundaryContactCursor cursor,
         Span<VoxelContactManifold> results,
@@ -560,7 +578,7 @@ public sealed partial class GridWorld : IDisposable
     /// Advances a bounded exact boundary-contact query and emits durable grid identities with each contact.
     /// </summary>
     /// <param name="cursor">The caller-owned cursor previously begun through this world.</param>
-    /// <param name="results">Caller-owned storage for contacts and their normalized grid identities.</param>
+    /// <param name="results">Caller-owned destination. This call overwrites only the reported output prefix; the tail is unchanged. Discard earlier run results when the cursor becomes stale.</param>
     /// <param name="candidateProbeLimit">The maximum pair, source-address, and target probes for this chunk.</param>
     /// <param name="outputLimit">The maximum contacts to write during this chunk.</param>
     /// <param name="candidateProbesConsumed">The exact number of candidate probes consumed by this chunk.</param>
@@ -570,6 +588,9 @@ public sealed partial class GridWorld : IDisposable
     /// Every emitted identity belongs to <see cref="GridBoundaryContactCursor.RunStamp"/>.
     /// A stale result writes no contacts and resets that stamp to its default value.
     /// </remarks>
+    /// <exception cref="System.ArgumentNullException"><paramref name="cursor"/> is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">A work/output limit is negative or outputLimit exceeds the destination span length.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
     public GridBoundaryContactCursorStatus AdvanceBoundaryContacts(
         GridBoundaryContactCursor cursor,
         Span<GridBoundaryContact> results,
@@ -2224,6 +2245,8 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// Increments the version of the specified grid and optionally the world version.
     /// </summary>
+    /// <param name="index">The world-local grid slot whose version should be incremented.</param>
+    /// <param name="significant">True also increments the world version. This method does not publish a committed-change event.</param>
     public void IncrementGridVersion(int index, bool significant = false)
     {
         if (!IsActive)
@@ -2250,6 +2273,8 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// Finds active grids in this world that overlap the supplied target grid.
     /// </summary>
+    /// <param name="targetGrid">The target grid in the same world as the source grid.</param>
+    /// <returns>A newly allocated caller-owned list snapshot in ascending grid-slot order. Its grid references are borrowed and may be reset or reused after world mutation.</returns>
     public IEnumerable<VoxelGrid> FindOverlappingGrids(VoxelGrid targetGrid)
     {
         SwiftList<VoxelGrid> overlappingGrids = new();
@@ -2262,6 +2287,7 @@ public sealed partial class GridWorld : IDisposable
     /// </summary>
     /// <param name="targetGrid">The grid whose expanded topology bounds define the overlap query.</param>
     /// <param name="results">Caller-owned storage cleared and filled in ascending grid-slot order.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="targetGrid"/>, <paramref name="results"/> is null.</exception>
     public void FindOverlappingGridsInto(VoxelGrid targetGrid, SwiftList<VoxelGrid> results)
     {
         ChronicleGuard.ThrowIfNull(targetGrid, nameof(targetGrid));

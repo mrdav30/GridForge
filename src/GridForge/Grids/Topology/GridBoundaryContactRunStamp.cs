@@ -16,12 +16,15 @@ namespace GridForge.Grids.Topology;
 public readonly struct GridBoundaryContactRunStamp : IEquatable<GridBoundaryContactRunStamp>
 {
     /// <summary>The process-unique world allocation identity.</summary>
+    /// <value>The process-unique world allocation identity.</value>
     public long WorldSpawnToken { get; }
 
     /// <summary>The world-local structural generation.</summary>
+    /// <value>The world-local structural generation.</value>
     public uint WorldVersion { get; }
 
     /// <summary>The committed world-local change sequence.</summary>
+    /// <value>The committed world-local change sequence.</value>
     public ulong ChangeSequence { get; }
 
     internal GridBoundaryContactRunStamp(
@@ -34,17 +37,22 @@ public readonly struct GridBoundaryContactRunStamp : IEquatable<GridBoundaryCont
         ChangeSequence = changeSequence;
     }
 
-    /// <inheritdoc />
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public bool Equals(GridBoundaryContactRunStamp other) =>
         WorldSpawnToken == other.WorldSpawnToken
         && WorldVersion == other.WorldVersion
         && ChangeSequence == other.ChangeSequence;
 
-    /// <inheritdoc />
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="obj">The object to compare; null and other types compare unequal.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public override bool Equals(object? obj) =>
         obj is GridBoundaryContactRunStamp other && Equals(other);
 
-    /// <inheritdoc />
+    /// <summary>Computes a hash of the equality components.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
     public override int GetHashCode()
     {
         int hash = SwiftHashTools.CombineHashCodes(
@@ -53,12 +61,18 @@ public readonly struct GridBoundaryContactRunStamp : IEquatable<GridBoundaryCont
         return SwiftHashTools.CombineHashCodes(hash, ChangeSequence.GetHashCode());
     }
 
-    /// <inheritdoc />
+    /// <summary>Tests whether two values are equal.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public static bool operator ==(
         GridBoundaryContactRunStamp left,
         GridBoundaryContactRunStamp right) => left.Equals(right);
 
-    /// <inheritdoc />
+    /// <summary>Tests whether two values differ.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns>True when any equality component differs; otherwise false.</returns>
     public static bool operator !=(
         GridBoundaryContactRunStamp left,
         GridBoundaryContactRunStamp right) => !left.Equals(right);

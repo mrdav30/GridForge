@@ -23,6 +23,8 @@ public sealed partial class GridWorld
     /// <param name="boundsMax">The opposite world-space corner of the coverage bounds.</param>
     /// <param name="eligibleGenerationCount">The exact number of canonical generation inputs that will follow.</param>
     /// <returns>True when the declared count fits the cursor; otherwise false and the cursor is stale.</returns>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
+    /// <exception cref="System.ArgumentNullException">cursor is null.</exception>
     public bool TryBeginCoveredAddresses(
         GridCoveredAddressCursor cursor,
         Vector3d boundsMin,
@@ -45,6 +47,8 @@ public sealed partial class GridWorld
     /// <param name="eligibleGenerationCount">The exact number of canonical generation inputs that will follow.</param>
     /// <param name="configurationFilter">The only configuration eligible to produce addresses.</param>
     /// <returns>True when the declared count fits the cursor; otherwise false and the cursor is stale.</returns>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
+    /// <exception cref="System.ArgumentNullException">cursor is null.</exception>
     public bool TryBeginCoveredAddresses(
         GridCoveredAddressCursor cursor,
         Vector3d boundsMin,
@@ -64,7 +68,7 @@ public sealed partial class GridWorld
     /// </summary>
     /// <param name="cursor">The cursor previously begun through this world.</param>
     /// <param name="generationInputs">The next strictly ascending remaining generation slice, or empty after binding completes.</param>
-    /// <param name="results">Caller-owned output storage.</param>
+    /// <param name="results">Caller-owned destination. This call overwrites only the reported output prefix; the tail is unchanged. Discard earlier run results when the cursor becomes stale.</param>
     /// <param name="lookupProbeLimit">Maximum generation-validation and spatial lookup probes for this chunk.</param>
     /// <param name="addressProbeLimit">Maximum topology-address probes for this chunk.</param>
     /// <param name="outputLimit">Maximum covered addresses to write for this chunk.</param>
@@ -79,6 +83,9 @@ public sealed partial class GridWorld
     /// Address enumeration does not resolve physical voxel presence or obstacle state. Hex-prism coverage
     /// includes cells touching the inclusive query bounds at either vertical face.
     /// </remarks>
+    /// <exception cref="System.ArgumentNullException"><paramref name="cursor"/> is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">A work/output limit is negative or outputLimit exceeds the destination span length.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive or the operation is called from a committed-change notification.</exception>
     public GridCoveredAddressCursorStatus AdvanceCoveredAddresses(
         GridCoveredAddressCursor cursor,
         ReadOnlySpan<GridCoveredAddressGeneration> generationInputs,

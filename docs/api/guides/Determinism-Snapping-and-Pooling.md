@@ -78,6 +78,38 @@ dimensions and configuration keys from the authored input.
 
 ## Runtime Generations Validate Reuse
 
+### Value defaults and topology distinctions
+
+`VoxelIndex` stores X/Y/Z for rectangular grids and Q/layer/R for hex grids. Its
+two-argument constructor sets Z/R to zero; it does not construct an X/Z planar
+point. Equality, hashing, and ordering ignore `IsAllocated`, so a constructed
+origin equals `default(VoxelIndex)`. Neither construction nor value comparison
+validates grid bounds.
+
+Explicit `GridConfiguration` construction resolves default rectangular metrics
+and replaces nonpositive scan-cell sizes with 8. A default or parameterless
+struct value bypasses that initialization and fails normalization because its
+metrics are zero. Hex configurations require explicit positive radius and layer
+height; omitted hex metrics remain invalid. Similarly, a default
+`GridDiagnosticQuery` has a zero output budget; `AllPhysical()` supplies the
+normal 65536-cell budget. JSON restores GridConfiguration through its
+normalizing constructor, while Standard MemoryPack restores its unmanaged fields
+directly. A serialized default therefore becomes a valid unit rectangular
+configuration through JSON but remains invalid through MemoryPack. Validate
+restored input explicitly. Restoration does not register a live grid or restore
+transient registration tokens.
+
+Positive coverage padding expands supplied corners before snapping. Null, zero,
+and negative padding select zero expansion. Rectangular grid floor and ceiling
+methods snap in their respective directions; hex floor and ceiling both select
+the same rounded axial cell and floored layer, clamped to the address space.
+Bounds and intermediate fixed-point calculations must remain representable.
+
+These are documented implemented behaviors, preserved by the XML documentation
+pass. The
+[verification record](https://github.com/mrdav30/GridForge/blob/develop/docs/feature-work/done/2026-11-22-public-api-xml-documentation.md)
+records their dispositions and the conditions for reopening API decisions.
+
 Pooling makes storage slots reusable, so `GridIndex` and `OccupantTicket.Slot`
 are never sufficient identities by themselves. An active world receives a
 process-unique token, each grid registration receives a nonrepeating generation

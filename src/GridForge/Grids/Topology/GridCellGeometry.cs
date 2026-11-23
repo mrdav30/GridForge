@@ -25,6 +25,11 @@ public static partial class GridCellGeometry
     /// <summary>
     /// Attempts to build the exact prism for one physical voxel in an active grid.
     /// </summary>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="index">The topology-local voxel address.</param>
+    /// <param name="prism">The exact cell prism. A default prism has no valid footprint.</param>
+    /// <returns>True when an active physical voxel has exactly representable geometry; otherwise false and prism is default.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="grid"/> is null.</exception>
     public static bool TryGetPrism(
         VoxelGrid grid,
         VoxelIndex index,
@@ -52,6 +57,12 @@ public static partial class GridCellGeometry
     /// <remarks>
     /// This overload permits offline geometry construction. The supplied identity is copied verbatim.
     /// </remarks>
+    /// <param name="cell">The value descriptor to inspect; its stored identity is resolved only by explicit lookup.</param>
+    /// <param name="prism">The exact cell prism. A default prism has no valid footprint.</param>
+    /// <returns>True when metrics and all derived coordinates are exactly representable; false for invalid metrics, non-bisectable raw dimensions, or arithmetic overflow, with a default prism.</returns>
+    /// <param name="topologyKind">The rectangular-prism or hex-prism topology discriminator. Unknown values are unsupported.</param>
+    /// <param name="topologyMetrics">The fixed-point topology geometry in world units. This value is read without mutation.</param>
+    /// <param name="center">The cell center in fixed-point world coordinates.</param>
     public static bool TryCreatePrism(
         GridTopologyKind topologyKind,
         GridTopologyMetrics topologyMetrics,
@@ -212,6 +223,9 @@ public static partial class GridCellGeometry
     /// <summary>
     /// Computes the exact closed-set contact between two cell prisms.
     /// </summary>
+    /// <param name="source">The source cell identity or exact prism.</param>
+    /// <param name="target">The target cell identity or exact prism.</param>
+    /// <returns>The exact contact classification and witness geometry. Consult IsAreaRepresentable before using the narrowed area.</returns>
     public static VoxelContactManifold GetContact(
         in GridCellPrism source,
         in GridCellPrism target)
@@ -305,6 +319,11 @@ public static partial class GridCellGeometry
     /// <remarks>
     /// Rectangular diagonals and hex vertical-diagonal offsets are deliberately rejected.
     /// </remarks>
+    /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
+    /// <param name="sourceIndex">The source topology-local cell address.</param>
+    /// <param name="targetIndex">The target topology-local cell address.</param>
+    /// <returns>True only for a supported primary same-grid adjacency with exact face contact. On false, the manifold can be default or a computed nonface contact; discard it.</returns>
+    /// <param name="manifold">The face manifold on success. Discard it on false, when it can contain a default or nonface result.</param>
     public static bool TryGetPrimaryFace(
         VoxelGrid grid,
         VoxelIndex sourceIndex,
@@ -334,6 +353,11 @@ public static partial class GridCellGeometry
     /// broad-phase capacity so warmed calls allocate no managed memory. Separated AABB candidates are omitted.
     /// </remarks>
     /// <returns>The number of manifolds written to <paramref name="results"/>.</returns>
+    /// <param name="sourceGrid">The source grid whose physical cells are queried.</param>
+    /// <param name="targetGrid">The target grid in the same world as the source grid.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="sourceGrid"/>, <paramref name="targetGrid"/>, <paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
     public static int GetExactBoundaryContactsInto(
         VoxelGrid sourceGrid,
         VoxelGrid targetGrid,

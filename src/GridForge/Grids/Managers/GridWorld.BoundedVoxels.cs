@@ -34,6 +34,15 @@ public sealed partial class GridWorld
     /// On any incomplete result, discard and clear the written prefix. Voxel references are
     /// borrowed within the caller's serialized world phase. Never use them across world mutation.
     /// </remarks>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="planar">True applies X/Z center filtering; set both bounds Y values to the selected world layer. False uses full 3D coverage.</param>
+    /// <param name="discoveryLimit">Maximum charged discovery work. Zero cannot fund an inspection.</param>
+    /// <param name="results">Caller-owned span. Only the written prefix is overwritten; the tail is unchanged and early failure can leave the whole span unchanged. Clear discarded references yourself.</param>
+    /// <param name="discoveryWork">The work charged by the operation, including work on incomplete results; exhaustion charges the supplied allowance.</param>
+    /// <param name="voxelCount">The number of references written. Only a completed result is usable; clear any incomplete prefix.</param>
+    /// <param name="changeSequence">The world committed-change sequence captured with the snapshot; zero when no snapshot could be entered.</param>
+    /// <returns>Completed only when all covered references fit the work/output ceilings. Other statuses describe readiness or incomplete work; discard and clear any written prefix.</returns>
     public GridBoundedVoxelStatus CollectCoveredVoxelsBounded(
         Vector3d boundsMin,
         Vector3d boundsMax,
@@ -63,6 +72,8 @@ public sealed partial class GridWorld
     }
 
     /// <summary>Checks a sequence returned by this world without waiting for publication.</summary>
+    /// <param name="changeSequence">A sequence captured by an earlier bounded query in this same world.</param>
+    /// <returns>Completed when the world is ready and the sequence still matches; Stale when it changed; WorldNotReady when a snapshot lock cannot be acquired immediately.</returns>
     public GridBoundedVoxelStatus CheckBoundedVoxelSnapshot(ulong changeSequence)
     {
         if (!TryEnterBoundedVoxelSnapshot())

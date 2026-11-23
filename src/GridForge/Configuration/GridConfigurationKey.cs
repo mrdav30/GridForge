@@ -40,6 +40,10 @@ public readonly struct GridConfigurationKey : IEquatable<GridConfigurationKey>
     /// <summary>
     /// Initializes a new grid configuration key.
     /// </summary>
+    /// <param name="boundsMin">The minimum world-space corner, copied without sorting or snapping.</param>
+    /// <param name="boundsMax">The maximum world-space corner, copied without sorting or snapping.</param>
+    /// <param name="topologyKind">The topology discriminator stored in the key.</param>
+    /// <param name="topologyMetrics">The exact fixed-point geometry stored in the key; no normalization is performed.</param>
     public GridConfigurationKey(
         Vector3d boundsMin,
         Vector3d boundsMax,
@@ -52,7 +56,8 @@ public readonly struct GridConfigurationKey : IEquatable<GridConfigurationKey>
         TopologyMetrics = topologyMetrics;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Computes a hash of the value components used by equality.</summary>
+    /// <returns>A hash for lookup; distinct values can share a hash.</returns>
     public override readonly int GetHashCode()
     {
         int hash = SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());
@@ -60,7 +65,9 @@ public readonly struct GridConfigurationKey : IEquatable<GridConfigurationKey>
         return SwiftHashTools.CombineHashCodes(hash, TopologyMetrics.GetHashCode());
     }
 
-    /// <inheritdoc/>
+    /// <summary>Tests whether another value has the same identity components.</summary>
+    /// <param name="other">The value to compare; default values are compared by their stored components.</param>
+    /// <returns><see langword="true"/> when all identity components match; otherwise <see langword="false"/>.</returns>
     public readonly bool Equals(GridConfigurationKey other)
     {
         return BoundsMin == other.BoundsMin
@@ -69,12 +76,20 @@ public readonly struct GridConfigurationKey : IEquatable<GridConfigurationKey>
             && TopologyMetrics == other.TopologyMetrics;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Tests whether an object has the same type and value.</summary>
+    /// <param name="obj">The object to compare; null and other types compare unequal.</param>
+    /// <returns><see langword="true"/> when all identity components match; otherwise <see langword="false"/>.</returns>
     public override readonly bool Equals(object? obj) => obj is GridConfigurationKey other && Equals(other);
 
-    /// <inheritdoc/>
+    /// <summary>Compares two values for equality.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> when the values are equal; otherwise <see langword="false"/>.</returns>
     public static bool operator ==(GridConfigurationKey left, GridConfigurationKey right) => left.Equals(right);
 
-    /// <inheritdoc/>
+    /// <summary>Compares two values for inequality.</summary>
+    /// <param name="left">The first value to compare.</param>
+    /// <param name="right">The second value to compare.</param>
+    /// <returns><see langword="true"/> when the values are different; otherwise <see langword="false"/>.</returns>
     public static bool operator !=(GridConfigurationKey left, GridConfigurationKey right) => !left.Equals(right);
 }

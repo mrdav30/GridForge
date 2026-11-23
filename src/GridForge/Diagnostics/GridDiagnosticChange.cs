@@ -63,6 +63,14 @@ public readonly struct GridDiagnosticChange :
     /// <summary>
     /// Initializes a diagnostic dirty-change descriptor.
     /// </summary>
+    /// <param name="kind">Kind flags coalesced for this dirty change.</param>
+    /// <param name="worldSpawnToken">Runtime token of the world that produced the change.</param>
+    /// <param name="gridIndex">World-local grid slot affected by the change, or <see cref="F:System.UInt16.MaxValue" /> for world-scoped changes.</param>
+    /// <param name="gridSpawnToken">Runtime token of the grid instance affected by the change.</param>
+    /// <param name="worldIndex">World-scoped voxel identity for cell-scoped changes.</param>
+    /// <param name="voxelIndex">Topology-local voxel index for cell or sparse address-range changes.</param>
+    /// <param name="boundsMin">Minimum world-space bounds affected by grid or range-scoped changes.</param>
+    /// <param name="boundsMax">Maximum world-space bounds affected by grid or range-scoped changes.</param>
     public GridDiagnosticChange(
         GridDiagnosticChangeKind kind,
         long worldSpawnToken,
@@ -94,7 +102,9 @@ public readonly struct GridDiagnosticChange :
             BoundsMin,
             BoundsMax);
 
-    /// <inheritdoc/>
+    /// <summary>Compares this value using canonical component order.</summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>A negative value, zero, or a positive value when this value precedes, equals, or follows the other in canonical order.</returns>
     public int CompareTo(GridDiagnosticChange other)
     {
         int result = WorldSpawnToken.CompareTo(other.WorldSpawnToken);
@@ -128,7 +138,9 @@ public readonly struct GridDiagnosticChange :
         return ((int)Kind).CompareTo((int)other.Kind);
     }
 
-    /// <inheritdoc/>
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public bool Equals(GridDiagnosticChange other) =>
         Kind == other.Kind
         && WorldSpawnToken == other.WorldSpawnToken
@@ -139,10 +151,13 @@ public readonly struct GridDiagnosticChange :
         && BoundsMin.Equals(other.BoundsMin)
         && BoundsMax.Equals(other.BoundsMax);
 
-    /// <inheritdoc/>
+    /// <summary>Tests whether the supplied value has the same equality components.</summary>
+    /// <param name="obj">The object to compare; null and other types compare unequal.</param>
+    /// <returns>True when all equality components match; otherwise false.</returns>
     public override bool Equals(object? obj) => obj is GridDiagnosticChange other && Equals(other);
 
-    /// <inheritdoc/>
+    /// <summary>Computes a hash of the equality components.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
     public override int GetHashCode()
     {
         int hash = SwiftHashTools.CombineHashCodes((int)Kind, WorldSpawnToken.GetHashCode());

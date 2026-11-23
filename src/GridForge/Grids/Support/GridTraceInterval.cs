@@ -17,21 +17,27 @@ namespace GridForge.Grids;
 public readonly struct GridTraceInterval
 {
     /// <summary>The exact world, grid-generation, and topology-local address.</summary>
+    /// <value>The exact world, grid-generation, and topology-local address.</value>
     public WorldVoxelIndex Cell { get; }
 
     /// <summary>The normalized grid binding key, independent of the recyclable runtime slot.</summary>
+    /// <value>The normalized grid binding key, independent of the recyclable runtime slot.</value>
     public GridConfigurationKey ConfigurationKey { get; }
 
     /// <summary>Whether physical storage currently contains the addressed voxel.</summary>
+    /// <value>Whether physical storage currently contains the addressed voxel.</value>
     public bool IsPhysicallyPresent { get; }
 
     /// <summary>The last committed sequence applied to the traced grid generation.</summary>
+    /// <value>The last committed sequence applied to the traced grid generation.</value>
     public ulong GridLastChangeSequence { get; }
 
     /// <summary>The first inclusive segment parameter in the cell prism.</summary>
+    /// <value>The first inclusive segment parameter in the cell prism.</value>
     public Fixed64 TEnter { get; }
 
     /// <summary>The last inclusive segment parameter in the cell prism.</summary>
+    /// <value>The last inclusive segment parameter in the cell prism.</value>
     public Fixed64 TExit { get; }
 
     /// <summary>
@@ -41,9 +47,11 @@ public readonly struct GridTraceInterval
     /// Closed intervals that merely hand off at one endpoint remain successive groups. Group membership
     /// expresses simultaneous geometric coverage only; it does not imply voxel adjacency.
     /// </remarks>
+    /// <value>Stable group for peers whose interval interiors overlap, or point peers at one exact parameter.</value>
     public int TieGroupId { get; }
 
     /// <summary>The canonical identity order within <see cref="TieGroupId"/>.</summary>
+    /// <value>The canonical identity order within <see cref="P:GridForge.Grids.GridTraceInterval.TieGroupId" />.</value>
     public int TieOrder { get; }
 
     internal GridTraceInterval(

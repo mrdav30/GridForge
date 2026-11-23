@@ -14,18 +14,23 @@ namespace GridForge.Grids;
 public readonly struct GridNavigationBodyTraceCell
 {
     /// <summary>The exact world, grid-generation, and topology-local address.</summary>
+    /// <value>The exact world, grid-generation, and topology-local address.</value>
     public WorldVoxelIndex Cell { get; }
 
     /// <summary>The normalized grid binding key, independent of its recyclable runtime slot.</summary>
+    /// <value>The normalized grid binding key, independent of its recyclable runtime slot.</value>
     public GridConfigurationKey ConfigurationKey { get; }
 
     /// <summary>Whether physical storage contained this address during the trace.</summary>
+    /// <value>Whether physical storage contained this address during the trace.</value>
     public bool IsPhysicallyPresent { get; }
 
     /// <summary>The last committed sequence applied to the owning grid generation.</summary>
+    /// <value>The last committed sequence applied to the owning grid generation.</value>
     public ulong GridLastChangeSequence { get; }
 
     /// <summary>How this identity participates in the physical coverage proof.</summary>
+    /// <value>How this identity participates in the physical coverage proof.</value>
     public GridNavigationBodyTraceCellRole Role { get; }
 
     internal GridNavigationBodyTraceCell(

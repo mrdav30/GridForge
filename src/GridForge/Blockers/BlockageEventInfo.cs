@@ -37,6 +37,10 @@ public readonly struct BlockageEventInfo
     /// <summary>
     /// Initializes a new immutable blockage snapshot.
     /// </summary>
+    /// <param name="worldSpawnToken">The world instance that produced this blocker event.</param>
+    /// <param name="blockageToken">The unique token representing the blocker coverage.</param>
+    /// <param name="boundsMin">The minimum bounds of the blocker coverage.</param>
+    /// <param name="boundsMax">The maximum bounds of the blocker coverage.</param>
     public BlockageEventInfo(
         long worldSpawnToken,
         ObstacleToken blockageToken,

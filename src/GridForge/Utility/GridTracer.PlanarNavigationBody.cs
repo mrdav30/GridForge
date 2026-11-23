@@ -45,6 +45,8 @@ public static partial class GridTracer
     /// <param name="outputLimit">Maximum complete required and dependency-evidence cells.</param>
     /// <param name="candidateWorkLimit">Maximum combined generation and address inspections.</param>
     /// <returns>The completion status, exact candidate counts, and coherent evidence stamp.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="gridCandidateLimit"/>, <paramref name="addressCandidateLimit"/>, <paramref name="outputLimit"/> is negative.</exception>
     public static GridNavigationBodyTraceReport TracePlanarNavigationBodyInto(
         GridWorld world, ReadOnlySpan<GridPlanarLayer> eligibleLayers, Fixed64 embeddingY,
         WorldVoxelIndex source, WorldVoxelIndex target, Vector2d startCenter, Vector2d endCenter,

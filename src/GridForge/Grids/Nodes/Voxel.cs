@@ -26,41 +26,50 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// The world-scoped runtime identity of this voxel within the grid system.
     /// </summary>
+    /// <value>The world-scoped runtime identity of this voxel within the grid system.</value>
+    /// <remarks>Assigned by grid initialization. Changing this public value manually does not move the voxel or update grid, scan-cell, or registration bookkeeping.</remarks>
     public WorldVoxelIndex WorldIndex { get; set; }
 
     /// <summary>
     /// The world-local index of the grid this voxel belongs to.
     /// </summary>
+    /// <value>The world-local index of the grid this voxel belongs to.</value>
     public ushort GridIndex => WorldIndex.GridIndex;
 
     /// <summary>
     /// The local coordinates of this voxel within its grid.
     /// </summary>
+    /// <value>The local coordinates of this voxel within its grid.</value>
     public VoxelIndex Index => WorldIndex.VoxelIndex;
 
     /// <summary>
     /// The grid-local key of the scan cell that this voxel belongs to.
     /// </summary>
+    /// <value>The grid-local key of the scan cell that this voxel belongs to.</value>
     public int ScanCellKey { get; private set; }
 
     /// <summary>
     /// The world-space position of this voxel.
     /// </summary>
+    /// <value>The world-space position of this voxel.</value>
     public Vector3d WorldPosition { get; private set; }
 
     /// <summary>
     /// Stores the process-unique identity of each obstacle registration added to this voxel.
     /// </summary>
+    /// <value>A borrowed pooled token set, or null when no obstacles remain. Inspect only; the last removal, obstacle clear, or voxel reset returns this set to its pool. Do not retain or mutate it.</value>
     public SwiftHashSet<ObstacleToken>? ObstacleTracker { get; internal set; }
 
     /// <summary>
     /// The current number of obstacles on this voxel.
     /// </summary>
+    /// <value>The number of distinct obstacle-token attachments on this voxel, from zero through 255; stacked blockers count separately.</value>
     public byte ObstacleCount { get; internal set; }
 
     /// <summary>
     /// The current number of occupants on this voxel.
     /// </summary>
+    /// <value>The current registration count on this voxel, from zero through 255. Registrations in different voxels are counted separately even for the same occupant reference.</value>
     public byte OccupantCount { get; internal set; }
 
     /// <summary>
@@ -71,6 +80,7 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Indicates whether this voxel has any active partitions.
     /// </summary>
+    /// <value>Indicates whether this voxel has any active partitions.</value>
     public bool IsPartioned => !_partitionProvider.IsEmpty;
 
     private readonly object _partitionLock = new();
@@ -78,26 +88,31 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Determines if this voxel is a boundary voxel.
     /// </summary>
+    /// <value>Determines if this voxel is a boundary voxel.</value>
     public bool IsBoundaryVoxel { get; private set; }
 
     /// <summary>
     /// The current version of the grid at the time this voxel was created.
     /// </summary>
+    /// <value>The current version of the grid at the time this voxel was created.</value>
     public uint CachedGridVersion { get; internal set; }
 
     /// <summary>
     /// Indicates whether this voxel is allocated within a grid.
     /// </summary>
+    /// <value>Indicates whether this voxel is allocated within a grid.</value>
     public bool IsAllocated { get; private set; }
 
     /// <summary>
     /// Determines whether this voxel is blocked due to obstacles.
     /// </summary>
+    /// <value>Determines whether this voxel is blocked due to obstacles.</value>
     public bool IsBlocked => IsAllocated && ObstacleCount > 0;
 
     /// <summary>
     /// Determines if this voxel can accept additional obstacles.
     /// </summary>
+    /// <value>Determines if this voxel can accept additional obstacles.</value>
     public bool IsBlockable => IsAllocated
         && ObstacleCount < GridObstacleManager.MaxObstacleCount
         && !IsOccupied;
@@ -105,11 +120,13 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Determines whether this voxel is occupied by entities.
     /// </summary>
+    /// <value>Determines whether this voxel is occupied by entities.</value>
     public bool IsOccupied => IsAllocated && OccupantCount > 0;
 
     /// <summary>
     /// Checks if this voxel has open slots for new occupants.
     /// </summary>
+    /// <value>Checks if this voxel has open slots for new occupants.</value>
     public bool HasVacancy => !IsBlocked && OccupantCount < GridOccupantManager.MaxOccupantCount;
 
     internal bool HasEventSubscribers =>
@@ -128,7 +145,8 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     private Action<ObstacleEventInfo>? _onObstacleAdded;
 
-    /// <inheritdoc cref="_onObstacleAdded"/>
+    /// <summary>Raised when an obstacle registration is added.</summary>
+    /// <remarks>Handlers run synchronously after the voxel state change. Handler failures are logged and remaining subscribers are still invoked. Subscriptions belong to this pooled voxel lifetime and are cleared on reset.</remarks>
     public event Action<ObstacleEventInfo> OnObstacleAdded
     {
         add => _onObstacleAdded += value;
@@ -140,7 +158,8 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     private Action<ObstacleEventInfo>? _onObstacleRemoved;
 
-    /// <inheritdoc cref="_onObstacleRemoved"/>
+    /// <summary>Raised when an obstacle registration is removed.</summary>
+    /// <remarks>Handlers run synchronously after the voxel state change. Handler failures are logged and remaining subscribers are still invoked. Subscriptions belong to this pooled voxel lifetime and are cleared on reset.</remarks>
     public event Action<ObstacleEventInfo> OnObstacleRemoved
     {
         add => _onObstacleRemoved += value;
@@ -152,7 +171,8 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     private Action<ObstacleClearEventInfo>? _onObstaclesCleared;
 
-    /// <inheritdoc cref="_onObstaclesCleared"/>
+    /// <summary>Raised when all obstacle registrations on a voxel are cleared.</summary>
+    /// <remarks>Handlers run synchronously after the voxel state change. Handler failures are logged and remaining subscribers are still invoked. Subscriptions belong to this pooled voxel lifetime and are cleared on reset.</remarks>
     public event Action<ObstacleClearEventInfo> OnObstaclesCleared
     {
         add => _onObstaclesCleared += value;
@@ -164,7 +184,8 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     private Action<OccupantEventInfo>? _onOccupantAdded;
 
-    /// <inheritdoc cref="_onOccupantAdded"/>
+    /// <summary>Raised when an occupant registration is added.</summary>
+    /// <remarks>Handlers run synchronously after the voxel state change. Handler failures are logged and remaining subscribers are still invoked. Subscriptions belong to this pooled voxel lifetime and are cleared on reset.</remarks>
     public event Action<OccupantEventInfo> OnOccupantAdded
     {
         add => _onOccupantAdded += value;
@@ -176,7 +197,8 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     private Action<OccupantEventInfo>? _onOccupantRemoved;
 
-    /// <inheritdoc cref="_onOccupantRemoved"/>
+    /// <summary>Raised when an occupant registration is removed.</summary>
+    /// <remarks>Handlers run synchronously after the voxel state change. Handler failures are logged and remaining subscribers are still invoked. Subscriptions belong to this pooled voxel lifetime and are cleared on reset.</remarks>
     public event Action<OccupantEventInfo> OnOccupantRemoved
     {
         add => _onOccupantRemoved += value;
@@ -385,6 +407,9 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Adds a partition to this voxel, allowing specialized behaviors.
     /// </summary>
+    /// <param name="partition">The partition instance to retain under its exact type key.</param>
+    /// <returns>True after storage, parent assignment, and the add callback succeed; false for null, a duplicate exact type, or a callback failure. Failed callbacks remove the stored entry but cannot undo caller object side effects.</returns>
+    /// <remarks>The partition reference is retained on success. A throwing parent/add callback is logged and the stored entry is removed, but any changes the callback already made to the supplied object are not rolled back.</remarks>
     public bool TryAddPartition(IVoxelPartition partition)
     {
         if (partition == null)
@@ -418,6 +443,9 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Removes a partition from this voxel.
     /// </summary>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>True once the exact type was detached, even if its removal callback throws; false when absent.</returns>
+    /// <remarks>The entry is removed before its callback. Callback exceptions are logged; the removal remains successful and parent identity is not automatically cleared.</remarks>
     public bool TryRemovePartition<T>() where T : IVoxelPartition
     {
         Type partitionType = typeof(T);
@@ -449,6 +477,8 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Checks whether or not this voxel contains a specific partition.
     /// </summary>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>True when a partition stored under the exact requested type can be materialized as that type.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool HasPartition<T>() where T : IVoxelPartition
     {
@@ -458,6 +488,9 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves a partition from the voxel by type.
     /// </summary>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>True when the exact type is attached and the output is valid; otherwise false and the output is default.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetPartition<T>(out T? partition) where T : IVoxelPartition
     {
@@ -485,6 +518,11 @@ public class Voxel : IEquatable<Voxel>
     /// a null partition. Use the borrowed partition within
     /// the caller's serialized world phase.
     /// </remarks>
+    /// <param name="discoveryLimit">Maximum charged discovery work. Zero cannot fund an inspection.</param>
+    /// <param name="discoveryWork">The work charged by the operation, including work on incomplete results; exhaustion charges the supplied allowance.</param>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>Completed when discovery finished, even if the partition is null; WorkBudgetExceeded when the allowance is insufficient; WorldNotReady when the partition lock is busy.</returns>
     public GridBoundedVoxelStatus TryGetPartitionBounded<T>(
         ulong discoveryLimit, out ulong discoveryWork, out T? partition)
         where T : class, IVoxelPartition =>
@@ -498,6 +536,13 @@ public class Voxel : IEquatable<Voxel>
     /// Exhaustion charges the supplied allowance. Use the borrowed partition within the caller's
     /// serialized world phase.
     /// </remarks>
+    /// <param name="discoveryLimit">Maximum charged discovery work. Zero cannot fund an inspection.</param>
+    /// <param name="discoveryWork">The work charged by the operation, including work on incomplete results; exhaustion charges the supplied allowance.</param>
+    /// <param name="partition">The resolved partition on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <typeparam name="TFirstExcluded">The first exact cache partition type excluded from discovery charging.</typeparam>
+    /// <typeparam name="TSecondExcluded">The second exact cache partition type excluded from discovery charging.</typeparam>
+    /// <returns>Completed when discovery finished, even if the partition is null; WorkBudgetExceeded when the allowance is insufficient; WorldNotReady when the partition lock is busy.</returns>
     public GridBoundedVoxelStatus TryGetPartitionBounded<T, TFirstExcluded, TSecondExcluded>(
         ulong discoveryLimit, out ulong discoveryWork, out T? partition)
         where T : class, IVoxelPartition
@@ -533,6 +578,8 @@ public class Voxel : IEquatable<Voxel>
     /// <summary>
     /// Retrieves a partition from the voxel by type and returns null if it doesn't exist.
     /// </summary>
+    /// <typeparam name="T">The exact partition type to query or remove.</typeparam>
+    /// <returns>The attached reference for the exact requested type, or null. The reference is borrowed until detach or voxel reset.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public T? GetPartitionOrDefault<T>() where T : class, IVoxelPartition
     {
@@ -551,6 +598,7 @@ public class Voxel : IEquatable<Voxel>
     /// <param name="results">Caller-owned storage cleared and filled with contact neighbors.</param>
     /// <param name="scope">The grid groups included by the contact query.</param>
     /// <param name="tolerance">Optional fixed-point tolerance applied to footprint contact checks.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public void GetNeighborsInto(
         VoxelGrid ownerGrid,
         SwiftList<Voxel> results,
@@ -627,6 +675,7 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     /// <param name="ownerGrid">The active grid that owns this voxel.</param>
     /// <param name="results">Caller-owned storage cleared and filled with direction-labeled neighbors.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public void GetRectangularNeighborsInto(
         VoxelGrid ownerGrid,
         SwiftList<(RectangularDirection Direction, Voxel Voxel)> results)
@@ -645,6 +694,7 @@ public class Voxel : IEquatable<Voxel>
     /// </summary>
     /// <param name="ownerGrid">The active grid that owns this voxel.</param>
     /// <param name="results">Caller-owned storage cleared and filled with direction-labeled neighbors.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public void GetHexNeighborsInto(
         VoxelGrid ownerGrid,
         SwiftList<(HexDirection Direction, Voxel Voxel)> results)
@@ -672,16 +722,23 @@ public class Voxel : IEquatable<Voxel>
 
     #region Utility
 
-    /// <inheritdoc/>
+    /// <summary>Gets the stable runtime hash of this voxel object.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
+    /// <remarks>The object hash is independent of WorldIndex, but a pooled object can represent a different cell after reset/reuse. Use WorldVoxelIndex for generation-scoped keys.</remarks>
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
-    /// <inheritdoc/>
+    /// <summary>Formats this value for diagnostics.</summary>
+    /// <returns>Diagnostic text; do not use it as a persistence format.</returns>
     public override string ToString() => WorldIndex.ToString();
 
-    /// <inheritdoc/>
+    /// <summary>Tests object reference identity.</summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>True only when the supplied reference is this same voxel object; matching WorldIndex values alone do not establish equality.</returns>
     public bool Equals(Voxel? other) => ReferenceEquals(this, other);
 
-    /// <inheritdoc/>
+    /// <summary>Tests object reference identity.</summary>
+    /// <param name="obj">The object to compare; null and other types compare unequal.</param>
+    /// <returns>True only when the supplied reference is this same voxel object; matching WorldIndex values alone do not establish equality.</returns>
     public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 
     #endregion

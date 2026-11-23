@@ -26,36 +26,43 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// The world this blocker is bound to.
     /// </summary>
+    /// <value>The world this blocker is bound to.</value>
     public GridWorld World { get; }
 
     /// <summary>
     /// Unique token representing this blockage instance.
     /// </summary>
+    /// <value>Unique token representing this blockage instance.</value>
     public ObstacleToken BlockageToken { get; private set; }
 
     /// <summary>
     /// Indicates whether the blocker is currently active.
     /// </summary>
+    /// <value>Indicates whether the blocker is currently active.</value>
     public bool IsActive { get; protected set; }
 
     /// <summary>
     /// The cached minimum bounds of the blockage area.
     /// </summary>
+    /// <value>The cached minimum bounds of the blockage area.</value>
     public Vector3d CacheMin { get; protected set; }
 
     /// <summary>
     /// The cached maximum bounds of the blockage area.
     /// </summary>
+    /// <value>The cached maximum bounds of the blockage area.</value>
     public Vector3d CacheMax { get; private set; }
 
     /// <summary>
     /// Tracks whether the blocker is currently blocking voxels.
     /// </summary>
+    /// <value>Tracks whether the blocker is currently blocking voxels.</value>
     public bool IsBlocking { get; protected set; }
 
     /// <summary>
     /// Whether to cache world-scoped voxel identities for covered voxels.
     /// </summary>
+    /// <value>Whether to cache world-scoped voxel identities for covered voxels.</value>
     public bool CacheCoveredVoxels { get; protected set; }
 
     /// <summary>
@@ -73,7 +80,8 @@ public abstract class Blocker : IBlocker
     /// </summary>
     private static Action<BlockageEventInfo>? _onBlockageApplied;
 
-    /// <inheritdoc cref="_onBlockageApplied"/>
+    /// <summary>Raised when a blocker has successfully applied its coverage.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<BlockageEventInfo> OnBlockageApplied
     {
         add => _onBlockageApplied += value;
@@ -85,7 +93,8 @@ public abstract class Blocker : IBlocker
     /// </summary>
     private static Action<BlockageEventInfo>? _onBlockageRemoved;
 
-    /// <inheritdoc cref="_onBlockageRemoved"/>
+    /// <summary>Raised when a blocker has removed its coverage.</summary>
+    /// <remarks>Handlers run synchronously after the state change. Handler failures are logged and remaining subscribers are still invoked. Static manager/blocker events can contain changes from any world; use the event identity to filter.</remarks>
     public static event Action<BlockageEventInfo> OnBlockageRemoved
     {
         add => _onBlockageRemoved += value;
@@ -98,6 +107,7 @@ public abstract class Blocker : IBlocker
     /// <param name="world">The world whose grids this blocker should affect.</param>
     /// <param name="active">Flag whether or not this blocker will block on update.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels that are blocked.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="world"/> is null.</exception>
     protected Blocker(GridWorld world, bool active = true, bool cacheCoveredVoxels = false)
     {
         ChronicleGuard.ThrowIfNull(world, nameof(world));
@@ -110,6 +120,7 @@ public abstract class Blocker : IBlocker
     /// Sets the requested blocker state. False removes the blockage and deactivates
     /// the blocker; true applies the blockage if it is not already blocking.
     /// </summary>
+    /// <param name="status">True requests application; false removes the blockage and deactivates the blocker.</param>
     public virtual void ToggleStatus(bool status)
     {
         if (!status)
@@ -129,6 +140,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Applies the blockage by marking voxels as obstacles.
     /// </summary>
+    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
     public virtual void ApplyBlockage()
     {
         ApplyBlockageCore(preserveTokenWhenEmpty: false);
@@ -158,6 +170,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Removes the blockage by clearing obstacle markers from voxels.
     /// </summary>
+    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
     public virtual void RemoveBlockage()
     {
         RemoveBlockageCore(keepWatching: false, preserveToken: false);
@@ -301,6 +314,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Creates a snapshot describing the current blocker coverage.
     /// </summary>
+    /// <returns>A value snapshot of the current world token, blockage token, and cached bounds.</returns>
     protected BlockageEventInfo CreateBlockageEventInfo()
     {
         return CreateBlockageEventInfo(BlockageToken);
@@ -340,6 +354,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Notifies subscribers that blockage has been removed.
     /// </summary>
+    /// <param name="eventInfo">The value snapshot supplied to removal subscribers.</param>
     protected virtual void NotifyBlockageRemoved(BlockageEventInfo eventInfo)
     {
         Action<BlockageEventInfo>? handlers = _onBlockageRemoved;
@@ -364,18 +379,18 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Gets the min bounds of the area to block. Must be implemented by subclasses.
     /// </summary>
+    /// <returns>The minimum blockage corner in fixed-point world coordinates.</returns>
     protected abstract Vector3d GetBoundsMin();
 
     /// <summary>
     /// Gets the max bounds of the area to block. Must be implemented by subclasses.
     /// </summary>
+    /// <returns>The maximum blockage corner in fixed-point world coordinates.</returns>
     protected abstract Vector3d GetBoundsMax();
 
-    /// <summary>
-    /// Sets whether or not to cache covered voxels for this blocker. 
-    /// If enabled, the blocker will store references to the voxels it covers when applying blockage, 
-    /// which can improve performance when removing blockage at the cost of increased memory usage.
-    /// </summary>
+    /// <summary>Selects whether future applications cache world-scoped voxel identities for removal.</summary>
+    /// <param name="cache">Whether future applications cache exact voxel identities for removal. Changing the setting does not immediately reapply the blockage.</param>
+    /// <remarks>The cache stores value identities, not voxel references. Changing this flag does not itself apply or remove blockage; disabling it makes removal retrace the cached bounds.</remarks>
     public virtual void SetCacheCoveredVoxels(bool cache)
     {
         if (CacheCoveredVoxels == cache)
@@ -394,6 +409,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Resets the blocker to its default state, removing any active blockage and clearing cached data.
     /// </summary>
+    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
     public virtual void Reset()
     {
         RemoveBlockageCore(keepWatching: false, preserveToken: false);

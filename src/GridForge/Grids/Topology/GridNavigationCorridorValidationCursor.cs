@@ -47,12 +47,15 @@ public struct GridNavigationCorridorValidationCursor
     private GridNavigationPortal _selectedPortal;
 
     /// <summary>The current validation state.</summary>
+    /// <value>The current validation state.</value>
     public readonly GridNavigationCorridorValidationStatus Status => _status;
 
     /// <summary>The number of canonical waypoints written, or zero after failure.</summary>
+    /// <value>The number of canonical waypoints written, or zero after failure.</value>
     public readonly int PortalWaypointCount => _portalWaypointCount;
 
     /// <summary>The checked canonical polyline length accumulated so far.</summary>
+    /// <value>The checked canonical polyline length accumulated so far.</value>
     public readonly Fixed64 GeometricCost => _geometricCost;
 
     /// <summary>
@@ -112,6 +115,7 @@ public struct GridNavigationCorridorValidationCursor
     /// <param name="portalWaypoints">Caller-owned storage for twice the portal count.</param>
     /// <param name="maxWork">The nonnegative maximum number of work units to perform.</param>
     /// <returns>The resulting validation state.</returns>
+    /// <exception cref="System.ArgumentOutOfRangeException">maxWork is negative.</exception>
     public GridNavigationCorridorValidationStatus Advance(
         ReadOnlySpan<GridCellPrism> orderedCells,
         Span<Vector3d> portalWaypoints,

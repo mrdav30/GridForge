@@ -20,6 +20,13 @@ public static partial class GridCellGeometry
     /// This is the degenerate-segment form of <see cref="IsNavigationBodySegmentValid"/>. The
     /// shared swept-body authority therefore owns all wall, opening, height, and equality behavior.
     /// </remarks>
+    /// <param name="prism">The exact cell prism. A default prism has no valid footprint.</param>
+    /// <param name="foot">The body foot position in world space.</param>
+    /// <param name="horizontalRadius">The nonnegative upright body radius in X/Z world units. Zero represents a point footprint.</param>
+    /// <param name="bodyHeight">The strictly positive upright body height in world units, extending upward from the foot.</param>
+    /// <param name="selectedPortal">The selected portal used for face clearance at this anchor.</param>
+    /// <returns>True when the body fits the prism and selected portal clearance; false for invalid, unrepresentable, or insufficient geometry.</returns>
+    /// <exception cref="System.ArgumentException">The horizontal radius is negative or body height is not positive.</exception>
     public static bool IsNavigationBodyAnchorValid(
         in GridCellPrism prism,
         Vector3d foot,

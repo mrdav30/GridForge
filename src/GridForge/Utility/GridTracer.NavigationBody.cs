@@ -29,6 +29,22 @@ public static partial class GridTracer
     /// one shared continuous parameter. Boundary-only coincidence and tangency are excluded.
     /// Grid, address, output, and combined candidate-work ceilings are independent.
     /// </remarks>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="source">The source cell identity or exact prism.</param>
+    /// <param name="target">The target cell identity or exact prism.</param>
+    /// <param name="startFoot">The starting foot position in world space.</param>
+    /// <param name="endFoot">The ending foot position in world space.</param>
+    /// <param name="horizontalRadius">The nonnegative upright body radius in X/Z world units. Zero represents a point footprint.</param>
+    /// <param name="bodyHeight">The strictly positive upright body height in world units, extending upward from the foot.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="gridCandidateLimit">Nonnegative maximum admitted grid candidates. Zero permits no candidates.</param>
+    /// <param name="addressCandidateLimit">Nonnegative maximum admitted topology-local address candidates, including missing sparse addresses.</param>
+    /// <param name="outputLimit">Nonnegative maximum output elements. Zero permits no output.</param>
+    /// <param name="candidateWorkLimit">Nonnegative combined grid/address candidate-work ceiling, independent of the other limits.</param>
+    /// <returns>Complete means the full physical coverage was written. IncompletePhysicalCoverage retains the complete canonical cell set, including absent required cells. Geometry and budget failures clear the main output. Inspect the status and captured stamps before using the evidence.</returns>
+    /// <exception cref="System.ArgumentNullException">results or scratch is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">Any grid, address, output, or combined work limit is negative.</exception>
     public static GridNavigationBodyTraceReport TraceNavigationBodyInto(
         GridWorld world,
         WorldVoxelIndex source,
@@ -56,6 +72,24 @@ public static partial class GridTracer
     /// The optional `excludedGridCandidates` list is cleared first and receives the configuration keys
     /// of excluded grids encountered during candidate traversal. An aborted trace can leave only a prefix.
     /// </remarks>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="source">The source cell identity or exact prism.</param>
+    /// <param name="target">The target cell identity or exact prism.</param>
+    /// <param name="startFoot">The starting foot position in world space.</param>
+    /// <param name="endFoot">The ending foot position in world space.</param>
+    /// <param name="horizontalRadius">The nonnegative upright body radius in X/Z world units. Zero represents a point footprint.</param>
+    /// <param name="bodyHeight">The strictly positive upright body height in world units, extending upward from the foot.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="gridCandidateLimit">Nonnegative maximum admitted grid candidates. Zero permits no candidates.</param>
+    /// <param name="addressCandidateLimit">Nonnegative maximum admitted topology-local address candidates, including missing sparse addresses.</param>
+    /// <param name="outputLimit">Nonnegative maximum output elements. Zero permits no output.</param>
+    /// <param name="candidateWorkLimit">Nonnegative combined grid/address candidate-work ceiling, independent of the other limits.</param>
+    /// <param name="excludedGridSpawnTokens">Optional exact grid generations to exclude. The set is read without copying; keep it unchanged until return.</param>
+    /// <param name="excludedGridCandidates">Optional caller-owned list cleared first and filled with excluded candidate configuration keys. Failure can leave a prefix.</param>
+    /// <returns>Complete means the full physical coverage was written. IncompletePhysicalCoverage retains the complete canonical cell set, including absent required cells. Geometry and budget failures clear the main output. Inspect the status and captured stamps before using the evidence.</returns>
+    /// <exception cref="System.ArgumentNullException">results or scratch is null.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">Any grid, address, output, or combined work limit is negative.</exception>
     public static GridNavigationBodyTraceReport TraceNavigationBodyInto(
         GridWorld world,
         WorldVoxelIndex source,

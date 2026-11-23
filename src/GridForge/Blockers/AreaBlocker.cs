@@ -28,6 +28,8 @@ public class AreaBlocker : Blocker
     /// <param name="layerY">The world Y layer to block. Defaults to zero.</param>
     /// <param name="isActive">Flag whether or not blocker is active.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
+    /// <exception cref="System.ArgumentNullException">The supplied world is null.</exception>
+    /// <remarks>The world reference is retained. Bounds/area inputs are copied by value; construction does not apply the blockage. Call ApplyBlockage or ToggleStatus to apply it.</remarks>
     public AreaBlocker(
         GridWorld world,
         FixedBoundArea blockArea,
@@ -48,6 +50,8 @@ public class AreaBlocker : Blocker
     /// <param name="layerY">The world Y layer to block. Defaults to zero.</param>
     /// <param name="isActive">Flag whether or not blocker is active.</param>
     /// <param name="cacheCoveredVoxels">Flag whether or not to cache covered voxels.</param>
+    /// <exception cref="System.ArgumentNullException">The supplied world is null.</exception>
+    /// <remarks>The world reference is retained. Bounds/area inputs are copied by value; construction does not apply the blockage. Call ApplyBlockage or ToggleStatus to apply it.</remarks>
     public AreaBlocker(
         GridWorld world,
         Vector2d boundsMin,

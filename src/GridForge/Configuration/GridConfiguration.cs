@@ -20,6 +20,7 @@ namespace GridForge.Configuration;
 /// Defines the configuration parameters for a grid, including boundaries, topology, storage, and scan cell size.
 /// Used to describe grid properties before a world normalizes and registers the grid.
 /// </summary>
+/// <remarks>An explicitly constructed configuration orders bounds per component, replaces nonpositive scan-cell sizes with 8, and resolves default metrics to unit edges for rectangular topology. Hex topology requires explicit positive radius and layer height. <c>default(GridConfiguration)</c> and parameterless struct construction bypass that initialization: scan-cell size and metrics remain zero, and normalization fails. System.Text.Json restoration uses this type's normalizing constructor. Standard MemoryPack uses generated unmanaged field restoration without that constructor. In particular, a serialized default value restores with scan-cell size 8 and unit rectangular metrics through JSON, but retains zero fields through MemoryPack. Neither restore path registers a live grid; validate and normalize restored input explicitly.</remarks>
 [Serializable]
 [MemoryPackable]
 public readonly partial struct GridConfiguration
@@ -82,6 +83,7 @@ public readonly partial struct GridConfiguration
     /// <summary>
     /// The center point of the grid's bounding volume.
     /// </summary>
+    /// <value>The center point of the grid's bounding volume.</value>
     [JsonIgnore]
     [MemoryPackIgnore]
     public readonly Vector3d GridCenter => Vector3d.Midpoint(BoundsMin, BoundsMax);
@@ -94,11 +96,11 @@ public readonly partial struct GridConfiguration
     /// Initializes a new instance of <see cref="GridConfiguration"/> with specified bounds and scan cell size.
     /// Ensures that <see cref="BoundsMin"/> is always less than or equal to <see cref="BoundsMax"/>.
     /// </summary>
-    /// <param name="boundsMin">The minimum boundary of the grid.</param>
-    /// <param name="boundsMax">The maximum boundary of the grid.</param>
-    /// <param name="scanCellSize">The size of scan cells within the grid. Default is 8.</param>
+    /// <param name="boundsMin">The first world-space bounds corner. Each component is ordered with boundsMax; supplied values are not mutated.</param>
+    /// <param name="boundsMax">The opposite world-space bounds corner, ordered per component with boundsMin.</param>
+    /// <param name="scanCellSize">Scan-cell edge length in topology-address units. Nonpositive values become 8.</param>
     /// <param name="topologyKind">The topology kind used by the grid. Defaults to rectangular-prism.</param>
-    /// <param name="topologyMetrics">Deterministic topology metrics. Defaults to 1x1x1 rectangular-prism cells.</param>
+    /// <param name="topologyMetrics">Cell geometry in world units. Default resolves unit rectangular metrics. Hex configurations require explicit positive radius and layer height; nondefault values are stored until validation.</param>
     /// <param name="storageKind">The physical voxel storage kind. Defaults to dense storage.</param>
     [JsonConstructor]
     public GridConfiguration(
@@ -135,12 +137,14 @@ public readonly partial struct GridConfiguration
     /// Creates an exact identity key for this configuration's current bounds.
     /// </summary>
     /// <remarks>Use <see cref="TryNormalize"/> before deriving a normalized bounds key.</remarks>
+    /// <returns>An exact copy of the current bounds as a key, without additional snapping.</returns>
     public readonly BoundsKey ToBoundsKey() => new(BoundsMin, BoundsMax);
 
     /// <summary>
     /// Creates an exact identity key for this configuration's current bounds and topology.
     /// </summary>
     /// <remarks>Use the descriptor from <see cref="TryNormalize"/> for normalized registration identity.</remarks>
+    /// <returns>An exact bounds/topology key. Storage kind and scan-cell size are excluded.</returns>
     public readonly GridConfigurationKey ToGridKey() =>
         new(BoundsMin, BoundsMax, TopologyKind, TopologyMetrics);
 
@@ -154,6 +158,7 @@ public readonly partial struct GridConfiguration
     /// True when the topology and dimensions are supported; otherwise false and
     /// <paramref name="descriptor"/> is default.
     /// </returns>
+    /// <remarks>Validates supported topology, metric positivity, positive dimensions, and an address count no greater than Int32.MaxValue. Storage kind and hex orientation enum values are not exhaustively validated here. No grid is registered and no physical voxels are materialized. Arithmetic follows underlying fixed-point operations; false is not a general exception-catching boundary.</remarks>
     public readonly bool TryNormalize(out NormalizedGridConfiguration descriptor)
     {
         descriptor = default;
@@ -188,7 +193,8 @@ public readonly partial struct GridConfiguration
         return true;
     }
 
-    /// <inheritdoc/>
+    /// <summary>Computes a hash of the equality components.</summary>
+    /// <returns>A hash for lookup; collisions are possible and equality remains authoritative.</returns>
     public override readonly int GetHashCode()
     {
         int hash = SwiftHashTools.CombineHashCodes(BoundsMin.GetHashCode(), BoundsMax.GetHashCode());

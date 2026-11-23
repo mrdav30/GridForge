@@ -31,6 +31,9 @@ public sealed class GridDiagnosticSession : IDisposable
     /// Creates a diagnostic dirty-tracking session for the supplied active
     /// world.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <exception cref="System.ArgumentNullException">The world is null.</exception>
+    /// <exception cref="System.InvalidOperationException">The world is inactive.</exception>
     public GridDiagnosticSession(GridWorld world)
     {
         if (world == null)
@@ -47,6 +50,10 @@ public sealed class GridDiagnosticSession : IDisposable
     /// <summary>
     /// Clears and fills caller-owned storage with coalesced dirty changes.
     /// </summary>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <returns>The number of sorted, coalesced changes copied. Reading does not drain them; call ClearDirtyChanges to acknowledge them.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
+    /// <remarks>Copies values into caller-owned storage without clearing the pending session changes. The copied values survive subsequent session clearing; resolving their identities can fail after world mutation.</remarks>
     public int GetDirtyChangesInto(SwiftList<GridDiagnosticChange> results)
     {
         ChronicleGuard.ThrowIfNull(results, nameof(results));
@@ -77,7 +84,8 @@ public sealed class GridDiagnosticSession : IDisposable
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>Unsubscribes from world notifications and clears captured dirty changes.</summary>
+    /// <remarks>Repeated disposal is harmless. Other operations must not race with disposal.</remarks>
     public void Dispose()
     {
         if (_disposed)

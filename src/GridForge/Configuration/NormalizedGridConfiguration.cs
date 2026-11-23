@@ -26,38 +26,45 @@ public readonly struct NormalizedGridConfiguration
     /// The normalized configuration. Its bounds are topology-aligned, while
     /// scan-cell and storage settings retain the caller's requested values.
     /// </summary>
+    /// <value>The normalized configuration. Its bounds are topology-aligned, while scan-cell and storage settings retain the caller's requested values.</value>
     public GridConfiguration Configuration { get; }
 
     /// <summary>
     /// The exact normalized bounds-and-topology key used to bind equivalent grids.
     /// Storage kind and scan-cell size are deliberately excluded from this identity.
     /// </summary>
+    /// <value>The exact normalized bounds-and-topology key used to bind equivalent grids. Storage kind and scan-cell size are deliberately excluded from this identity.</value>
     public GridConfigurationKey Key { get; }
 
     /// <summary>
     /// The number of valid topology-local X or axial-Q addresses.
     /// </summary>
+    /// <value>The number of valid topology-local X or axial-Q addresses.</value>
     public int Width { get; }
 
     /// <summary>
     /// The number of valid topology-local vertical layers.
     /// </summary>
+    /// <value>The number of valid topology-local vertical layers.</value>
     public int Height { get; }
 
     /// <summary>
     /// The number of valid topology-local Z or axial-R addresses.
     /// </summary>
+    /// <value>The number of valid topology-local Z or axial-R addresses.</value>
     public int Length { get; }
 
     /// <summary>
     /// The total number of topology-local addresses in the normalized grid.
     /// Sparse storage may materialize only a subset of these addresses.
     /// </summary>
+    /// <value>The total number of topology-local addresses in the normalized grid. Sparse storage may materialize only a subset of these addresses.</value>
     public int AddressCount { get; }
 
     /// <summary>
     /// Indicates whether this descriptor contains a valid normalized address space.
     /// </summary>
+    /// <value>Indicates whether this descriptor contains a valid normalized address space.</value>
     public bool IsValid => Width > 0 && Height > 0 && Length > 0;
 
     internal NormalizedGridConfiguration(

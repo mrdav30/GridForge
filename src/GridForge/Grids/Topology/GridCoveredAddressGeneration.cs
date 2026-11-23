@@ -16,18 +16,26 @@ namespace GridForge.Grids.Topology;
 public readonly struct GridCoveredAddressGeneration : IComparable<GridCoveredAddressGeneration>
 {
     /// <summary>The durable normalized grid identity.</summary>
+    /// <value>The durable normalized grid identity.</value>
     public GridConfigurationKey ConfigurationKey { get; }
 
     /// <summary>The recyclable world-local grid slot.</summary>
+    /// <value>The recyclable world-local grid slot.</value>
     public ushort GridIndex { get; }
 
     /// <summary>The exact process-unique grid allocation identity.</summary>
+    /// <value>The exact process-unique grid allocation identity.</value>
     public long GridSpawnToken { get; }
 
     /// <summary>The last committed sequence applied to this grid generation.</summary>
+    /// <value>The last committed sequence applied to this grid generation.</value>
     public ulong GridLastChangeSequence { get; }
 
     /// <summary>Initializes an exact eligible grid-generation identity.</summary>
+    /// <param name="configurationKey">The durable normalized grid identity.</param>
+    /// <param name="gridIndex">The recyclable world-local grid slot.</param>
+    /// <param name="gridSpawnToken">The exact process-unique grid allocation identity.</param>
+    /// <param name="gridLastChangeSequence">The last committed sequence applied to this grid generation.</param>
     public GridCoveredAddressGeneration(
         GridConfigurationKey configurationKey,
         ushort gridIndex,
@@ -43,6 +51,8 @@ public readonly struct GridCoveredAddressGeneration : IComparable<GridCoveredAdd
     /// <summary>
     /// Compares durable configuration identity only. Eligible inputs must be strictly ascending by this order.
     /// </summary>
+    /// <param name="other">The value to compare.</param>
+    /// <returns>A negative or positive value orders configuration keys; zero means the configuration keys match even if grid slot, allocation generation, or committed sequence differ.</returns>
     public int CompareTo(GridCoveredAddressGeneration other) =>
         CompareConfigurationKeys(ConfigurationKey, other.ConfigurationKey);
 

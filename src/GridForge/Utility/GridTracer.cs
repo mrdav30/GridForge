@@ -57,7 +57,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be traced.</param>
     /// <param name="start">Starting position in world space.</param>
     /// <param name="end">Ending position in world space.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> TraceLine(
@@ -80,8 +80,9 @@ public static partial class GridTracer
     /// <param name="start">Starting position in world space.</param>
     /// <param name="end">Ending position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public static void TraceLineInto(
         GridWorld world,
         Vector3d start,
@@ -127,8 +128,9 @@ public static partial class GridTracer
     /// <param name="end">Ending position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
     /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
     public static void TraceLineInto(
         GridWorld world,
         Vector3d start,
@@ -168,7 +170,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be traced.</param>
     /// <param name="start">Starting XZ-plane position in world space.</param>
     /// <param name="end">Ending XZ-plane position in world space.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
     /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
@@ -193,7 +195,7 @@ public static partial class GridTracer
     /// <param name="start">Starting XZ-plane position in world space.</param>
     /// <param name="end">Ending XZ-plane position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
     public static void TraceLineInto(
@@ -219,7 +221,7 @@ public static partial class GridTracer
     /// <param name="end">Ending XZ-plane position in world space.</param>
     /// <param name="results">Caller-owned storage that receives traced voxels.</param>
     /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
-    /// <param name="padding">Value applied to the start/end positions before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <param name="includeEnd">Whether to include the end voxel in the traced line.</param>
     /// <param name="layerY">The world Y layer to trace. Defaults to zero.</param>
     public static void TraceLineInto(
@@ -245,6 +247,11 @@ public static partial class GridTracer
     /// Each result lends a pooled voxel list until enumeration completes or is
     /// disposed. Copy contents before retaining them, or use <c>GetCoveredVoxelsInto</c>.
     /// </remarks>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
+    /// <returns>Lazy grid groups containing borrowed pooled voxel lists. Consume or copy each group during enumeration; lists are released when enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
         Vector3d boundsMin,
@@ -264,7 +271,7 @@ public static partial class GridTracer
     /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
@@ -283,7 +290,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be queried.</param>
     /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>Grouped results whose voxel lists are lent until enumeration completes or is disposed.</returns>
     public static IEnumerable<GridVoxelSet> GetCoveredVoxels(
         GridWorld world,
@@ -301,7 +308,8 @@ public static partial class GridTracer
     /// <param name="boundsMin">The minimum corner of the bounding area.</param>
     /// <param name="boundsMax">The maximum corner of the bounding area.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         Vector3d boundsMin,
@@ -326,7 +334,7 @@ public static partial class GridTracer
     /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         Vector2d boundsMin,
@@ -346,7 +354,7 @@ public static partial class GridTracer
     /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         FixedBoundArea area,
@@ -365,7 +373,8 @@ public static partial class GridTracer
     /// <param name="boundsMax">The maximum corner of the bounding area.</param>
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
     /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         Vector3d boundsMin,
@@ -393,7 +402,7 @@ public static partial class GridTracer
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
     /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         Vector2d boundsMin,
@@ -415,7 +424,7 @@ public static partial class GridTracer
     /// <param name="results">Caller-owned storage that receives covered voxels.</param>
     /// <param name="scratch">Reusable scratch storage for grid candidates and duplicate-voxel guards.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before normalization.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredVoxelsInto(
         GridWorld world,
         FixedBoundArea area,
@@ -433,7 +442,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be queried.</param>
     /// <param name="boundsMin">The minimum corner of the bounding area.</param>
     /// <param name="boundsMax">The maximum corner of the bounding area.</param>
-    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
     public static IEnumerable<ScanCell> GetCoveredScanCells(
         GridWorld world,
@@ -454,7 +463,7 @@ public static partial class GridTracer
     /// <param name="boundsMin">The 2D minimum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="boundsMax">The 2D maximum corner whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
     public static IEnumerable<ScanCell> GetCoveredScanCells(
         GridWorld world,
@@ -473,7 +482,7 @@ public static partial class GridTracer
     /// <param name="world">The world whose grids should be queried.</param>
     /// <param name="area">The 2D area whose X component maps to world X and Y component maps to world Z.</param>
     /// <param name="layerY">The world Y layer to cover. Defaults to zero.</param>
-    /// <param name="padding">Value applied to the min/max bounds before snapping.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     /// <returns>An enumerable of covered scan cells grouped by grid.</returns>
     public static IEnumerable<ScanCell> GetCoveredScanCells(
         GridWorld world,
@@ -487,6 +496,12 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage with scan cells covered by the supplied bounding area.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         Vector3d boundsMin,
@@ -506,6 +521,12 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage with scan cells covered by the supplied XZ-plane bounding area.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         Vector2d boundsMin,
@@ -521,6 +542,11 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage with scan cells covered by the supplied XZ-plane area.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="area">The world-space X/Z area; its Y components represent world Z.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         FixedBoundArea area,
@@ -534,6 +560,13 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage using caller-owned scratch collections.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/>, <paramref name="scratch"/> is null.</exception>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         Vector3d boundsMin,
@@ -555,6 +588,13 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane bounding area.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="boundsMin">The minimum world-space corner, in fixed-point world units.</param>
+    /// <param name="boundsMax">The maximum world-space corner, in fixed-point world units.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         Vector2d boundsMin,
@@ -571,6 +611,12 @@ public static partial class GridTracer
     /// <summary>
     /// Clears and fills caller-owned storage using caller-owned scratch collections for an XZ-plane area.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="area">The world-space X/Z area; its Y components represent world Z.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <param name="layerY">The world Y position used to resolve the planar layer; defaults to zero.</param>
+    /// <param name="padding">Optional positive expansion in world units, subtracted from the first corner and added to the second before normalization. Null, zero, and negative values use zero.</param>
     public static void GetCoveredScanCellsInto(
         GridWorld world,
         FixedBoundArea area,

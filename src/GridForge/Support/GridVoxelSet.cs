@@ -35,6 +35,7 @@ public readonly struct GridVoxelSet
     /// </summary>
     /// <param name="grid">The grid containing the matching voxels.</param>
     /// <param name="voxels">The matching voxels for the grid.</param>
+    /// <remarks>Stores the supplied grid and list references without copying, clearing, or validating them. Construction does not transfer ownership or return them to any pool; producer-specific lifetimes still apply.</remarks>
     public GridVoxelSet(VoxelGrid grid, SwiftList<Voxel> voxels)
     {
         Grid = grid;

@@ -5,7 +5,7 @@ resolutions or documented investigation closures.
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-013`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-015`.
 - Assign an ID at intake and preserve it through closure; never delete or reuse
   IDs. Check Git history before advancing or repairing the counter. Unknown
   historical IDs stay reserved rather than acquiring an inferred cause.
@@ -41,7 +41,113 @@ resolutions or documented investigation closures.
 
 ## Active Issues
 
-None.
+### GF-Issue-013 — Voxel occupant enumeration includes neighboring buckets
+
+- Discovered: 2026-11-22. Status: confirmed implementation defect; open,
+  documentation updated to describe current behavior. Priority: P2.
+- Owner: `GridScanManager.GetOccupants(VoxelGrid, Voxel)`,
+  `GetConditionalOccupants(VoxelGrid, Voxel)`, and `GetVoxelOccupantsByType<T>`,
+  including forwarding position/address/world overloads. `ScanCell.GetOccupants`
+  correctly enumerates the entire scan cell; the voxel-facing manager fails to
+  select the requested bucket.
+- Source revision: GridForge `5f96fded5803e62dffb8291d15485beb9be65c65`.
+  Verified with the develop sibling-source graph recorded in the
+  [XML pass record](done/2026-11-22-public-api-xml-documentation.md).
+- Portable reproducer: after a source-mode Release build, run the following in a
+  disposable .NET 10 console with a project reference to GridForge. Pass
+  `-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`
+  through its build/run. `System.Linq` is used only by the probe.
+
+  ```csharp
+  using System;
+  using System.Linq;
+  using FixedMathSharp;
+  using GridForge.Configuration;
+  using GridForge.Grids;
+  using GridForge.Spatial;
+
+  using GridWorld world = new GridWorld();
+  world.TryAddGrid(new GridConfiguration(
+      new Vector3d(0, 0, 0), new Vector3d(2, 0, 0)), out ushort slot);
+  world.TryGetGrid(slot, out VoxelGrid grid);
+  grid.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel first);
+  grid.TryGetVoxel(new VoxelIndex(1, 0, 0), out Voxel second);
+  grid.TryAddVoxelOccupant(first, new ProbeOccupant(first.WorldPosition, 1));
+  grid.TryAddVoxelOccupant(second, new ProbeOccupant(second.WorldPosition, 2));
+  Console.WriteLine(first.ScanCellKey == second.ScanCellKey);
+  Console.WriteLine(string.Join(",", grid.GetOccupants(first)
+      .Cast<ProbeOccupant>().Select(value => value.Id)));
+  Console.WriteLine(grid.GetVoxelOccupantsByType<ProbeOccupant>(first).Count());
+  Console.WriteLine(grid.GetConditionalOccupants(first).Count());
+
+  sealed class ProbeOccupant : IVoxelOccupant
+  {
+      public ProbeOccupant(Vector3d position, int id)
+      {
+          Position = position;
+          Id = id;
+          GlobalId = new Guid(id, 0, 0, new byte[8]);
+      }
+      public int Id { get; }
+      public Guid GlobalId { get; }
+      public Vector3d Position { get; }
+      public byte OccupantGroupId => 0;
+  }
+  ```
+
+- Expected: the first voxel's queries return only occupant 1; typed and
+  conditional counts are 1. Observed: shared scan-cell key is true, enumeration
+  returns `1,2`, and both counts are 2. The first voxel must itself be occupied;
+  an unoccupied voxel returns empty even when its scan cell contains occupants.
+  Ticket-based lookup remains exact.
+- Next action: separately scope exact-bucket selection at the manager/scan-cell
+  boundary, add a failing two-voxel regression, and validate all forwarding
+  forms and both package variants. Keep scan-cell-wide enumeration available on
+  `ScanCell` itself. Do not change runtime behavior in this XML pass.
+
+### GF-Issue-014 — Direct obstacle mutation accepts a foreign voxel
+
+- Discovered: 2026-11-22. Status: confirmed ownership-validation defect; open.
+  Priority: P2. The documented caller precondition is a matching active
+  grid/voxel pair; the direct boundary does not enforce it.
+- Owner: `GridObstacleManager.TryAddObstacle(VoxelGrid, Voxel, ObstacleToken)`,
+  `TryRemoveObstacle(VoxelGrid, Voxel, ObstacleToken)`, and
+  `ClearObstacles(VoxelGrid, Voxel)`. World-identity overloads resolve
+  ownership; occupant mutation has a separate validated-context path.
+- Source revision and source graph: same as GF-Issue-013.
+- Portable reproducer: use the same disposable console/build settings, replacing
+  its top-level code with the following. No occupant type is needed.
+
+  ```csharp
+  using System;
+  using FixedMathSharp;
+  using GridForge.Configuration;
+  using GridForge.Grids;
+  using GridForge.Spatial;
+
+  using GridWorld world = new GridWorld();
+  world.TryAddGrid(new GridConfiguration(
+      new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)), out ushort firstSlot);
+  world.TryAddGrid(new GridConfiguration(
+      new Vector3d(10, 0, 0), new Vector3d(11, 0, 0)), out ushort secondSlot);
+  world.TryGetGrid(firstSlot, out VoxelGrid owner);
+  world.TryGetGrid(secondSlot, out VoxelGrid other);
+  owner.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel);
+  bool added = other.TryAddObstacle(voxel, world.AllocateObstacleToken());
+  Console.WriteLine($"{added}; {owner.ObstacleCount}; " +
+      $"{other.ObstacleCount}; {voxel.ObstacleCount}");
+  other.ClearObstacles(voxel); // Undo the deliberately mismatched probe call.
+  ```
+
+- Expected safety behavior: reject a foreign voxel without mutation, preserving
+  owner counts, versions, and event identities. Observed: `True; 0; 1; 1`: the
+  voxel is changed while the unrelated grid receives the count/version and
+  committed change. Remove/clear share this unchecked ownership boundary; the
+  probe directly demonstrates addition and its cleanup.
+- Next action: separately decide/enforce direct mutation validation at the
+  shared owner, reproduce cross-grid and cross-world cases, and validate
+  add/remove/clear events, counts, and generations. Until then, pass exact owner
+  pairs or use the checked world-identity forms. No runtime fix is claimed here.
 
 ## Performance Investigation Queue
 

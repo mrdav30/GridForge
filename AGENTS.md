@@ -148,8 +148,9 @@ Versioning:
 - CI and release workflows use GitVersion.
 - Package-mode builds without GitVersion fall back to version `0.0.0`.
 - `Directory.Build.props` centralizes runtime version selection and per-library
-  source identities. Local GridForge uses `0.0.0-gf-local-lsf` with assembly/file
-  version `0.0.0.0`, independently of GitVersion or release versions.
+  source identities. Local GridForge uses `0.0.0-gf-local-lsf` with
+  assembly/file version `0.0.0.0`, independently of GitVersion or release
+  versions.
 
 Build CI selects pinned sibling sources on develop pushes and PRs targeting
 develop; main and other branches validate released packages. A develop -> main
@@ -285,8 +286,9 @@ For parity across planar and spatial queries, topologies, or storage kinds,
 first reuse existing types and logic whose contracts match. Share enums,
 policies, validation, and traversal logic at their common owner when semantics
 match. Keep specialized code where geometry, storage, or lifecycle requires it.
-Dimensional naming or matching file structure alone does not justify duplication.
-Verify shared changes through the affected query, topology, and storage callers.
+Dimensional naming or matching file structure alone does not justify
+duplication. Verify shared changes through the affected query, topology, and
+storage callers.
 
 - Add explicit `using` directives. `ImplicitUsings` is disabled.
 - The library project enables nullable analysis; tests and benchmarks disable
@@ -383,6 +385,16 @@ surface. Keep its GridForge icon, blue/cyan custom template, GitHub header link,
 namespace overviews, Unity adapter links, and landing-page routes intact. Build
 it from the Release `net10.0` assembly with warnings treated as errors;
 generated content under `docs/api/obj` is disposable.
+
+For XML documentation passes, follow
+[public XML contracts](CONTRIBUTING.md#public-xml-contracts). The site consumes
+only the Standard Release `net10.0` assembly and adjacent XML; separately audit
+both target frameworks in Release and ReleaseLean. Reconcile authored public and
+protected declarations with emitted XML and generated members, accounting for
+partial declarations, synthesis, and target-specific serializer APIs. Verify
+`inheritdoc` in rendered output; private-field event comments do not resolve in
+the current assembly-based DocFX input. Keep runtime fixes and regression tests
+outside a documentation-only pass.
 
 [`docs/feature-work/issue-tracker.md`](docs/feature-work/issue-tracker.md) and
 [`docs/feature-work/benchmark-signal-hardening-backlog.md`](docs/feature-work/benchmark-signal-hardening-backlog.md)

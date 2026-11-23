@@ -15,12 +15,15 @@ namespace GridForge.Grids.Topology;
 public readonly struct GridBoundaryContact
 {
     /// <summary>The canonical source grid identity.</summary>
+    /// <value>The canonical source grid identity.</value>
     public GridConfigurationKey SourceConfigurationKey { get; }
 
     /// <summary>The canonical target grid identity.</summary>
+    /// <value>The canonical target grid identity.</value>
     public GridConfigurationKey TargetConfigurationKey { get; }
 
     /// <summary>The exact contact between the source and target cells.</summary>
+    /// <value>The exact contact between the source and target cells.</value>
     public VoxelContactManifold Contact { get; }
 
     internal GridBoundaryContact(

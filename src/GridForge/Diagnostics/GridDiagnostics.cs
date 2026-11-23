@@ -23,6 +23,12 @@ public static class GridDiagnostics
     /// <summary>
     /// Clears and fills caller-owned storage with diagnostic cells.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="query">The query filters and budget, read by value without retention.</param>
+    /// <param name="results">Caller-owned output storage. The call clears existing elements before filling it; the collection is not retained.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <returns>The completion status, emitted count, and skipped count. A noncompleted result may leave a valid emitted prefix in the output.</returns>
+    /// <exception cref="System.ArgumentNullException"><paramref name="results"/> is null.</exception>
     public static GridDiagnosticQueryResult GetCellsInto(
         GridWorld world,
         in GridDiagnosticQuery query,
@@ -40,6 +46,12 @@ public static class GridDiagnostics
     /// <summary>
     /// Visits diagnostic cells without requiring an intermediate result list.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="query">The query filters and budget, read by value without retention.</param>
+    /// <param name="visitor">The caller-owned struct visitor, mutated by reference. Return false from its callback to stop after the current cell.</param>
+    /// <param name="scratch">Reusable caller-owned scratch. Contents are cleared during the call; capacity is retained. Do not share it between concurrent or reentrant calls.</param>
+    /// <typeparam name="TVisitor">The struct visitor implementing IGridDiagnosticCellVisitor.</typeparam>
+    /// <returns>The completion status, visited count, and skipped count. Visitor cancellation includes the cell that stopped traversal.</returns>
     public static GridDiagnosticQueryResult VisitCells<TVisitor>(
         GridWorld world,
         in GridDiagnosticQuery query,
@@ -105,6 +117,11 @@ public static class GridDiagnostics
     /// Resolves a physical diagnostic cell descriptor back to its active grid
     /// and voxel.
     /// </summary>
+    /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
+    /// <param name="cell">The value descriptor to inspect; its stored identity is resolved only by explicit lookup.</param>
+    /// <param name="grid">The resolved grid. It can remain nonnull when the grid resolves but the physical sparse voxel is absent; use it only on true.</param>
+    /// <param name="voxel">The resolved voxel on success; default on failure. Use it only when the operation succeeds.</param>
+    /// <returns>True when the physical descriptor matches the current world/grid generation and resolves to a physical voxel; otherwise false. Use both outputs only on success.</returns>
     public static bool TryResolvePhysicalCell(
         GridWorld world,
         in GridDiagnosticCell cell,

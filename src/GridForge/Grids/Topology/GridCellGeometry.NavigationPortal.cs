@@ -21,6 +21,10 @@ public static partial class GridCellGeometry
     /// Contact discovery and convex clipping occur only during compilation. The resulting value
     /// contains no live grid references and resolves body profiles in constant time.
     /// </remarks>
+    /// <param name="source">The source cell identity or exact prism.</param>
+    /// <param name="target">The target cell identity or exact prism.</param>
+    /// <param name="portal">The selected exact face portal between source and target.</param>
+    /// <returns>True for a representable face portal; false for separation, edge/point contact, overlap, or unrepresentable geometry. Discard the portal on false.</returns>
     public static bool TryCreateNavigationPortal(
         in GridCellPrism source,
         in GridCellPrism target,

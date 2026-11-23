@@ -37,6 +37,7 @@ public readonly struct GridConvexPolygon2d
     /// <summary>
     /// Number of boundary-ordered vertices in this polygon.
     /// </summary>
+    /// <value>Number of boundary-ordered vertices in this polygon.</value>
     public int VertexCount { get; }
 
     internal GridConvexPolygon2d(ReadOnlySpan<Vector2d> vertices)
@@ -62,6 +63,9 @@ public readonly struct GridConvexPolygon2d
     /// <summary>
     /// Gets one boundary-ordered polygon vertex.
     /// </summary>
+    /// <param name="index">Zero-based vertex index, less than the stored vertex count.</param>
+    /// <returns>The selected boundary-ordered world X/Z vertex; the vector Y component represents world Z.</returns>
+    /// <exception cref="System.ArgumentOutOfRangeException">The index is negative or is not less than the vertex count.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Vector2d GetVertex(int index) => index switch
     {
@@ -83,6 +87,8 @@ public readonly struct GridConvexPolygon2d
     /// <summary>
     /// Copies the boundary-ordered vertices into caller-owned storage.
     /// </summary>
+    /// <param name="destination">Caller-owned destination. The vertex prefix is overwritten and the remaining elements are unchanged.</param>
+    /// <exception cref="System.ArgumentException">The destination span is shorter than the vertex count. No elements are written.</exception>
     public void CopyTo(Span<Vector2d> destination)
     {
         if (destination.Length < VertexCount)

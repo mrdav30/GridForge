@@ -20,37 +20,44 @@ public sealed class GridNavigationBaseline
     /// <summary>
     /// The world-local committed change sequence captured with the state.
     /// </summary>
+    /// <value>The world-local committed change sequence captured with the state.</value>
     public ulong CapturedChangeSequence { get; }
 
     /// <summary>
     /// The exact process-unique identity of the source world.
     /// </summary>
+    /// <value>The exact process-unique identity of the source world.</value>
     public long WorldSpawnToken { get; }
 
     /// <summary>
     /// The exact world-local generation of the active grid.
     /// </summary>
+    /// <value>The exact world-local generation of the active grid.</value>
     public long GridSpawnToken { get; }
 
     /// <summary>
     /// The last world-local change sequence applied to this exact grid generation.
     /// Unrelated grids do not advance this value.
     /// </summary>
+    /// <value>The last world-local change sequence applied to this exact grid generation. Unrelated grids do not advance this value.</value>
     public ulong GridLastChangeSequence { get; }
 
     /// <summary>
     /// The active grid's recyclable world-local slot.
     /// </summary>
+    /// <value>The active grid's recyclable world-local slot.</value>
     public ushort GridIndex { get; }
 
     /// <summary>
     /// The requested normalized configuration identity.
     /// </summary>
+    /// <value>The requested normalized configuration identity.</value>
     public GridConfigurationKey ConfigurationKey { get; }
 
     /// <summary>
     /// Requested address states in the caller's validated ascending order.
     /// </summary>
+    /// <value>A read-only view of the baseline-owned immutable value array in requested address order. The view remains valid while the baseline is alive and is not changed by subsequent world mutations; use captured stamps to check freshness.</value>
     public ReadOnlySpan<NavigationBaselineVoxelState> VoxelStates => _voxelStates;
 
     internal GridNavigationBaseline(

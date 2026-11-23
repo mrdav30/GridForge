@@ -41,11 +41,16 @@ public readonly struct OccupantEventInfo
     /// <summary>
     /// The grid index containing <see cref="VoxelIndex"/>.
     /// </summary>
+    /// <value>The grid index containing <see cref="F:GridForge.Grids.OccupantEventInfo.VoxelIndex" />.</value>
     public readonly ushort GridIndex => VoxelIndex.GridIndex;
 
     /// <summary>
     /// Initializes a new immutable occupant mutation snapshot.
     /// </summary>
+    /// <param name="voxelIndex">The voxel affected by the occupant mutation.</param>
+    /// <param name="occupant">The occupant that was added to or removed from the voxel.</param>
+    /// <param name="ticket">The scan-cell ticket assigned to the occupant for this voxel.</param>
+    /// <param name="occupantCount">The number of occupants on the voxel after the mutation completes.</param>
     public OccupantEventInfo(
         WorldVoxelIndex voxelIndex,
         IVoxelOccupant occupant,

@@ -37,21 +37,28 @@ public readonly struct ObstacleClearEventInfo
     /// <summary>
     /// The world-local commit order of this event.
     /// </summary>
+    /// <value>The world-local commit order of this event.</value>
     public ulong ChangeSequence => ChangeStamp.Sequence;
 
     /// <summary>
     /// The logical cause shared with the corresponding grid notification.
     /// </summary>
+    /// <value>The logical cause shared with the corresponding grid notification.</value>
     public ulong CauseId => ChangeStamp.CauseId;
 
     /// <summary>
     /// The grid index containing <see cref="VoxelIndex"/>.
     /// </summary>
+    /// <value>The grid index containing <see cref="F:GridForge.Grids.ObstacleClearEventInfo.VoxelIndex" />.</value>
     public readonly ushort GridIndex => VoxelIndex.GridIndex;
 
     /// <summary>
     /// Initializes a new immutable obstacle clear snapshot.
     /// </summary>
+    /// <param name="voxelIndex">The voxel that had its obstacles cleared.</param>
+    /// <param name="clearedObstacleCount">The number of obstacles removed by the clear operation.</param>
+    /// <param name="gridVersion">The grid version recorded after the clear operation completes.</param>
+    /// <param name="changeStamp">The world-owned ordering and cause identity for this committed mutation.</param>
     public ObstacleClearEventInfo(
         WorldVoxelIndex voxelIndex,
         byte clearedObstacleCount,
