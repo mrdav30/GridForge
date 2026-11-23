@@ -962,6 +962,10 @@ public class VoxelGridTests : IDisposable
         Assert.Equal(firstKey, secondKey);
         Assert.Equal(firstKey.GetHashCode(), secondKey.GetHashCode());
         Assert.NotEqual(firstKey, differentKey);
+        Assert.True(firstKey.Equals((object)secondKey));
+        Assert.False(firstKey.Equals((object)differentKey));
+        Assert.False(firstKey.Equals(null));
+        Assert.False(firstKey.Equals(new object()));
         Assert.Equal(new Vector3d(1, -1, 1), reversedBounds.BoundsMin);
         Assert.Equal(new Vector3d(5, 1, 5), reversedBounds.BoundsMax);
     }

@@ -55,7 +55,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: mrdav30/SwiftCollections
-          ref: dc4af55d4fbfeb1c7ebf08e4a3d26264bc5709e9
+          ref: 41a2f770aed17f5af388ba3f4b3f769769ada7c6
           path: SwiftCollections
           persist-credentials: false
 

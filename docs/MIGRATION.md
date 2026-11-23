@@ -13,7 +13,7 @@ Use the following dependency versions with GridForge v10:
 
 | Dependency              | Standard                          | Lean                                   | Version        |
 | ----------------------- | --------------------------------- | -------------------------------------- | -------------- |
-| Math                    | `FixedMathSharp`                  | `FixedMathSharp.Lean`                  | `8.0.0`        |
+| Math                    | `FixedMathSharp`                  | `FixedMathSharp.Lean`                  | `9.0.0`        |
 | Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `8.0.0`        |
 | Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `8.0.0`        |
 | Shared diagnostics      | `Chronicler.Diagnostics`          | `Chronicler.Diagnostics`               | `1.0.0`        |
@@ -40,12 +40,26 @@ configurations against released upstream packages before publishing; source-mode
 packages remain development artifacts.
 
 The FixedMathSharp references with `ExcludeAssets="compile;runtime"` in the
-library, tests, and benchmarks now also use `8.0.0`. These suppress competing
+library, tests, and benchmarks now also use `9.0.0`. These suppress competing
 package binaries in source mode; keep them aligned with the released dependency
 version while retaining the sibling project references. Pass
 `-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1` through
 source-mode restore, build, and test commands. For release validation, use
 `-p:UseLocalLsfStack=false` to select published packages explicitly.
+
+### FixedMathSharp v9
+
+Standard and Lean now require the matching FixedMathSharp v9 package family.
+Rebuild consumers and keep direct test/benchmark references aligned, including
+source-mode references that suppress package compile/runtime assets. Local
+source-mode success does not verify the released dependency graph.
+
+FixedMathSharp v9 rejects zero rotation inputs, removes
+`FixedQuaternion.ToDirection()`, and changes the Vector4 epsilon predicate to
+compare magnitudes. Its geometry/numeric corrections can change replay results.
+See the [upstream v9 migration guide](https://github.com/mrdav30/FixedMathSharp/blob/v9.0.0/docs/MIGRATION.md#migrating-from-v8x-to-v9x).
+GridForge remains axis-aligned; apply any legacy rotation migration at the
+application or adapter load boundary rather than adding grid-side fallbacks.
 
 ### Active Grid Collection
 
@@ -68,8 +82,8 @@ SwiftCollections; library-specific logger facades and channel names stay intact.
 Rebuild consumers and adapters together: moved types have new CLR identities,
 including types exposed in logger signatures. There are no forwarding wrappers.
 This extraction does not change recorded fields or record-hash identities.
-Chronicler v1 and the v8 math/collection packages are the upstream baseline;
-validate against these released packages before publishing GridForge v10.
+Chronicler v1, FixedMathSharp v9 and SwiftCollections v8 are the upstream
+baseline; validate against these released packages before publishing GridForge v10.
 Local-stack builds alone do not prove the published package graph is compatible.
 
 ### Bounded Tracing Additions
