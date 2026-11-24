@@ -391,14 +391,35 @@ public class ScanCell
     /// Retrieves all occupants associated with a world-scoped voxel identity within this scan cell.
     /// </summary>
     /// <param name="index">The voxel identity including world and grid generations and its local index.</param>
-    /// <returns>An enumerable collection of occupants assigned to the voxel.</returns>
-    public IEnumerable<IVoxelOccupant> GetOccupantsFor(WorldVoxelIndex index)
+    /// <returns>A lazy sequence of occupant references in the selected registration bucket, or an empty sequence when absent.</returns>
+    /// <remarks>The bucket is selected when this method is called; its entries are enumerated lazily in slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including between this call and the first enumeration. The result is a borrowed view, not a snapshot.</remarks>
+    public IEnumerable<IVoxelOccupant> GetOccupantsFor(WorldVoxelIndex index) =>
+        GetConditionalOccupantsFor(index, null, null);
+
+    /// <summary>
+    /// Selects the exact registration bucket before creating its borrowed filtered view.
+    /// </summary>
+    internal IEnumerable<IVoxelOccupant> GetConditionalOccupantsFor(
+        WorldVoxelIndex index,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
     {
         if (_voxelOccupants == null || !_voxelOccupants.TryGetValue(index, out SwiftSlotMap<OccupantEntry> voxelOccupants))
-            yield break;
+            return Array.Empty<IVoxelOccupant>();
 
+        return EnumerateVoxelOccupants(voxelOccupants, occupantCondition, groupCondition);
+    }
+
+    private static IEnumerable<IVoxelOccupant> EnumerateVoxelOccupants(
+        SwiftSlotMap<OccupantEntry> voxelOccupants,
+        Func<IVoxelOccupant, bool>? occupantCondition,
+        Func<byte, bool>? groupCondition)
+    {
         foreach (OccupantEntry entry in voxelOccupants)
-            yield return entry.Occupant;
+        {
+            if (OccupantPassesFilters(entry.Occupant, occupantCondition, groupCondition))
+                yield return entry.Occupant;
+        }
     }
 
     /// <summary>

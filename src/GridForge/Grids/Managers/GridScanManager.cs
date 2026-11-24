@@ -380,12 +380,12 @@ public static class GridScanManager
 
     #region Occupant Registration & Retrieval
 
-    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates matching occupant types registered to the requested voxel.</summary>
     /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
     /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
     /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
-    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(GridWorld world, WorldVoxelIndex index) where T : IVoxelOccupant
     {
         return world != null && world.TryGetGridAndVoxel(index, out VoxelGrid? grid, out Voxel? voxel)
@@ -393,12 +393,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates matching occupant types registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="position">The fixed-point position in world units.</param>
     /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
-    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Vector3d position) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(position, out Voxel? voxel)
@@ -406,12 +406,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates matching occupant types registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="index">The topology-local voxel address.</param>
     /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
-    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, VoxelIndex index) where T : IVoxelOccupant
     {
         return grid.TryGetVoxel(index, out Voxel? voxel)
@@ -419,12 +419,12 @@ public static class GridScanManager
             : Enumerable.Empty<T>();
     }
 
-    /// <summary>Enumerates typed occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates matching occupant types registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
     /// <typeparam name="T">The occupant type to include; assignable implementations are accepted.</typeparam>
-    /// <returns>A lazy typed scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<T> GetVoxelOccupantsByType<T>(this VoxelGrid grid, Voxel voxel) where T : IVoxelOccupant
     {
         return voxel == null
@@ -511,11 +511,11 @@ public static class GridScanManager
             && scanCell.TryGetOccupantAt(voxel.WorldIndex, ticket, out occupant);
     }
 
-    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel.</summary>
     /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
     /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
-    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(GridWorld world, WorldVoxelIndex index)
     {
         if (world == null)
@@ -527,11 +527,11 @@ public static class GridScanManager
         return grid!.GetOccupants(voxel!);
     }
 
-    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="position">The fixed-point position in world units.</param>
-    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Vector3d position)
     {
         return grid.TryGetVoxel(position, out Voxel? targetVoxel)
@@ -539,11 +539,11 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="index">The topology-local voxel address.</param>
-    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, VoxelIndex index)
     {
         return grid.TryGetVoxel(index, out Voxel? targetVoxel)
@@ -551,11 +551,11 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>Enumerates occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="voxel">The physical voxel to inspect. The reference is borrowed and must not cross grid removal or pooled reuse.</param>
-    /// <returns>A lazy scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetOccupants(this VoxelGrid grid, Voxel voxel)
     {
         if (!voxel.IsOccupied)
@@ -565,17 +565,17 @@ public static class GridScanManager
             return Enumerable.Empty<IVoxelOccupant>();
 
         return scanCell!.IsOccupied
-            ? scanCell.GetOccupants()
+            ? scanCell.GetOccupantsFor(voxel.WorldIndex)
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel that pass the supplied filters.</summary>
     /// <param name="world">The owning world. World-space queries use only grids registered in this world.</param>
     /// <param name="index">The exact world/grid generation and topology-local voxel identity to resolve.</param>
     /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
     /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
-    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         GridWorld world,
         WorldVoxelIndex index,
@@ -591,13 +591,13 @@ public static class GridScanManager
         return grid!.GetConditionalOccupants(voxel!, occupantCondition, groupCondition);
     }
 
-    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel that pass the supplied filters.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="position">The fixed-point position in world units.</param>
     /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
     /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
-    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         Vector3d position,
@@ -609,13 +609,13 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel that pass the supplied filters.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="index">The topology-local voxel address.</param>
     /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
     /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
-    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         VoxelIndex index,
@@ -627,13 +627,13 @@ public static class GridScanManager
             : Enumerable.Empty<IVoxelOccupant>();
     }
 
-    /// <summary>Enumerates filtered occupants from the scan cell selected by the requested voxel.</summary>
+    /// <summary>Enumerates occupants registered to the requested voxel that pass the supplied filters.</summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
     /// <param name="occupantCondition">Optional occupant predicate. Null accepts every occupant that passes the other filters.</param>
     /// <param name="groupCondition">Optional group-ID predicate. Null accepts every group.</param>
-    /// <returns>A lazy filtered scan-cell sequence. The requested voxel must itself be occupied; the result can also contain occupants registered to other voxels sharing its scan cell. An unresolved or unoccupied voxel yields no results.</returns>
-    /// <remarks>Current retrieval is scan-cell scoped rather than exact-voxel scoped (tracked as GF-Issue-013). Ticket lookup remains exact. Consume borrowed occupant references before occupancy mutation; the result is not a snapshot.</remarks>
+    /// <returns>A lazy sequence of matching occupant references registered to this exact voxel. An unresolved or unoccupied voxel yields no results.</returns>
+    /// <remarks>The registration bucket is selected when called, independently of the occupant's current Position. Entry enumeration and any filters are lazy and follow bucket slot order. Finish enumeration before any occupancy mutation, grid reset, or pooled reuse, including before the first enumeration; the result is a borrowed view, not a snapshot.</remarks>
     public static IEnumerable<IVoxelOccupant> GetConditionalOccupants(
         this VoxelGrid grid,
         Voxel targetVoxel,
@@ -647,7 +647,7 @@ public static class GridScanManager
             return Enumerable.Empty<IVoxelOccupant>();
 
         return scanCell!.IsOccupied
-            ? scanCell.GetConditionalOccupants(occupantCondition, groupCondition)
+            ? scanCell.GetConditionalOccupantsFor(targetVoxel.WorldIndex, occupantCondition, groupCondition)
             : Enumerable.Empty<IVoxelOccupant>();
     }
 

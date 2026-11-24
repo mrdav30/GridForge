@@ -55,14 +55,25 @@ It preserves which voxel each occupant came from.
 ### Current retrieval scope
 
 `GridScanManager.GetOccupants`, `GetVoxelOccupantsByType<T>`, and
-`GetConditionalOccupants` currently use the requested voxel to select a scan
-cell, then enumerate that cell's buckets. The requested voxel must itself be
-occupied, but the result can also include occupants from neighboring voxels in
-the same scan cell. Their position/address/world overloads share this behavior.
-This is a confirmed exact-voxel lookup defect tracked as
-[GF-Issue-013](https://github.com/mrdav30/GridForge/blob/develop/docs/feature-work/issue-tracker.md#gf-issue-013--voxel-occupant-enumeration-includes-neighboring-buckets).
-`TryGetVoxelOccupant` with an exact ticket still selects the requested voxel
-bucket. `ScanCell.GetOccupants` intentionally enumerates the whole scan cell.
+`GetConditionalOccupants` select only the requested voxel's registration bucket.
+Their position, local-address, world-identity, and direct-voxel overloads share
+that scope. Typed and predicate queries inspect only that bucket; neighboring
+voxels in the same scan cell do not contribute results or predicate calls.
+Selection uses the registered `WorldVoxelIndex`, independently of an occupant's
+current `Position`. Changing that position does not move its registration;
+remove and re-register it when changing its occupied voxel.
+
+`ScanCell.GetOccupants` and `ScanCell.GetConditionalOccupants` intentionally
+query the entire scan cell. `ScanCell.GetOccupantsFor` and ticket-based lookup
+select the exact voxel bucket, including its world and grid generations.
+
+For voxel-specific queries, the bucket is selected at the query call; entries
+and predicates are enumerated lazily in bucket slot order. Slot order is not
+guaranteed to match registration order after removals or pooled reuse. The
+returned sequence is a borrowed view: finish enumeration before any occupancy
+mutation, grid reset, or reuse, including between creating the sequence and
+starting enumeration. Copy results into caller-owned storage if they must be
+retained.
 
 Radius scans apply a squared-distance filter, including the radius boundary.
 Planar scans select a Y layer and compare world X/Z distances. Supply a
