@@ -129,11 +129,11 @@ public static class GridObstacleManager
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
     /// <param name="obstacleToken">The process-unique obstacle registration token.</param>
-    /// <returns>True when this token was newly attached and counts/version were updated; false for an invalid token, blocked capacity, occupied voxel, duplicate token, or unresolved location.</returns>
-    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
+    /// <returns>True when this token was newly attached and counts/version were updated; false for an invalid token, blocked capacity, occupied voxel, duplicate token, or a voxel not currently owned by the grid.</returns>
+    /// <remarks>The voxel must be the current physical voxel in the supplied grid and match its world and grid generation. A foreign, unallocated, or mismatched voxel is rejected without changing obstacle state, versions, or publishing events. Do not retain borrowed voxel references across removal, reset, or pooled reuse. For later calls, resolve a saved <see cref="WorldVoxelIndex"/> through its owning world; this validates world/grid generations and identifies a voxel address, not a persistent physical object.</remarks>
     public static bool TryAddObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
-        if (!obstacleToken.IsValid || !targetVoxel.IsBlockable)
+        if (!obstacleToken.IsValid)
             return false;
 
         byte obstacleCount;
@@ -150,7 +150,7 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (targetVoxel.ObstacleCount >= MaxObstacleCount)
+                    if (!IsOwnedVoxel(grid, targetVoxel) || !targetVoxel.IsBlockable)
                         return false;
 
                     targetVoxel.ObstacleTracker ??= SwiftHashSetPool<ObstacleToken>.Shared.Rent();
@@ -248,18 +248,12 @@ public static class GridObstacleManager
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
     /// <param name="obstacleToken">A nondefault obstacle registration token. Duplicate attachment of the same token to one voxel fails.</param>
-    /// <returns>True when this token was present and removed, updating counts/version; otherwise false.</returns>
-    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
+    /// <returns>True when this token was present and removed, updating counts/version; false when absent, invalid, or the voxel is not currently owned by the grid.</returns>
+    /// <remarks>The voxel must be the current physical voxel in the supplied grid and match its world and grid generation. A foreign, unallocated, or mismatched voxel is rejected without changing obstacle state, versions, or publishing events. Do not retain borrowed voxel references across removal, reset, or pooled reuse. For later calls, resolve a saved <see cref="WorldVoxelIndex"/> through its owning world; this validates world/grid generations and identifies a voxel address, not a persistent physical object.</remarks>
     public static bool TryRemoveObstacle(this VoxelGrid grid, Voxel targetVoxel, ObstacleToken obstacleToken)
     {
         if (!obstacleToken.IsValid)
             return false;
-
-        if (targetVoxel.ObstacleCount == 0)
-        {
-            GridForgeLogger.Channel.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
-            return false;
-        }
 
         byte obstacleCount;
         uint gridVersion;
@@ -275,6 +269,15 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
+                    if (!IsOwnedVoxel(grid, targetVoxel))
+                        return false;
+
+                    if (targetVoxel.ObstacleCount == 0)
+                    {
+                        GridForgeLogger.Channel.Warn($"No obstacle to remove on voxel ({targetVoxel.WorldIndex})!");
+                        return false;
+                    }
+
                     if (!targetVoxel.ObstacleTracker!.Remove(obstacleToken))
                         return false;
 
@@ -315,16 +318,13 @@ public static class GridObstacleManager
     }
 
     /// <summary>
-    /// Clears all obstacles from the specified voxel.
+    /// Clears all obstacles from a current physical voxel owned by the supplied grid; otherwise does nothing.
     /// </summary>
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
-    /// <remarks>The direct voxel form does not validate that the supplied grid owns the voxel (GF-Issue-014). A mismatched pair can mutate the voxel while charging the wrong grid. Supply an exact owner/voxel pair, or use a world-scoped identity overload.</remarks>
+    /// <remarks>The voxel must be the current physical voxel in the supplied grid and match its world and grid generation. A foreign, unallocated, or mismatched voxel is rejected without changing obstacle state, versions, or publishing events. Do not retain borrowed voxel references across removal, reset, or pooled reuse. For later calls, resolve a saved <see cref="WorldVoxelIndex"/> through its owning world; this validates world/grid generations and identifies a voxel address, not a persistent physical object.</remarks>
     public static void ClearObstacles(this VoxelGrid grid, Voxel targetVoxel)
     {
-        if (targetVoxel.ObstacleCount == 0)
-            return;
-
         byte clearedObstacleCount;
         uint gridVersion;
         bool drainCommittedChanges;
@@ -341,6 +341,9 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
+                    if (!IsOwnedVoxel(grid, targetVoxel) || targetVoxel.ObstacleCount == 0)
+                        return;
+
                     clearedObstacleCount = targetVoxel.ObstacleCount;
                     if (targetVoxel.ObstacleTracker != null)
                     {
@@ -376,6 +379,12 @@ public static class GridObstacleManager
     #endregion
 
     #region Private Methods
+
+    // WorldIndex is mutable; matching generations alone do not prove physical ownership.
+    private static bool IsOwnedVoxel(VoxelGrid grid, Voxel targetVoxel) =>
+        targetVoxel.IsValidOwnerGrid(grid)
+        && grid.TryGetVoxel(targetVoxel.Index, out Voxel? currentVoxel)
+        && ReferenceEquals(currentVoxel, targetVoxel);
 
     private static void CreateObstacleCommittedChange(
         GridWorld world,

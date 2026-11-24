@@ -708,7 +708,7 @@ public class Voxel : IEquatable<Voxel>
         VoxelNeighborResolver.AddHexNeighbors(this, ownerGrid, results);
     }
 
-    private bool IsValidOwnerGrid(VoxelGrid? ownerGrid)
+    internal bool IsValidOwnerGrid(VoxelGrid? ownerGrid)
     {
         return ownerGrid != null
             && ownerGrid.IsActive

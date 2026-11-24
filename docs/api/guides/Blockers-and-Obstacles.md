@@ -267,6 +267,18 @@ add and remove belonging to the registration. Default tokens are rejected.
 Obstacle tokens are transient and process-unique; do not serialize them or use
 their allocation values for authoritative ordering.
 
+Direct voxel forms validate the grid/world generation and confirm that the
+supplied reference is the physical voxel stored at that address. A foreign,
+unallocated, or mismatched voxel makes add/remove return `false` and clear do
+nothing, without changing obstacle counts, versions, or publishing events.
+
+Finish using borrowed grid and voxel references before removal, reset, or pooled
+reuse. A recycled reference can represent a new voxel even when validation
+succeeds. For later mutations, save a `WorldVoxelIndex` and resolve it through
+the owning world. That identity protects world/grid generations; within the same
+sparse grid, removing and re-adding a coordinate gives the new physical voxel
+the same address identity.
+
 The direct obstacle APIs also accept `Vector2d` positions. `Vector2d.X` maps to
 world X, `Vector2d.Y` maps to world Z, and `layerY` selects the world Y layer to
 mutate.

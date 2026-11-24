@@ -41,53 +41,7 @@ resolutions or documented investigation closures.
 
 ## Active Issues
 
-### GF-Issue-014 — Direct obstacle mutation accepts a foreign voxel
-
-- Discovered: 2026-11-22. Status: confirmed ownership-validation defect; open.
-  Priority: P2. The documented caller precondition is a matching active
-  grid/voxel pair; the direct boundary does not enforce it.
-- Owner: `GridObstacleManager.TryAddObstacle(VoxelGrid, Voxel, ObstacleToken)`,
-  `TryRemoveObstacle(VoxelGrid, Voxel, ObstacleToken)`, and
-  `ClearObstacles(VoxelGrid, Voxel)`. World-identity overloads resolve
-  ownership; occupant mutation has a separate validated-context path.
-- Source revision: GridForge `5f96fded5803e62dffb8291d15485beb9be65c65` at
-  discovery. The original stack manifest is not present in the repository; the
-  GF-Issue-013 fix does not claim a fresh replay of this separate defect.
-- Portable reproducer: after an LSF source-mode Release build, use a disposable
-  .NET 10 console with a project reference to GridForge and the code below. Pass
-  `-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`
-  through its build. No occupant type is needed.
-
-  ```csharp
-  using System;
-  using FixedMathSharp;
-  using GridForge.Configuration;
-  using GridForge.Grids;
-  using GridForge.Spatial;
-
-  using GridWorld world = new GridWorld();
-  world.TryAddGrid(new GridConfiguration(
-      new Vector3d(0, 0, 0), new Vector3d(1, 0, 0)), out ushort firstSlot);
-  world.TryAddGrid(new GridConfiguration(
-      new Vector3d(10, 0, 0), new Vector3d(11, 0, 0)), out ushort secondSlot);
-  world.TryGetGrid(firstSlot, out VoxelGrid owner);
-  world.TryGetGrid(secondSlot, out VoxelGrid other);
-  owner.TryGetVoxel(new VoxelIndex(0, 0, 0), out Voxel voxel);
-  bool added = other.TryAddObstacle(voxel, world.AllocateObstacleToken());
-  Console.WriteLine($"{added}; {owner.ObstacleCount}; " +
-      $"{other.ObstacleCount}; {voxel.ObstacleCount}");
-  other.ClearObstacles(voxel); // Undo the deliberately mismatched probe call.
-  ```
-
-- Expected safety behavior: reject a foreign voxel without mutation, preserving
-  owner counts, versions, and event identities. Observed: `True; 0; 1; 1`: the
-  voxel is changed while the unrelated grid receives the count/version and
-  committed change. Remove/clear share this unchecked ownership boundary; the
-  probe directly demonstrates addition and its cleanup.
-- Next action: separately decide/enforce direct mutation validation at the
-  shared owner, reproduce cross-grid and cross-world cases, and validate
-  add/remove/clear events, counts, and generations. Until then, pass exact owner
-  pairs or use the checked world-identity forms. No runtime fix is claimed here.
+None currently.
 
 ## Performance Investigation Queue
 
@@ -105,8 +59,9 @@ identified explicitly below.
 
 | Issue                                                                                                                                                                                                                                                | Resolved/closed | Outcome                                                                                                                                                                                                                                        | Evidence                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <a id="gf-issue-014--direct-obstacle-mutation-accepts-a-foreign-voxel"></a><a id="gf-issue-014"></a>GF-Issue-014                                                                                                                                     | 2026-11-24      | Validated world/grid generation and exact physical ownership under the shared mutation locks for add/remove/clear. All 29 focused cases and both 1,248-test source-mode suites pass strict full coverage.                                      | [Resolution, reproduction and contract limits](done/2026-11-24-gf-issue-014-obstacle-ownership.md)                                                                                                                          |
 | <a id="gf-issue-013--voxel-occupant-enumeration-includes-neighboring-buckets"></a><a id="gf-issue-013"></a>GF-Issue-013                                                                                                                              | 2026-11-24      | Routed unfiltered, typed and conditional voxel queries to the exact registration bucket; retained whole-cell queries and lowered measured warm allocation. Ten focused cases and both 1,219-test source-mode suites pass strict full coverage. | [Resolution and preserved reproducer](done/2026-11-24-gf-issue-013-voxel-occupant-lookup.md)                                                                                                                                |
-| <a id="gf-issue-011"></a>GF-Issue-011                                                                                                                                                                                                                | 2026-10-27      | Corrected a pool-history-dependent test assumption: independent worlds need distinct registration generations, not equal physical bucket slots. Retained world-isolation checks and explicitly reject a foreign generation at the local slot.  | [Regression](../../tests/GridForge.Tests/Grids/GridWorld.Tests.cs) — `OccupantTrackingAndScan_ShouldStayInsideExplicitWorld`; controlled fresh/recycled buckets reproduced slots 0/1 before the fix.                        |
+| <a id="gf-issue-011"></a>GF-Issue-011                                                                                                                                                                                                                | 2026-10-27      | Corrected a pool-history-dependent test assumption: independent worlds need distinct registration generations, not equal physical bucket slots. Retained world-isolation checks and explicitly reject a foreign generation at the local slot.  | [Regression](../../tests/GridForge.Tests/Grids/GridWorld.Tests.cs) â€” `OccupantTrackingAndScan_ShouldStayInsideExplicitWorld`; controlled fresh/recycled buckets reproduced slots 0/1 before the fix.                      |
 | <a id="gf-issue-010---ideal-hex-inverse-can-omit-representable-small-metric-lattice-addresses"></a>GF-Issue-010                                                                                                                                      | 2026-09-21      | Aligned hex inverse/dimensions with the quantized lattice, preserving small-metric addresses within documented arithmetic limits.                                                                                                              | [Closeout](https://github.com/mrdav30/GridForge/blob/e7223aef007a9c74e830b1e820c59fc01e49b7d8/docs/feature-work/issue-tracker.md#gf-issue-010---ideal-hex-inverse-can-omit-representable-small-metric-lattice-addresses)    |
 | <a id="gf-issue-009---local-stack-executable-hosts-selected-published-math-binaries"></a>GF-Issue-009                                                                                                                                                | 2026-09-15      | Corrected sibling math selection in direct local-stack test/benchmark hosts; generated benchmark children remain a separate boundary.                                                                                                          | [Closeout](https://github.com/mrdav30/GridForge/blob/e7223aef007a9c74e830b1e820c59fc01e49b7d8/docs/feature-work/issue-tracker.md#gf-issue-009---local-stack-executable-hosts-selected-published-math-binaries)              |
 | <a id="gf-issue-008---generated-local-stack-benchmark-builds-rediscover-unversioned-dependencies"></a>GF-Issue-008                                                                                                                                   | 2026-09-15      | Documented inherited local-stack/transitive-reference settings that prevent unversioned generated-child dependencies; no geometry fix.                                                                                                         | [Closeout](https://github.com/mrdav30/GridForge/blob/e7223aef007a9c74e830b1e820c59fc01e49b7d8/docs/feature-work/issue-tracker.md#gf-issue-008---generated-local-stack-benchmark-builds-rediscover-unversioned-dependencies) |
