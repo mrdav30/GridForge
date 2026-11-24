@@ -14,8 +14,8 @@ Use the following dependency versions with GridForge v10:
 | Dependency              | Standard                          | Lean                                   | Version        |
 | ----------------------- | --------------------------------- | -------------------------------------- | -------------- |
 | Math                    | `FixedMathSharp`                  | `FixedMathSharp.Lean`                  | `9.0.0`        |
-| Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `8.0.0`        |
-| Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `8.0.0`        |
+| Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `9.0.0`        |
+| Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `9.0.0`        |
 | Shared diagnostics      | `Chronicler.Diagnostics`          | `Chronicler.Diagnostics`               | `1.0.0`        |
 | MemoryPack annotations  | Included with `MemoryPack`        | `Chronicler.MemoryPackShim`            | `1.0.0` (shim) |
 
@@ -61,6 +61,24 @@ See the [upstream v9 migration guide](https://github.com/mrdav30/FixedMathSharp/
 GridForge remains axis-aligned; apply any legacy rotation migration at the
 application or adapter load boundary rather than adding grid-side fallbacks.
 
+### SwiftCollections v9
+
+Use SwiftCollections 9.0.0 and its matching FixedMathSharp companion, or both
+Lean variants. Rebuild consumers against the resolved package graph; successful
+`UseLocalLsfStack=true` builds do not establish published-package compatibility.
+
+Hosts that serialize SwiftCollections comparer-owning collections directly must
+upgrade readers and writers together. Their JSON and Standard MemoryPack owner
+records now include comparison metadata and reject the previous state-only
+format. Custom comparers require a registered codec and reconstruction factory.
+Raw state constructors remain trusted-state APIs, not legacy payload readers.
+
+BVH insertion now updates an existing key's bounds and returns `false`; a new
+key returns `true`, and null keys throw before mutation. Use distinct keys for
+independently indexed entries. See the
+[SwiftCollections v9 migration guide](https://github.com/mrdav30/SwiftCollections/blob/v9.0.0/docs/MIGRATION.md#migrating-from-v8-to-v9)
+for affected collection types and persistence contracts.
+
 ### Active Grid Collection
 
 `GridWorld.ActiveGrids` now returns `SwiftSlotMap<VoxelGrid>` instead of
@@ -82,7 +100,7 @@ SwiftCollections; library-specific logger facades and channel names stay intact.
 Rebuild consumers and adapters together: moved types have new CLR identities,
 including types exposed in logger signatures. There are no forwarding wrappers.
 This extraction does not change recorded fields or record-hash identities.
-Chronicler v1, FixedMathSharp v9 and SwiftCollections v8 are the upstream
+Chronicler v1, FixedMathSharp v9 and SwiftCollections v9 are the upstream
 baseline; validate against these released packages before publishing GridForge v10.
 Local-stack builds alone do not prove the published package graph is compatible.
 

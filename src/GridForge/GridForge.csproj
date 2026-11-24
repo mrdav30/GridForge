@@ -81,16 +81,16 @@
 		<PackageReference Include="FixedMathSharp" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 		<PackageReference Include="FixedMathSharp" Version="9.0.0" Condition="'$(UseLocalLsfStack)' == 'true'"
 			ExcludeAssets="compile;runtime" />
-		<PackageReference Include="SwiftCollections" Version="8.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="8.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(DisableMemoryPack)' == 'true'">
 		<PackageReference Include="FixedMathSharp.Lean" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 		<PackageReference Include="FixedMathSharp.Lean" Version="9.0.0" Condition="'$(UseLocalLsfStack)' == 'true'"
 			ExcludeAssets="compile;runtime" />
-		<PackageReference Include="SwiftCollections.Lean" Version="8.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
-		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="8.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections.Lean" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
+		<PackageReference Include="SwiftCollections.FixedMathSharp.Lean" Version="9.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 		<PackageReference Include="Chronicler.MemoryPackShim" Version="1.0.0" Condition="'$(UseLocalLsfStack)' != 'true'" />
 	</ItemGroup>
 
