@@ -1,8 +1,9 @@
 # SwiftCollections v9 Adoption Battle Plan
 
-**Status:** Completed Phase 0 on 2026-11-24: retain current occupancy storage
-and 3D discovery. Both compatible prototypes failed the measured regression gate
-and were removed. No runtime adoption or further implementation is selected.
+**Status:** Completed Phase 0 on 2026-11-24 and the separately authorized
+TicketStore and cached-position/provider follow-ups on 2026-11-25. Retain
+SlotMap occupancy and existing 3D discovery. No GridForge adoption is selected;
+the isolated DenseTicketMap lookup improvement warrants separate provider work.
 
 **Goal:** Decide whether packed ticket storage or native fixed-point 2D indexes
 improve real GridForge operations, then implement only the candidates that pass
@@ -63,19 +64,19 @@ requires the specific new evidence recorded in the completion section. “Retain
 means the current owner matches the contract. “Defer” requires the stated new
 evidence before reopening.
 
-| Candidate and actual callers                                                                                                                                                                                                                                                                                                                                                            | Decision and reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Existing verification to reuse                                                                                                                                                                                                                                                                                                      |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ScanCell](../../../src/GridForge/Grids/Nodes/ScanCell.cs) per-voxel `SwiftSlotMap<OccupantEntry>`, [bucket pools](../../../src/GridForge/Grids/Support/Pools.cs); registration/removal in [GridOccupantManager](../../../src/GridForge/Grids/Managers/GridOccupantManager.cs), exact and radius queries in [GridScanManager](../../../src/GridForge/Grids/Managers/GridScanManager.cs) | **Retain SlotMap after Phase 0 no-go.** The compatible dense prototype regressed all four measured occupancy cases and doubled backing-array payload. Original hypothesis: Churn can leave holes while scans visit live entries. But voxel-specific borrowed queries explicitly enumerate slot order, and tickets carry process-unique long generations. A direct DenseTicketMap substitution violates both assumptions. Preserve public slot order, exact voxel grouping and ticket safety; charge any mapping/ordered-view maintenance to the full operation. If the smallest compatible design loses, retain SlotMap. A new order or ticket contract needs an explicit separately justified decision before implementation; this plan does not authorize it. | [ScanCell.Tests](../../../tests/GridForge.Tests/Grids/ScanCell.Tests.cs), [exact voxel queries](../../../tests/GridForge.Tests/Grids/GridScanManager.VoxelOccupants.Tests.cs), [scan coverage order](../../../tests/GridForge.Tests/Utility/GridScanCoverageOrderTests.cs); `OccupantWaveBenchmarks`, `ScanRadiusMemoryBenchmarks`. |
-| [WorldOccupancyRegistry](../../../src/GridForge/Grids/Managers/WorldOccupancyRegistry.cs) `Guid -> OccupancyRecord`, [OccupancyRecord](../../../src/GridForge/Grids/Managers/OccupancyRecord.cs) `WorldVoxelIndex -> OccupantTicket`                                                                                                                                                    | **Retain dictionaries.** The issuer is a host occupant with a Guid, not an integer-ticket owner. Registry lookup additionally requires object reference equality to reject Guid collisions. One occupant may have multiple voxel registrations; ticket slots overlap across buckets. A TicketStore would need a new issuer, indirection and lifecycle machinery without replacing these lookup needs.                                                                                                                                                                                                                                                                                                                                                           | [OccupancyRegistryTests](../../../tests/GridForge.Tests/Grids/OccupancyRegistryTests.cs), exact voxel queries and occupant waves.                                                                                                                                                                                                   |
-| Optional parallel registration metadata under `SwiftTicketStore<T>`                                                                                                                                                                                                                                                                                                                     | **Defer.** No current GridForge `SwiftTicket` issuer/component owner exists. Neither `OccupantTicket.Generation` nor world/grid `long` spawn tokens can be narrowed to uint. Bucket-local slot numbers cannot be combined in a world store. Reopen only for an implemented owner with a real optional payload, shared lifetime boundary and measured lookup-density/memory budget. Do not build an ECS or issue tickets just to use this container.                                                                                                                                                                                                                                                                                                             | Reuse occupancy/lifecycle fixtures if a real consumer emerges; provider store scenarios remain provider tests.                                                                                                                                                                                                                      |
-| [GridWorld.ActiveGrids and BoundsTracker](../../../src/GridForge/Grids/Managers/GridWorld.cs), [WorldVoxelIndex](../../../src/GridForge/Spatial/WorldVoxelIndex.cs), neighbor rows in [VoxelGrid](../../../src/GridForge/Grids/VoxelGrid.cs)                                                                                                                                            | **Retain.** `ActiveGrids` is a public SlotMap; grid slots are ushort and identity includes separate world/grid generations. BoundsTracker uses complete normalized configuration equality. Neighbor sets and sorted boundary-contact rows describe topology relationships, not issued object lifetimes. Dense replacement would add remapping and change exposed storage/order contracts.                                                                                                                                                                                                                                                                                                                                                                       | [GridWorld.Tests](../../../tests/GridForge.Tests/Grids/GridWorld.Tests.cs), [mixed topology neighbors](../../../tests/GridForge.Tests/Grids/MixedTopologyNeighborTests.cs), [boundary contacts](../../../tests/GridForge.Tests/Grids/GridBoundaryContactCursorTests.cs); grid registration, spatial-index and neighbor benchmarks.  |
-| Dense voxel arrays, [SparseVoxelGridStorage](../../../src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs), [SparseVoxelBlock](../../../src/GridForge/Grids/Storage/SparseVoxelBlock.cs), scan-cell maps and active-cell sets                                                                                                                                                         | **Retain.** Addresses/scan keys are externally derived grid coordinates, not generations. Sparse blocks keep sorted coordinates with binary lookup; physical presence, canonical enumeration and existing pooled arrays matter. Ticket storage would need a coordinate map anyway. Preserve sparse absence and high-address-space behavior; sparse lookup memory already warrants measurement independently of this adoption.                                                                                                                                                                                                                                                                                                                                   | [SparseVoxelGrid.Tests](../../../tests/GridForge.Tests/Grids/SparseVoxelGrid.Tests.cs), [storage guards](../../../tests/GridForge.Tests/Grids/StorageGuardTests.cs), covered-address tests; sparse-grid, voxel-grid-memory and hex-topology benchmarks.                                                                             |
-| [Voxel.ObstacleTracker](../../../src/GridForge/Grids/Nodes/Voxel.cs), [GridObstacleManager](../../../src/GridForge/Grids/Managers/GridObstacleManager.cs), [Blocker](../../../src/GridForge/Blockers/Blocker.cs) coverage caches                                                                                                                                                        | **Retain.** Obstacle tokens represent process-unique attachment ownership and stack distinct blockers. Membership by complete token, world voxel identities and cached coverage are the required operations. A dense ticket does not replace their equality or cached ordering.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | [obstacle ownership](../../../tests/GridForge.Tests/Grids/GridObstacleManager.Ownership.Tests.cs), [BlockerTests](../../../tests/GridForge.Tests/Blockers/BlockerTests.cs); blocker apply/remove and memory benchmarks.                                                                                                             |
-| [PartitionProvider](../../../src/GridForge/Spatial/PartitionProvider.cs), [GridDiagnosticSession](../../../src/GridForge/Diagnostics/GridDiagnosticSession.cs), scratch/output lists and committed-change/cursor state                                                                                                                                                                  | **Retain.** Partitions key by exact Type, optimize one/two entries inline and preserve registration order. Diagnostics coalesces complete change identities then sorts publication. Scratch and change streams have caller-capacity, sequence and lifetime contracts. Tickets do not remove those owners.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [PartitionProvider.Tests](../../../tests/GridForge.Tests/Spatial/PartitionProvider.Tests.cs), diagnostic session/contracts and navigation-baseline/cursor tests; partition-provider, diagnostics and navigation benchmarks.                                                                                                         |
-| Existing top-level [GridSpatialIndex](../../../src/GridForge/Grids/Managers/GridSpatialIndex.cs) ordinary fixed 3D spatial hash, oversized fixed 3D BVH and contact-envelope BVH                                                                                                                                                                                                        | **Retain general 3D path.** Stacked grids and mixed rectangular/hex volumes need vertical distinction. Existing cell-budget classification, full-volume scan fallback, exact filtering and ascending slot publication solve real large-span workloads. A 2D projection cannot replace 3D overlap/contact proofs or nearest-voxel distances.                                                                                                                                                                                                                                                                                                                                                                                                                     | [GridSpatialIndexTests](../../../tests/GridForge.Tests/Grids/GridSpatialIndexTests.cs), [closest query tests](../../../tests/GridForge.Tests/Grids/ClosestQueryTests.cs), boundary-contact tests; `GridSpatialIndex*Benchmarks`, including mixed/large/tuning/footprint cases.                                                      |
-| Planar point/area/scan candidate discovery through GridWorld, [GridTracer](../../../src/GridForge/Utility/GridTracer.cs) and GridScanManager                                                                                                                                                                                                                                            | **Defer projected indexing after Phase 0 no-go.** A small flat-area gain did not offset stacked-query and reload regressions. Original hypothesis: Evaluate only at the existing spatial-index owner and only where profiling shows candidate discovery dominates a real planar operation. Compare native hash/BVH for the measured scale/churn; retain exact vertical, topology and presence checks downstream. Any added projected index must earn its registration, update, removal and retained-memory cost across the complete mixed workload. Do not add a second query framework or dimension-dispatch abstraction.                                                                                                                                      | [GridPlane2d.Tests](../../../tests/GridForge.Tests/Spatial/GridPlane2d.Tests.cs), scan-cell and coverage-order tests, [GridTracer.Tests](../../../tests/GridForge.Tests/Utility/GridTracer.Tests.cs); `Vector2dLookupBenchmarks`, layered radius scans and spatial-index scenarios.                                                 |
-| [Native planar navigation-body tracing](../../../src/GridForge/Utility/GridTracer.PlanarNavigationBody.cs), planar interval/slab/contact geometry, AreaBlocker topology coverage                                                                                                                                                                                                        | **Retain exact algorithms.** The native body trace already receives ordered eligible generation/layer selections, then traverses topology addresses with hard existing-capacity ceilings. A generic spatial rectangle index adds redundant selection and can alter work-limit outcomes. The 2D index is no substitute for exact swept/endpoint contact, sparse alternatives, XZ layer policy or hex geometry.                                                                                                                                                                                                                                                                                                                                                   | [planar navigation-body tests](../../../tests/GridForge.Tests/Utility/GridPlanarNavigationBodyTraceTests.cs) and their Geometry/Boundaries/Lifecycle/Ranges/Validation/WorldEdge companions; planar interval/body-trace, exact-boundary and blocker benchmarks.                                                                     |
-| Fixed quadtree as another top-level backend                                                                                                                                                                                                                                                                                                                                             | **Defer.** Its fixed root/world-bounds ownership does not naturally fit dynamically conjoined/streamed unbounded worlds. Reopen only for a concrete bounded planar consumer whose repeated regional queries beat both existing discovery and native hash/BVH after maintenance cost. Do not add a third selectable backend without that consumer.                                                                                                                                                                                                                                                                                                                                                                                                               | Existing spatial-index, sparse and hex fixtures are controls; provider quadtree tests cover its own subdivision contract.                                                                                                                                                                                                           |
+| Candidate and actual callers                                                                                                                                                                                                                                                                                                                                                            | Decision and reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Existing verification to reuse                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ScanCell](../../../src/GridForge/Grids/Nodes/ScanCell.cs) per-voxel `SwiftSlotMap<OccupantEntry>`, [bucket pools](../../../src/GridForge/Grids/Support/Pools.cs); registration/removal in [GridOccupantManager](../../../src/GridForge/Grids/Managers/GridOccupantManager.cs), exact and radius queries in [GridScanManager](../../../src/GridForge/Grids/Managers/GridScanManager.cs) | **Retain SlotMap after scoped comparisons.** The original DenseTicketMap prototype regressed all four measured occupancy cases and doubled backing-array payload. The separately measured TicketStore follow-up below did not establish a churned-query win and failed the representative cost gates. Original hypothesis: Churn can leave holes while scans visit live entries. But voxel-specific borrowed queries explicitly enumerate slot order, and tickets carry process-unique long generations. A direct DenseTicketMap substitution violates both assumptions. Preserve public slot order, exact voxel grouping and ticket safety; charge any mapping/ordered-view maintenance to the full operation. If the smallest compatible design loses, retain SlotMap. A new order or ticket contract needs an explicit separately justified decision before implementation; this plan does not authorize it. | [ScanCell.Tests](../../../tests/GridForge.Tests/Grids/ScanCell.Tests.cs), [exact voxel queries](../../../tests/GridForge.Tests/Grids/GridScanManager.VoxelOccupants.Tests.cs), [scan coverage order](../../../tests/GridForge.Tests/Utility/GridScanCoverageOrderTests.cs); `OccupantWaveBenchmarks`, `ScanRadiusMemoryBenchmarks`. |
+| [WorldOccupancyRegistry](../../../src/GridForge/Grids/Managers/WorldOccupancyRegistry.cs) `Guid -> OccupancyRecord`, [OccupancyRecord](../../../src/GridForge/Grids/Managers/OccupancyRecord.cs) `WorldVoxelIndex -> OccupantTicket`                                                                                                                                                    | **Retain dictionaries.** The issuer is a host occupant with a Guid, not an integer-ticket owner. Registry lookup additionally requires object reference equality to reject Guid collisions. One occupant may have multiple voxel registrations; ticket slots overlap across buckets. A TicketStore would need a new issuer, indirection and lifecycle machinery without replacing these lookup needs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | [OccupancyRegistryTests](../../../tests/GridForge.Tests/Grids/OccupancyRegistryTests.cs), exact voxel queries and occupant waves.                                                                                                                                                                                                   |
+| Optional parallel registration metadata under `SwiftTicketStore<T>`                                                                                                                                                                                                                                                                                                                     | **Defer.** No current GridForge `SwiftTicket` issuer/component owner exists. Neither `OccupantTicket.Generation` nor world/grid `long` spawn tokens can be narrowed to uint. Bucket-local slot numbers cannot be combined in a world store. Reopen only for an implemented owner with a real optional payload, shared lifetime boundary and measured lookup-density/memory budget. Do not build an ECS or issue tickets just to use this container.                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Reuse occupancy/lifecycle fixtures if a real consumer emerges; provider store scenarios remain provider tests.                                                                                                                                                                                                                      |
+| [GridWorld.ActiveGrids and BoundsTracker](../../../src/GridForge/Grids/Managers/GridWorld.cs), [WorldVoxelIndex](../../../src/GridForge/Spatial/WorldVoxelIndex.cs), neighbor rows in [VoxelGrid](../../../src/GridForge/Grids/VoxelGrid.cs)                                                                                                                                            | **Retain.** `ActiveGrids` is a public SlotMap; grid slots are ushort and identity includes separate world/grid generations. BoundsTracker uses complete normalized configuration equality. Neighbor sets and sorted boundary-contact rows describe topology relationships, not issued object lifetimes. Dense replacement would add remapping and change exposed storage/order contracts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [GridWorld.Tests](../../../tests/GridForge.Tests/Grids/GridWorld.Tests.cs), [mixed topology neighbors](../../../tests/GridForge.Tests/Grids/MixedTopologyNeighborTests.cs), [boundary contacts](../../../tests/GridForge.Tests/Grids/GridBoundaryContactCursorTests.cs); grid registration, spatial-index and neighbor benchmarks.  |
+| Dense voxel arrays, [SparseVoxelGridStorage](../../../src/GridForge/Grids/Storage/SparseVoxelGridStorage.cs), [SparseVoxelBlock](../../../src/GridForge/Grids/Storage/SparseVoxelBlock.cs), scan-cell maps and active-cell sets                                                                                                                                                         | **Retain.** Addresses/scan keys are externally derived grid coordinates, not generations. Sparse blocks keep sorted coordinates with binary lookup; physical presence, canonical enumeration and existing pooled arrays matter. Ticket storage would need a coordinate map anyway. Preserve sparse absence and high-address-space behavior; sparse lookup memory already warrants measurement independently of this adoption.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | [SparseVoxelGrid.Tests](../../../tests/GridForge.Tests/Grids/SparseVoxelGrid.Tests.cs), [storage guards](../../../tests/GridForge.Tests/Grids/StorageGuardTests.cs), covered-address tests; sparse-grid, voxel-grid-memory and hex-topology benchmarks.                                                                             |
+| [Voxel.ObstacleTracker](../../../src/GridForge/Grids/Nodes/Voxel.cs), [GridObstacleManager](../../../src/GridForge/Grids/Managers/GridObstacleManager.cs), [Blocker](../../../src/GridForge/Blockers/Blocker.cs) coverage caches                                                                                                                                                        | **Retain.** Obstacle tokens represent process-unique attachment ownership and stack distinct blockers. Membership by complete token, world voxel identities and cached coverage are the required operations. A dense ticket does not replace their equality or cached ordering.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | [obstacle ownership](../../../tests/GridForge.Tests/Grids/GridObstacleManager.Ownership.Tests.cs), [BlockerTests](../../../tests/GridForge.Tests/Blockers/BlockerTests.cs); blocker apply/remove and memory benchmarks.                                                                                                             |
+| [PartitionProvider](../../../src/GridForge/Spatial/PartitionProvider.cs), [GridDiagnosticSession](../../../src/GridForge/Diagnostics/GridDiagnosticSession.cs), scratch/output lists and committed-change/cursor state                                                                                                                                                                  | **Retain.** Partitions key by exact Type, optimize one/two entries inline and preserve registration order. Diagnostics coalesces complete change identities then sorts publication. Scratch and change streams have caller-capacity, sequence and lifetime contracts. Tickets do not remove those owners.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | [PartitionProvider.Tests](../../../tests/GridForge.Tests/Spatial/PartitionProvider.Tests.cs), diagnostic session/contracts and navigation-baseline/cursor tests; partition-provider, diagnostics and navigation benchmarks.                                                                                                         |
+| Existing top-level [GridSpatialIndex](../../../src/GridForge/Grids/Managers/GridSpatialIndex.cs) ordinary fixed 3D spatial hash, oversized fixed 3D BVH and contact-envelope BVH                                                                                                                                                                                                        | **Retain general 3D path.** Stacked grids and mixed rectangular/hex volumes need vertical distinction. Existing cell-budget classification, full-volume scan fallback, exact filtering and ascending slot publication solve real large-span workloads. A 2D projection cannot replace 3D overlap/contact proofs or nearest-voxel distances.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | [GridSpatialIndexTests](../../../tests/GridForge.Tests/Grids/GridSpatialIndexTests.cs), [closest query tests](../../../tests/GridForge.Tests/Grids/ClosestQueryTests.cs), boundary-contact tests; `GridSpatialIndex*Benchmarks`, including mixed/large/tuning/footprint cases.                                                      |
+| Planar point/area/scan candidate discovery through GridWorld, [GridTracer](../../../src/GridForge/Utility/GridTracer.cs) and GridScanManager                                                                                                                                                                                                                                            | **Defer projected indexing after Phase 0 no-go.** A small flat-area gain did not offset stacked-query and reload regressions. Original hypothesis: Evaluate only at the existing spatial-index owner and only where profiling shows candidate discovery dominates a real planar operation. Compare native hash/BVH for the measured scale/churn; retain exact vertical, topology and presence checks downstream. Any added projected index must earn its registration, update, removal and retained-memory cost across the complete mixed workload. Do not add a second query framework or dimension-dispatch abstraction.                                                                                                                                                                                                                                                                                      | [GridPlane2d.Tests](../../../tests/GridForge.Tests/Spatial/GridPlane2d.Tests.cs), scan-cell and coverage-order tests, [GridTracer.Tests](../../../tests/GridForge.Tests/Utility/GridTracer.Tests.cs); `Vector2dLookupBenchmarks`, layered radius scans and spatial-index scenarios.                                                 |
+| [Native planar navigation-body tracing](../../../src/GridForge/Utility/GridTracer.PlanarNavigationBody.cs), planar interval/slab/contact geometry, AreaBlocker topology coverage                                                                                                                                                                                                        | **Retain exact algorithms.** The native body trace already receives ordered eligible generation/layer selections, then traverses topology addresses with hard existing-capacity ceilings. A generic spatial rectangle index adds redundant selection and can alter work-limit outcomes. The 2D index is no substitute for exact swept/endpoint contact, sparse alternatives, XZ layer policy or hex geometry.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | [planar navigation-body tests](../../../tests/GridForge.Tests/Utility/GridPlanarNavigationBodyTraceTests.cs) and their Geometry/Boundaries/Lifecycle/Ranges/Validation/WorldEdge companions; planar interval/body-trace, exact-boundary and blocker benchmarks.                                                                     |
+| Fixed quadtree as another top-level backend                                                                                                                                                                                                                                                                                                                                             | **Defer.** Its fixed root/world-bounds ownership does not naturally fit dynamically conjoined/streamed unbounded worlds. Reopen only for a concrete bounded planar consumer whose repeated regional queries beat both existing discovery and native hash/BVH after maintenance cost. Do not add a third selectable backend without that consumer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Existing spatial-index, sparse and hex fixtures are controls; provider quadtree tests cover its own subdivision contract.                                                                                                                                                                                                           |
 
 The contracts above are also described in the current
 [scan guide](../../api/guides/Scan-Cells-and-Query-Flow.md),
@@ -685,6 +686,418 @@ regressions were resolved by removal, not promoted into the issue tracker or
 benchmark backlog. Both runtime snapshots were restored from the owning HEAD
 files. Final net runtime growth is zero; no new runtime files, fields, public
 API or dependencies remain.
+
+## TicketStore bucket follow-up — 2026-11-25
+
+**Disposition: retain SlotMap for the tested contracts and workloads.** This
+separately authorized comparison closes the previously untested TicketStore
+question for one simpler compatible representation. It does not extend the
+DenseTicketMap measurements to TicketStore or prove that every TicketStore
+architecture loses. Spatial/quadtree decisions were not reopened.
+
+### Representation and contract checks
+
+The execution baseline was clean commit
+`b513d37f52abbb75b228baf521ef6144c6545810`, using the same unchanged, clean
+Chronicler/FixedMathSharp/SwiftCollections source revisions recorded above.
+Windows x64, SDK 10.0.302, .NET 10.0.10 and BenchmarkDotNet 0.15.8 were used.
+The source flags were
+`-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`.
+
+The actual ScanCell prototype used three existing owners:
+
+- `SwiftSlotMap<byte>` only for public slot allocation and its existing free
+  history, including empty-clear/pool reuse.
+- `SwiftTicketStore<OccupantEntry>` with private bucket-local key
+  `new SwiftTicket(publicSlot, 0)`. Generation zero is valid store-key data.
+  Full public `long` generation checks stayed in ScanCell and the entry; no
+  narrowing or private generation issuer was introduced.
+- `SwiftSortedList<int>` for increasing live public-slot enumeration, with a
+  struct enumerator. Exact reads and enumeration went directly to TicketStore,
+  eliminating the previous DenseTicketMap prototype's mapping lookup.
+
+Capacity was reserved before publishing a public registration. Sparse
+reservation used `PeakCount + 1` only when the allocator had no holes; otherwise
+`PeakCount`. Dense/live reservations stayed independent. This does not promise
+unchanged private capacities after allocation failure across three owners. No
+public API, monitor order, registry lifetime, generation issuer or serializer
+changed. The prototype added two internal files with 64 nonblank code lines plus
+owner and pool type substitutions; all were removed after the no-go decision.
+
+The existing focused occupancy suite passed **75 tests**, including public
+stale/default rejection, re-registration and generation exhaustion. A separate
+disposable public-API oracle matched **33 normalized output lines** byte for
+byte between frozen hosts. Only timestamps were normalized; messages, ordered
+reference labels and lifecycle output remained. It reused the initial dense/
+sparse query/filter/radius/multi-voxel/unload/reset recipe and added:
+
+- Three fresh public slot-zero buckets across two worlds, with distinct public
+  long generations; cross-bucket/world/default tickets must reject.
+- Remove/re-add of public slot zero: the private `(0,0)` key repeats, but the
+  old public long ticket must fail and the new occupant must resolve.
+- Nonempty reset: old world/grid identity and public generation fail; only the
+  fresh registration resolves.
+- Fill 32 slots, remove all entries in ascending order, then rent the pooled
+  bucket again. Public free history must reuse slots 31 then 30 and enumerate
+  occupant IDs `1201,1200`; replacement must yield `1201,1202`, rejecting the
+  old public ticket for slot 31. Reflection only cleared existing pools between
+  isolated scenarios after previous worlds were disposed.
+
+No DenseTicketMap private-retirement result was reused: TicketStore issues no
+private generation in this design. Independent source review found no ordinary
+contract blocker before measuring. The oracle and existing focused tests are
+bounded behavior evidence, not complete adoption certification.
+
+### Fresh balanced measurements
+
+The maintained `OccupantWaveBenchmarks` cases were reused unchanged: 256
+buckets, eight query rounds, compact 4-live/4-peak, churned 4-live/32-peak,
+full32, and refill/remove 7,168 registrations before querying. Exact lookup,
+ordered voxel views and caller-owned 3D/planar scans retain the same validation
+work. No new benchmark runner or maintained test of benchmark infrastructure was
+added.
+
+Baseline and candidate hosts were built/frozen before timing. Six processes ran
+in A/B/B/A/A/B order, with five warmups, ten measured iterations, 64 invocations
+and unroll factor one. Each completed four cases and exited zero: 240 actual
+measured iterations; retained counts were 35/40/39/38/39/38. Tiered compilation
+was disabled, then the prior environment restored. Positions/order followed the
+maintained recipes; Guid registration keys remained freshly generated per
+process as in those fixtures. No competing build, test or profiler ran during
+the series.
+
+The table shows process means in **ms per phase**, with each pair's execution
+order above. Fresh baselines were used; absolute times must not be compared with
+the preceding day's DenseTicketMap series.
+
+| Case                      | Baseline A1 | TicketStore B1 | TicketStore B2 | Baseline A2 | Baseline A3 | TicketStore B3 |
+| ------------------------- | ----------- | -------------- | -------------- | ----------- | ----------- | -------------- |
+| Compact query             | 1.158       | 1.265          | 1.248          | 1.181       | 1.191       | 1.318          |
+| Churned query             | 1.344       | 1.346          | 1.324          | 1.420       | 1.353       | 1.374          |
+| Full query                | 9.564       | 12.869         | 11.790         | 10.682      | 9.242       | 14.887         |
+| Refill/remove, then query | 8.593       | 9.298          | 9.477          | 8.645       | 8.940       | 9.069          |
+
+The churned query is near break-even/inconclusive: one candidate mean is lower,
+while the other pairs are approximately equal or adverse. It is not a repeatable
+win. Compact and full means were adverse in every pair. The full case varied
+substantially, so the record does not claim a precise universal slowdown.
+Mutation cycle means were also adverse, but the small final-pair gap is
+inconclusive. Do not describe this as all four cases conclusively slower. The
+combination of representative latency costs, no established whole-cycle gain and
+added storage does not pass the existing adoption gates.
+
+Query allocation fell from approximately **240 to 224 KiB per phase**; the
+mutation/query phase fell from approximately 6,176.05–6,176.06 to
+6,160.05–6,160.06 KiB. Those savings do not waive the latency/memory gate.
+
+An outside-timing inspection summed actual backing-array lengths × managed
+element sizes through the real buckets, using the same recipe as the initial
+memory check:
+
+| 256-bucket fixture | SlotMap payload | TicketStore design payload |
+| ------------------ | --------------- | -------------------------- |
+| Compact            | 49,152 bytes    | 90,112 bytes               |
+| Churned / full     | 196,608 bytes   | 360,448 bytes              |
+
+Baseline had 256 arrays/256 owner objects; candidate had 1,280 arrays/1,024
+owner objects. Payload is **44 versus 24 bytes per reserved slot**,
+approximately 83% more in these fixtures, excluding headers and other
+world/fixture state. The byte-valued SlotMap entry is 12 bytes because it also
+contains both free-link integers; it is not an eight-byte entry. This is smaller
+than the earlier DenseTicketMap layout's 48 bytes/slot, but it still adds
+substantial storage to the baseline. This is array-payload accounting, not a
+complete retained-heap or long-run endurance claim.
+
+### Decision, reproduction and final checks
+
+The candidate was withdrawn under the existing representative-regression gate.
+Keep the SlotMap implementation. Reopen only for a concrete measured workload
+and a simpler order-preserving design or reusable provider capability that can
+remove costs rather than merely move them. A different public slot/order
+contract requires a separately justified API decision. The tested no-go says
+nothing universal about TicketStore in consumers with natural external issuers
+and no public slot-order repair requirement.
+
+Build the source-mode benchmark host using the flags above and freeze it before
+applying the described owner change. The comparison command, per frozen host,
+was:
+
+```powershell
+$env:DOTNET_TieredCompilation = '0'
+dotnet <host>/GridForge.Benchmarks.dll OccupantWaveBenchmarks --filter '*OccupantBuckets*' --warmupCount 5 --iterationCount 10 --invocationCount 64 --unrollFactor 1 --artifacts artifacts/ticketstore-comparison
+```
+
+Restore the prior environment afterward and use three balanced pairs. Baseline
+GridForge DLL SHA-256:
+`93d9c4a49efb50cd4f065e95b6dccbc3a817134bb6188a0d724eb50b01d3e6bc`; candidate:
+`53b54a9f25c8d33a0302371df3d667c3a135aa667fb50d59fd9bf733458e0c91`. Ignored
+logs, hosts, oracle captures and the rejected prototype source are under
+`artifacts/gf-ticketstore-comparison`. The representation, maintained fixture,
+input/oracle recipes and results above survive removal of those captures.
+
+After restoring the original runtime files, fresh source-mode checks passed:
+
+| Retained baseline gate             | Standard Release                                  | ReleaseLean                             |
+| ---------------------------------- | ------------------------------------------------- | --------------------------------------- |
+| Solution build, warnings as errors | netstandard2.1/net10.0 pass; zero warnings/errors | Both targets pass; zero warnings/errors |
+| Full net10.0 tests                 | 1,248 passed; zero failed/skipped                 | 1,248 passed; zero failed/skipped       |
+| Reported lines                     | 9,462 / 9,462                                     | 9,462 / 9,462                           |
+| Reported branches                  | 4,243 / 4,243                                     | 4,243 / 4,243                           |
+| Executable methods                 | 1,164 / 1,164                                     | 1,164 / 1,164                           |
+| Existing strict coverage gate      | Passed                                            | Passed                                  |
+
+No baseline build/test failures were observed. Full-case variability and the
+inconclusive churned/final mutation differences are measurement limits, not
+failures concealed by the no-go decision. Candidate Lean timings, the broad
+lifecycle/restore matrix, complete retained heap and host-frame tails were not
+reached after rejection; Linux and released-package validation were not run. The
+new public-API oracles and focused tests passed, but no complete cross-variant
+candidate adoption claim is made. No runtime, dependency, benchmark, maintained
+test or CI change remains. Only the plan and overview are updated, unstaged.
+
+Independent final source, evidence and record review passed with no substantive
+blocking findings; the completed review was checked against the raw captures.
+
+## Cached-position and provider lookup experiments — 2026-11-25
+
+**Disposition:** retain SlotMap in GridForge. The compatible cached-position
+bucket established no repeatable query benefit and regressed the mutation cycle.
+A small DenseTicketMap `TryGet` change did improve the tested provider lookup
+batches; pursue it as focused SwiftCollections work. Neither experiment leaves
+maintained runtime changes in either repository.
+
+### Source isolation and reproduction
+
+Use GridForge `b513d37f52abbb75b228baf521ef6144c6545810`, SwiftCollections
+`7c2fa696f10d88194f5a895aaafd7debd8e27574`, FixedMathSharp
+`8fdf889322f1bb82501c2afec63d6bb2f304ace2` and Chronicler
+`0281469ecc40e65a05867f473bc10f030e7f69f8`. The two earlier documentation edits
+were preserved. Sibling SwiftCollections advanced to `107c8868` during setup;
+all experiment builds instead used detached sibling worktrees under
+`$env:TEMP/gf-cached-position-stack`, pinned to the revisions above. Unrelated
+changes in the original sibling checkout were untouched. This validates the
+controlled source graph, not its newer HEAD.
+
+Windows x64, SDK 10.0.302, .NET 10.0.10 and BenchmarkDotNet 0.15.8 were
+retained. Every source build/test used
+`-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`. One
+coordinator serialized builds, tests and timings. Freeze benchmark hosts before
+timing; no competing build/test/profile ran during either timing series. No
+dependency or CI pin changed.
+
+### Cached-position bucket
+
+Starting with the prior TicketStore prototype, change `SwiftSlotMap<byte>` to
+`SwiftSlotMap<int>` holding each public slot's current dense position. Both
+SlotMap entry layouts occupy 12 bytes. Reads validate the public slot, acquire a
+fresh `Values` view and index that position. ScanCell retains its full public
+`long` generation check; sorted public-slot iteration and allocator free history
+remain unchanged.
+
+TicketStore explicitly invalidates dense-position associations after structural
+changes. This compatible candidate therefore eagerly rebuilds the mapping with
+`slots[store.GetTicketAt(i).Index] = i` for every live position after each
+successful Add/Remove and actual `EnsureCapacity` growth. Reserve SlotMap and
+the sorted view first, then Store; refresh immediately after actual Store growth
+before publishing the registration. Reads never repair caches. Incremental
+swap-only repair would depend on behavior beyond the documented invalidation
+contract and was not substituted for this measured design. Mutations pay the
+full O(live count) refresh cost.
+
+The candidate added two internal files and **83 nonblank, noncomment runtime
+lines**, plus owner/pool type substitutions. Independent source review found no
+blocker within the bounded workloads. One unproven limit remains: Store requires
+indices below `2^30`, whereas SlotMap has no identical explicit limit. Promotion
+would require a supported-limit decision; these fixtures establish no global
+arithmetic-limit equivalence.
+
+The 75 existing focused occupancy tests passed. A disposable public-API oracle
+matched **37 timestamp-normalized output lines** between frozen SlotMap and
+cached hosts. It retains the preceding lifecycle/filter/order recipe and adds
+exact ticket/reference and literal public-slot-order checks at 8, 9 and 17 live
+entries in both Dense and Sparse grids. Actual dense-tail removal before swaps,
+first/middle/missing removal, LIFO slot reuse and stale-long rejection passed.
+This supplements existing reset, pool free-history and cross-world controls; it
+is bounded behavior evidence, not complete adoption certification.
+
+Fresh timings reused the four unchanged `OccupantWaveBenchmarks` cases above.
+Run order was **A/B/C/C/B/A**: A=SlotMap, B=uncached TicketStore, C=cached
+Store. The authored benchmark source was unchanged and provider dependencies
+were byte-identical. Cached C had recompiled GridForge.Benchmarks.dll; A/B used
+one frozen benchmark DLL. These compiled harnesses were not byte-identical, so
+this initial series retains that confound rather than claiming a runtime-only
+comparison. B reused the preserved prototype DLL from the same provider graph.
+Five warmups, ten measured iterations, 64 invocations and unroll factor one were
+used, with tiering disabled and prior environment restored. All six processes
+exited zero and completed four cases: **240 actual measured iterations**,
+retained counts 37/38/37/38/37/39 after BDN filtering.
+
+Process means, **ms per phase**, in execution order:
+
+| Case                      | A1 SlotMap | B1 Store | C1 cached | C2 cached | B2 Store | A2 SlotMap |
+| ------------------------- | ---------- | -------- | --------- | --------- | -------- | ---------- |
+| Compact query             | 1.110      | 1.179    | 1.210     | 1.283     | 1.202    | 1.134      |
+| Churned query             | 1.318      | 1.315    | 1.340     | 1.294     | 1.294    | 1.350      |
+| Full query                | 7.332      | 7.514    | 7.548     | 8.069     | 8.159    | 7.105      |
+| Refill/remove, then query | 7.210      | 8.198    | 8.337     | 8.439     | 8.025    | 7.189      |
+
+Churned differences remain inconclusive. Full-query results vary and establish
+no consistent cache benefit over Store; compact caching is adverse in both runs.
+Both cached mutation means exceed both baseline means by approximately 16–17%.
+The cache does not earn its refresh logic. These measurements do not attribute
+every difference to caching or establish a universal slowdown.
+
+Final review caught the compiled-harness difference before acceptance. A
+separate **D/E/E/D control** used the baseline frozen host for both arms,
+replacing only GridForge.dll for cached E; every other DLL was byte-identical.
+Settings and fixtures were unchanged. All four processes exited zero and
+completed four cases: **160 actual measured iterations**, retained counts
+39/38/37/38. This is the runtime-only comparison against retained SlotMap.
+
+| Case                      | D1 SlotMap | E1 cached | E2 cached | D2 SlotMap |
+| ------------------------- | ---------- | --------- | --------- | ---------- |
+| Compact query             | 1.114      | 1.242     | 1.207     | 1.130      |
+| Churned query             | 1.316      | 1.369     | 1.283     | 1.303      |
+| Full query                | 7.509      | 7.901     | 7.583     | 6.965      |
+| Refill/remove, then query | 7.536      | 8.267     | 8.551     | 7.838      |
+
+The controlled mutation means average 7.687→8.409 ms, approximately **9.4%
+slower**, while compact query means average 1.122→1.2245 ms. Churned results
+cross and remain inconclusive; full-query dispersion prevents a precise general
+slowdown claim. The cache still establishes no repeatable query gain, adds
+retained storage and loses the complete mutation cycle. The initial series is
+preserved with its limitation, rather than used to attribute its entire 16–17%
+difference to the runtime change.
+
+Both Store designs allocate about 224 versus 240 KiB per query phase and
+6,160.06 versus 6,176.06 KiB per mutation phase. Actual backing-array payload is
+unchanged by caching: compact 90,112 versus baseline 49,152 bytes; churned/full
+360,448 versus 196,608 bytes. Store designs have 1,280 arrays/1,024 collection
+owners versus 256/256 for SlotMap, excluding headers and other world/fixture
+state: **44 versus 24 bytes per reserved slot**. This does not measure the whole
+heap, endurance or host-frame tails.
+
+### DenseTicketMap provider lookup
+
+Disassembly of the real baseline `TryGet` API confirmed a repeated position
+read: `cmp [slot+4],0` validates liveness, then `mov ..., [slot+4]` reloads it
+on success. Store's `Find` already retains its resolved position; no
+corresponding Store patch was justified.
+
+In the isolated provider only, replace Dense `TryGet`'s `IsValid` call and
+second slot lookup with this body, leaving `IsValid`, `GetRef`, API, layout and
+persistence unchanged:
+
+```csharp
+if ((uint)ticket.Index < (uint)_issued)
+{
+    ref Slot slot = ref _slots[ticket.Index];
+    int position = slot.Position;
+    if (position >= 0 && slot.Generation == ticket.Generation)
+    {
+        value = _values[position];
+        return true;
+    }
+}
+value = default!;
+return false;
+```
+
+This adds a net five nonblank runtime lines and no files. Independent review
+confirmed supported externally synchronized semantics; concurrent mutation
+remains unsupported. The real-API oracle passed **8,228 checks**, checksum
+7,929,856, on both DLLs:
+live/reused/removed/unissued/negative/excessive/default/wrong- generation
+tickets, default miss outputs and throwing GetRef controls. Existing Dense tests
+passed **125 tests**, including state/restore, retirement, growth, swap removal,
+reference/default values and reuse. Candidate disassembly loads Position once
+and reuses its register; wrapper size fell **125→108 bytes** for
+reference-plus-long payload and **105→88 bytes** for int. Array bounds and
+generation checks remain. GetRef's uninlined wrapper was not used to infer its
+callee's loads.
+
+Reuse the provider's maintained `Dense_Lookup` workloads. Each batch reads every
+live ticket in ticket-array order and consumes the values. Int32 cases specify
+live-count × peak multiplier. Referencing is a 16-byte int-plus-reference value;
+the exact reference-plus-long probe payload was checked for behavior/codegen,
+not timed here.
+
+```powershell
+dotnet <frozen-provider-host>/SwiftCollections.Benchmarks.dll all --filter '*DenseTicketMapInt32Benchmarks.Dense_Lookup*' '*DenseTicketMapReferencingBenchmarks.Dense_Lookup*' --inProcess --launchCount 1 --warmupCount 3 --iterationCount 8 --iterationTime 150 --artifacts <distinct-artifact-path>
+```
+
+Set tiered compilation and ReadyToRun to zero; restore prior environment values
+afterward. Run baseline P / candidate Q / Q / P, with an identical host except
+SwiftCollections.dll. The in-process toolchain avoids child source rebuilds.
+Each process produced four successful reports and 32 actual measurements: **128
+total**, retained counts 30/29/31/30. Launcher exit alone was not accepted as
+success. An additional disposable throughput harness was prepared but never
+built or run; no maintained harness was added.
+
+Process means, **microseconds per complete lookup batch**:
+
+| Payload / case       | P1 baseline | Q1 candidate | Q2 candidate | P2 baseline | Mean reduction |
+| -------------------- | ----------- | ------------ | ------------ | ----------- | -------------- |
+| Int32 / 128x1        | 0.3141      | 0.2519       | 0.2543       | 0.3064      | 18.4%          |
+| Int32 / 4096x4       | 9.7173      | 7.9704       | 7.9328       | 9.7319      | 18.2%          |
+| Int32 / 16384x10     | 38.9695     | 32.1307      | 32.0269      | 38.7848     | 17.5%          |
+| Referencing / 4096x4 | 10.55       | 10.01        | 9.908        | 10.42       | 5.0%           |
+
+Both Q means beat both P means in each case. The one-byte BDN allocation report
+for the largest int case appears in both arms; no allocation gain is claimed.
+This is a promising provider all-hit result under one Windows x64 fixed-codegen
+configuration. Miss-heavy timing, normal tiered/PGO behavior, other platforms/
+runtimes, full provider Standard/Lean coverage and downstream consumers remain
+unchecked. GridForge's retained bucket does not consume Dense; this establishes
+neither a GridForge gain nor a TicketStore gain.
+
+**Next action:** take only Dense `TryGet` into separately scoped provider work;
+complete provider compatibility/Standard/Lean gates and representative normal-
+codegen/miss controls before accepting a maintained change. No provider defect
+or new GridForge issue is asserted by this optimization signal. Keep GridForge
+adoption closed unless a real workload and simpler contract-preserving design
+meet its full cost gates. Update owning CI source pins after an accepted
+upstream change lands; pins are outside this experiment.
+
+### Final checks and evidence
+
+Build/freeze the source-mode benchmark projects with the source graph/flags
+above. The GridForge command is unchanged from the preceding follow-up; use
+distinct artifact directories and A/B/C/C/B/A order. Source snapshots, patches,
+hashes, logs, oracle sources, disassembly and reports are ignored under
+`artifacts/gf-cached-position`. The designs, recipes and results above survive
+removal of those captures.
+
+GridForge baseline/uncached/cached DLL SHA-256 values are respectively
+`93d9c4a49efb50cd4f065e95b6dccbc3a817134bb6188a0d724eb50b01d3e6bc`,
+`53b54a9f25c8d33a0302371df3d667c3a135aa667fb50d59fd9bf733458e0c91`, and
+`44ba3116e673cfade96b8e8c25c08fca032d206f5b9665383e921b5a1212d468`. Provider
+baseline/candidate hashes are
+`2ff7a7d889e9c0e7064936edd6f7431228574293a35c4a7eb3d1b4fae906df9e` /
+`5b4c30e408d85b19edefff0a6cf1b764027b6dbe8c93ce674e7070ba2932e451`.
+
+Both experimental patches were archived and removed from isolated worktrees.
+Fresh retained-baseline source-mode verification passed:
+
+| Gate                                      | Standard Release                             | ReleaseLean                        |
+| ----------------------------------------- | -------------------------------------------- | ---------------------------------- |
+| Solution build, warnings as errors        | netstandard2.1/net10.0; zero warnings/errors | Both targets; zero warnings/errors |
+| Full net10.0 tests                        | 1,248 passed; zero failed/skipped            | 1,248 passed; zero failed/skipped  |
+| Reported lines                            | 9,462 / 9,462                                | 9,462 / 9,462                      |
+| Reported branches                         | 4,243 / 4,243                                | 4,243 / 4,243                      |
+| Executable methods / strict coverage gate | 1,164; passed                                | 1,164; passed                      |
+
+No baseline build/test failure or introduced correctness failure was observed.
+The provider focused-test build emitted an existing `xUnit2013` warning in
+unchanged `SwiftSlotMap.Tests.cs:138`; it is separate from these zero-warning
+GridForge final builds. Cached candidate Lean timings/full lifecycle matrices
+were not expanded after its cost gate failed; provider adoption certification
+remains separate. Linux and released-package checks were not run. Independent
+source/codegen and final evidence/record reviews passed with no blocking
+findings. The final review independently checked the controlled host hashes,
+timing/sample counts, oracle outputs, raw coverage and clean isolated runtime
+state. No CI policy, runtime, dependency, benchmark or maintained test change
+remains; only the two documentation files are updated, unstaged and uncommitted.
 
 ## Phase 1 — Smallest compatible occupancy slice, if selected
 
