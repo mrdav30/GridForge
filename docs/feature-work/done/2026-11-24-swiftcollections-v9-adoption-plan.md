@@ -2,8 +2,9 @@
 
 **Status:** Completed Phase 0 on 2026-11-24 and the separately authorized
 TicketStore and cached-position/provider follow-ups on 2026-11-25. Retain
-SlotMap occupancy and existing 3D discovery. No GridForge adoption is selected;
-the isolated DenseTicketMap lookup improvement warrants separate provider work.
+SlotMap occupancy and existing 3D discovery. No GridForge adoption is selected.
+The subsequent provider investigation, SC-Benchmark-009, also closed with no
+runtime change after broader miss controls exposed tradeoffs.
 
 **Goal:** Decide whether packed ticket storage or native fixed-point 2D indexes
 improve real GridForge operations, then implement only the candidates that pass
@@ -1045,19 +1046,34 @@ Process means, **microseconds per complete lookup batch**:
 
 Both Q means beat both P means in each case. The one-byte BDN allocation report
 for the largest int case appears in both arms; no allocation gain is claimed.
-This is a promising provider all-hit result under one Windows x64 fixed-codegen
-configuration. Miss-heavy timing, normal tiered/PGO behavior, other platforms/
-runtimes, full provider Standard/Lean coverage and downstream consumers remain
-unchecked. GridForge's retained bucket does not consume Dense; this establishes
-neither a GridForge gain nor a TicketStore gain.
+This was a promising provider all-hit result under one Windows x64 fixed-codegen
+configuration. At the end of these GridForge runs, miss-heavy timing, normal
+tiered/PGO behavior, other platforms/runtimes, full provider Standard/Lean
+coverage and downstream consumers remained unchecked. GridForge's retained
+bucket does not consume Dense; these results establish neither a GridForge gain
+nor a TicketStore gain.
 
-**Next action:** take only Dense `TryGet` into separately scoped provider work;
-complete provider compatibility/Standard/Lean gates and representative normal-
-codegen/miss controls before accepting a maintained change. No provider defect
-or new GridForge issue is asserted by this optimization signal. Keep GridForge
-adoption closed unless a real workload and simpler contract-preserving design
-meet its full cost gates. Update owning CI source pins after an accepted
-upstream change lands; pins are outside this experiment.
+**Provider closeout:** the separately scoped SwiftCollections investigation is
+complete as **SC-Benchmark-009**, recorded in that repository's
+`docs/feature-work/benchmark-signal-hardening-backlog.md`. It reproduced the
+integer hit gains but found approximately 30–36% fixed-codegen miss-only
+regressions and some 5–7% mixed-case regressions. A second, generation-first
+candidate did not establish an acceptable general improvement. Both runtime
+candidates were removed; the existing `TryGet` implementation was retained. The
+provider kept miss-only/shuffled mixed benchmark controls and five free/retired
+membership assertions, with its final Standard/Lean validation recorded in the
+owning backlog. No functional defect was found or tradeoff accepted. The initial
+all-hit signal above remains historical evidence, not an outstanding
+optimization or adoption claim.
+
+**Disposition:** no GridForge runtime, package or CI-pin follow-up is required
+from these experiments. Keep adoption closed unless a concrete consumer profile
+and simpler contract-preserving design meet the full behavior, memory and
+containing-operation cost gates. Reopen the provider signal only for a measured
+hit/miss mix and budget or a revised implementation that avoids the observed
+miss costs; use ordinary tiered/PGO execution and representative value-consuming
+controls. Do not repeat the broad migration merely because a container is
+available.
 
 ### Final checks and evidence
 
