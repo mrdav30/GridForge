@@ -14,8 +14,8 @@ Use the following dependency versions with GridForge v10:
 | Dependency              | Standard                          | Lean                                   | Version        |
 | ----------------------- | --------------------------------- | -------------------------------------- | -------------- |
 | Math                    | `FixedMathSharp`                  | `FixedMathSharp.Lean`                  | `9.0.0`        |
-| Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `9.0.0`        |
-| Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `9.0.0`        |
+| Collections             | `SwiftCollections`                | `SwiftCollections.Lean`                | `9.0.1`        |
+| Fixed-point collections | `SwiftCollections.FixedMathSharp` | `SwiftCollections.FixedMathSharp.Lean` | `9.0.1`        |
 | Shared diagnostics      | `Chronicler.Diagnostics`          | `Chronicler.Diagnostics`               | `1.0.0`        |
 | MemoryPack annotations  | Included with `MemoryPack`        | `Chronicler.MemoryPackShim`            | `1.0.0` (shim) |
 
@@ -33,19 +33,19 @@ tests and benchmarks require the .NET 10 runtime. Source builds use C# 14 for
 
 The Lean shim package reference now uses Chronicler v1.0.0. Coordinated
 Chronicler and shim source references use the evergreen identities centralized
-in `Directory.Build.props` across the library, tests, and benchmarks. Keep sibling
-references aligned to prevent runtime assembly-load failures. Keep immutable
-sibling CI pins aligned with the source APIs used by GridForge. Validate both
-configurations against released upstream packages before publishing; source-mode
-packages remain development artifacts.
+in `Directory.Build.props` across the library, tests, and benchmarks. Keep
+sibling references aligned to prevent runtime assembly-load failures. Keep
+immutable sibling CI pins aligned with the source APIs used by GridForge.
+Validate both configurations against released upstream packages before
+publishing; source-mode packages remain development artifacts.
 
 The FixedMathSharp references with `ExcludeAssets="compile;runtime"` in the
 library, tests, and benchmarks now also use `9.0.0`. These suppress competing
 package binaries in source mode; keep them aligned with the released dependency
 version while retaining the sibling project references. Pass
-`-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1` through
-source-mode restore, build, and test commands. For release validation, use
-`-p:UseLocalLsfStack=false` to select published packages explicitly.
+`-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`
+through source-mode restore, build, and test commands. For release validation,
+use `-p:UseLocalLsfStack=false` to select published packages explicitly.
 
 ### FixedMathSharp v9
 
@@ -57,13 +57,14 @@ source-mode success does not verify the released dependency graph.
 FixedMathSharp v9 rejects zero rotation inputs, removes
 `FixedQuaternion.ToDirection()`, and changes the Vector4 epsilon predicate to
 compare magnitudes. Its geometry/numeric corrections can change replay results.
-See the [upstream v9 migration guide](https://github.com/mrdav30/FixedMathSharp/blob/v9.0.0/docs/MIGRATION.md#migrating-from-v8x-to-v9x).
+See the
+[upstream v9 migration guide](https://github.com/mrdav30/FixedMathSharp/blob/v9.0.0/docs/MIGRATION.md#migrating-from-v8x-to-v9x).
 GridForge remains axis-aligned; apply any legacy rotation migration at the
 application or adapter load boundary rather than adding grid-side fallbacks.
 
 ### SwiftCollections v9
 
-Use SwiftCollections 9.0.0 and its matching FixedMathSharp companion, or both
+Use SwiftCollections 9.0.1 and its matching FixedMathSharp companion, or both
 Lean variants. Rebuild consumers against the resolved package graph; successful
 `UseLocalLsfStack=true` builds do not establish published-package compatibility.
 
@@ -82,10 +83,10 @@ for affected collection types and persistence contracts.
 ### Active Grid Collection
 
 `GridWorld.ActiveGrids` now returns `SwiftSlotMap<VoxelGrid>` instead of
-`SwiftBucket<VoxelGrid>`. Update explicitly typed variables and helper signatures
-that receive this collection, and migrate direct uses of `SwiftBucket<T>` to
-SwiftCollections v8's `SwiftSlotMap<T>`. Grid slots remain recyclable; continue
-using `WorldVoxelIndex` for exact runtime voxel identity.
+`SwiftBucket<VoxelGrid>`. Update explicitly typed variables and helper
+signatures that receive this collection, and migrate direct uses of
+`SwiftBucket<T>` to SwiftCollections v8's `SwiftSlotMap<T>`. Grid slots remain
+recyclable; continue using `WorldVoxelIndex` for exact runtime voxel identity.
 
 ### Shared diagnostics extraction
 
@@ -101,8 +102,9 @@ Rebuild consumers and adapters together: moved types have new CLR identities,
 including types exposed in logger signatures. There are no forwarding wrappers.
 This extraction does not change recorded fields or record-hash identities.
 Chronicler v1, FixedMathSharp v9 and SwiftCollections v9 are the upstream
-baseline; validate against these released packages before publishing GridForge v10.
-Local-stack builds alone do not prove the published package graph is compatible.
+baseline; validate against these released packages before publishing GridForge
+v10. Local-stack builds alone do not prove the published package graph is
+compatible.
 
 ### Bounded Tracing Additions
 
@@ -110,8 +112,8 @@ Existing interval and 3D body coverage APIs remain available. The new
 `TryTraceRectangularSlabsInto(...)` observer path and
 `TracePlanarNavigationBodyInto(...)` explicit-layer coverage API are optional.
 Planar tracing treats existing scratch and output capacities as hard ceilings;
-pre-size them and inspect the returned status before consuming coverage.
-See [Segment Intervals and Slabs](api/guides/Segment-Intervals-and-Slabs.md) and
+pre-size them and inspect the returned status before consuming coverage. See
+[Segment Intervals and Slabs](api/guides/Segment-Intervals-and-Slabs.md) and
 [Navigation Body Coverage](api/guides/Navigation-Body-Coverage.md) for the exact
 budget, lifetime, and locking contracts.
 

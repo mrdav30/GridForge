@@ -380,6 +380,10 @@ Keep README engaging and concise; put deep subsystem detail in the DocFX guides.
 Use diagrams and short sections where they clarify ownership or query flow. Keep
 completed feature-work records historical and current guides evergreen.
 
+New feature-work plans use descriptive filenames without a date prefix and
+record `**Opened:** YYYY-MM-DD` directly below the title. Preserve historical
+completed-plan filenames and update links when renaming planned records.
+
 The DocFX site under [`docs/api`](docs/api) is the branded API and discovery
 surface. Keep its GridForge icon, blue/cyan custom template, GitHub header link,
 namespace overviews, Unity adapter links, and landing-page routes intact. Build

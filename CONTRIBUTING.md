@@ -74,6 +74,10 @@ API reference. Keep links between Markdown pages relative and include their
 no wiki synchronization workflow. Keep guides evergreen and preserve completed
 design and validation records under `docs/feature-work/done` as history.
 
+Feature-work plan filenames are descriptive and omit dates. Record
+`**Opened:** YYYY-MM-DD` directly below each plan title. Rename planned records
+and their incoming links together; retain historical completed filenames.
+
 Build the API site from a Release assembly:
 
 ```powershell

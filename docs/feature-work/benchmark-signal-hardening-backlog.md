@@ -10,15 +10,15 @@ step.
 Use this backlog for measured performance, allocation, scaling, and benchmark
 evidence concerns. Bugs or correctness risks that are not primarily benchmark
 signals belong in [`issue-tracker.md`](issue-tracker.md). Broad feature or
-architecture work should be promoted into its own dated plan and referenced from
-this backlog.
+architecture work should be promoted into its own feature plan and referenced
+from this backlog.
 
 ## Intake Rules
 
 - Signal IDs use `GF-Benchmark-NNN`. The next available ID is
   `GF-Benchmark-014`.
 - Assign an ID at intake and never reuse it, including after a signal closes or
-  moves into a dated plan. Check this file's Git history before advancing or
+  moves into a feature plan. Check this file's Git history before advancing or
   repairing the counter.
 - Add a signal only when it comes from a benchmark, allocation guardrail,
   profiler trace, or repeated validation run.
@@ -27,8 +27,8 @@ this backlog.
 - Keep benchmark-only instrumentation in tests or benchmark support unless the
   runtime needs a durable diagnostic API.
 - Prefer a focused fix when the signal has a narrow cause.
-- Promote to a dated feature-work plan when the signal spans multiple
-  subsystems, requires API design, or needs staged implementation.
+- Promote to a feature-work plan when the signal spans multiple subsystems,
+  requires API design, or needs staged implementation.
 - Close entries only after a runtime/test/docs change lands or after a written
   no-change decision explains why the signal is expected.
 
