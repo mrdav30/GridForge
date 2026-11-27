@@ -165,7 +165,7 @@ dotnet test GridForge.slnx --configuration ReleaseLean
 - **Reproduction:** Build with `-p:UseLocalLsfStack=true`, then run the compiled
   benchmark DLL with
   `all --filter '*VoxelPartitionLookupBenchmarks*FirstSlot*' --launchCount 2 --warmupCount 5 --iterationCount 15 --iterationTime 500 --affinity 3 --disasm --disasmDepth 3 --exporters json`.
-  See the [Testing and Benchmarking](../wiki/Testing-and-Benchmarking.md) for
+  See [Testing and Benchmarking](../api/guides/Testing-and-Benchmarking.md) for
   source-stack setup and other lookup filters.
 - **Evidence and next step:** Gravitas retains the profile and captures under
   `artifacts/grv-benchmark-023`: `refinement4-full-profile-actual-only.json`,
@@ -352,7 +352,7 @@ reports are under `verification/GridForge-Release` and
   separately as
   [`GF-Issue-008`](issue-tracker.md#gf-issue-008---generated-local-stack-benchmark-builds-rediscover-unversioned-dependencies).
 - **Reproduction/evidence:** Use the local-stack command in
-  [Testing and Benchmarking](../wiki/Testing-and-Benchmarking.md#benchmarking-unreleased-sibling-libraries).
+  [Testing and Benchmarking](../api/guides/Testing-and-Benchmarking.md#benchmarking-unreleased-sibling-libraries).
   Trailblazer `artifacts/benchmark005-edge-ray` retains the candidate diff,
   mutation/restored logs, isolated capture, comparison and independent reviews;
   `artifacts/los-phase/edge-ray-*` holds complete guided captures and frozen

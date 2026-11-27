@@ -118,10 +118,10 @@ any old generated output aside before rebuilding. DocFX can otherwise retain
 metadata and pages for types removed from the current assembly. Compiler
 warnings alone do not detect missing return text or unresolved inherited
 comments. Inspect representative HTML for every family and documentation
-pattern. The
-[XML documentation verification record](docs/feature-work/done/2026-11-22-public-api-xml-documentation.md)
-records the checked inputs, inventory, decisions, and known generated
-exclusions.
+pattern. Record the checked inputs, inventory, decisions, and known generated
+exclusions in the owning documentation work record. See
+[API Documentation and GitHub Pages](docs/api/guides/Repository-Layout-and-Build.md#api-documentation-and-github-pages)
+for build commands and site output paths.
 
 Keep documentation passes behavior-preserving. Record confirmed implementation
 defects in the [issue tracker](docs/feature-work/issue-tracker.md) with a
