@@ -295,7 +295,9 @@ reuse. A recycled reference can represent a new voxel even when validation
 succeeds. For later mutations, save a `WorldVoxelIndex` and resolve it through
 the owning world. That identity protects world/grid generations; within the same
 sparse grid, removing and re-adding a coordinate gives the new physical voxel
-the same address identity.
+the same address identity. Exact voxel notifications also check the lifetime
+of the physical voxel. If a callback recreates the sparse cell before delivery,
+the replacement's subscribers receive only changes from the new lifetime.
 
 The direct obstacle APIs also accept `Vector2d` positions. `Vector2d.X` maps to
 world X, `Vector2d.Y` maps to world Z, and `layerY` selects the world Y layer to

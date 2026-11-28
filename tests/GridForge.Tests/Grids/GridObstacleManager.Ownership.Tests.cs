@@ -12,6 +12,129 @@ namespace GridForge.Grids.Tests;
 [Collection("GridForgeCollection")]
 public class GridObstacleManagerOwnershipTests
 {
+    [Fact]
+    public void LocalHandlerFailureReportsTheOriginalAddressAfterGridRemoval()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(world, Vector3d.Zero, Vector3d.Zero);
+        Assert.True(grid.TryGetVoxel(Vector3d.Zero, out Voxel voxel));
+        WorldVoxelIndex address = voxel.WorldIndex;
+        using DiagnosticCaptureScope log = new DiagnosticCaptureScope();
+        voxel.OnObstacleAdded += _ =>
+        {
+            world.TryRemoveGrid(address.GridIndex);
+            throw new InvalidOperationException("removed during callback");
+        };
+
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+        Assert.NotEqual(address, voxel.WorldIndex);
+        Assert.Contains(log.Messages, entry => entry.Message.Contains(
+            $"[Voxel {address}] Obstacle add error: removed during callback"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExactObstacleDeliveryShouldRejectRecycledSparseVoxelAfterGlobalCallback(bool clear)
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddGrid(world, GridStorageKind.Sparse, Vector3d.Zero, out Voxel original);
+        WorldVoxelIndex address = original.WorldIndex;
+        ObstacleToken token = world.AllocateObstacleToken();
+        Assert.True(grid.TryAddObstacle(original, token));
+        Voxel replacement = null;
+        ulong globalSequence = 0;
+        ulong localSequence = 0;
+        bool removed = false;
+
+        void Recycle(ulong sequence)
+        {
+            globalSequence = sequence;
+            removed = grid.TryRemoveVoxel(address.VoxelIndex);
+            if (grid.TryAddVoxel(address.VoxelIndex, out replacement))
+            {
+                replacement.OnObstacleRemoved += info => localSequence = info.ChangeSequence;
+                replacement.OnObstaclesCleared += info => localSequence = info.ChangeSequence;
+            }
+        }
+
+        void OnRemoved(ObstacleEventInfo info) => Recycle(info.ChangeSequence);
+        void OnCleared(ObstacleClearEventInfo info) => Recycle(info.ChangeSequence);
+        GridObstacleManager.OnObstacleRemoved += OnRemoved;
+        GridObstacleManager.OnObstaclesCleared += OnCleared;
+        try
+        {
+            if (clear)
+                grid.ClearObstacles(original);
+            else
+                Assert.True(grid.TryRemoveObstacle(original, token));
+        }
+        finally
+        {
+            GridObstacleManager.OnObstacleRemoved -= OnRemoved;
+            GridObstacleManager.OnObstaclesCleared -= OnCleared;
+        }
+
+        Assert.True(removed);
+        Assert.Same(original, replacement);
+        Assert.Equal(address, replacement.WorldIndex);
+        Assert.Equal(globalSequence + 2, world.ChangeSequence);
+        Assert.False(replacement.IsBlocked);
+        Assert.Equal(0UL, localSequence);
+        Assert.True(grid.TryAddObstacle(replacement, token));
+        if (clear)
+            grid.ClearObstacles(replacement);
+        else
+            Assert.True(grid.TryRemoveObstacle(replacement, token));
+        Assert.Equal(world.ChangeSequence, localSequence);
+    }
+
+    [Fact]
+    public void QueuedObstacleChangesShouldBelongToVoxelAtCommitBeforeGlobalDeliveryBegins()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddGrid(world, GridStorageKind.Sparse, Vector3d.Zero, out Voxel original);
+        WorldVoxelIndex address = original.WorldIndex;
+        ObstacleToken token = world.AllocateObstacleToken();
+        bool attached = false;
+        bool removed = false;
+        Voxel replacement = null;
+        int localDeliveries = 0;
+        int committedObstacleChanges = 0;
+
+        void QueueAndRecycle(GridEventInfo _)
+        {
+            attached = grid.TryAddObstacle(original, token);
+            grid.ClearObstacles(original);
+            removed = grid.TryRemoveVoxel(address.VoxelIndex);
+            if (grid.TryAddVoxel(address.VoxelIndex, out replacement))
+            {
+                replacement.OnObstacleAdded += info => localDeliveries++;
+                replacement.OnObstaclesCleared += info => localDeliveries++;
+            }
+        }
+
+        world.OnActiveGridAdded += QueueAndRecycle;
+        world.OnChangeCommitted += info =>
+        {
+            if (info.ChangeKind is GridEventKind.ObstacleAdded or GridEventKind.ObstaclesCleared)
+                committedObstacleChanges++;
+        };
+        GridWorldTestFactory.AddGrid(world, Vector3d.One, Vector3d.One);
+        world.OnActiveGridAdded -= QueueAndRecycle;
+
+        Assert.True(attached);
+        Assert.True(removed);
+        Assert.Same(original, replacement);
+        Assert.Equal(address, replacement.WorldIndex);
+        Assert.False(replacement.IsBlocked);
+        Assert.Equal(2, committedObstacleChanges);
+        Assert.Equal(0, localDeliveries);
+        Assert.True(grid.TryAddObstacle(replacement, token));
+        grid.ClearObstacles(replacement);
+        Assert.Equal(2, localDeliveries);
+    }
+
     [Theory]
     [InlineData(GridStorageKind.Dense, false, ObstacleMutation.Add)]
     [InlineData(GridStorageKind.Dense, false, ObstacleMutation.Remove)]

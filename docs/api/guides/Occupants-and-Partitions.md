@@ -90,6 +90,18 @@ That means occupants are both:
 
 ## Add And Remove Behavior
 
+The direct `VoxelGrid` add and remove overloads require the physical voxel
+currently stored at its address in the receiving grid. A foreign voxel,
+including one with a copied address, is rejected before changing counts or
+registration tickets. Store a `WorldVoxelIndex` and resolve it through its
+world when a caller needs the address across grid changes.
+
+Global occupant subscribers receive the captured address, ticket and count.
+The owning world's diagnostics then record the cell. Voxel-local delivery
+requires the same physical lifetime. A callback can remove a grid or
+recreate a sparse voxel at the same address, and a subscriber on that
+replacement will receive only changes from its own lifetime.
+
 ### Add behavior
 
 The add path rejects a few important cases:

@@ -184,7 +184,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
         }
     }
 
-    public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)
+    public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel, ulong materializationSequence = 0)
     {
         voxel = null;
         int cellKey = grid.GetScanCellKey(index);
@@ -201,7 +201,7 @@ internal sealed class SparseVoxelGridStorage : IVoxelGridStorage
             ScanCells!.Add(cellKey, block.ScanCell!);
         }
 
-        if (!block!.TryAddVoxel(grid, index, out voxel))
+        if (!block!.TryAddVoxel(grid, index, out voxel, materializationSequence))
             return false;
 
         AddVoxelToCache(voxel!);

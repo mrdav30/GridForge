@@ -6,6 +6,7 @@
 //=======================================================================
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using FixedMathSharp;
@@ -73,7 +74,7 @@ public class Voxel : IEquatable<Voxel>
     public byte OccupantCount { get; internal set; }
 
     /// <summary>
-    /// Handles management of partitioned data.
+    /// Holds partitions and serves as their private per-voxel monitor.
     /// </summary>
     private readonly PartitionProvider<IVoxelPartition> _partitionProvider = new();
 
@@ -83,7 +84,8 @@ public class Voxel : IEquatable<Voxel>
     /// <value>Indicates whether this voxel has any active partitions.</value>
     public bool IsPartioned => !_partitionProvider.IsEmpty;
 
-    private readonly object _partitionLock = new();
+    // Zero for initial grid storage. A later sparse insertion uses its world-local committed stamp.
+    internal ulong MaterializationSequence { get; private set; }
 
     /// <summary>
     /// Determines if this voxel is a boundary voxel.
@@ -217,11 +219,13 @@ public class Voxel : IEquatable<Voxel>
         Vector3d worldPosition,
         int scanCellKey,
         bool isBoundaryVoxel,
-        uint gridVersion)
+        uint gridVersion,
+        ulong materializationSequence = 0)
     {
         ScanCellKey = scanCellKey;
         IsBoundaryVoxel = isBoundaryVoxel;
 
+        MaterializationSequence = materializationSequence;
         WorldIndex = worldVoxelIndex;
         WorldPosition = worldPosition;
 
@@ -246,7 +250,7 @@ public class Voxel : IEquatable<Voxel>
     {
         if (!_partitionProvider.IsEmpty)
         {
-            lock (_partitionLock)
+            lock (_partitionProvider)
             {
                 PartitionProvider<IVoxelPartition>.Enumerator partitions = _partitionProvider.GetEnumerator();
                 while (partitions.MoveNext())
@@ -300,10 +304,14 @@ public class Voxel : IEquatable<Voxel>
 
     #region Notifications
 
+    // Read the delegate before checking the address and birth stamp so reuse cannot substitute new handlers.
+    private bool CanNotifyLocal([NotNullWhen(true)] Delegate? handlers, WorldVoxelIndex index, ulong observedSequence) =>
+        IsAllocated && handlers != null && WorldIndex == index && MaterializationSequence <= observedSequence;
+
     internal void NotifyObstacleAdded(ObstacleEventInfo eventInfo)
     {
         Action<ObstacleEventInfo>? handlers = _onObstacleAdded;
-        if (handlers == null)
+        if (!CanNotifyLocal(handlers, eventInfo.VoxelIndex, eventInfo.ChangeSequence))
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
@@ -315,7 +323,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle add error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle add error: {ex.Message}");
             }
         }
     }
@@ -323,7 +331,7 @@ public class Voxel : IEquatable<Voxel>
     internal void NotifyObstacleRemoved(ObstacleEventInfo eventInfo)
     {
         Action<ObstacleEventInfo>? handlers = _onObstacleRemoved;
-        if (handlers == null)
+        if (!CanNotifyLocal(handlers, eventInfo.VoxelIndex, eventInfo.ChangeSequence))
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
@@ -335,7 +343,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle remove error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle remove error: {ex.Message}");
             }
         }
     }
@@ -343,7 +351,7 @@ public class Voxel : IEquatable<Voxel>
     internal void NotifyObstaclesCleared(ObstacleClearEventInfo eventInfo)
     {
         Action<ObstacleClearEventInfo>? handlers = _onObstaclesCleared;
-        if (handlers == null)
+        if (!CanNotifyLocal(handlers, eventInfo.VoxelIndex, eventInfo.ChangeSequence))
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
@@ -355,15 +363,15 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Obstacle clear error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Obstacle clear error: {ex.Message}");
             }
         }
     }
 
-    internal void NotifyOccupantAdded(OccupantEventInfo eventInfo)
+    internal void NotifyOccupantAdded(OccupantEventInfo eventInfo, ulong materializationSequence)
     {
         Action<OccupantEventInfo>? handlers = _onOccupantAdded;
-        if (handlers == null)
+        if (!CanNotifyLocal(handlers, eventInfo.VoxelIndex, materializationSequence))
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
@@ -375,15 +383,15 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Occupant add error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Occupant add error: {ex.Message}");
             }
         }
     }
 
-    internal void NotifyOccupantRemoved(OccupantEventInfo eventInfo)
+    internal void NotifyOccupantRemoved(OccupantEventInfo eventInfo, ulong materializationSequence)
     {
         Action<OccupantEventInfo>? handlers = _onOccupantRemoved;
-        if (handlers == null)
+        if (!CanNotifyLocal(handlers, eventInfo.VoxelIndex, materializationSequence))
             return;
 
         var handlerDelegates = handlers.GetInvocationList();
@@ -395,7 +403,7 @@ public class Voxel : IEquatable<Voxel>
             }
             catch (Exception ex)
             {
-                GridForgeLogger.Channel.Error($"[Voxel {WorldIndex}] Occupant remove error: {ex.Message}");
+                GridForgeLogger.Channel.Error($"[Voxel {eventInfo.VoxelIndex}] Occupant remove error: {ex.Message}");
             }
         }
     }
@@ -417,7 +425,7 @@ public class Voxel : IEquatable<Voxel>
 
         Type partitionType = partition.GetType();
 
-        lock (_partitionLock)
+        lock (_partitionProvider)
         {
             if (!_partitionProvider.TryAdd(partitionType, partition))
                 return false;
@@ -431,7 +439,7 @@ public class Voxel : IEquatable<Voxel>
         }
         catch (Exception ex)
         {
-            lock (_partitionLock)
+            lock (_partitionProvider)
                 _partitionProvider.TryRemove(partitionType, out _);
 
             string partitionName = partitionType.Name;
@@ -451,7 +459,7 @@ public class Voxel : IEquatable<Voxel>
         Type partitionType = typeof(T);
 
         IVoxelPartition? partition = null;
-        lock (_partitionLock)
+        lock (_partitionProvider)
             _partitionProvider.TryRemove(partitionType, out partition);
 
         if (partition == null)
@@ -494,7 +502,7 @@ public class Voxel : IEquatable<Voxel>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetPartition<T>(out T? partition) where T : IVoxelPartition
     {
-        lock (_partitionLock)
+        lock (_partitionProvider)
         {
             // Resolve the exact key through the existing provider without a
             // nested generic lookup. Keep typed materialization under the lock:
@@ -557,7 +565,7 @@ public class Voxel : IEquatable<Voxel>
     {
         partition = null;
         discoveryWork = 0;
-        if (!Monitor.TryEnter(_partitionLock))
+        if (!Monitor.TryEnter(_partitionProvider))
             return GridBoundedVoxelStatus.WorldNotReady;
 
         try
@@ -571,7 +579,7 @@ public class Voxel : IEquatable<Voxel>
         }
         finally
         {
-            Monitor.Exit(_partitionLock);
+            Monitor.Exit(_partitionProvider);
         }
     }
 

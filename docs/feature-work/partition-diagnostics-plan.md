@@ -14,10 +14,9 @@ silently display stale partition state.
 
 The audit baseline is GridForge `ea52599521f3b86a80d6c3c5d1f2dacb36fc6c82`.
 Refresh affected callers and provider contracts before implementation. The
-[world observation lifetime plan](world-observation-lifetimes-plan.md) owns the
-world-local subscription boundary; complete that boundary first if the selected
-partition dirty path depends on it. Neither plan has changed runtime code,
-consumer projects or dependency pins.
+[completed world observation plan](done/world-observation-lifetimes-plan.md)
+established world-owned exact cell notifications for diagnostic sessions. Check
+whether the first partition consumer needs that boundary for its dirty records.
 
 ## Existing Capabilities And Gap
 

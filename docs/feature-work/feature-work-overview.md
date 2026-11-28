@@ -33,10 +33,6 @@ plans instead of burying it in notes.
 The following plans are selected for design and bounded investigation.
 The [issue tracker](issue-tracker.md) lists independently confirmed defects.
 
-- [World Observation Lifetimes](world-observation-lifetimes-plan.md)
-  - Move the existing diagnostic session onto world-owned observation while
-    preserving intentional global subscriptions, callback ordering and explicit
-    reset/disposal contracts.
 - [Partition Diagnostics](partition-diagnostics-plan.md)
   - Add optional renderer-neutral partition facts, starting with an actual
     physics-partition diagnostic consumer. Define bounded copied output and
@@ -98,6 +94,11 @@ completed evaluations archived rather than treating unselected phases as pending
 implementation.
 
 ## Recently Completed
+
+- [World Observation Lifetimes](done/world-observation-lifetimes-plan.md)
+  - Moved exact diagnostic cell notifications onto the owning world and closed
+    GF-Issue-018 and GF-Issue-019 for foreign occupant mutations and recycled
+    voxel subscribers.
 
 - [Runtime Counter Lifetimes And Exhaustion](done/runtime-counter-lifetimes-plan.md)
   - GridForge admits mutations only when their committed change stamps fit.
@@ -184,29 +185,26 @@ selected migrations or promises to add another backend.
    effective-query scope. Use
    near-limit and small overlap fixtures rather than long soaks or huge grids.
    Record supported behavior, hypotheses and confirmed defects separately.
-2. Prove world-owned observation with `GridDiagnosticSession`, then reuse the
-   selected lifetime boundary for partition diagnostics where needed. Capture
-   existing ordering, teardown and allocation before adding notifications.
-3. Complete one optional partition producer and actual diagnostic consumer.
+2. Complete one optional partition producer and actual diagnostic consumer.
    Preserve exact-type lookup, bounded output, pooled lifetimes and independent
    navigation-proof invalidation; review the first slice before expansion.
-4. Prove named configuration and one composed overlap scene, then carry the same
+3. Prove named configuration and one composed overlap scene, then carry the same
    visibility/scope contract through world coverage, navigation, physics and
    tools. Preserve explicit grid access and resident state; do not declare
    completion from only a point-query priority sort.
-5. Prove the bounded procedural recipe and existing sparse registration path.
+4. Prove the bounded procedural recipe and existing sparse registration path.
    Follow the accepted named-configuration contract when it lands. Compare exact
    layouts, generation/materialization costs and retained storage before adding
    branching, room chunks or adapter preview.
-6. Select large-world sector representation only if the coordinate plan's
+5. Select large-world sector representation only if the coordinate plan's
    concrete consumer requires it. Prove one seam/query/continuation cycle across
    affected GridForge, Trailblazer, Gravitas and adapter owners before
    broadening.
-7. Validate accepted changes for both target frameworks and Standard/Lean
+6. Validate accepted changes for both target frameworks and Standard/Lean
    variants, preserve strict full-coverage and relevant consumer gates, and
    record exact source graphs and results. Coordinate affected CI source pins
    after accepted upstream work lands; preserve existing CI policy.
-8. Close and archive completed plans, including explicit no-change/defer
+7. Close and archive completed plans, including explicit no-change/defer
    decisions. Keep trackers for reproduced defects and measured signals, and
    update current guides/XML for adopted behavior. Release validation remains
    separately scoped and uses the released dependency chain before consumers.

@@ -6,23 +6,30 @@
 //=======================================================================
 
 using System;
+using System.Collections.Generic;
 using GridForge.Grids;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
 using SwiftCollections;
+using SwiftCollections.Utility;
 
 namespace GridForge.Diagnostics;
 
 /// <summary>
 /// Captures dirty diagnostic grid, cell, and sparse address changes for one
-/// active <see cref="GridWorld"/>.
+/// active <see cref="GridWorld"/> through notifications owned by that world.
 /// </summary>
+/// <remarks>Exact obstacle and occupant dirt is recorded after the global manager callbacks
+/// and before voxel-local callbacks. Obstacle changes also produce a later broad grid
+/// notification while the grid generation remains live. Ordinary reset preserves the
+/// subscription. Deactivation releases the world's subscriptions.</remarks>
 public sealed class GridDiagnosticSession : IDisposable
 {
     private readonly GridWorld _world;
     private readonly long _worldSpawnToken;
     private readonly SwiftList<GridDiagnosticChange> _changes = new();
-    private readonly SwiftDictionary<GridDiagnosticChange, int> _changeIndexes = new();
+    private readonly SwiftDictionary<GridDiagnosticChange, int> _changeIndexes =
+        new(SwiftDictionary<GridDiagnosticChange, int>.DefaultCapacity, DirtyLocationComparer.Instance);
     private readonly object _syncRoot = new();
     private bool _worldResetPending;
     private bool _disposed;
@@ -39,12 +46,15 @@ public sealed class GridDiagnosticSession : IDisposable
         if (world == null)
             throw new ArgumentNullException(nameof(world));
 
-        if (!world.IsActive)
-            throw new InvalidOperationException("Diagnostic sessions require an active GridWorld.");
+        lock (world.ChangeSyncRoot)
+        {
+            if (!world.IsActive)
+                throw new InvalidOperationException("Diagnostic sessions require an active GridWorld.");
 
-        _world = world;
-        _worldSpawnToken = world.SpawnToken;
-        Subscribe();
+            _world = world;
+            _worldSpawnToken = world.SpawnToken;
+            Subscribe();
+        }
     }
 
     /// <summary>
@@ -103,11 +113,7 @@ public sealed class GridDiagnosticSession : IDisposable
         _world.OnActiveGridRemoved += HandleActiveGridRemoved;
         _world.OnActiveGridChange += HandleActiveGridChanged;
         _world.OnReset += HandleWorldReset;
-        GridObstacleManager.OnObstacleAdded += HandleObstacleChanged;
-        GridObstacleManager.OnObstacleRemoved += HandleObstacleChanged;
-        GridObstacleManager.OnObstaclesCleared += HandleObstaclesCleared;
-        GridOccupantManager.OnOccupantAdded += HandleOccupantChanged;
-        GridOccupantManager.OnOccupantRemoved += HandleOccupantChanged;
+        _world.DiagnosticCellChanged += HandleCellChanged;
     }
 
     private void Unsubscribe()
@@ -116,19 +122,18 @@ public sealed class GridDiagnosticSession : IDisposable
         _world.OnActiveGridRemoved -= HandleActiveGridRemoved;
         _world.OnActiveGridChange -= HandleActiveGridChanged;
         _world.OnReset -= HandleWorldReset;
-        GridObstacleManager.OnObstacleAdded -= HandleObstacleChanged;
-        GridObstacleManager.OnObstacleRemoved -= HandleObstacleChanged;
-        GridObstacleManager.OnObstaclesCleared -= HandleObstaclesCleared;
-        GridOccupantManager.OnOccupantAdded -= HandleOccupantChanged;
-        GridOccupantManager.OnOccupantRemoved -= HandleOccupantChanged;
+        _world.DiagnosticCellChanged -= HandleCellChanged;
     }
 
     private void HandleActiveGridAdded(GridEventInfo eventInfo)
     {
-        if (!CanRecordGrid(eventInfo, out _))
-            return;
-
-        RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridAdded);
+        lock (_world.ChangeSyncRoot)
+        {
+            if (!CanRecordGrid(eventInfo.WorldSpawnToken, eventInfo.GridIndex, eventInfo.GridSpawnToken, out _))
+                return;
+            lock (_syncRoot)
+                RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridAdded);
+        }
     }
 
     private void HandleActiveGridRemoved(GridEventInfo eventInfo)
@@ -136,25 +141,33 @@ public sealed class GridDiagnosticSession : IDisposable
         if (!CanRecord(eventInfo.WorldSpawnToken))
             return;
 
-        RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridRemoved);
+        lock (_syncRoot)
+            RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridRemoved);
     }
 
     private void HandleActiveGridChanged(GridEventInfo eventInfo)
     {
-        if (!CanRecordGrid(eventInfo, out VoxelGrid? grid) || HasPendingWorldReset())
-            return;
-
-        switch (eventInfo.ChangeKind)
+        lock (_world.ChangeSyncRoot)
         {
-            case GridEventKind.SparseVoxelAdded:
-                RecordSparseVoxelChange(eventInfo, grid!, GridDiagnosticChangeKind.SparseVoxelAdded);
-                break;
-            case GridEventKind.SparseVoxelRemoved:
-                RecordSparseVoxelChange(eventInfo, grid!, GridDiagnosticChangeKind.SparseVoxelRemoved);
-                break;
-            default:
-                RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridChanged);
-                break;
+            if (!CanRecordGrid(eventInfo.WorldSpawnToken, eventInfo.GridIndex, eventInfo.GridSpawnToken, out VoxelGrid? grid))
+                return;
+            lock (_syncRoot)
+            {
+                if (_worldResetPending)
+                    return;
+                switch (eventInfo.ChangeKind)
+                {
+                    case GridEventKind.SparseVoxelAdded:
+                        RecordSparseVoxelChange(eventInfo, grid!, GridDiagnosticChangeKind.SparseVoxelAdded);
+                        break;
+                    case GridEventKind.SparseVoxelRemoved:
+                        RecordSparseVoxelChange(eventInfo, grid!, GridDiagnosticChangeKind.SparseVoxelRemoved);
+                        break;
+                    default:
+                        RecordGridChange(eventInfo, GridDiagnosticChangeKind.GridChanged);
+                        break;
+                }
+            }
         }
     }
 
@@ -172,63 +185,41 @@ public sealed class GridDiagnosticSession : IDisposable
             default,
             default,
             default);
-        GridDiagnosticChange key = CreateChangeKey(change);
 
         lock (_syncRoot)
         {
             _changes.Clear();
             _changeIndexes.Clear();
             _worldResetPending = true;
-            _changeIndexes.Add(key, 0);
+            _changeIndexes.Add(change, 0);
             _changes.Add(change);
         }
     }
 
-    private void HandleObstacleChanged(ObstacleEventInfo eventInfo)
+    private void HandleCellChanged(WorldVoxelIndex index, GridDiagnosticChangeKind kind)
     {
-        if (!CanRecordCell(eventInfo.VoxelIndex))
-            return;
-
-        RecordCellChange(eventInfo.VoxelIndex, GridDiagnosticChangeKind.ObstacleChanged);
-    }
-
-    private void HandleObstaclesCleared(ObstacleClearEventInfo eventInfo)
-    {
-        if (!CanRecordCell(eventInfo.VoxelIndex))
-            return;
-
-        RecordCellChange(eventInfo.VoxelIndex, GridDiagnosticChangeKind.ObstacleChanged);
-    }
-
-    private void HandleOccupantChanged(OccupantEventInfo eventInfo)
-    {
-        if (!CanRecordCell(eventInfo.VoxelIndex))
-            return;
-
-        RecordCellChange(eventInfo.VoxelIndex, GridDiagnosticChangeKind.OccupantChanged);
+        lock (_world.ChangeSyncRoot)
+        {
+            if (!CanRecordGrid(index.WorldSpawnToken, index.GridIndex, index.GridSpawnToken, out _))
+                return;
+            lock (_syncRoot)
+            {
+                if (!_worldResetPending)
+                    RecordCellChange(index, kind);
+            }
+        }
     }
 
     private bool CanRecord(long worldSpawnToken) =>
         !_disposed
         && worldSpawnToken == _worldSpawnToken;
 
-    private bool CanRecordGrid(GridEventInfo eventInfo, out VoxelGrid? grid)
+    private bool CanRecordGrid(long worldToken, ushort gridIndex, long gridToken, out VoxelGrid? grid)
     {
         grid = null;
-        return CanRecord(eventInfo.WorldSpawnToken)
-            && _world.TryGetGrid(eventInfo.GridIndex, out grid)
-            && grid!.SpawnToken == eventInfo.GridSpawnToken;
-    }
-
-    private bool CanRecordCell(WorldVoxelIndex worldIndex) =>
-        CanRecord(worldIndex.WorldSpawnToken)
-        && !HasPendingWorldReset()
-        && _world.TryGetGrid(worldIndex, out _);
-
-    private bool HasPendingWorldReset()
-    {
-        lock (_syncRoot)
-            return _worldResetPending;
+        return CanRecord(worldToken)
+            && _world.ActiveGrids.TryGetValue(gridIndex, out grid)
+            && grid.SpawnToken == gridToken;
     }
 
     private void RecordGridChange(
@@ -302,42 +293,29 @@ public sealed class GridDiagnosticSession : IDisposable
 
     private void RecordChange(GridDiagnosticChange change)
     {
-        GridDiagnosticChange key = CreateChangeKey(change);
-        lock (_syncRoot)
+        if (_changeIndexes.TryGetValue(change, out int index))
         {
-            if (_changeIndexes.TryGetValue(key, out int index))
-            {
-                GridDiagnosticChange existing = _changes[index];
-                _changes[index] = existing.WithKind(existing.Kind | change.Kind);
-                return;
-            }
-
-            _changeIndexes.Add(key, _changes.Count);
-            _changes.Add(change);
+            GridDiagnosticChange existing = _changes[index];
+            GridDiagnosticChangeKind combined = existing.Kind | change.Kind;
+            if (combined != existing.Kind)
+                _changes[index] = existing.WithKind(combined);
+            return;
         }
+
+        _changeIndexes.Add(change, _changes.Count);
+        _changes.Add(change);
     }
 
-    private static GridDiagnosticChange CreateChangeKey(GridDiagnosticChange change) =>
-        change.WithKind((GridDiagnosticChangeKind)GetScope(change));
-
-    private static GridDiagnosticChangeScope GetScope(GridDiagnosticChange change)
+    private sealed class DirtyLocationComparer : IEqualityComparer<GridDiagnosticChange>
     {
-        if ((change.Kind & GridDiagnosticChangeKind.WorldReset) != 0)
-            return GridDiagnosticChangeScope.World;
+        public static readonly DirtyLocationComparer Instance = new();
 
-        if (change.WorldIndex.WorldSpawnToken != 0 || change.WorldIndex.VoxelIndex.IsAllocated)
-            return GridDiagnosticChangeScope.Cell;
+        public bool Equals(GridDiagnosticChange left, GridDiagnosticChange right) =>
+            left.EqualsLocation(right) && left.ScopeOrder == right.ScopeOrder;
 
-        return (change.Kind & GridDiagnosticChangeKind.SparseAddressChanged) != 0
-            ? GridDiagnosticChangeScope.Range
-            : GridDiagnosticChangeScope.Grid;
-    }
-
-    private enum GridDiagnosticChangeScope
-    {
-        World = 0,
-        Grid = 1,
-        Cell = 2,
-        Range = 3
+        // Each session observes one world. Scope, grid generation and cell distribute
+        // entries without hashing both bounds on every notification.
+        public int GetHashCode(GridDiagnosticChange change) =>
+            SwiftHashTools.CombineHashCodes(change.ScopeOrder, change.GridSpawnToken.GetHashCode(), change.VoxelIndex.GetHashCode());
     }
 }

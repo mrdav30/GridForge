@@ -195,8 +195,11 @@ The runtime is built around explicit world ownership:
 - `GridOccupantManager` manages each world's lazily created occupant registry,
   add/remove flows, ticket lookup, and occupant events. Ordinary reset clears
   records for reuse; deactivation atomically detaches the registry before
-  clearing it. Preserve grid occupant lock -> registry lock ordering and
-  captured-reference semantics during publication and release.
+  clearing it. Occupant mutation takes the world change lock, then the grid
+  occupant lock, then the captured registry lock. On add/remove admission, read
+  host identity getters before locking and publish callbacks after unlocking.
+- `GridDiagnosticSession` observes its world. Publish exact occupant and obstacle
+  dirt after global manager callbacks and before eligible voxel-local handlers.
 - `GridScanManager` performs radius and typed scans through the scan-cell
   overlay.
 - `Blocker`, `BoundsBlocker`, and `AreaBlocker` translate world-space boxes or

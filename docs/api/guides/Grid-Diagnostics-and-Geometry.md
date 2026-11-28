@@ -127,8 +127,9 @@ For fixed-topology adapter code, `RectangularPrismVertexCount` and
 ## Dirty Sessions
 
 `GridDiagnosticSession` captures coalesced dirty changes for one active
-`GridWorld`. It subscribes to world grid events plus obstacle and occupant
-events, so adapters can rebuild only the grids or cells that changed.
+`GridWorld`. The world owns every subscription, including exact obstacle
+and occupant changes. An adapter can dispose its session while the world
+continues running. Deactivation releases the world's subscriptions.
 
 Captured changes include:
 
@@ -142,8 +143,18 @@ Captured changes include:
 `ClearDirtyChanges()` resets the captured state. Dispose the session when the
 adapter or tool stops observing the world.
 
-World reset supersedes pending changes until the adapter drains or clears the
-reset marker.
+For an obstacle mutation, global manager callbacks run first. The session
+then records the exact cell before voxel-local callbacks run. An eligible
+voxel callback can read and acknowledge that cell. A later world grid event
+can still add a broad grid change if the grid generation remains live.
+Occupant mutations use the same exact cell stage and leave the committed
+change sequence unchanged.
+
+A pre-teardown reset notification replaces pending changes with a reset
+marker. New grid lifecycle changes can appear alongside it. Call
+`ClearDirtyChanges()` to acknowledge it and resume cell capture after an
+ordinary reset. An old session can still report the marker after terminal
+deactivation. Open a new session for a replacement world.
 
 ## Adapter Handoff
 

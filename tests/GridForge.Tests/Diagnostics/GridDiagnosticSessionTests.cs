@@ -240,6 +240,31 @@ public class GridDiagnosticSessionTests
     }
 
     [Fact]
+    public void SessionCoalescesExactKindsAndPreservesSparseCellBoundsAtTheSameAddress()
+    {
+        using GridWorld world = GridWorldTestFactory.CreateWorld();
+        VoxelGrid grid = AddSparseGrid(world);
+        using GridDiagnosticSession session = new(world);
+        VoxelIndex index = new(1, 0, 1);
+        Assert.True(grid.TryAddVoxel(index, out Voxel voxel));
+        TestOccupant occupant = new(voxel.WorldPosition);
+        Assert.True(grid.TryAddVoxelOccupant(voxel, occupant));
+        Assert.True(grid.TryRemoveVoxelOccupant(voxel, occupant));
+        Assert.True(grid.TryAddObstacle(voxel, world.AllocateObstacleToken()));
+
+        SwiftList<GridDiagnosticChange> changes = new();
+        Assert.Equal(4, session.GetDirtyChangesInto(changes));
+        GridDiagnosticChange exact = Assert.Single(changes, c => c.Kind ==
+            (GridDiagnosticChangeKind.OccupantChanged | GridDiagnosticChangeKind.ObstacleChanged));
+        GridDiagnosticChange materialized = Assert.Single(changes, c => c.Kind == GridDiagnosticChangeKind.SparseVoxelAdded);
+        Assert.Equal(voxel.WorldIndex, exact.WorldIndex);
+        Assert.Equal(exact.WorldIndex, materialized.WorldIndex);
+        Assert.NotEqual(exact.BoundsMin, materialized.BoundsMin);
+        Assert.Contains(changes, c => c.Kind == GridDiagnosticChangeKind.SparseAddressChanged);
+        Assert.Contains(changes, c => c.Kind == GridDiagnosticChangeKind.GridChanged);
+    }
+
+    [Fact]
     public void Session_ShouldIgnoreCapturedGridChangeAfterEarlierCallbackDisposesIt()
     {
         using GridWorld world = GridWorldTestFactory.CreateWorld();

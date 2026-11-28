@@ -7,7 +7,7 @@
 **Completed:** 2026-11-27. Local develop source verification resolved GF-Issue-015.
 This work protects retained identities and observations in long-running worlds.
 GridForge owns allocation and mutation order. Chronicler.Timing owns elapsed
-time. The [world observation plan](../world-observation-lifetimes-plan.md) covers
+time. The [world observation plan](world-observation-lifetimes-plan.md) covers
 the lifetime of diagnostic event subscriptions.
 
 ## Confirmed v10.2.0 findings

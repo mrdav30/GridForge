@@ -111,7 +111,7 @@ public readonly struct GridDiagnosticChange :
         if (result != 0)
             return result;
 
-        result = GetScopeOrder(this).CompareTo(GetScopeOrder(other));
+        result = ScopeOrder.CompareTo(other.ScopeOrder);
         if (result != 0)
             return result;
 
@@ -142,8 +142,10 @@ public readonly struct GridDiagnosticChange :
     /// <param name="other">The value to compare.</param>
     /// <returns>True when all equality components match; otherwise false.</returns>
     public bool Equals(GridDiagnosticChange other) =>
-        Kind == other.Kind
-        && WorldSpawnToken == other.WorldSpawnToken
+        Kind == other.Kind && EqualsLocation(other);
+
+    internal bool EqualsLocation(in GridDiagnosticChange other) =>
+        WorldSpawnToken == other.WorldSpawnToken
         && GridIndex == other.GridIndex
         && GridSpawnToken == other.GridSpawnToken
         && WorldIndex.Equals(other.WorldIndex)
@@ -169,18 +171,18 @@ public readonly struct GridDiagnosticChange :
         return SwiftHashTools.CombineHashCodes(hash, BoundsMax.GetHashCode());
     }
 
-    private static int GetScopeOrder(GridDiagnosticChange change)
+    internal int ScopeOrder
     {
-        if ((change.Kind & GridDiagnosticChangeKind.WorldReset) != 0)
-            return 0;
+        get
+        {
+            if ((Kind & GridDiagnosticChangeKind.WorldReset) != 0)
+                return 0;
 
-        if (change.WorldIndex.WorldSpawnToken != 0 || change.WorldIndex.VoxelIndex.IsAllocated)
-            return 2;
+            if (WorldIndex.WorldSpawnToken != 0 || WorldIndex.VoxelIndex.IsAllocated)
+                return 2;
 
-        if ((change.Kind & GridDiagnosticChangeKind.SparseAddressChanged) != 0)
-            return 3;
-
-        return 1;
+            return (Kind & GridDiagnosticChangeKind.SparseAddressChanged) != 0 ? 3 : 1;
+        }
     }
 
     private static int CompareVector(Vector3d left, Vector3d right)

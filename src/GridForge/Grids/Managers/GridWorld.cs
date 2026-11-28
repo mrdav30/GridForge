@@ -12,6 +12,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using FixedMathSharp;
 using GridForge.Configuration;
+using GridForge.Diagnostics;
 using GridForge.Grids.Storage;
 using GridForge.Grids.Topology;
 using GridForge.Spatial;
@@ -154,6 +155,7 @@ public sealed partial class GridWorld : IDisposable
     private Action<GridEventInfo>? _onActiveGridChange;
     private Action<GridEventInfo>? _onChangeCommitted;
     private Action? _onReset;
+    internal event Action<WorldVoxelIndex, GridDiagnosticChangeKind>? DiagnosticCellChanged;
 
     /// <summary>
     /// Event triggered when a new grid is added to this world.
@@ -347,6 +349,7 @@ public sealed partial class GridWorld : IDisposable
             _onActiveGridChange = null;
             _onChangeCommitted = null;
             _onReset = null;
+            DiagnosticCellChanged = null;
         }
     }
 
@@ -2679,7 +2682,7 @@ public sealed partial class GridWorld : IDisposable
                     }
                 }
 
-                GridObstacleManager.NotifyCommittedExact(change);
+                GridObstacleManager.NotifyCommittedExact(this, change);
                 switch (change.GridEvent.ChangeKind)
                 {
                     case GridEventKind.GridAdded:
@@ -2706,6 +2709,29 @@ public sealed partial class GridWorld : IDisposable
         finally
         {
             Volatile.Write(ref _committedPublicationOwnerThreadId, 0);
+        }
+    }
+
+    internal void NotifyDiagnosticCellChanged(WorldVoxelIndex index, GridDiagnosticChangeKind kind)
+    {
+        Action<WorldVoxelIndex, GridDiagnosticChangeKind>? handlers = DiagnosticCellChanged;
+        if (handlers == null)
+            return;
+
+#if NET10_0_OR_GREATER
+        foreach (var handler in Delegate.EnumerateInvocationList(handlers))
+#else
+        foreach (Action<WorldVoxelIndex, GridDiagnosticChangeKind> handler in handlers.GetInvocationList())
+#endif
+        {
+            try
+            {
+                handler(index, kind);
+            }
+            catch (Exception ex)
+            {
+                GridForgeLogger.Channel.Error($"[Voxel {index}] diagnostic notification error: {ex.Message}");
+            }
         }
     }
 

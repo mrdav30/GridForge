@@ -7,6 +7,7 @@
 
 using System;
 using FixedMathSharp;
+using GridForge.Diagnostics;
 using GridForge.Spatial;
 using SwiftCollections.Pool;
 
@@ -150,7 +151,7 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel) || !targetVoxel.IsBlockable || grid.RemovalWorldToken != 0)
+                    if (!grid.OwnsPhysicalVoxel(targetVoxel) || !targetVoxel.IsBlockable || grid.RemovalWorldToken != 0)
                         return false;
 
                     if (world.IsChangeSequenceExhausted)
@@ -272,7 +273,7 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel) || grid.RemovalWorldToken != 0)
+                    if (!grid.OwnsPhysicalVoxel(targetVoxel) || grid.RemovalWorldToken != 0)
                         return false;
 
                     if (targetVoxel.ObstacleCount == 0)
@@ -353,7 +354,7 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel) || targetVoxel.ObstacleCount == 0
+                    if (!grid.OwnsPhysicalVoxel(targetVoxel) || targetVoxel.ObstacleCount == 0
                         || grid.SuppressTeardownObstacleClears)
                         return;
 
@@ -394,12 +395,6 @@ public static class GridObstacleManager
     #endregion
 
     #region Private Methods
-
-    // WorldIndex is mutable; matching generations alone do not prove physical ownership.
-    private static bool IsOwnedVoxel(VoxelGrid grid, Voxel targetVoxel) =>
-        targetVoxel.IsValidOwnerGrid(grid)
-        && grid.TryGetVoxel(targetVoxel.Index, out Voxel? currentVoxel)
-        && ReferenceEquals(currentVoxel, targetVoxel);
 
     private static void CreateObstacleCommittedChange(
         GridWorld world,
@@ -490,8 +485,6 @@ public static class GridObstacleManager
                 }
             }
         }
-
-        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
 
     /// <summary>
@@ -515,8 +508,6 @@ public static class GridObstacleManager
                 }
             }
         }
-
-        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
 
     /// <summary>
@@ -540,34 +531,29 @@ public static class GridObstacleManager
                 }
             }
         }
-
-        // Voxel-local delivery is handled by NotifyCommittedExact after exact identity validation.
     }
 
-    internal static void NotifyCommittedExact(GridCommittedChange change)
+    internal static void NotifyCommittedExact(GridWorld world, GridCommittedChange change)
     {
         switch (change.ExactKind)
         {
             case GridExactChangeKind.ObstacleAdded:
                 NotifyObstacleAdded(change.ObstacleEvent);
-                if (IsSameVoxel(change.TargetVoxel, change.ObstacleEvent.VoxelIndex))
-                    change.TargetVoxel!.NotifyObstacleAdded(change.ObstacleEvent);
+                world.NotifyDiagnosticCellChanged(change.ObstacleEvent.VoxelIndex, GridDiagnosticChangeKind.ObstacleChanged);
+                change.TargetVoxel!.NotifyObstacleAdded(change.ObstacleEvent);
                 break;
             case GridExactChangeKind.ObstacleRemoved:
                 NotifyObstacleRemoved(change.ObstacleEvent);
-                if (IsSameVoxel(change.TargetVoxel, change.ObstacleEvent.VoxelIndex))
-                    change.TargetVoxel!.NotifyObstacleRemoved(change.ObstacleEvent);
+                world.NotifyDiagnosticCellChanged(change.ObstacleEvent.VoxelIndex, GridDiagnosticChangeKind.ObstacleChanged);
+                change.TargetVoxel!.NotifyObstacleRemoved(change.ObstacleEvent);
                 break;
             case GridExactChangeKind.ObstaclesCleared:
                 NotifyObstaclesCleared(change.ObstacleClearEvent);
-                if (IsSameVoxel(change.TargetVoxel, change.ObstacleClearEvent.VoxelIndex))
-                    change.TargetVoxel!.NotifyObstaclesCleared(change.ObstacleClearEvent);
+                world.NotifyDiagnosticCellChanged(change.ObstacleClearEvent.VoxelIndex, GridDiagnosticChangeKind.ObstacleChanged);
+                change.TargetVoxel!.NotifyObstaclesCleared(change.ObstacleClearEvent);
                 break;
         }
     }
-
-    private static bool IsSameVoxel(Voxel? voxel, WorldVoxelIndex index) =>
-        voxel != null && voxel.IsAllocated && voxel.WorldIndex == index;
 
     #endregion
 }

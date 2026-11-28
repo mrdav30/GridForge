@@ -39,19 +39,19 @@ internal sealed class SparseVoxelBlock
     {
         // GridWorld validates prepared sparse input as sorted and deduplicated before storage initialization.
         EnsureCapacity(_count + 1);
-        Voxel voxel = CreateVoxel(grid, index);
+        Voxel voxel = CreateVoxel(grid, index, 0);
         _voxels![_count++] = voxel;
         return voxel;
     }
 
-    public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel)
+    public bool TryAddVoxel(VoxelGrid grid, VoxelIndex index, out Voxel? voxel, ulong materializationSequence = 0)
     {
         voxel = null;
         if (TryFindVoxelArrayIndex(index, out int insertIndex))
             return false;
 
         EnsureCapacity(_count + 1);
-        voxel = CreateVoxel(grid, index);
+        voxel = CreateVoxel(grid, index, materializationSequence);
 
         if (insertIndex < _count)
             Array.Copy(_voxels!, insertIndex, _voxels!, insertIndex + 1, _count - insertIndex);
@@ -137,7 +137,7 @@ internal sealed class SparseVoxelBlock
         _voxels = replacement;
     }
 
-    private Voxel CreateVoxel(VoxelGrid grid, VoxelIndex index)
+    private Voxel CreateVoxel(VoxelGrid grid, VoxelIndex index, ulong materializationSequence)
     {
         Voxel voxel = Pools.VoxelPool.Rent();
         voxel.Initialize(
@@ -145,7 +145,8 @@ internal sealed class SparseVoxelBlock
             grid.GetWorldPosition(index),
             CellKey,
             grid.IsOnBoundary(index),
-            grid.Version);
+            grid.Version,
+            materializationSequence);
 
         return voxel;
     }

@@ -738,7 +738,8 @@ public class VoxelGrid
 
                 if (world.IsChangeSequenceExhausted)
                     return GridWorld.RejectExhaustedMutation(!TryGetVoxel(voxelIndex, out _));
-                if (!_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
+                // The change lock keeps the next sequence exclusive until the successful add commits.
+                if (!_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel, world.ChangeSequence + 1))
                     return false;
 
                 uint gridVersion = IncrementVersion();
@@ -881,6 +882,12 @@ public class VoxelGrid
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGetVoxel(VoxelIndex voxelIndex, out Voxel? result) =>
          TryGetVoxel(voxelIndex.x, voxelIndex.y, voxelIndex.z, out result);
+
+    // WorldIndex is mutable; matching generations alone do not prove physical ownership.
+    internal bool OwnsPhysicalVoxel(Voxel voxel) =>
+        voxel.IsValidOwnerGrid(this)
+        && TryGetVoxel(voxel.Index, out Voxel? currentVoxel)
+        && ReferenceEquals(currentVoxel, voxel);
 
     // The caller already reserved the address inspection against a stable world snapshot.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

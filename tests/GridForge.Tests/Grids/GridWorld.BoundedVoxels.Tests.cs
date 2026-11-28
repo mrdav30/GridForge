@@ -409,7 +409,7 @@ public sealed class GridWorldBoundedVoxelTests
         Assert.True(world.TryAddGrid(new GridConfiguration(Vector3d.Zero, Vector3d.Zero), out _));
         Assert.True(world.TryGetGridAndVoxel(Vector3d.Zero, out _, out Voxel voxel));
         object partitionLock = typeof(Voxel)
-            .GetField("_partitionLock", BindingFlags.Instance | BindingFlags.NonPublic)
+            .GetField("_partitionProvider", BindingFlags.Instance | BindingFlags.NonPublic)
             .GetValue(voxel);
 
         await CheckUnderContention(partitionLock, () =>

@@ -613,12 +613,12 @@ public class ManagerCoverageTests : IDisposable
         target.OnObstacleRemoved += HandleTargetRemoved;
         try
         {
-            GridObstacleManager.NotifyCommittedExact(new GridCommittedChange(
+            GridObstacleManager.NotifyCommittedExact(_world, new GridCommittedChange(
                 default,
                 GridExactChangeKind.ObstacleAdded,
                 eventInfo,
                 target));
-            GridObstacleManager.NotifyCommittedExact(new GridCommittedChange(
+            GridObstacleManager.NotifyCommittedExact(_world, new GridCommittedChange(
                 default,
                 GridExactChangeKind.ObstacleRemoved,
                 eventInfo,
@@ -1319,7 +1319,7 @@ public class ManagerCoverageTests : IDisposable
             BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("Could not find GridOccupantManager.TryTrackOccupancy.");
 
-        return (bool)method.Invoke(null, new object[] { world, occupant, index, ticket });
+        return (bool)method.Invoke(null, new object[] { world, occupant.GlobalId, occupant, index, ticket, null });
     }
 
     private static int CompareTrackedOccupancies(
