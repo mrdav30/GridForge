@@ -2,156 +2,141 @@
 
 **Opened:** 2026-11-26
 
-## Purpose And Status
+## Purpose and status
 
-**Status: planned; source review only. No implementation, tests or measurements
-have been performed for this plan.**
+**Reviewed 2026-11-28 on develop at `f9500aa`.** The runtime counter work is
+complete. At permanent change-sequence exhaustion, the host can rebuild into a
+fresh world and bind fresh observations. A successful ordinary reset advances
+the existing world's sequence. This plan covers how a diagnostic session
+observes one world until the host releases or replaces it. The observation
+migration is still pending. [Counter closeout](done/runtime-counter-lifetimes-plan.md) ·
+[World lifetime contract](../api/guides/World-Changes-and-Composition.md#when-the-change-sequence-is-exhausted)
 
-Make world-local observation follow an explicit `GridWorld` lifetime. The first
-production consumer is `GridDiagnosticSession`, which currently combines world
-instance events with process-wide obstacle and occupant subscriptions. Preserve
-intentional global observation while removing the need for that consumer to
-remain rooted by static publishers.
+## What still needs to change
 
-The audit baseline is GridForge `ea52599521f3b86a80d6c3c5d1f2dacb36fc6c82`.
-Refresh affected callers and source contracts before implementation. This is
-separate from the corrected world-owned occupant registry; no registry
-regression or new runtime defect is claimed. The companion
-[partition diagnostics plan](partition-diagnostics-plan.md) may reuse the
-selected world-local observation boundary.
+`GridDiagnosticSession` subscribes to four instance events on its world and
+five static manager events (obstacle add, remove and clear, occupant add and
+remove). A static publisher holds the session, which holds the world and its
+dirty buffers. Filtering by world token prevents foreign records from entering
+the output, but every session still receives those global callbacks. Explicit
+session disposal unsubscribes correctly. World deactivation clears the world's
+own handlers and leaves the five static subscriptions intact.
+[Session subscriptions](../../src/GridForge/Diagnostics/GridDiagnosticSession.cs) ·
+[World teardown](../../src/GridForge/Grids/Managers/GridWorld.cs)
 
-## Existing Owners And Evidence
+On the committed local LSF Release build, all 12 forgotten active sessions
+and their 12 worlds survived six forced collection rounds. All 12 pairs also
+survived after explicit world deactivation. Disposing the sessions through
+weak references and repeating the collections released every pair in both
+cases. With a deliberately live world, all 12 explicitly disposed sessions
+were collected. An instance-only event cycle with an observer pointing back
+to the world also left zero survivors. Each scenario ran in its own .NET
+10.0.10 process with non-inlined setup and explicit live-world controls.
 
-| Owner                                                                                                   | Current behavior and consequence                                                                                                                                                                                     |
-| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/GridForge/Grids/Managers/GridWorld.cs`                                                             | Owns grid lifecycle events, `OnChangeCommitted`, reset and disposal. Ordinary reset retains subscriptions; deactivation clears instance handlers.                                                                    |
-| `Grids/Managers/GridOccupantManager.cs`, `Grids/Managers/GridObstacleManager.cs`, `Blockers/Blocker.cs` | Publish static typed notifications across all worlds. Subscribers remain strongly referenced until explicitly removed.                                                                                               |
-| `Diagnostics/GridDiagnosticSession.cs`                                                                  | Retains its world and subscribes instance methods to both world and static manager events. `Dispose` unsubscribes and clears dirty storage. Forgetting it can retain the session and world through static delegates. |
-| `Grids/Support/GridEventKind.cs`, `GridEventInfo.cs`                                                    | Committed changes include obstacle snapshots and topology/lifecycle changes, but do not supply occupant notifications. One existing event cannot silently replace all current subscriptions.                         |
-| GridForge-Unity `Build/Base/Runtime/Utility/Debugging/GridDebugger.cs`                                  | Already disposes sessions on disable, destruction and world replacement. Its behavior is a real lifecycle consumer to preserve, not evidence that every host disposes correctly.                                     |
+### Obstacle delivery has two observable stages
 
-Source paths without a repository prefix are under `src/GridForge`. Keep Unity
-runtime edits at its authoritative `Assets/Packages/Build/Base` owner if needed;
-no adapter change has been made or verified by this plan.
+An obstacle addition, removal or clear on a live voxel produces an exact
+`ObstacleChanged` cell record, then a separate `GridChanged` record for the
+owning grid. For these changes the world invokes the static manager handlers,
+eligible voxel-local subscribers, the world grid event, then
+`OnChangeCommitted`. The session currently records the cell during static
+delivery and the grid during `OnActiveGridChange`.
+[Exact dispatch](../../src/GridForge/Grids/Managers/GridObstacleManager.cs) ·
+[World publication](../../src/GridForge/Grids/Managers/GridWorld.cs)
 
-## Scope And Dispositions
+Two one-cell probes illustrate why both stages matter.
 
-**Selected direction:** observe one world through that world. Prefer extending
-the existing owner with the missing typed occupant notifications and reuse its
-existing obstacle/lifecycle publication where the semantics match. Do not add a
-parallel process-wide routing registry or a wrapper service with duplicate
-state.
+- A voxel callback read and cleared the session during `OnObstacleAdded`. It
+  saw only `ObstacleChanged`. After publication the session held only
+  `GridChanged`.
+- A voxel callback removed its grid during the same event. After return the
+  session held both the old generation's `ObstacleChanged` and `GridRemoved`.
+  Moving cell capture to the committed callback loses the former when the
+  generation check fails. Conversely, recording every teardown clear without
+  that check would introduce cell changes for grids already detached.
 
-Preserve existing static manager/blocker events as explicitly global APIs during
-the first slice. Their subscribers still own unsubscription. Removing or
-deprecating them is a separate public API decision requiring caller evidence;
-the current proposal does not silently change cross-world delivery.
+Keep the existing world grid events for broad, sparse and lifecycle records.
+Deliver exact obstacle dirtiness at the existing exact publication stage
+before voxel callbacks. The implementation needs to choose and document its
+position relative to static subscribers. Today a static callback can see the
+session before or after it records the cell depending on subscription order.
+Moving the session to a separate multicast delegate makes that ordering a
+compatibility decision. Pin callback-time reads, clears and disposal before
+changing publishers.
 
-Disposable subscription tokens are a convenience, not a cure for forgotten
-disposal. The initial consumer already has `IDisposable`; do not build a generic
-token framework merely to wrap its existing lifetime. Reopen token design only
-for a concrete host needing composite subscription ownership.
+### Occupant delivery needs the mutation's owner and original recipients
 
-Weak-event delivery is not selected. Garbage-collection timing must not decide
-authoritative event delivery. World ownership, explicit teardown and captured
-notification semantics provide the relevant boundary.
+Occupant add/remove changes a cell without advancing the world's committed
+sequence. On successful mutation the manager invokes its static callbacks,
+then looks up the target voxel's current subscribers. Bulk grid teardown
+clears registrations through its lifecycle paths. A world-local session
+needs successful occupant changes and the existing grid/reset invalidations.
+[Occupant manager](../../src/GridForge/Grids/Managers/GridOccupantManager.cs) ·
+[Occupant event payload](../../src/GridForge/Grids/Support/OccupantEventInfo.cs)
 
-No simulation clock, scheduler, global reset API, registry rewrite or event bus
-is part of this work. Diagnostic-only changes must not increment obstacle or
-navigation-proof stamps to manufacture a convenient notification.
+The following defects affect which world or voxel should receive a notification.
 
-## First Production Slice
+- **Physical ownership.** With one cell in each of two worlds, passing world
+  B's voxel to world A's grid accepted an occupant addition. A's registry
+  held the ticket, B's voxel count increased, and the event identified B.
+  Validate the exact physical voxel against the receiver before mutation,
+  including the direct remove overload. The obstacle manager already checks
+  the owning generation and the voxel instance resolved at the address.
+  [GF-Issue-018](issue-tracker.md#gf-issue-018)
+- **Pooled callback recipients.** A static occupant callback removed a grid,
+  created a replacement and subscribed a handler on the rerented voxel. The
+  new handler received the old event, for both add and remove. Removing and
+  rematerializing a sparse voxel at the same address during an occupant
+  removal also reproduced it with the *same* `WorldVoxelIndex` and object
+  reference. During obstacle removal and clear at the same sparse address,
+  the replacement handler received sequence 4 after the world had reached
+  sequence 6. Capture the original local recipients before invoking user code
+  and preserve the existing suppression of retired targets.
+  [GF-Issue-019](issue-tracker.md#gf-issue-019)
 
-1. Trace add/remove/clear publication from the mutation owner through manager,
-   voxel, world and diagnostic callbacks. Record existing callback order,
-   immutable snapshots, exception isolation and reentrant teardown behavior.
-2. Select the smallest missing world-local occupant surface and an existing
-   world obstacle surface. Reuse `OccupantEventInfo`/`GridEventInfo` where their
-   contracts fit; exact public names remain subject to this source audit.
-3. Route `GridDiagnosticSession` through these world-owned sources and preserve
-   its sorted/coalesced dirty output, reset marker and stale-identity rejection.
-   Remove its obsolete static subscriptions once their last need is gone.
-4. Prove the path with one world, two independent worlds, occupant add/remove,
-   obstacle add/remove/clear and session teardown. Review this working slice
-   before adding conveniences or migrating additional callers.
+## First implementation slice
 
-New world-local delivery must not reorder the existing static/voxel callback
-sequence or turn notification failure into mutation rollback. Document its
-placement and whether an already captured invocation can run after unsubscribe.
-Use captured world ownership and value event data; do not rediscover a world
-from a pooled voxel after callbacks can remove or replace it.
+1. Turn the ownership and recycled-subscriber probes into failing regressions.
+   Capture the owning world, exact address, occupant reference, ticket and
+   post-mutation count while the registration is stable. Publish outside the
+   grid and registry locks. Preserve ordering among existing manager and
+   eligible voxel subscribers, their exception isolation and the distinction
+   between successful mutation and notification failure.
+2. Add the smallest internal world-owned notification surface that supplies
+   the session's exact cell changes. Reuse the existing mutation payloads
+   and publication stages. Keep intentional public static manager and blocker
+   events available to cross-world consumers. Keep occupant updates unstamped.
+3. Move the five static subscriptions off `GridDiagnosticSession`. Keep
+   sorted, coalesced cell and grid output, pre-teardown `OnReset`, the pending
+   reset marker and stale-generation rejection. Clear the new world-owned
+   handlers on deactivation. Explicit session disposal must still clear
+   pending changes and stop observation while the world stays alive.
+4. Independently review the first working boundary before expanding.
+   GridForge-Unity's `GridDebugger` already disposes on disable, destruction
+   and world replacement. Its existing session API suffices for this slice.
+   The [partition diagnostics plan](partition-diagnostics-plan.md) can reuse
+   the boundary if its first consumer needs it.
 
-## Lifetime And Ordering Contract
+## Verification still due
 
-- Ordinary `Reset()` keeps the world active and subscriptions usable. Pending
-  cell changes are superseded by the reset marker, and old grid/voxel identities
-  cannot identify new allocations after reset.
-- Deactivation/disposal clears the world's owned handlers. A forgotten session
-  must not remain rooted by a process-wide source after this migration. Explicit
-  session disposal remains necessary to release its buffers promptly while a
-  live publisher remains reachable.
-- Disposal and unsubscribe are idempotent. Specify external synchronization with
-  disposal; do not imply that an existing delegate snapshot can be revoked.
-- A callback can dispose an observer, remove a grid, reset/deactivate the world,
-  or throw. Later captured callbacks must not resurrect observation or resolve
-  stale pooled state. Preserve existing logging and failure isolation.
-- Notifications remain synchronous mutation observations; they do not schedule
-  simulation, assign wall-clock order or introduce a second committed sequence.
-- A global observer may intentionally outlive one world. Disposing that world
-  must not clear unrelated global subscribers or notifications for other worlds.
+All 29 existing `GridDiagnosticSessionTests` and
+`GridWorldTeardownExhaustionTests` passed in local-stack Release on this
+revision. The probes above are additional baseline evidence. The table lists
+the checks to run against the implementation.
 
-## Verification And Cost
+| Concern | Existing evidence | Remaining acceptance check |
+| --- | --- | --- |
+| Dirty output | [Session tests](../../tests/GridForge.Tests/Diagnostics/GridDiagnosticSessionTests.cs) cover sorted occupant cells, obstacle cell plus grid, sparse ranges, reset, world filtering and repeated disposal. | Preserve both obstacle stages, including acknowledgement inside a callback, removal before broad delivery and detached clears. Check that one world's occupant mutations do not dispatch to another world's session. |
+| Reset and handoff | [Teardown regressions](../../tests/GridForge.Tests/Grids/GridWorld.TeardownExhaustion.Tests.cs) cover rejected ordinary reset, an admitted reset's reserved marker and terminal deactivation without a final commit. | A rejected reset leaves session dirt intact. An admitted reset supersedes earlier dirt via `OnReset`. Before acknowledgement, check cell suppression and new grid lifecycle records separately. After acknowledgement, confirm capture resumes. Hold an old session across terminal teardown and bind a new one to the replacement world. |
+| Callback lifetime | [Manager tests](../../tests/GridForge.Tests/Grids/ManagerCoverage.Tests.cs) cover captured occupant values and subscriber failure isolation. | Exercise direct occupant add/remove, wrong-world and same-world foreign voxels, same-address reuse, an earlier handler disposing the session, and a throwing subscriber followed by a surviving one. Check that occupant mutation leaves `ChangeSequence` unchanged. |
+| Reachability | Forgotten sessions and their worlds survived the baseline probe even after deactivation. | Repeat the controls after migration. Dropping all external references should collect both objects. A deliberately live deactivated world should release its session. A live active publisher can retain its observer until session disposal. |
+| Cost | [Occupant wave](../../tests/GridForge.Benchmarks/Memory/OccupantWaveBenchmarks.cs) exercises registration. [Grid diagnostics](../../tests/GridForge.Benchmarks/Memory/GridDiagnosticsBenchmarks.cs) exercises cell queries. | Capture a pre-change baseline and repeat on the migrated path for zero, one and several sessions, including sessions in another world. Measure warm allocations and time per occupant/obstacle mutation and per dirty read/clear. Include burst, reset and subscriber failure cases. |
 
-Extend the nearest existing behavior tests:
-
-- `tests/GridForge.Tests/Diagnostics/GridDiagnosticSessionTests.cs`: ordinary
-  reset, world isolation, sorting/coalescing, disposal during an earlier
-  callback, sparse changes and repeated disposal.
-- Existing `GridWorld`, occupant, obstacle and blocker tests: callback ordering,
-  mutation success despite observer failure, reset/deactivation and captured
-  event identities. Preserve current static event behavior explicitly.
-- Add bounded reachability controls for an undisposed session after all external
-  world/session references are dropped, after deactivation, and for explicit
-  session disposal while the world stays alive. Isolate roots in helper scopes;
-  do not infer retention from one unreliable GC observation or use production
-  finalizers as a remedy.
-- If Unity is affected, run its supported disable/re-enable, world-replacement
-  and destruction EditMode scenarios; inspect result XML rather than launcher
-  success alone. No current adapter verification result is claimed here.
-
-Measure the affected occupant/obstacle and diagnostic paths before and after:
-subscriber count zero, one and several; two worlds; callback failures; burst
-mutation and reset. Charge delegate storage, invocation allocations and retained
-session buffers. Reuse existing diagnostics/occupancy/blocker benchmarks and
-allocation tests. A local dispatch result is not a simulation-frame gain.
-
-Build `Release` and `ReleaseLean` for `netstandard2.1` and `net10.0`; run
-focused tests before both full net10.0 suites. Collect fresh coverage with the
-existing `coverlet.runsettings` and run
-`.assets/scripts/assert-full-coverage.ps1` for exact 100% reported line, branch
-and executable-method coverage. Do not add exclusions. Validate affected
-consumers under their own repository gates.
-
-Use `-p:UseLocalLsfStack=true -p:DisableTransitiveProjectReferences=true -m:1`
-when validating coordinated sources. One coordinator owns shared-output builds,
-coverage and timings. Record exact revisions, configurations, commands and
-baseline versus introduced failures; verify loaded benchmark dependencies.
-
-## Phases And Closeout
-
-1. **Bound the contract:** audit publication/callers, choose new delivery
-   placement, reproduce the static-root chain with a disposable probe, and
-   capture baseline behavior/cost. Retain explicit disposal if the proposed
-   world-local change cannot preserve required delivery simply.
-2. **Implement one consumer:** add only missing world-local publication, migrate
-   `GridDiagnosticSession`, remove superseded subscriptions and obtain
-   independent `ponytail:ponytail-review` review of the first working boundary.
-3. **Verify and close:** finish lifecycle/callback/reachability and cost checks,
-   run both package variants/targets and required coverage, and independently
-   review final source, net runtime growth, callers and deletion opportunities.
-   Update XML and the diagnostic/lifecycle guides for actual adopted behavior.
-
-Keep concise decisions and evidence here. Implementation and verification close
-this feature; package release readiness is separate. If upstream source changes
-are required, validate provider before consumer and remind the maintainer to
-align CI dependency pins after upstream lands. Leave work unstaged/uncommitted.
+Use the local develop stack with `-p:UseLocalLsfStack=true`,
+`-p:DisableTransitiveProjectReferences=true`, `-p:BuildInParallel=false` and
+`-m:1` for restore, build and test. Build Release and ReleaseLean for
+`netstandard2.1` and `net10.0`, run both full net10.0 suites and the existing
+100% reported line, branch and executable-method coverage gates. Update XML
+and the [diagnostics guide](../api/guides/Grid-Diagnostics-and-Geometry.md)
+for the adopted callback contract. Verify Unity's lifecycle scenarios if the
+adapter changes. Record measured results and final independent review here.

@@ -5,7 +5,7 @@ resolutions or documented investigation closures.
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-018`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-020`.
 - Assign an ID at intake and preserve it through closure; never delete or reuse
   IDs. Check Git history before advancing or repairing the counter. Unknown
   historical IDs stay reserved rather than acquiring an inferred cause.
@@ -41,7 +41,53 @@ resolutions or documented investigation closures.
 
 ## Active Issues
 
-- None currently.
+### <a id="gf-issue-018"></a>GF-Issue-018 — Direct occupant registration accepts another world's voxel
+
+**2026-11-28 · Confirmed · High priority.** Create two active worlds, each with
+one dense voxel at the origin and the same scan-cell key. Pass world B's voxel
+to `gridA.TryAddVoxelOccupant(voxelB, occupant)`. The call returned true.
+Only A's registry held a ticket for B's address. A's voxel count remained
+zero, B's became one, and the added event identified B. Removal through B
+failed. Removal through A with B's voxel succeeded and reported B again.
+As a control, after a legitimate registration in B, A rejected the foreign
+removal and B removed its own registration.
+
+Harden the direct add/remove overloads at
+[GridOccupantManager](../../src/GridForge/Grids/Managers/GridOccupantManager.cs).
+Verify receiver world, grid generation and exact physical voxel before mutation
+or publication. Regress the two-world case and a foreign voxel with a copied
+local identity. Both owners' counts, registry tickets and notifications must
+survive rejected input intact. This establishes the publishing owner for the
+[world observation plan](world-observation-lifetimes-plan.md).
+
+### <a id="gf-issue-019"></a>GF-Issue-019 — A replacement voxel subscriber receives its predecessor's event
+
+**2026-11-28 · Confirmed · High priority.** In a one-cell dense grid, subscribe
+to the static occupant-added event. From the callback, remove and recreate the
+grid at the same origin, then attach a new voxel-local subscriber. The voxel
+object was rerented and the new subscriber received the original registration's
+event once. The same result occurred on occupant removal. In a one-cell sparse
+grid, removing and rematerializing just the emptied voxel from the global
+removal callback reproduced the delivery even with the same full
+`WorldVoxelIndex` and object reference. The equivalent sparse obstacle-removal
+and obstacle-clear callbacks also delivered the old event once to the new
+listener. In each case the listener saw sequence 4 after the replacement had
+committed at sequence 6. The replacement held zero obstacles.
+
+[GridOccupantManager](../../src/GridForge/Grids/Managers/GridOccupantManager.cs)
+currently calls global handlers before looking up the voxel's current
+subscribers. [GridObstacleManager](../../src/GridForge/Grids/Managers/GridObstacleManager.cs)
+checks the live address after global delivery, which still matches after sparse
+reuse. Bind voxel-local delivery to the original subscribers or physical
+lifetime before replacement can occur. Keep manager-before-voxel order and
+verify dense grid replacement and same-address sparse reuse under the
+[world observation plan](world-observation-lifetimes-plan.md). No observer
+first attached to a replacement should receive its predecessor's notification.
+
+All cases reproduced in isolated in-memory probes against the local-stack
+Standard Release `net10.0` assembly built from committed develop revision
+`f9500aa307a38e55156f156ef7488e24002682d6`. The tested DLL's SHA-256 was
+`1DB2ACE4686229A479FB7CAE89F4D65FBE76A9449B699CBDCFE42334C8B72849`.
 
 ## Performance Investigation Queue
 
