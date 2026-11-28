@@ -203,13 +203,22 @@ public class VoxelGrid
     /// <value>The total obstacle-token attachments across physical voxels. A stacked blocker contributes one attachment per covered voxel; this is not a distinct-blocker count.</value>
     public int ObstacleCount { get; internal set; }
 
+    // Unlike the token attachment count, this is bounded by ConfiguredVoxelCount.
+    internal int BlockedVoxelCount { get; set; }
+
     /// <summary>
     /// Tracks the version of the grid, incremented when a <see cref="Voxel"/> is modified.
     /// </summary>
-    /// <value>Tracks the version of the grid, incremented when a <see cref="T:GridForge.Grids.Voxel" /> is modified.</value>
+    /// <value>A live grid's revision wraps from <see cref="uint.MaxValue"/> to one.
+    /// Pair retained observations with the owning grid generation and the relevant committed change sequence.</value>
     public uint Version { get; private set; }
 
     internal ulong LastChangeSequence { get; set; }
+
+    // Retained through removal callbacks, which can end the original world lifetime.
+    internal long RemovalWorldToken { get; set; }
+    internal long OwnerWorldToken => RemovalWorldToken != 0 ? RemovalWorldToken : World!.SpawnToken;
+    internal bool SuppressTeardownObstacleClears { get; set; }
 
     private int _scanWidth;
     private int _scanHeight;
@@ -302,11 +311,21 @@ public class VoxelGrid
         if (!IsActive)
             return;
 
-        _storage!.Reset(this);
+        try
+        {
+            _storage!.Reset(this);
+        }
+        finally
+        {
+            SuppressTeardownObstacleClears = false;
+            if (RemovalWorldToken != 0)
+                World!.FinishGridRemoval(this);
+        }
         _storage = null;
 
         // Just in case since voxels should have already cleared any registered obstacles.
         ObstacleCount = 0;
+        BlockedVoxelCount = 0;
 
         ReleaseActiveScanCells();
         ReleaseNeighbors();
@@ -700,6 +719,7 @@ public class VoxelGrid
     /// <param name="voxelIndex">The grid-local voxel index to configure.</param>
     /// <param name="voxel">The configured voxel when the operation succeeds.</param>
     /// <returns>True when a new sparse voxel was configured; otherwise false.</returns>
+    /// <exception cref="OverflowException">The addition would require an unavailable committed change stamp.</exception>
     public bool TryAddVoxel(VoxelIndex voxelIndex, out Voxel? voxel)
     {
         voxel = null;
@@ -713,11 +733,13 @@ public class VoxelGrid
         {
             lock (world.ChangeSyncRoot)
             {
-                if (!CanMutateSparseVoxel(voxelIndex)
-                    || !_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
-                {
+                if (!CanMutateSparseVoxel(voxelIndex))
                     return false;
-                }
+
+                if (world.IsChangeSequenceExhausted)
+                    return GridWorld.RejectExhaustedMutation(!TryGetVoxel(voxelIndex, out _));
+                if (!_sparseStorage.TryAddVoxel(this, voxelIndex, out voxel))
+                    return false;
 
                 uint gridVersion = IncrementVersion();
                 voxel!.CachedGridVersion = gridVersion;
@@ -751,6 +773,7 @@ public class VoxelGrid
     /// </summary>
     /// <param name="voxelIndex">The grid-local voxel index to remove.</param>
     /// <returns>True when the sparse voxel was removed; otherwise false.</returns>
+    /// <exception cref="OverflowException">The removal would require an unavailable committed change stamp.</exception>
     public bool TryRemoveVoxel(VoxelIndex voxelIndex)
     {
         bool drainCommittedChanges;
@@ -770,6 +793,7 @@ public class VoxelGrid
                     return false;
                 }
 
+                world.EnsureChangeStampAvailable();
                 Vector3d affectedPosition = voxel!.WorldPosition;
                 _sparseStorage.TryRemoveVoxel(this, voxelIndex, out _);
 

@@ -8,9 +8,9 @@ fences define what each capture describes.
 ## Ordered committed changes
 
 `GridWorld.OnChangeCommitted` is the storage-neutral feed for systems that must
-reconcile grid state without rereading mutable live objects. Every grid
-lifecycle, sparse-presence, and obstacle mutation receives a monotonically
-increasing world-local `GridChangeStamp`. The matching exact obstacle event and
+reconcile grid state without rereading mutable live objects. The world assigns an increasing
+`GridChangeStamp` to each published grid lifecycle, sparse-presence and obstacle
+change. The matching exact obstacle event and
 generic committed event carry the same cause ID and immutable post-mutation
 counts. Handlers run after the mutation locks are released, and reentrant
 mutations are queued and delivered in ascending sequence order.
@@ -39,6 +39,43 @@ and capture all required address baselines against one frozen world state. Keep
 the callback short and non-mutating; it runs while GridForge excludes grid and
 voxel mutations. `TryCaptureNavigationBaseline(...)` is safe inside that
 callback and does not recurse through the world locks.
+
+### When the change sequence is exhausted
+
+The last representable sequence is `ulong.MaxValue`. Grid registration,
+removal, sparse presence changes and individual obstacle mutations throw
+`OverflowException` before changing live state if they cannot publish their
+required stamps. Duplicate additions and missing removals keep their usual
+no-op results. A previously captured snapshot remains usable after a rejected
+mutation if its other lifetime checks still pass.
+
+The sequence counts committed changes across the world's lifetime, including
+ordinary resets. An in-flight removal or reset can reserve the last available
+stamps, so a callback can receive this exception while `ChangeSequence` is
+still below `ulong.MaxValue`. If the operation releases unused reservations,
+a later mutation can use those stamps. The 32-bit `GridWorld.Version` wraps
+through zero and an active `VoxelGrid.Version` wraps to one. Pair retained observations with the owning
+world and grid identities and the change stamp required by the query.
+
+Removing a grid requires one removal stamp and one clear stamp for each
+blocked voxel. Several tokens stacked on one voxel need a single clear.
+Once the grid is detached, direct token additions and removals through a
+borrowed grid reference return false. Its teardown owns the remaining clears.
+Ordinary reset requires the same clear budget across the world plus a reset
+marker. If the stamps are already unavailable, ordinary reset rejects the
+request before notifying observers. If an `OnReset` observer spends the
+remaining clear capacity, the reserved `WorldReset` marker still invalidates
+the entire world. Consumers should discard their per-grid state on that marker.
+
+Explicit deactivation and disposal still release grids, registrations and
+subscriptions when ordered teardown cannot fit. `OnReset` is the pre-teardown
+lifetime notification. A terminal world can deactivate without publishing a
+final committed event. To continue at `ChangeSequence == ulong.MaxValue`,
+capture the host's authoritative simulation state at a tick boundary. Create
+a new `GridWorld` (its sequence starts at zero), rebuild its grids, blockers
+and occupants, and rebind observers using fresh runtime identities and
+observation baselines. The host can keep its simulation clock across this
+handoff. Dispose the old world after the state transfer.
 
 ## Bounded boundary contacts
 

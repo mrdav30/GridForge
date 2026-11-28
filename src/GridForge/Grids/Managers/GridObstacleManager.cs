@@ -150,13 +150,16 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel) || !targetVoxel.IsBlockable)
+                    if (!IsOwnedVoxel(grid, targetVoxel) || !targetVoxel.IsBlockable || grid.RemovalWorldToken != 0)
                         return false;
 
+                    if (world.IsChangeSequenceExhausted)
+                        return GridWorld.RejectExhaustedMutation(targetVoxel.ObstacleTracker?.Contains(obstacleToken) != true);
                     targetVoxel.ObstacleTracker ??= SwiftHashSetPool<ObstacleToken>.Shared.Rent();
                     if (!targetVoxel.ObstacleTracker.Add(obstacleToken))
                         return false;
-                    targetVoxel.ObstacleCount++;
+                    if (++targetVoxel.ObstacleCount == 1)
+                        grid.BlockedVoxelCount++;
 
                     grid.ObstacleCount++;
                     gridVersion = grid.IncrementVersion();
@@ -269,7 +272,7 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel))
+                    if (!IsOwnedVoxel(grid, targetVoxel) || grid.RemovalWorldToken != 0)
                         return false;
 
                     if (targetVoxel.ObstacleCount == 0)
@@ -278,11 +281,14 @@ public static class GridObstacleManager
                         return false;
                     }
 
+                    if (world.IsChangeSequenceExhausted)
+                        return GridWorld.RejectExhaustedMutation(targetVoxel.ObstacleTracker!.Contains(obstacleToken));
                     if (!targetVoxel.ObstacleTracker!.Remove(obstacleToken))
                         return false;
 
                     if (--targetVoxel.ObstacleCount <= 0)
                     {
+                        grid.BlockedVoxelCount--;
                         SwiftHashSetPool<ObstacleToken>.Shared.Release(targetVoxel.ObstacleTracker);
                         targetVoxel.ObstacleTracker = null;
                         targetVoxel.ObstacleCount = 0;
@@ -323,7 +329,10 @@ public static class GridObstacleManager
     /// <param name="grid">The grid to query or mutate. Voxel references supplied with it must belong to its current generation.</param>
     /// <param name="targetVoxel">A current physical voxel belonging to the supplied grid.</param>
     /// <remarks>The voxel must be the current physical voxel in the supplied grid and match its world and grid generation. A foreign, unallocated, or mismatched voxel is rejected without changing obstacle state, versions, or publishing events. Do not retain borrowed voxel references across removal, reset, or pooled reuse. For later calls, resolve a saved <see cref="WorldVoxelIndex"/> through its owning world; this validates world/grid generations and identifies a voxel address, not a persistent physical object.</remarks>
-    public static void ClearObstacles(this VoxelGrid grid, Voxel targetVoxel)
+    public static void ClearObstacles(this VoxelGrid grid, Voxel targetVoxel) =>
+        ClearObstacles(grid, targetVoxel, detached: false);
+
+    internal static void ClearObstacles(VoxelGrid grid, Voxel targetVoxel, bool detached)
     {
         byte clearedObstacleCount;
         uint gridVersion;
@@ -332,7 +341,10 @@ public static class GridObstacleManager
         if (world == null)
             return;
 
-        bool enteredReadLock = !world.IsWriteLockHeld;
+        // Detached cleanup owns the physical voxel and its reserved stamp even if a
+        // partition callback disposes the world. Its read lock may already be gone.
+        bool canPublish = detached || !world.IsWriteLockHeld;
+        bool enteredReadLock = canPublish && !detached;
         if (enteredReadLock)
             world.EnterReadLock();
         try
@@ -341,9 +353,11 @@ public static class GridObstacleManager
             {
                 lock (world.ChangeSyncRoot)
                 {
-                    if (!IsOwnedVoxel(grid, targetVoxel) || targetVoxel.ObstacleCount == 0)
+                    if (!IsOwnedVoxel(grid, targetVoxel) || targetVoxel.ObstacleCount == 0
+                        || grid.SuppressTeardownObstacleClears)
                         return;
 
+                    world.AdmitObstacleClear(grid);
                     clearedObstacleCount = targetVoxel.ObstacleCount;
                     if (targetVoxel.ObstacleTracker != null)
                     {
@@ -352,6 +366,7 @@ public static class GridObstacleManager
                     }
 
                     grid.ObstacleCount -= targetVoxel.ObstacleCount;
+                    grid.BlockedVoxelCount--;
                     targetVoxel.ObstacleCount = 0;
                     gridVersion = grid.IncrementVersion();
 
@@ -372,7 +387,7 @@ public static class GridObstacleManager
                 world.ExitReadLock();
         }
 
-        if (drainCommittedChanges && enteredReadLock)
+        if (drainCommittedChanges && canPublish)
             world.DrainCommittedChanges();
     }
 

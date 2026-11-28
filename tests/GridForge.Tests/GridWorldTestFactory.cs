@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using FixedMathSharp;
 using GridForge.Configuration;
 
@@ -9,6 +10,14 @@ internal static class GridWorldTestFactory
     public static GridWorld CreateWorld(int spatialGridCellSize = GridWorld.DefaultSpatialGridCellSize)
     {
         return new GridWorld(spatialGridCellSize);
+    }
+
+    // Seed a fully published prefix with no pending notifications.
+    public static void SeedPublishedSequence(GridWorld world, ulong sequence)
+    {
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        typeof(GridWorld).GetField("_changeSequence", fields).SetValue(world, sequence);
+        typeof(GridWorld).GetField("_publishedChangeSequence", fields).SetValue(world, sequence);
     }
 
     public static VoxelGrid AddGrid(

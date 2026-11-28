@@ -85,13 +85,14 @@ public sealed partial class GridWorld : IDisposable
     /// <summary>
     /// The current version of the world, incremented on major changes.
     /// </summary>
-    /// <value>The current version of the world, incremented on major changes.</value>
+    /// <value>A wrapping 32-bit revision. A value can repeat within the same world lifetime.</value>
     public uint Version { get; private set; }
 
     /// <summary>
     /// The most recent world-local committed change sequence.
     /// </summary>
-    /// <value>The most recent world-local committed change sequence.</value>
+    /// <value>Zero before the first commit. Each committed mutation advances this value without wrapping,
+    /// including across ordinary resets. A mutation requiring unavailable stamps throws <see cref="OverflowException"/>.</value>
     public ulong ChangeSequence
     {
         get
@@ -133,6 +134,12 @@ public sealed partial class GridWorld : IDisposable
     private long _gridGenerationCounter;
     private ulong _changeSequence;
     private ulong _publishedChangeSequence;
+    private ulong _reservedChangeStamps;
+    private ulong AvailableChangeStamps => ulong.MaxValue - _changeSequence - _reservedChangeStamps;
+
+    private bool _deactivationInProgress;
+    private bool _disposeRequested;
+
     private bool _isPublishingCommittedChanges;
     private volatile bool _isDisposed;
     private int _committedPublicationOwnerThreadId;
@@ -258,8 +265,17 @@ public sealed partial class GridWorld : IDisposable
     /// Clears all grids and spatial data owned by this world.
     /// </summary>
     /// <param name="deactivate">If true, marks the world inactive and releases its event handlers.</param>
-    /// <remarks>OnReset runs before grid teardown. Ordinary reset keeps the world active and its allocation token, clears registrations and grids, and increments its version; all borrowed grid/voxel/scan-cell references become invalid. Deactivation also clears the world token and subscriptions and cannot be reversed on this instance.</remarks>
+    /// <remarks>OnReset runs before grid teardown. Ordinary reset keeps the world active and its allocation token, clears registrations and grids, and increments its version; all borrowed grid/voxel/scan-cell references become invalid. Deactivation clears the world token and subscriptions even when the remaining sequence cannot represent teardown. If pre-reset callbacks spend the capacity for detailed clears, an admitted ordinary reset still publishes its reserved WorldReset marker.</remarks>
+    /// <exception cref="OverflowException">An ordinary reset cannot publish the existing obstacle clears and reset marker. Initial rejection occurs before OnReset.</exception>
     public void Reset(bool deactivate = false)
+    {
+        if (deactivate)
+            Deactivate(dispose: false);
+        else
+            ResetWorld(deactivate: false);
+    }
+
+    private void ResetWorld(bool deactivate)
     {
         if (!IsActive)
         {
@@ -267,28 +283,43 @@ public sealed partial class GridWorld : IDisposable
             return;
         }
 
-        NotifyResetHandlers();
+        bool reservedMarker = NotifyResetHandlers(deactivate);
+        // A pre-teardown observer may already have deactivated or disposed this instance.
+        if (!IsActive)
+        {
+            lock (ChangeSyncRoot)
+                ReleaseResetMarker(reservedMarker);
+            return;
+        }
         bool drainCommittedChanges;
         _gridLock.EnterWriteLock();
         try
         {
             lock (ChangeSyncRoot)
             {
+                ReleaseResetMarker(reservedMarker);
+                bool publishClears = CanStampReset();
+                if (!publishClears && !deactivate && !reservedMarker)
+                    throw ChangeSequenceExhausted();
+
                 bool wasPublishingCommittedChanges = _isPublishingCommittedChanges;
-                ReleaseActiveGrids();
+                ReleaseActiveGrids(publishClears);
                 GridOccupantManager.ClearTrackedOccupancies(this);
                 Version++;
 
-                GridEventInfo resetEvent = new GridEventInfo(
-                    SpawnToken,
-                    ushort.MaxValue,
-                    0,
-                    default,
-                    0,
-                    GridEventKind.WorldReset,
-                    changeStamp: AllocateChangeStamp());
-                EnqueueCommittedChange(new GridCommittedChange(resetEvent));
-                drainCommittedChanges = !wasPublishingCommittedChanges;
+                if (publishClears || reservedMarker)
+                {
+                    GridEventInfo resetEvent = new GridEventInfo(
+                        SpawnToken,
+                        ushort.MaxValue,
+                        0,
+                        default,
+                        0,
+                        GridEventKind.WorldReset,
+                        changeStamp: AllocateChangeStamp());
+                    EnqueueCommittedChange(new GridCommittedChange(resetEvent));
+                }
+                drainCommittedChanges = !wasPublishingCommittedChanges && _isPublishingCommittedChanges;
 
                 if (deactivate)
                 {
@@ -319,11 +350,29 @@ public sealed partial class GridWorld : IDisposable
         }
     }
 
-    private void NotifyResetHandlers()
+    private bool NotifyResetHandlers(bool deactivate)
     {
         Action? resetHandlers = _onReset;
         if (resetHandlers == null)
-            return;
+            return false;
+
+        bool reserveMarker;
+        _gridLock.EnterReadLock();
+        try
+        {
+            lock (ChangeSyncRoot)
+            {
+                reserveMarker = CanStampReset();
+                if (reserveMarker)
+                    _reservedChangeStamps++;
+                else if (!deactivate)
+                    throw ChangeSequenceExhausted();
+            }
+        }
+        finally
+        {
+            _gridLock.ExitReadLock();
+        }
 
         var handlerDelegates = resetHandlers.GetInvocationList();
         for (int i = 0; i < handlerDelegates.Length; i++)
@@ -337,14 +386,66 @@ public sealed partial class GridWorld : IDisposable
                 GridForgeLogger.Channel.Error($"World reset notification error: {ex.Message}");
             }
         }
+        return reserveMarker;
     }
 
-    private void ReleaseActiveGrids()
+    private void ReleaseResetMarker(bool reserved)
+    {
+        if (reserved)
+            _reservedChangeStamps--;
+    }
+
+    private bool CanStampReset()
+    {
+        ulong available = AvailableChangeStamps;
+        if (available > (ulong)MaxGrids * int.MaxValue)
+            return true;
+        if (available == 0)
+            return false;
+
+        // In the terminal range one clear is required per blocked cell, regardless of stacking.
+        foreach (VoxelGrid grid in ActiveGrids)
+        {
+            int clears = grid.BlockedVoxelCount;
+            if ((ulong)clears >= available)
+                return false;
+            available -= (ulong)clears;
+        }
+        return true;
+    }
+
+    internal void AdmitObstacleClear(VoxelGrid grid)
+    {
+        if (grid.RemovalWorldToken == 0)
+        {
+            EnsureChangeStampAvailable();
+            return;
+        }
+        Debug.Assert(grid.BlockedVoxelCount > 0);
+        _reservedChangeStamps--;
+    }
+
+    internal void FinishGridRemoval(VoxelGrid grid)
+    {
+        lock (ChangeSyncRoot)
+        {
+            _reservedChangeStamps -= (uint)grid.BlockedVoxelCount;
+            grid.RemovalWorldToken = 0;
+        }
+    }
+
+    private void ReleaseActiveGrids(bool publishClears)
     {
         _spatialIndex.Clear();
         ReleaseBoundaryContactPairs();
         _boundedGrids.Clear();
 
+        if (!publishClears)
+        {
+            // A partition callback on an earlier grid may clear a later grid.
+            foreach (VoxelGrid grid in ActiveGrids)
+                grid.SuppressTeardownObstacleClears = true;
+        }
         foreach (VoxelGrid grid in ActiveGrids)
             Pools.GridPool.Release(grid);
 
@@ -354,13 +455,36 @@ public sealed partial class GridWorld : IDisposable
     }
 
     /// <summary>Deactivates this world, releases its grids and event handlers, and disposes its lock.</summary>
-    /// <remarks>Repeated disposal is harmless. Other operations must not race with disposal.</remarks>
-    public void Dispose()
+    /// <remarks>Repeated disposal is harmless. Disposal requested from a deactivation callback releases the lock when that teardown completes. Other operations must not race with disposal.</remarks>
+    public void Dispose() => Deactivate(dispose: true);
+
+    private void Deactivate(bool dispose)
     {
-        Reset(deactivate: true);
-        _isDisposed = true;
-        _gridLock.Dispose();
-        GC.SuppressFinalize(this);
+        lock (ChangeSyncRoot)
+        {
+            _disposeRequested |= dispose;
+            if (_deactivationInProgress)
+                return;
+            _deactivationInProgress = true;
+        }
+        try
+        {
+            ResetWorld(deactivate: true);
+        }
+        finally
+        {
+            lock (ChangeSyncRoot)
+            {
+                _deactivationInProgress = false;
+                if (!IsActive && _disposeRequested && !_isDisposed)
+                {
+                    _gridLock.Dispose();
+                    _isDisposed = true;
+                    GC.SuppressFinalize(this);
+                }
+                _disposeRequested = false;
+            }
+        }
     }
 
     #endregion
@@ -1246,6 +1370,7 @@ public sealed partial class GridWorld : IDisposable
                 if (!CanAddGrid() || TryFindExistingGridUnsafe(boundsKey, out allocatedIndex))
                     return false;
 
+                EnsureChangeStampAvailable();
                 long gridGeneration = RuntimeIdentityAllocator.Allocate(ref _gridGenerationCounter);
                 newGrid = Pools.GridPool.Rent();
 
@@ -1281,6 +1406,7 @@ public sealed partial class GridWorld : IDisposable
     /// </summary>
     /// <param name="removeIndex">The world-local grid slot to remove.</param>
     /// <returns>True if the grid was removed; otherwise false.</returns>
+    /// <exception cref="OverflowException">The world cannot publish the removal and all obstacle clears for this grid.</exception>
     public bool TryRemoveGrid(ushort removeIndex)
     {
         if (!IsActive)
@@ -1299,6 +1425,9 @@ public sealed partial class GridWorld : IDisposable
                     return false;
 
                 gridToRemove = ActiveGrids[removeIndex];
+                int clearReservation = gridToRemove.BlockedVoxelCount;
+                if ((ulong)clearReservation >= AvailableChangeStamps)
+                    throw ChangeSequenceExhausted();
                 Fixed64 removedMaxCellEdge = gridToRemove.Topology.MaxCellEdge;
                 UnregisterGrid(gridToRemove, removeIndex);
                 bool removed = _boundedGrids.Remove(gridToRemove);
@@ -1313,6 +1442,10 @@ public sealed partial class GridWorld : IDisposable
                     GridEventKind.GridRemoved,
                     AllocateChangeStamp());
                 drainCommittedChanges = EnqueueCommittedChange(new GridCommittedChange(removedGridInfo));
+                // Detached grid cleanup runs partition callbacks outside the world write lock.
+                // Other mutations cannot spend the stamps its obstacle clears still need.
+                gridToRemove.RemovalWorldToken = SpawnToken;
+                _reservedChangeStamps += (uint)clearReservation;
             }
         }
         finally
@@ -2246,7 +2379,9 @@ public sealed partial class GridWorld : IDisposable
     /// Increments the version of the specified grid and optionally the world version.
     /// </summary>
     /// <param name="index">The world-local grid slot whose version should be incremented.</param>
-    /// <param name="significant">True also increments the world version. This method does not publish a committed-change event.</param>
+    /// <param name="significant">True also increments the wrapping world version. This method does not publish a committed-change event.</param>
+    /// <remarks>A revision can equal an earlier value after a full cycle of explicit increments.
+    /// Hosts that require permanent invalidation of their own changes must also track their lifetime.</remarks>
     public void IncrementGridVersion(int index, bool significant = false)
     {
         if (!IsActive)
@@ -2356,7 +2491,7 @@ public sealed partial class GridWorld : IDisposable
         if (!CanResolveActiveGrid())
             return false;
 
-        if (!IsGridIndexInActiveRange(index))
+        if ((uint)index >= MaxGrids)
         {
             GridForgeLogger.Channel.Error($"GridIndex '{index}' is out-of-bounds for ActiveGrids.");
             return false;
@@ -2374,10 +2509,6 @@ public sealed partial class GridWorld : IDisposable
         GridForgeLogger.Channel.Warn($"Grid world not active. Cannot resolve grids.");
         return false;
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool IsGridIndexInActiveRange(int index) =>
-         (uint)index < MaxGrids && (uint)index <= ActiveGrids.Count;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool IsGridIndexAllocated(int index)
@@ -2479,7 +2610,7 @@ public sealed partial class GridWorld : IDisposable
     {
         grid.LastChangeSequence = changeStamp.Sequence;
         return new GridEventInfo(
-            SpawnToken,
+            grid.OwnerWorldToken,
             grid.GridIndex,
             grid.SpawnToken,
             grid.Configuration,
@@ -2493,6 +2624,24 @@ public sealed partial class GridWorld : IDisposable
             isVoxelPresent,
             obstacleCount);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void EnsureChangeStampAvailable()
+    {
+        Debug.Assert(Monitor.IsEntered(ChangeSyncRoot));
+        if (IsChangeSequenceExhausted)
+            throw ChangeSequenceExhausted();
+    }
+
+    // Read under ChangeSyncRoot. Only the exhausted path needs a separate membership lookup
+    // to distinguish an ordinary no-op from a change that would require another stamp.
+    internal bool IsChangeSequenceExhausted => AvailableChangeStamps == 0;
+
+    internal static bool RejectExhaustedMutation(bool wouldChange) =>
+        wouldChange ? throw ChangeSequenceExhausted() : false;
+
+    private static OverflowException ChangeSequenceExhausted() =>
+        new OverflowException("The world has no available committed change stamps.");
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal GridChangeStamp AllocateChangeStamp()

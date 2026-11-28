@@ -270,8 +270,8 @@ public class Voxel : IEquatable<Voxel>
 
     private void ReleaseObstacleState(VoxelGrid? ownerGrid)
     {
-        if (ownerGrid != null && ObstacleCount > 0)
-            ownerGrid.ClearObstacles(this);
+        if (ownerGrid != null && ObstacleCount > 0 && !ownerGrid.SuppressTeardownObstacleClears)
+            GridObstacleManager.ClearObstacles(ownerGrid, this, detached: ownerGrid.RemovalWorldToken != 0);
         else if (ObstacleTracker != null)
             SwiftHashSetPool<ObstacleToken>.Shared.Release(ObstacleTracker);
 
@@ -715,7 +715,7 @@ public class Voxel : IEquatable<Voxel>
             && ownerGrid.GridIndex == WorldIndex.GridIndex
             && ownerGrid.SpawnToken == WorldIndex.GridSpawnToken
             && ownerGrid.World != null
-            && ownerGrid.World.SpawnToken == WorldIndex.WorldSpawnToken;
+            && ownerGrid.OwnerWorldToken == WorldIndex.WorldSpawnToken;
     }
 
     #endregion

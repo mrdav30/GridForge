@@ -5,7 +5,7 @@ resolutions or documented investigation closures.
 
 ## Tracker Rules
 
-- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-015`.
+- Issue IDs use `GF-Issue-NNN`. The next available ID is `GF-Issue-018`.
 - Assign an ID at intake and preserve it through closure; never delete or reuse
   IDs. Check Git history before advancing or repairing the counter. Unknown
   historical IDs stay reserved rather than acquiring an inferred cause.
@@ -41,7 +41,7 @@ resolutions or documented investigation closures.
 
 ## Active Issues
 
-None currently.
+- None currently.
 
 ## Performance Investigation Queue
 
@@ -59,6 +59,9 @@ identified explicitly below.
 
 | Issue                                                                                                                                                                                                                                                | Resolved/closed | Outcome                                                                                                                                                                                                                                        | Evidence                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <a id="gf-issue-017"></a>GF-Issue-017 | 2026-11-28 | Grid registration during blocker application now requests a fresh coverage pass with the same token. Explicit removal cancels the pending pass. Four regressions verify all three physical voxels and cleanup in cached and uncached modes. | [Blocker regressions](../../tests/GridForge.Tests/Blockers/BlockerTests.cs) and [reproduction and verification](done/runtime-counter-lifetimes-plan.md#gf-issue-017) |
+| <a id="gf-issue-016"></a>GF-Issue-016 | 2026-11-28 | Explicit removal during the first attachment cancels the application and rolls back its token. Cached and uncached regressions verify the exact voxel events, empty coverage, and successful reapplication with a fresh token. | [Blocker regressions](../../tests/GridForge.Tests/Blockers/BlockerTests.cs) and [v10.2.0 reproduction](done/runtime-counter-lifetimes-plan.md#gf-issue-016) |
+| <a id="gf-issue-015"></a>GF-Issue-015 | 2026-11-27 | Verified admission before primitive mutation, terminal reset/disposal and ownership of interrupted blocker attachments. Both Standard and Lean passed 1,284 tests and strict full coverage. | [Reproduction, contracts and validation](done/runtime-counter-lifetimes-plan.md) |
 | <a id="gf-issue-014--direct-obstacle-mutation-accepts-a-foreign-voxel"></a><a id="gf-issue-014"></a>GF-Issue-014                                                                                                                                     | 2026-11-24      | Validated world/grid generation and exact physical ownership under the shared mutation locks for add/remove/clear. All 29 focused cases and both 1,248-test source-mode suites pass strict full coverage.                                      | [Resolution, reproduction and contract limits](done/2026-11-24-gf-issue-014-obstacle-ownership.md)                                                                                                                          |
 | <a id="gf-issue-013--voxel-occupant-enumeration-includes-neighboring-buckets"></a><a id="gf-issue-013"></a>GF-Issue-013                                                                                                                              | 2026-11-24      | Routed unfiltered, typed and conditional voxel queries to the exact registration bucket; retained whole-cell queries and lowered measured warm allocation. Ten focused cases and both 1,219-test source-mode suites pass strict full coverage. | [Resolution and preserved reproducer](done/2026-11-24-gf-issue-013-voxel-occupant-lookup.md)                                                                                                                                |
 | <a id="gf-issue-011"></a>GF-Issue-011                                                                                                                                                                                                                | 2026-10-27      | Corrected a pool-history-dependent test assumption: independent worlds need distinct registration generations, not equal physical bucket slots. Retained world-isolation checks and explicitly reject a foreign generation at the local slot.  | [Regression](../../tests/GridForge.Tests/Grids/GridWorld.Tests.cs) â€” `OccupantTrackingAndScan_ShouldStayInsideExplicitWorld`; controlled fresh/recycled buckets reproduced slots 0/1 before the fix.                      |

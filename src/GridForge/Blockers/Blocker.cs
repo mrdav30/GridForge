@@ -20,8 +20,11 @@ namespace GridForge.Blockers;
 /// </summary>
 public abstract class Blocker : IBlocker
 {
+    private enum ApplicationState { Idle, Applying, ReapplyRequested, Cancelled, WorldReset }
+
     private readonly object _gridWatcherLock = new();
     private bool _isWatchingWorldEvents;
+    private ApplicationState _applicationState;
 
     /// <summary>
     /// The world this blocker is bound to.
@@ -56,7 +59,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Tracks whether the blocker is currently blocking voxels.
     /// </summary>
-    /// <value>Tracks whether the blocker is currently blocking voxels.</value>
+    /// <value>True after a successful application or while an interrupted operation still owns obstacle attachments.</value>
     public bool IsBlocking { get; protected set; }
 
     /// <summary>
@@ -140,9 +143,13 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Applies the blockage by marking voxels as obstacles.
     /// </summary>
-    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
+    /// <remarks>Application skips inactive or already-blocking states and rolls back newly added tokens if a covered voxel rejects the attachment. Each attachment or rollback removal commits individually. On stamp exhaustion, IsBlocking and BlockageToken identify any surviving attachments, and no application event is raised.</remarks>
+    /// <exception cref="OverflowException">The world has no stamp available for a required attachment or rollback removal.</exception>
     public virtual void ApplyBlockage()
     {
+        if (_applicationState != ApplicationState.Idle)
+            return;
+
         ApplyBlockageCore(preserveTokenWhenEmpty: false);
     }
 
@@ -151,11 +158,21 @@ public abstract class Blocker : IBlocker
         if (!IsActive || IsBlocking || !World.IsActive)
             return;
 
-        PrepareBlockageApplication();
-        ObstacleToken blockageToken = BlockageToken;
-        bool foundCoverage = ApplyBlockageToCoveredVoxels(blockageToken, out bool hasCoverage);
-
-        IsBlocking = foundCoverage && hasCoverage;
+        bool hasCoverage;
+        try
+        {
+            do
+            {
+                _applicationState = ApplicationState.Applying;
+                PrepareBlockageApplication();
+                bool foundCoverage = ApplyBlockageToCoveredVoxels(BlockageToken, out hasCoverage);
+                IsBlocking = foundCoverage && hasCoverage;
+            } while (_applicationState == ApplicationState.ReapplyRequested);
+        }
+        finally
+        {
+            _applicationState = ApplicationState.Idle;
+        }
 
         if (IsBlocking)
         {
@@ -170,7 +187,8 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Removes the blockage by clearing obstacle markers from voxels.
     /// </summary>
-    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
+    /// <remarks>Removal from an attachment callback cancels an application in progress. The application rolls back its attachments before returning and skips both blocker notifications. If a required removal exhausts the world's stamps, earlier removals stand and the blocker retains its remaining ownership. Deactivating the world releases remaining attachments.</remarks>
+    /// <exception cref="OverflowException">The world has no stamp available for a required removal.</exception>
     public virtual void RemoveBlockage()
     {
         RemoveBlockageCore(keepWatching: false, preserveToken: false);
@@ -181,9 +199,10 @@ public abstract class Blocker : IBlocker
         if (!IsBlocking)
         {
             if (!preserveToken)
-                BlockageToken = default;
+                CancelApplication(ApplicationState.Cancelled);
 
-            ClearCoverageTracking();
+            // During application the cache can already contain attachments owned by the outer call.
+            _watchedGridIndices.Clear();
             UnregisterGridWatcherIfNeeded(keepWatching);
             return;
         }
@@ -200,6 +219,13 @@ public abstract class Blocker : IBlocker
         UnregisterGridWatcherIfNeeded(keepWatching);
 
         NotifyBlockageRemoved(removalEventInfo);
+    }
+
+    private void CancelApplication(ApplicationState reason)
+    {
+        BlockageToken = default;
+        if (_applicationState != ApplicationState.Idle)
+            _applicationState = reason;
     }
 
     private void PrepareBlockageApplication()
@@ -220,55 +246,86 @@ public abstract class Blocker : IBlocker
     {
         hasCoverage = true;
         bool foundCoverage = false;
-        SwiftList<WorldVoxelIndex>? appliedVoxels = CacheCoveredVoxels
-            ? _cachedCoveredVoxels
-            : SwiftListPool<WorldVoxelIndex>.Shared.Rent();
+        bool borrowedList = !CacheCoveredVoxels;
+        SwiftList<WorldVoxelIndex> appliedVoxels = borrowedList
+            ? SwiftListPool<WorldVoxelIndex>.Shared.Rent()
+            : _cachedCoveredVoxels!;
+        Vector3d boundsMin = CacheMin;
+        Vector3d boundsMax = CacheMax;
 
         try
         {
-            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, CacheMin, CacheMax))
+            foreach (GridVoxelSet covered in GridTracer.GetCoveredVoxels(World, boundsMin, boundsMax))
             {
                 foundCoverage = true;
                 _watchedGridIndices.Add(covered.Grid.GridIndex);
-                ApplyBlockageToVoxels(covered, appliedVoxels!, blockageToken, ref hasCoverage);
+                foreach (Voxel voxel in covered.Voxels)
+                {
+                    WorldVoxelIndex index = voxel.WorldIndex;
+                    if (!covered.Grid.TryAddObstacle(voxel, blockageToken))
+                    {
+                        hasCoverage = false;
+                        continue;
+                    }
+
+                    appliedVoxels.Add(index);
+                    // Record the attachment before honoring a callback's removal or topology change.
+                    if (_applicationState != ApplicationState.Applying)
+                    {
+                        hasCoverage = false;
+                        RemoveRecordedAttachments(appliedVoxels, blockageToken);
+                        return foundCoverage;
+                    }
+                }
             }
 
             if (!hasCoverage)
-                RollbackAppliedBlockage(appliedVoxels!, blockageToken);
+                RemoveRecordedAttachments(appliedVoxels, blockageToken);
 
             return foundCoverage;
         }
+        catch (OverflowException)
+        {
+            // Callbacks and a partially completed rollback may already have removed earlier attachments.
+            lock (World.ChangeSyncRoot)
+            {
+                IsBlocking = false;
+                foreach (WorldVoxelIndex index in appliedVoxels)
+                {
+                    if (World.TryGetVoxel(index, out Voxel? voxel) && voxel!.ObstacleTracker?.Contains(blockageToken) == true)
+                    {
+                        IsBlocking = true;
+                        _watchedGridIndices.Add(index.GridIndex);
+                    }
+                }
+                BlockageToken = IsBlocking ? blockageToken : default;
+            }
+            if (IsBlocking)
+            {
+                CacheMin = boundsMin;
+                CacheMax = boundsMax;
+                RegisterGridWatcher();
+            }
+            throw;
+        }
         finally
         {
-            if (!CacheCoveredVoxels)
-                SwiftListPool<WorldVoxelIndex>.Shared.Release(appliedVoxels!);
+            if (borrowedList)
+                SwiftListPool<WorldVoxelIndex>.Shared.Release(appliedVoxels);
         }
     }
 
-    private void ApplyBlockageToVoxels(
-        GridVoxelSet covered,
-        SwiftList<WorldVoxelIndex> appliedVoxels,
-        ObstacleToken blockageToken,
-        ref bool hasCoverage)
-    {
-        foreach (Voxel voxel in covered.Voxels)
-        {
-            if (!covered.Grid.TryAddObstacle(voxel, blockageToken))
-            {
-                hasCoverage = false;
-                continue;
-            }
-
-            appliedVoxels.Add(voxel.WorldIndex);
-        }
-    }
-
-    private void RollbackAppliedBlockage(
+    private void RemoveRecordedAttachments(
         SwiftList<WorldVoxelIndex> appliedVoxels,
         ObstacleToken blockageToken)
     {
-        foreach (WorldVoxelIndex voxelIndex in appliedVoxels)
-            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, blockageToken);
+        // Reset can clear the cache from a removal callback and retires every previous attachment.
+        for (int i = 0; i < appliedVoxels.Count; i++)
+        {
+            if (_applicationState == ApplicationState.WorldReset)
+                break;
+            GridObstacleManager.TryRemoveObstacle(World, appliedVoxels[i], blockageToken);
+        }
 
         appliedVoxels.Clear();
     }
@@ -277,17 +334,11 @@ public abstract class Blocker : IBlocker
     {
         if (CacheCoveredVoxels && _cachedCoveredVoxels?.Count > 0)
         {
-            RemoveCachedBlockage(blockageToken);
+            RemoveRecordedAttachments(_cachedCoveredVoxels, blockageToken);
             return;
         }
 
         RemoveTracedBlockage(blockageToken);
-    }
-
-    private void RemoveCachedBlockage(ObstacleToken blockageToken)
-    {
-        foreach (WorldVoxelIndex voxelIndex in _cachedCoveredVoxels!)
-            GridObstacleManager.TryRemoveObstacle(World, voxelIndex, blockageToken);
     }
 
     private void RemoveTracedBlockage(ObstacleToken blockageToken)
@@ -409,7 +460,7 @@ public abstract class Blocker : IBlocker
     /// <summary>
     /// Resets the blocker to its default state, removing any active blockage and clearing cached data.
     /// </summary>
-    /// <remarks>Operations use this blocker's retained world. Application skips inactive/already-blocking states and rolls back newly added tokens if any covered voxel rejects the attachment. Removal affects only this blocker's token. Subscriber exceptions are logged after the state change.</remarks>
+    /// <remarks>Reset first removes this blocker's attachments. If stamp exhaustion interrupts that removal, the blocker retains ownership for cleanup and reset does not complete.</remarks>
     public virtual void Reset()
     {
         RemoveBlockageCore(keepWatching: false, preserveToken: false);
@@ -427,6 +478,11 @@ public abstract class Blocker : IBlocker
     private void ReapplyBlockage()
     {
         if (!IsActive)
+            return;
+
+        if (_applicationState == ApplicationState.Applying)
+            _applicationState = ApplicationState.ReapplyRequested;
+        if (_applicationState != ApplicationState.Idle)
             return;
 
         RemoveBlockageCore(keepWatching: true, preserveToken: true);
@@ -527,7 +583,7 @@ public abstract class Blocker : IBlocker
     private void HandleWorldReset()
     {
         IsBlocking = false;
-        BlockageToken = default;
+        CancelApplication(ApplicationState.WorldReset);
         _cachedCoveredVoxels?.Clear();
         _watchedGridIndices.Clear();
         UnregisterGridWatcher();

@@ -31,8 +31,7 @@ plans instead of burying it in notes.
 ## Active Coordination
 
 The following plans are selected for design and bounded investigation.
-Implementation has not started, and neither coordination tracker currently has
-active entries. Planning status is not an implementation or verification claim.
+The [issue tracker](issue-tracker.md) lists independently confirmed defects.
 
 - [World Observation Lifetimes](world-observation-lifetimes-plan.md)
   - Move the existing diagnostic session onto world-owned observation while
@@ -42,11 +41,6 @@ active entries. Planning status is not an implementation or verification claim.
   - Add optional renderer-neutral partition facts, starting with an actual
     physics-partition diagnostic consumer. Define bounded copied output and
     attachment/content invalidation separately from navigation proof stamps.
-- [Runtime Counter Lifetimes And Exhaustion](runtime-counter-lifetimes-plan.md)
-  - Audit identity allocation, wrapping revisions and committed-change sequence
-    exhaustion through actual mutation and invalidation consumers. This is the
-    long-running counter concern; no simulation clock or blanket widening is
-    selected.
 - [Grid Coordinate Ranges And Sectors](grid-coordinate-ranges-and-sectors-plan.md)
   - Establish supported coordinate arithmetic and rejection before selecting a
     sector hierarchy. Gate integer-sector/local frames and any live rebasing on
@@ -55,7 +49,6 @@ active entries. Planning status is not an implementation or verification claim.
   - Prove one seeded, work-bounded rectangular layout recipe and sparse-grid
     materialization path. Keep engine placement and physics/navigation policy
     with their existing owners; expand algorithms only from measured need.
-
 - [Named Grids And Priority-Based Position Lookup](named-grids-and-priority-lookup-plan.md)
   - Support optional authored names with deterministic derivation and an
     auxiliary name-to-slot lookup; internal identities and spatial lookup stay
@@ -105,6 +98,12 @@ completed evaluations archived rather than treating unselected phases as pending
 implementation.
 
 ## Recently Completed
+
+- [Runtime Counter Lifetimes And Exhaustion](done/runtime-counter-lifetimes-plan.md)
+  - GridForge admits mutations only when their committed change stamps fit.
+    Exhausted worlds can release their grids, and interrupted blockers retain
+    ownership of surviving attachments. The audit verified the existing 64-bit
+    identity guards and documented the limits of wrapping 32-bit revisions.
 
 - [SwiftCollections v9 Adoption Evaluation](done/2026-11-24-swiftcollections-v9-adoption-plan.md)
   - Retained SlotMap occupancy after DenseTicketMap, TicketStore and
@@ -181,8 +180,8 @@ selected migrations or promises to add another backend.
 
 ## Recommended Execution Order
 
-1. Run bounded Phase 0 audits for counter exhaustion and coordinate admission,
-   and settle named-grid identity/replacement and effective-query scope. Use
+1. Audit coordinate admission and settle named-grid identity/replacement and
+   effective-query scope. Use
    near-limit and small overlap fixtures rather than long soaks or huge grids.
    Record supported behavior, hypotheses and confirmed defects separately.
 2. Prove world-owned observation with `GridDiagnosticSession`, then reuse the

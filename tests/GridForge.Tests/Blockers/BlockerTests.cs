@@ -32,6 +32,63 @@ public class BlockerTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RemoveBlockageDuringFirstAttachmentCancelsApplication(bool cache)
+    {
+        Vector3d end = new(1, 0, 0);
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(_world, Vector3d.Zero, end);
+        BoundsBlocker blocker = new(_world, Vector3d.Zero, end, cacheCoveredVoxels: cache);
+        List<GridEventInfo> changes = new();
+        ObstacleToken cancelled = default;
+        int notifications = 0;
+        void CountNotification(BlockageEventInfo _) => notifications++;
+        void RemoveOnFirstAttachment(GridEventInfo change)
+        {
+            changes.Add(change);
+            if (!cancelled.IsValid && change.ChangeKind == GridEventKind.ObstacleAdded)
+            {
+                cancelled = blocker.BlockageToken;
+                blocker.RemoveBlockage();
+            }
+        }
+
+        _world.OnChangeCommitted += RemoveOnFirstAttachment;
+        Blocker.OnBlockageApplied += CountNotification;
+        Blocker.OnBlockageRemoved += CountNotification;
+        try
+        {
+            blocker.ApplyBlockage();
+            Assert.True(cancelled.IsValid);
+            Assert.False(blocker.IsBlocking);
+            Assert.False(blocker.BlockageToken.IsValid);
+            Assert.Equal(0, grid.ObstacleCount);
+            Assert.All(grid.EnumerateVoxels(), voxel => Assert.False(voxel.IsBlocked));
+            Assert.Equal(new[] { GridEventKind.ObstacleAdded, GridEventKind.ObstacleRemoved },
+                changes.Select(change => change.ChangeKind));
+            Assert.Equal(changes[0].VoxelIndex, changes[1].VoxelIndex);
+            Assert.Equal(changes[0].ChangeSequence + 1, changes[1].ChangeSequence);
+            blocker.RemoveBlockage();
+            Assert.Equal(2, changes.Count);
+            Assert.Equal(0, notifications);
+
+            blocker.ApplyBlockage();
+            Assert.True(blocker.IsBlocking);
+            Assert.NotEqual(cancelled, blocker.BlockageToken);
+            Assert.Equal(2, grid.ObstacleCount);
+            blocker.RemoveBlockage();
+            Assert.Equal(0, grid.ObstacleCount);
+            Assert.Equal(2, notifications);
+        }
+        finally
+        {
+            _world.OnChangeCommitted -= RemoveOnFirstAttachment;
+            Blocker.OnBlockageApplied -= CountNotification;
+            Blocker.OnBlockageRemoved -= CountNotification;
+        }
+    }
+
     [Fact]
     public void Blocker_ShouldApplyBlockageToVoxels()
     {
@@ -1041,6 +1098,203 @@ public class BlockerTests : IDisposable
 
         Assert.False(rectangularVoxel.IsBlocked);
         Assert.False(hexVoxel.IsBlocked);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CancellingAfterTwoAttachmentsIgnoresNestedApplyDuringRollbackAndPreservesOtherBlocker(bool cache)
+    {
+        Vector3d end = new(2, 0, 0);
+        VoxelGrid grid = GridWorldTestFactory.AddGrid(_world, Vector3d.Zero, end);
+        BoundsBlocker foreign = new(_world, Vector3d.Zero, end);
+        foreign.ApplyBlockage();
+        ObstacleToken foreignToken = foreign.BlockageToken;
+        BoundsBlocker blocker = new(_world, Vector3d.Zero, end, cacheCoveredVoxels: cache);
+        List<GridEventInfo> changes = new();
+        ObstacleToken cancelled = default;
+        bool nestedApplyReturned = false;
+        void Reenter(GridEventInfo change)
+        {
+            changes.Add(change);
+            if (changes.Count == 2 && change.ChangeKind == GridEventKind.ObstacleAdded)
+            {
+                cancelled = blocker.BlockageToken;
+                blocker.RemoveBlockage();
+            }
+            if (changes.Count == 3 && change.ChangeKind == GridEventKind.ObstacleRemoved)
+            {
+                blocker.ApplyBlockage();
+                nestedApplyReturned = true;
+            }
+        }
+
+        _world.OnChangeCommitted += Reenter;
+        try
+        {
+            blocker.ApplyBlockage();
+        }
+        finally
+        {
+            _world.OnChangeCommitted -= Reenter;
+        }
+
+        Assert.True(nestedApplyReturned);
+        Assert.True(cancelled.IsValid);
+        Assert.NotEqual(foreignToken, cancelled);
+        Assert.False(blocker.IsBlocking);
+        Assert.False(blocker.BlockageToken.IsValid);
+        Assert.Equal(new[] { GridEventKind.ObstacleAdded, GridEventKind.ObstacleAdded,
+            GridEventKind.ObstacleRemoved, GridEventKind.ObstacleRemoved }, changes.Select(change => change.ChangeKind));
+        Assert.NotEqual(changes[0].VoxelIndex, changes[1].VoxelIndex);
+        Assert.Equal(changes[0].VoxelIndex, changes[2].VoxelIndex);
+        Assert.Equal(changes[1].VoxelIndex, changes[3].VoxelIndex);
+        Assert.True(foreign.IsBlocking);
+        Assert.Equal(foreignToken, foreign.BlockageToken);
+        Assert.Equal(3, grid.ObstacleCount);
+        Assert.All(grid.EnumerateVoxels(), voxel => Assert.Equal(foreignToken, Assert.Single(voxel.ObstacleTracker)));
+        foreign.RemoveBlockage();
+        Assert.Equal(0, grid.ObstacleCount);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void GridAddedDuringAttachmentHonorsApplicationOrQueuedRemoval(bool cache, bool removeOnGridAdded)
+    {
+        Vector3d end = new(1, 0, 0);
+        VoxelGrid original = GridWorldTestFactory.AddGrid(_world, Vector3d.Zero, end);
+        BoundsBlocker blocker = new(_world, Vector3d.Zero, end, cacheCoveredVoxels: cache);
+        int addOnAttachment = removeOnGridAdded ? 2 : 1;
+        int attachments = 0;
+        bool registered = false;
+        bool sawGridAdded = false;
+        ushort addedSlot = ushort.MaxValue;
+        ObstacleToken initialToken = default;
+        void OnCommit(GridEventInfo change)
+        {
+            if (change.ChangeKind == GridEventKind.ObstacleAdded && ++attachments == addOnAttachment)
+            {
+                initialToken = blocker.BlockageToken;
+                registered = _world.TryAddGrid(new GridConfiguration(end, end), out addedSlot);
+            }
+            if (change.ChangeKind == GridEventKind.GridAdded && change.GridIndex == addedSlot)
+            {
+                sawGridAdded = true;
+                if (removeOnGridAdded)
+                    blocker.RemoveBlockage();
+            }
+        }
+
+        _world.OnChangeCommitted += OnCommit;
+        try
+        {
+            blocker.ApplyBlockage();
+        }
+        finally
+        {
+            _world.OnChangeCommitted -= OnCommit;
+        }
+
+        Assert.True(registered);
+        Assert.True(sawGridAdded);
+        Assert.True(initialToken.IsValid);
+        Assert.True(_world.TryGetGrid(addedSlot, out VoxelGrid addedGrid));
+        Assert.True(original.TryGetVoxel(Vector3d.Zero, out Voxel originalStart));
+        Assert.True(original.TryGetVoxel(end, out Voxel originalEnd));
+        Assert.True(addedGrid.TryGetVoxel(end, out Voxel addedEnd));
+        Voxel[] physicalVoxels = { originalStart, originalEnd, addedEnd };
+        Assert.Equal(!removeOnGridAdded, blocker.IsBlocking);
+        Assert.Equal(removeOnGridAdded ? default : initialToken, blocker.BlockageToken);
+        Assert.Equal(removeOnGridAdded ? 0 : 2, original.ObstacleCount);
+        Assert.Equal(removeOnGridAdded ? 0 : 1, addedGrid.ObstacleCount);
+        foreach (Voxel voxel in physicalVoxels)
+        {
+            Assert.Equal(removeOnGridAdded ? 0 : 1, voxel.ObstacleCount);
+            if (!removeOnGridAdded)
+                Assert.Equal(initialToken, Assert.Single(voxel.ObstacleTracker));
+        }
+
+        blocker.RemoveBlockage();
+        Assert.False(blocker.IsBlocking);
+        Assert.False(blocker.BlockageToken.IsValid);
+        Assert.Equal(0, original.ObstacleCount);
+        Assert.Equal(0, addedGrid.ObstacleCount);
+        Assert.All(physicalVoxels, voxel => Assert.False(voxel.IsBlocked));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void WorldResetDuringRemovalOrReconciliationRollbackLeavesBlockerReusable(bool cache, bool reconcile)
+    {
+        Vector3d end = new(1, 0, 0);
+        VoxelGrid original = GridWorldTestFactory.AddGrid(_world, Vector3d.Zero, end);
+        Assert.True(original.TryGetVoxel(Vector3d.Zero, out Voxel start));
+        WorldVoxelIndex oldAddress = start.WorldIndex;
+        BoundsBlocker blocker = new(_world, Vector3d.Zero, end, cacheCoveredVoxels: cache);
+        if (!reconcile)
+        {
+            blocker.ApplyBlockage();
+            Assert.True(blocker.IsBlocking);
+            Assert.Equal(2, original.ObstacleCount);
+        }
+
+        int attachments = 0;
+        int removals = 0;
+        bool addedGrid = false;
+        bool resetReturned = false;
+        ObstacleToken oldToken = blocker.BlockageToken;
+        void ResetDuringRemoval(GridEventInfo change)
+        {
+            if (reconcile && change.ChangeKind == GridEventKind.ObstacleAdded && ++attachments == 2)
+            {
+                oldToken = blocker.BlockageToken;
+                addedGrid = _world.TryAddGrid(new GridConfiguration(end, end), out _);
+            }
+            if (change.ChangeKind == GridEventKind.ObstacleRemoved && ++removals == 1)
+            {
+                _world.Reset();
+                resetReturned = true;
+            }
+        }
+
+        _world.OnChangeCommitted += ResetDuringRemoval;
+        try
+        {
+            if (reconcile)
+                blocker.ApplyBlockage();
+            else
+                blocker.RemoveBlockage();
+        }
+        finally
+        {
+            _world.OnChangeCommitted -= ResetDuringRemoval;
+        }
+
+        Assert.Equal(reconcile, addedGrid);
+        Assert.True(resetReturned);
+        Assert.True(oldToken.IsValid);
+        Assert.True(_world.IsActive);
+        Assert.Empty(_world.ActiveGrids);
+        Assert.False(blocker.IsBlocking);
+        Assert.False(blocker.BlockageToken.IsValid);
+        VoxelGrid replacement = GridWorldTestFactory.AddGrid(_world, Vector3d.Zero, end);
+        Assert.False(_world.TryGetVoxel(oldAddress, out _));
+        Assert.Equal(0, replacement.ObstacleCount);
+        blocker.ApplyBlockage();
+        Assert.True(blocker.IsBlocking);
+        Assert.True(blocker.BlockageToken.IsValid);
+        Assert.NotEqual(oldToken, blocker.BlockageToken);
+        Assert.Equal(2, replacement.ObstacleCount);
+        Assert.All(replacement.EnumerateVoxels(), voxel =>
+            Assert.Equal(blocker.BlockageToken, Assert.Single(voxel.ObstacleTracker)));
+        blocker.RemoveBlockage();
+        Assert.Equal(0, replacement.ObstacleCount);
     }
 
     private static object InvokeBlockerMethod(Blocker blocker, string methodName, params object[] arguments)

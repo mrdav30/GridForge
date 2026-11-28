@@ -122,6 +122,15 @@ durable across processes, or authoritative ordering inputs. Persist host-owned
 content identity such as `IVoxelOccupant.GlobalId`, then resolve fresh runtime
 handles when rebuilding a world.
 
+World, grid, obstacle and occupant generation issuers reject exhausted
+positive 64-bit identity space before reusing a value. Ordinary reset retains
+the world's grid-generation high-water mark. The 32-bit revisions have a
+different lifetime. `GridWorld.Version` wraps through zero, and a live
+`VoxelGrid.Version` wraps to one. Explicit `IncrementGridVersion` calls can
+repeat a revision without advancing the committed sequence. Hosts that retain
+proofs across mutations should use the owning generation and the relevant
+[committed change contract](World-Changes-and-Composition.md).
+
 ## Pooling Is A First-Class Constraint
 
 Pooling in GridForge is not an optimization sprinkled on top. It shapes the

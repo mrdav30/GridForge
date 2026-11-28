@@ -98,14 +98,29 @@ When `ApplyBlockage()` succeeds, the flow is roughly:
 8. record which grids were covered so reapply logic knows what to watch
 9. publish the blocker-level apply event if coverage was found and applied
 
-The important architectural detail is that blocker coverage is resolved at apply
-time. The blocker does not store direct voxel references unless you explicitly
-opt into caching.
+An obstacle notification can call `RemoveBlockage()` on the same blocker
+while `ApplyBlockage()` is attaching its token. This cancels the application.
+Once the notification returns, the outer call stops attaching the token and
+rolls back the attachments it made. For a removal requested on the first
+attachment, observers see an `ObstacleAdded` followed by an `ObstacleRemoved`
+for that voxel. A completed cancellation leaves `IsBlocking` false, clears
+the token and emits no blocker-level apply or remove event. A later
+`ApplyBlockage()` obtains a fresh token.
 
 ## Remove Flow
 
 `RemoveBlockage()` clears only the obstacle state introduced by that blocker
 token.
+
+Each voxel attachment and removal has its own committed change stamp. If the
+world runs out of stamps partway through applying, rolling back, or removing a
+multi-cell blocker, the operation throws `OverflowException`. Earlier stamped
+changes remain visible. The blocker keeps its token and reports `IsBlocking`
+while it still owns any attachments. An interrupted operation emits no blocker
+apply or remove notification. Retrying removal skips already cleared voxels
+and still requires a stamp for each remaining attachment. Disposing or explicitly
+deactivating the world releases the remaining attachments and clears the
+blocker's token.
 
 There are two removal strategies:
 
@@ -154,10 +169,13 @@ drift out of sync as grids change.
 
 ### What happens on grid add
 
-If a newly added grid overlaps the blocker's cached bounds, the blocker
-reapplies itself so the new grid receives the correct obstacle state. Dynamic
-reconciliation preserves the blocker's token; explicit removal ends that
-registration lifetime, and a later explicit apply receives a fresh token.
+If a new grid overlaps the blocker's cached bounds, the blocker reapplies its
+existing token across the current coverage. When registration happens inside
+an attachment callback, the watcher requests a fresh pass. The outer call
+rolls back its earlier attachments, retraces the current grids and applies the
+same token to every covered physical voxel, including those on the new grid.
+A callback that explicitly removes the blocker cancels the pending pass.
+A later explicit application receives a fresh token.
 
 ### What happens on grid removal
 
